@@ -124,7 +124,7 @@ export function PaymentModulePage({page}: {page: string}) {
     <PaymentRecordList key={key+':'+scopeYear} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
   const toolbar=(label:string,action?:()=>void)=> (
     <header className="table-page__header payment-module__header">
-      <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t('moduleDescription')}</p></div>
+      <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t(`description_${current.replace(/-/g,'_')}`)}</p></div>
       <div className="table-page__actions">
         {action && <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--primary" onClick={action}><FilePlus2 size={14} aria-hidden="true"/>{t('addNew')}</button>}
         {(['overview','taxpayer-360','analytics'].includes(current)) && <button type="button" className="table-page__kpi-toggle" aria-expanded={kpiOpen} aria-controls="kpi-section-panel" onClick={()=>setKpiOpen(v=>!v)}>{kpiOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>} {kpiOpen?t('hideSummary'):t('showSummary')}</button>}
