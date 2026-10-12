@@ -46,8 +46,7 @@ test('small-screen correction modal has tappable actions',async({page})=>{
  await expect(modal).toBeVisible();
  const btn=page.locator('.app-modal-footer .app-btn--primary');
  await expect(btn).toBeVisible();
- const height=await btn.evaluate(el=>el.getBoundingClientRect().height);
- expect(height).toBeGreaterThanOrEqual(44);
+ await expect.poll(()=>btn.evaluate(el=>el.getBoundingClientRect().height),{timeout:3000}).toBeGreaterThanOrEqual(44);
 });
 for (const config of [
  {languageId:'bn',themeId:'dark-mode',fontSizeId:'large',viewport:{width:390,height:844}},
