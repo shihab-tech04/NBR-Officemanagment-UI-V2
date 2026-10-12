@@ -96,6 +96,11 @@
     "permissionList": "অনুমতি তালিকা",
     "specialRegistrationList": "বিশেষ রেজিস্ট্রেশন তালিকা",
     "timeExtension": "সময় বৃদ্ধি",
-    "auditSelection": "অডিট নির্বাচন"
+    "auditSelection": "অডিট নির্বাচন",
+    "rulesCalculation": "রুলস ও ক্যালকুলেশন",
+    "taxYears": "করবর্ষ",
+    "ruleLibrary": "বিধি লাইব্রেরি",
+    "calculationControls": "হিসাব নিয়ন্ত্রণ",
+    "validationPublish": "যাচাই ও প্রকাশ"
   }
 }

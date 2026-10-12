@@ -1,0 +1,3467 @@
+{
+  "source": "READ_ONLY_SQL_OBSERVATION — public.nbr_rule_identities + current public.nbr_rule_versions, AY 2026-27",
+  "observed_at": "2026-10-10",
+  "assessment_year": "2026-27",
+  "expected_total": 366,
+  "rules": [
+    {
+      "id": "ACK-1695-001",
+      "group": "forms-evidence-admin",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Canonical_Patch_CLOSED.json#additions",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": [
+        "Income Tax Act s169(5)"
+      ]
+    },
+    {
+      "id": "AUD-SCOPE-001",
+      "group": "assessment-audit",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "Income Tax Act s.169(2)",
+        "Act 89/2026 s.96(a)",
+        "Act 96/2026 s.96(a)"
+      ]
+    },
+    {
+      "id": "AUX-ADMIN-ONLY-001",
+      "group": "assessment-audit",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Canonical_Patch_CLOSED.json#additions",
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "ss.280,212,183(3),214,172,179 as applicable"
+      ]
+    },
+    {
+      "id": "COMP-SALES-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 p.22"
+      ]
+    },
+    {
+      "id": "CORE-S-84",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "CORP-ALLOW-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 ss.49 and 54"
+      ]
+    },
+    {
+      "id": "CORP-AMORT-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Third Schedule Part 2"
+      ]
+    },
+    {
+      "id": "CORP-ASSOC-LOAN-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.46(11A) inserted by Finance Act 2026 s.42"
+      ]
+    },
+    {
+      "id": "CORP-ATTACH-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.169(2)-(3) current text"
+      ]
+    },
+    {
+      "id": "CORP-BADDEBT-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 §50(3), §51(1)(a)-(c), and §51(2)(b)-(c), Bangladesh Gazette Extraordinary, 16 October 2025, printed pp.10506-10507, PDF pp.52-53.",
+        "Finance (2025-2026 Fiscal Year) Act, 2026 (Act No.89 of 2026) §49, replacing Income Tax Act 2023 §51(2)(a); Act §1(2) provides immediate commencement.",
+        "Income Tax Act 2023 current official consolidated section and amendment annotations, BDLaws, accessed 2026-10-06 for cutoff 2026-09-30."
+      ]
+    },
+    {
+      "id": "CORP-BUS-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 ss.45-48 current text"
+      ]
+    },
+    {
+      "id": "CORP-BUS-SPECIAL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.47"
+      ]
+    },
+    {
+      "id": "CORP-CAPASSET-TDS-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.56A inserted by Finance Act 2026 s.50"
+      ]
+    },
+    {
+      "id": "CORP-COMP-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.73 explanation as substituted by Finance Act 2026 s.59"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-ACCEL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Third Schedule Part 1 paragraph 6"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-BASE-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.50; Third Schedule Part 1"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-CF-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.71 current text"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-INITIAL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Third Schedule Part 1 paragraph 5"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-MOTORCAP-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Third Schedule Part 1 paragraph 3(1)"
+      ]
+    },
+    {
+      "id": "CORP-DEPR-RATES-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Third Schedule Part 1 paragraph 4"
+      ]
+    },
+    {
+      "id": "CORP-DIS-COMM-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(c) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-EMPBANK-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(k) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-ENT-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(h) current text as substituted by Finance Act 2026"
+      ]
+    },
+    {
+      "id": "CORP-DIS-HO-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(f) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-NONBANK-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(m/ড current consolidated clause)"
+      ]
+    },
+    {
+      "id": "CORP-DIS-OTHER-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55 current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-PERQ-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(d) as amended by Finance Act 2026"
+      ]
+    },
+    {
+      "id": "CORP-DIS-PROMO-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(j) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-RENTBANK-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(l) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-ROYALTY-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(e) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-SAMPLE-FOOD-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(i) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-SAMPLE-OTHER-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(i) current text"
+      ]
+    },
+    {
+      "id": "CORP-DIS-SAMPLE-PHARMA-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(i) current text as amended by Finance Act 2026"
+      ]
+    },
+    {
+      "id": "CORP-DIS-TRAVEL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.55(g) current text"
+      ]
+    },
+    {
+      "id": "CORP-EXEMPT-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "Income Tax Act 2023 ss.76-77 current text",
+        "applicable SRO/Sixth Schedule"
+      ]
+    },
+    {
+      "id": "CORP-FINAL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(3),(5) current text"
+      ]
+    },
+    {
+      "id": "CORP-FORM-INCOME-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "SRO 266/2023 prescribed IT-11GHA"
+      ]
+    },
+    {
+      "id": "CORP-FORM-NETSALES-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "SRO 266/2023 company form"
+      ]
+    },
+    {
+      "id": "CORP-FORM-TAX-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "SRO 266/2023 prescribed IT-11GHA"
+      ]
+    },
+    {
+      "id": "CORP-FS-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.73 as substituted by Finance Act 2026 s.59"
+      ]
+    },
+    {
+      "id": "CORP-FS-002",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.73 explanation as substituted by Finance Act 2026 s.59"
+      ]
+    },
+    {
+      "id": "CORP-INTEREST-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.52 current text"
+      ]
+    },
+    {
+      "id": "CORP-LOSS-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.70 current text as amended by Finance Act 2026"
+      ]
+    },
+    {
+      "id": "CORP-LOSS-CF-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.70 current text"
+      ]
+    },
+    {
+      "id": "CORP-RATE-BANKLIST-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-RATE-BANKNONLIST-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-RATE-GENERAL-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-RATE-LISTED10-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-RATE-MOBILE-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-RATE-NR-001",
+      "group": "corporate-business",
+      "origin": "TASK_04",
+      "source": "NBR_Task04C_CORP_RATE_NR_001_Patch.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "CORP-RATE-TOBACCO-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Finance Act 2026 s.160 primary schedule pointer"
+      ]
+    },
+    {
+      "id": "CORP-REFUND-001",
+      "group": "payment-refund",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(1)-(2) current text"
+      ]
+    },
+    {
+      "id": "CORP-ROUND-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "UNVERIFIED"
+      ]
+    },
+    {
+      "id": "CORP-ROUTE-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.2(31)",
+        "SRO 266/2023 rule 3"
+      ]
+    },
+    {
+      "id": "CORP-SPECIAL-BUS-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 §56(1)-(2), as fully substituted by Finance Act, 2026 (Act No.96 of 2026) §49; Act §1(2) commencement from 1 July 2026; Bangladesh Gazette Extraordinary, 30 June 2026, printed p.20351, PDF p.69.",
+        "Income Tax Act 2023 §54(2), controlled 16 October 2025 Gazette, printed p.10508/PDF p.54; §54(2)(a) amended to include profession by Finance Act 2026 §47, printed p.20350/PDF p.68.",
+        "Income Tax Act 2023 §55, as amended by Finance Act, 2026 (Act No.96 of 2026) §48; Bangladesh Gazette Extraordinary, 30 June 2026, printed p.20350, PDF p.68.",
+        "Income Tax Act 2023, current official consolidated section and amendment annotations, BDLaws, accessed 2026-10-06 for cutoff 2026-09-30."
+      ]
+    },
+    {
+      "id": "CORP-TAXFLOW-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "Income Tax Act 2023 current text",
+        "Finance Act 2026 s.160 and s.91"
+      ]
+    },
+    {
+      "id": "CORP-TP-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 ss.233-234 current text"
+      ]
+    },
+    {
+      "id": "CORP-TP-DOC-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 ss.237-239 current text"
+      ]
+    },
+    {
+      "id": "CORP-TP-METHOD-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.235 current text"
+      ]
+    },
+    {
+      "id": "CORP-TURN-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(6) as substituted by Finance Act 2026 s.91"
+      ]
+    },
+    {
+      "id": "CORP-TURN-EXCEPT-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(6) proviso current text"
+      ]
+    },
+    {
+      "id": "CORP-TURN-EXEMPTPROP-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(6) proviso current text"
+      ]
+    },
+    {
+      "id": "CORP-TURN-STARTUPMFG-001",
+      "group": "corporate-business",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_AS_RECORDED",
+      "legalSource": [
+        "Income Tax Act 2023 s.163(6) proviso current text"
+      ]
+    },
+    {
+      "id": "CUR-APPEAL-286-001",
+      "group": "assessment-audit",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-AUDIT-182-001",
+      "group": "assessment-audit",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-DISC-167-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-DISC-168-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-LATE-174-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-PEN-280-001",
+      "group": "assessment-audit",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-RET-170-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "CUR-RET-172-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_CURRENT",
+      "legalSource": []
+    },
+    {
+      "id": "DISC-ASSET-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "Income Tax Act s.167",
+        "Finance Act 2024 s.57(b)"
+      ]
+    },
+    {
+      "id": "DISC-LIFE-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "Income Tax Act s.168"
+      ]
+    },
+    {
+      "id": "FORM-HISTORIC-GUARD-001",
+      "group": "forms-evidence-admin",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Canonical_Patch_CLOSED.json#additions",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "SRO206; SRO273 rules1(2),14"
+      ]
+    },
+    {
+      "id": "FORM-VARIANT-GUARD-001",
+      "group": "forms-evidence-admin",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Canonical_Patch_CLOSED.json#additions",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "SRO266 rules2-5; SRO273 rules1,10,13,14"
+      ]
+    },
+    {
+      "id": "IND-BIZ-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 p.11"
+      ]
+    },
+    {
+      "id": "IT10-NOTICE-172-001",
+      "group": "assessment-audit",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Form_Routing_and_Requiredness_Rules_CLOSED.json#routing_and_requiredness_rules",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": []
+    },
+    {
+      "id": "OTH-ASSET-001",
+      "group": "individual-return",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 p.29"
+      ]
+    },
+    {
+      "id": "RET-REQUIRED-166-001",
+      "group": "forms-evidence-admin",
+      "origin": "TASK_06",
+      "source": "NBR_Task06_Form_Routing_and_Requiredness_Rules_CLOSED.json#routing_and_requiredness_rules",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": []
+    },
+    {
+      "id": "ROUTE-COMP-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 rule 3"
+      ]
+    },
+    {
+      "id": "ROUTE-NAT-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 rule 2"
+      ]
+    },
+    {
+      "id": "ROUTE-OTH-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 rule 4"
+      ]
+    },
+    {
+      "id": "ROUTE-SHORT-001",
+      "group": "forms-evidence-admin",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-034 SRO 266/2023 rule 2(a), pp.1-3"
+      ]
+    },
+    {
+      "id": "S6-P1-1",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-10",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-11",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-12",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-13",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-14",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-15",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-16",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-17",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-18",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-19-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-2",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-20",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-A-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-B-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-C-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-D-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-E-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-F-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-G-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-H-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-I-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-ITFREELANCE-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-J-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-K-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-L-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-M-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-N-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-O-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-P-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-R-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-21-S-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-22",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "HISTORICAL_ONLY",
+      "execution": "HISTORICAL_ONLY",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-23",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-24-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-25",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-26",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-27",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-28",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-29",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-3",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-30",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-31",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-32",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-33",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "NOT_APPLICABLE",
+      "execution": "NOT_APPLICABLE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-34",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-35",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-36",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-37-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-4",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-5",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-6",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-7",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-8",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P1-9",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1-A",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1-B",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1-C",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1-D",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1-E",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-1F-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P2-2",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-1",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-10",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-11",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-12",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-13",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-14",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-15",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "NOT_APPLICABLE",
+      "execution": "NOT_APPLICABLE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-2",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-2-5-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-2-7B-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-3",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-4",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-6",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-7-A",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-7-C",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-7-D",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-8",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P3-9",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-1-1-A",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-1-1-b",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-1-1-c",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-1-1-d",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-1-2",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-2-1",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-2-2",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-2-3",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-2-4-A",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S6-P4-2-4-B",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "S78-GENERAL-REBATE-FA2026",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "SRC-CERT-COL-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-005 SRO 273/2026 rule 10(3), Schedule 3 pp.50-51"
+      ]
+    },
+    {
+      "id": "SRC-CERT-EMP-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-005 SRO 273/2026 rule 10(1), Schedule 1 p.47"
+      ]
+    },
+    {
+      "id": "SRC-CERT-OTH-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-005 SRO 273/2026 rule 10(2), Schedule 2 pp.48-49"
+      ]
+    },
+    {
+      "id": "SRC-FILE-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "Income Tax Act s.177(3) as substituted by Act 89/2026 s.102(b)"
+      ]
+    },
+    {
+      "id": "SRC-FORM-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "EXECUTABLE_WITH_GUARD",
+      "legalSource": [
+        "NBR-SRC-005 SRO 273/2026 rule 13, Schedule 4 pp.52-68"
+      ]
+    },
+    {
+      "id": "SRO-211-2026-CONSUMER-REBATE",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "SRO-211-2026-PRODUCER",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "SRO-212-2026-EDIBLE-OIL",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "SRO-213-2026-DONATION-REBATE",
+      "group": "rebate-exemption",
+      "origin": "TASK_03",
+      "source": "NBR_Task03_Atomic_Rules_FINAL_v2.json",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S100",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S101",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S102-DEPOSITS",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S104-INTEREST",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S105-SAVINGS-CERT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S106-SECURITIES",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S107",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S108",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S109-RENT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S110",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S111",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S112",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S114",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S115",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S116",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S117-DIVIDEND",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S118",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S119-DOMESTIC",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S121",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S122",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S123",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S124",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S127",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S128",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S129",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S131",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S132",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S133",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S134",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S136",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S137",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S138",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S139",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S141-GROSSUP",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S142-PSR-BANK",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S143",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S144",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S145-CERTIFICATE",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S146-DEPOSIT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S147",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S148",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S149",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S150-CREDIT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S151",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S152",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S153",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S163-FINAL-MINIMUM",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S86-SALARY",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S87",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S88-FUNDS",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S91-INTANGIBLE",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S92",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S93",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S94",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S95",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S96",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S97",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S98-HISTORICAL",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "HISTORICAL_ONLY",
+      "execution": "HISTORICAL_ONLY",
+      "legalSource": []
+    },
+    {
+      "id": "WH-ACT-S99",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-FORM23-HISTORICAL",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "HISTORICAL_ONLY",
+      "execution": "HISTORICAL_ONLY",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R10-ALT-PROOF",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R10-CERT-COLLECTION",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R10-CERT-EMP",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R10-CERT-OTHER",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R10-ECHALLAN",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R11-INVALID-CERT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R12-GROSS-UP",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R13-SCHEDULE4",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R14-SAVINGS",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R14-SUPERSESSION",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "CERTIFIED_CURRENT",
+      "execution": "CURRENT_EXECUTABLE",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-DISTRIBUTOR-FORMULA",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-IMPORT-ADJUST",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R01",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R02",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R03",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R04",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R05",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R06",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R07",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R08",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R09",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R10",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R11",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R12",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R13",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R14",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R15",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R16",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R17",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R18",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R19",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R3-R20",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-01",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-02",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-03",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-04",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-05",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-06",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-07",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-08",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-09",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-10",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-11",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-12",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-13",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-14",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-15",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-16",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-17",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-18",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R4-19",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-01",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-02",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-03",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-04",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-05",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-06",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-07",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-08",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-09",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-10",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-11",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-12",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-13",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-14",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-15",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-16",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-17",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-18",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-19",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-20",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-21",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-22",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-23",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-24",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-25",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-26",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-27",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-28",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-29",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R5-30",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-BUILDING-COM",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-BUILDING-RES",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-MORTGAGE",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-NO-CLAIM",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-NO-CONSIDERATION",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-PARTITION",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-UN-FOREIGN",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-EX-WAQF-GIFT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-ক",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-খ",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-গ",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-ঘ",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-ঙ",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-LAND-চ",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R6-PSR-CHALLAN",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-1",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-2",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-3",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-4",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-5",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-DEV-6",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-LAND-3PCT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R7-LAND-5PCT",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-CODE-3303",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-CROSSREF-600T",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-RESIDUAL",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-1",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-2",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-3",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-4",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-5-IRC",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-5-OTHER",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-6",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R8-TABLE-7",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R9-JUL-MAY",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R9-JUN-01-20",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R9-JUN-LAST-WORKING",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-R9-JUN-OTHER",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FACT_GATED",
+      "execution": "FACT_GATED",
+      "legalSource": []
+    },
+    {
+      "id": "WH-RET-MONTHLY-001",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "FAIL_CLOSED",
+      "execution": "FAIL_CLOSED_PUBLIC_EVIDENCE",
+      "legalSource": []
+    },
+    {
+      "id": "WH-RULES-SRO2024-RETIRED",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "HISTORICAL_ONLY",
+      "execution": "HISTORICAL_ONLY",
+      "legalSource": []
+    },
+    {
+      "id": "WH-RULES-SRO210-RETIRED",
+      "group": "withholding-advance-tax",
+      "origin": "TASK_07",
+      "source": "NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules",
+      "applicability": "HISTORICAL_ONLY",
+      "execution": "HISTORICAL_ONLY",
+      "legalSource": []
+    },
+    {
+      "id": "WH-VERSION-001",
+      "group": "withholding-advance-tax",
+      "origin": null,
+      "source": null,
+      "applicability": "FAIL_CLOSED",
+      "execution": "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE",
+      "legalSource": [
+        "NBR-SRC-005 SRO 273/2026 rule 14"
+      ]
+    }
+  ]
+}
