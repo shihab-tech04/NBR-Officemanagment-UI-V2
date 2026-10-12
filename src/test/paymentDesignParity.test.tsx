@@ -28,7 +28,7 @@ describe('Payment design system integration — financial states and identity',(
     const fields = Object.keys(data).map(key=>({key,label:key}));
     render(<DynamicDetailsDrawer open rowData={data} columns={fields} onClose={()=>{}} showActions={false}/>);
     expect(screen.getAllByText('PT-2026-000922').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Blocked — under review').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('blockedUnderReview').length).toBeGreaterThan(0);
   });
   it('does not make a credited status equal to financial receipt',()=>{
     render(<div><StatusBadge value="Received by Government"/><StatusBadge value="Blocked — under review"/></div>);
