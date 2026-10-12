@@ -78,5 +78,19 @@
   "title": "Filter Records",
   "subtitle": "Narrow down results using the options below",
   "activeFilters": "Active filters",
-  "noFilters": "No filters applied"
+  "noFilters": "No filters applied",
+  "paymentStatuses": {
+    "all": "All",
+    "failed": "Failed",
+    "awaiting": "Awaiting bank payment",
+    "received": "Received by Government",
+    "notCredited": "Not yet credited",
+    "credited": "Eligible — credited",
+    "blockedCredit": "Blocked — under review",
+    "blocked": "Blocked",
+    "decided": "Decided",
+    "draft": "Draft",
+    "pending": "Pending",
+    "withReviewer": "With Reviewer"
+  }
 }

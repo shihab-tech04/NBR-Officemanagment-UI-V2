@@ -86,7 +86,6 @@ export function AppModal({
       className={["app-modal-backdrop overlay-enter", layer === "top" ? "app-modal-backdrop--top" : ""].filter(Boolean).join(" ")}
       onClick={onClose}
       role="presentation"
-      aria-hidden="true"
     >
       <div
         ref={panelRef}

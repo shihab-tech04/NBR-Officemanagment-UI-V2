@@ -59,5 +59,10 @@
   "awaitingApproval": "Awaiting Approval",
   "missingCase": "Missing Case",
   "readOnly": "Read only",
-  "released": "Released"
+  "released": "Released",
+  "receivedByGovernment": "Received by Government",
+  "eligibleCredited": "Eligible — credited",
+  "blockedUnderReview": "Blocked — under review",
+  "notYetCredited": "Not yet credited",
+  "awaitingBankPayment": "Awaiting bank payment"
 }

@@ -59,5 +59,10 @@
   "awaitingApproval": "অনুমোদনের অপেক্ষায়",
   "missingCase": "কেস অনুপস্থিত",
   "readOnly": "শুধু দেখা যাবে",
-  "released": "অব্যাহতি"
+  "released": "অব্যাহতি",
+  "receivedByGovernment": "সরকারি হিসাবে প্রাপ্ত",
+  "eligibleCredited": "যোগ্য — ক্রেডিট প্রদানকৃত",
+  "blockedUnderReview": "স্থগিত — পর্যালোচনাধীন",
+  "notYetCredited": "এখনও ক্রেডিট হয়নি",
+  "awaitingBankPayment": "ব্যাংকের পরিশোধ অপেক্ষমাণ"
 }
