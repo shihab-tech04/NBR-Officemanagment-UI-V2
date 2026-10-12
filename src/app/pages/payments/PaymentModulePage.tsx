@@ -14,13 +14,15 @@ import { AppTextArea } from '../../components/forms/AppTextArea';
 import { AppSelectField } from '../../components/forms/AppSelectField';
 import type { ColDef, TableRow } from '../modulePageUtils';
 import {
-  canPostOfficerMutation, referenceAudit, referenceCorrections, referenceIntelligence,
+  referenceAudit, referenceCorrections, referenceIntelligence,
   referenceOffline, referencePayments, referenceTaxpayers, totalEligible, totalReceived,
 } from './paymentReference';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const columns = (...items: [string, string][]): ColDef[] => items.map(([key, label]) => ({ type: 'col', col: { key, label, truncate:'normal' } }));
 const normal = (value: string) => value || '—';
+const EVENT_LABELS:Record<string,string> = { LIABILITY_REDUCED:'Liability reduced', OFFLINE_PAYMENT:'Offline payment', LIABILITY_CREATED:'Liability created' };
+const formatEvent = (event: string) => EVENT_LABELS[event] || event;
 const rows = (arr: ReadonlyArray<Record<string, unknown>>): TableRow[] =>
   arr.map(record => Object.fromEntries(Object.entries(record).map(([key,value]) => [key, String(value ?? '—')])));
 const samplePayments = referencePayments.map(p => ({
@@ -28,12 +30,13 @@ const samplePayments = referencePayments.map(p => ({
   payment_type:p.type, assessment_year:p.ay, amount:money(p.amount),
   financial_receipt_status:p.financial_receipt_status, tax_credit_status:p.tax_credit_status,
   tax_event_id:normal(p.tax_event_id), payment_transaction_id:normal(p.payment_transaction_id),
-  acs_reference:normal(p.acs_reference), payment_channel:p.payment_channel, note:p.note,
+  acs_reference:normal(p.acs_reference), payment_channel:p.payment_channel.replace(/ \(illustrative\)/i,''),
 }));
 const keys = {
   transactions:columns(['date','Date'],['taxpayer_name','Taxpayer'],['payer_name','Payer'],['payment_type','Type'],['assessment_year','AY'],['amount','Amount'],['financial_receipt_status','Treasury receipt'],['tax_credit_status','NBR credit']),
   correction:columns(['id','Case'],['taxpayer','Taxpayer'],['reason','Reason'],['amount','Amount'],['stage','Stage'],['status','Status']),
   offline:columns(['id','Event'],['taxpayer','Taxpayer'],['event','Type'],['component','Component'],['amount','Amount'],['status','Status']),
+  incident:columns(['id','Reference'],['taxpayer','Taxpayer'],['type','Incident type'],['date','Reported'],['status','Status']),
   audit:columns(['id','Event'],['date','Date'],['actor','Actor'],['action','Action'],['reason','Reason']),
 };
 const pages = ['overview','transactions','taxpayer-360','corrections','incidents','offline-events','analytics'] as const;
@@ -82,21 +85,39 @@ export function PaymentModulePage({page}: {page: string}) {
   const taxP=referenceTaxpayers.find(p=>p.tin===selectedTin)??referenceTaxpayers[0];
   const taxPayments=samplePayments.filter(p=>p.taxpayer_name===taxP.name);
   const original=referencePayments.filter(p=>p.tin===selectedTin);
-  const corrRows=referenceCorrections.filter(x=>queueFilter==='All'||x.status===queueFilter).map(x=>({...x,amount:money(x.amount)}));
+  const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>({'corrections':[],'incidents':[],'offline-events':[]});
+  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,amount:money(x.amount)}))].filter(x=>queueFilter==='All'||x.status===queueFilter);
+  const incidentRows=localRecords.incidents;
+  const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:formatEvent(e.event),amount:money(e.amount)}))];
+  const saveDraft=()=>{
+    if(!draftKind||!draftPreview)return;
+    const id=`DRAFT-${String(localRecords[draftKind].length+1).padStart(3,'0')}`;
+    const p=referenceTaxpayers.find(x=>x.tin===draft.tin);
+    const record:TableRow=draftKind==='corrections' ? {
+      id, taxpayer:p?.name||draft.tin,reason:draft.reason,amount:'—',stage:t('draft'),status:t('draft'),reference:draft.reference,evidence:draft.evidence,
+    } : draftKind==='incidents' ? {
+      id, taxpayer:p?.name||t('unknown'),type:t(`incident_${draft.type}`),date:draft.noticed||'—',status:t('draft'),reason:draft.reason,reference:draft.reference,
+    } : {
+      id,taxpayer:p?.name||draft.tin,event:t(`event_${draft.type}`),component:draft.component,amount:money(Number(draft.amount)),status:t('draft'),ay:draft.ay,reference:draft.reference,
+    };
+    setLocalRecords(prev=>({...prev,[draftKind]:[record,...prev[draftKind]]}));
+    setQueueFilter('All');setDraftKind(null);setDraftPreview(false);
+  };
 
   const toolbar=(label:string,action?:()=>void)=> (
-    <header className="payment-module__header">
-      <div><p className="payment-module__eyebrow">{t('module')}</p><h1>{label}</h1><p className="payment-module__description">{t('intro')}</p></div>
-      {action && <PrimaryButton icon={FilePlus2} onClick={action}>{t('addNew')}</PrimaryButton>}
+    <header className="table-page__header payment-module__header">
+      <div><h1 className="table-page__title">{label}</h1></div>
+      {action && <div className="table-page__actions"><PrimaryButton size="sm" icon={FilePlus2} onClick={action}>{t('addNew')}</PrimaryButton></div>}
     </header>
   );
   const table=(c:ColDef[],records:TableRow[],titleKey:string)=> (
-    <section className="payment-module__table-card card" aria-label={t(titleKey)}>
-      <ResponsiveTable cols={c} rows={records} onRowClick={record=>view(record,t(titleKey))} aria-label={t(titleKey)}/>
+    <section className="table-card payment-module__table-card" aria-label={t(titleKey)}>
+      <div className="table-card__toolbar"><div className="table-card__title-group"><h2 className="table-card__title">{t(titleKey)}</h2><span className="table-card__count">{records.length} {t('records')}</span></div></div>
+      <ResponsiveTable cols={c} rows={records} noCard onRowClick={record=>view(record,t(titleKey))} aria-label={t(titleKey)}/>
     </section>
   );
   const kpi=(label:string,value:string,Icon:typeof Wallet,tone:'primary'|'success'|'warning'|'error'|'neutral'='primary')=>
-    <StatCard icon={Icon} value={value} label={label} tone={tone}/>;
+    <StatCard icon={Icon} value={value} fullValue={value} label={label} tone={tone}/>;
 
   const overview=()=> <>
     {toolbar(t('overview'))}
@@ -110,10 +131,9 @@ export function PaymentModulePage({page}: {page: string}) {
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
         {referenceCorrections.filter(c=>c.status==='Blocked').map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{c.reason} · {money(c.amount)}</p></button>)}
-        <p className="payment-module__note">{t('reviewOnly')}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
-        {referenceAudit.slice(0,4).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{e.action}</strong><p>{e.date} · {e.actor}</p></button>)}
+        {referenceAudit.slice(0,4).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{e.action.replace(/_/g,' ').toLowerCase().replace(/\b\w/g,k=>k.toUpperCase())}</strong><p>{e.date} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
       </section>
     </div>
   </>;
@@ -124,13 +144,12 @@ export function PaymentModulePage({page}: {page: string}) {
       <AppSelectField id="payment-receipt-filter" label={t('receiptFilter')} value={receiptFilter} onChange={setReceiptFilter} compact
         options={['All','Failed','Awaiting bank payment','Received by Government'].map(v=>({value:v,label:v==='All'?t('all'):v}))}/>
     </div>
-    <p className="payment-module__note">{t('twoStatuses')}</p>
     {table(keys.transactions,filteredPayments,'transactions')}
   </>;
   const taxpayer=()=> <>
     {toolbar(t('taxpayer360'))}
     <div className="payment-module__filters"><AppSelectField id="payment-taxpayer" label={t('taxpayer')} value={selectedTin} onChange={setSelectedTin}
-      options={referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}`}))} searchableAfter={5}/></div>
+      options={referenceTaxpayers.filter(p=>/^\d{12}$/.test(p.tin)).map(p=>({value:p.tin,label:`${p.name} · ${p.tin}`}))} searchableAfter={5}/></div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     <div className="payment-module__kpis payment-module__kpis--four">
       {kpi(t('payments'),String(original.length),CreditCard)}
@@ -140,62 +159,53 @@ export function PaymentModulePage({page}: {page: string}) {
     </div>
     <TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
-      {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{v}</p></div>)}
-      <p className="payment-module__note payment-module__full">{t('noReveal')}</p>
-    </section> : taxpayerTab==='paymentsTab'||taxpayerTab==='ledger' ? <>{table(keys.transactions,taxPayments,'transactions')}{taxpayerTab==='ledger'&&<p className="payment-module__note">{t('noLedgerAssertion')}</p>}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,rows(referenceCorrections.filter(c=>c.taxpayer===taxP.name).map(c=>({...c,amount:money(c.amount)}))),'corrections') :
-      <section className="card payment-module__card"><h2>{t(taxpayerTab)}</h2><p>{t('notConnected')}</p></section>}
+      {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{v}</p></div>)}
+    </section> : taxpayerTab==='paymentsTab'||taxpayerTab==='ledger' ? <>{table(keys.transactions,taxPayments,'transactions')}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,rows(referenceCorrections.filter(c=>c.taxpayer===taxP.name).map(c=>({...c,amount:money(c.amount)}))),'corrections') :
+      <section className="card payment-module__card payment-module__empty"><h2>{t(taxpayerTab)}</h2><p>{t('noRecords')}</p></section>}
   </>;
   const corrections=()=> <>
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
     <div className="payment-module__filters"><AppSelectField id="payment-correction-status" label={t('status')} value={queueFilter} onChange={setQueueFilter} compact options={['All','Blocked','Decided'].map(x=>({value:x,label:x==='All'?t('all'):x}))}/></div>
     {table(keys.correction,rows(corrRows),'corrections')}
-    <p className="payment-module__note">{t('makerChain')}</p>
   </>;
   const incidents=()=> <>
     {toolbar(t('incidents'),()=>openDraft('incidents'))}
-    <section className="card payment-module__card"><h2>{t('incidentQueue')}</h2><p>{t('noIncidentRows')}</p><p className="payment-module__note">{t('allegations')}</p></section>
+      {table(keys.incident,incidentRows,'incidents')}
   </>;
   const offline=()=> <>
     {toolbar(t('offlineEvents'),()=>openDraft('offline-events'))}
-    {table(keys.offline,rows(referenceOffline.map(e=>({...e,amount:money(e.amount)}))),'offlineEvents')}
-    <p className="payment-module__note">{t('noPosting')}</p>
+    {table(keys.offline,rows(offlineRows),'offlineEvents')}
   </>;
   const analytics=()=> <>
     {toolbar(t('analytics'))}
-    <p className="payment-module__warning">{t('analyticsDisclaimer')}</p>
     <div className="payment-module__kpis">
       {kpi(t('paymentVolume'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.volume),BarChart3)}
-      {kpi(t('successful'),String(referenceIntelligence.successful),CheckCircle2,'success')}
-      {kpi(t('failed'),String(referenceIntelligence.failed),AlertTriangle,'error')}
-      {kpi(t('pending'),String(referenceIntelligence.pending),Clock3,'warning')}
+      {kpi(t('successful'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.successful),CheckCircle2,'success')}
+      {kpi(t('failed'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.failed),AlertTriangle,'error')}
+      {kpi(t('pending'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.pending),Clock3,'warning')}
       {kpi(t('abandoned'),referenceIntelligence.abandonment,Users,'warning')}
-      {kpi(t('wrongSection'),String(referenceIntelligence.wrongSection),ShieldAlert,'warning')}
-      {kpi(t('wrongYear'),String(referenceIntelligence.wrongYear),ShieldAlert,'warning')}
-      {kpi(t('correctionRequests'),String(referenceIntelligence.corrections),CreditCard)}
-      {kpi(t('invalidated'),String(referenceIntelligence.invalidatedCredits),AlertTriangle,'error')}
+      {kpi(t('wrongSection'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.wrongSection),ShieldAlert,'warning')}
+      {kpi(t('wrongYear'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.wrongYear),ShieldAlert,'warning')}
+      {kpi(t('correctionRequests'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.corrections),CreditCard)}
+      {kpi(t('invalidated'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.invalidatedCredits),AlertTriangle,'error')}
     </div>
     <TabBar active={analyticsTab} onChange={setAnalyticsTab} tabs={[{id:'insights',label:t('insights')},{id:'monitoring',label:t('monitoring')}]} />
     {analyticsTab==='insights' ? <div className="payment-module__summary-grid">
-      <section className="card payment-module__card"><h2>{t('channelPerformance')}</h2><p className="payment-module__note">{t('fictionalChannel')}</p>
+      <section className="card payment-module__card"><h2>{t('channelPerformance')}</h2>
         {([['Internet Banking',98.1],['bKash',97.6],['Nagad',97.2],['Rocket',96.4],['Visa / Mastercard',91.3]] as const).map(([name,value],index)=><div className="payment-module__metric" key={name}><label htmlFor={`pay-channel-${index}`}>{name}</label><progress id={`pay-channel-${index}`} value={value} max="100"/><p>{value}%</p></div>)}
       </section>
-      <section className="card payment-module__card"><h2>{t('funnel')}</h2><p className="payment-module__note">{t('fictionalChannel')}</p>
+      <section className="card payment-module__card"><h2>{t('funnel')}</h2>
         {([[t('identify'),100],[t('taxPosition'),94],[t('selected'),78],[t('review'),71],[t('channelChosen'),66]] as const).map(([name,value],i)=><div className="payment-module__metric" key={i}><label htmlFor={`pay-funnel-${i}`}>{name}</label><progress id={`pay-funnel-${i}`} value={value} max="100"/><p>{value}%</p></div>)}
       </section>
-    </div> : <section className="card payment-module__card"><h2>{t('monitoring')}</h2><p className="payment-module__note">{t('monitoringNotice')}</p>
-      {['NBR Portal','ACS / payment rail','Treasury / TSA','eTDS'].map(name=><div className="payment-module__service" key={name}><p>{name}</p><p>{t('noConnection')}</p></div>)}
-    </section>}
-    <section className="card payment-module__card"><h2>{t('intelligenceScope')}</h2><p>{referenceIntelligence.scope}</p><p>{t('notConnected')}</p></section>
+    </div> : <section className="card payment-module__card payment-module__empty"><h2>{t('monitoring')}</h2><p>{t('noRecords')}</p></section>}
   </>;
 
   return <div className="payment-module" data-testid={`payment-${current}`}>
-    <p className="payment-module__warning" role="status">{t('referenceBanner')}</p>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
       columns={Object.keys(details?.record??{}).filter(k=>k!=='key').map(key=>({key,label:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}))} showActions={false}/>
-    <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg"
-      footer={<><SecondaryButton onClick={()=>setDraftKind(null)}>{t('cancel')}</SecondaryButton><PrimaryButton onClick={previewDraft}>{t('reviewDraft')}</PrimaryButton></>}>
-      <p className="payment-module__warning" role="status">{t('modalNotice')}</p>
+    <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
+      footer={<><SecondaryButton size="sm" onClick={()=>setDraftKind(null)}>{t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
       <div className="payment-module__form">
         <AppSelectField id="payment-draft-tin" label={draftKind==='incidents'?t('claimedTinOptional'):t('tin')} value={draft.tin} onChange={v=>change('tin',v)} required={draftKind!=='incidents'} options={[{value:'',label:t('selectTaxpayer')},...referenceTaxpayers.filter(p=>/^\d{12}$/.test(p.tin)).map(p=>({value:p.tin,label:`${p.name} · ${p.tin}`}))]}/>
         {draftKind==='incidents'&&<>
@@ -208,7 +218,7 @@ export function PaymentModulePage({page}: {page: string}) {
           <p className="payment-module__note payment-module__full">{t('incidentNoIdentityOracle')}</p>
         </>}
         {draftKind==='offline-events' && <>
-          <AppSelectField id="payment-draft-type" label={t('eventType')} value={draft.type} required onChange={v=>change('type',v)} options={[{value:'',label:t('select')},...['LIABILITY_REDUCED','OFFLINE_PAYMENT','LIABILITY_CREATED'].map(v=>({value:v,label:v}))]}/>
+          <AppSelectField id="payment-draft-type" label={t('eventType')} value={draft.type} required onChange={v=>change('type',v)} options={[{value:'',label:t('select')},...['LIABILITY_REDUCED','OFFLINE_PAYMENT','LIABILITY_CREATED'].map(v=>({value:v,label:t(`event_${v}`)}))]}/>
           <AppSelectField id="payment-draft-year" label={t('ay')} value={draft.ay} required onChange={v=>change('ay',v)} options={[{value:'',label:t('select')},...['2027–28','2026–27','2025–26','2024–25'].map(v=>({value:v,label:v}))]}/>
           <AppSelectField id="payment-draft-component" label={t('component')} value={draft.component} required onChange={v=>change('component',v)} options={[{value:'',label:t('select')},...['Regular tax','Assessed demand','Penalty'].map(v=>({value:v,label:v}))]}/>
           {draft.type==='LIABILITY_REDUCED'&&<AppSelectField id="payment-draft-reduces" label={t('reduces')} value={draft.reduces} onChange={v=>change('reduces',v)} options={['','Tax / demand','Penalty','Interest'].map(v=>({value:v,label:v||t('select')}))}/>}
@@ -217,10 +227,10 @@ export function PaymentModulePage({page}: {page: string}) {
         {draftKind!=='incidents'&&<AppTextField id="payment-draft-reference" label={t('reference')} value={draft.reference} onChange={v=>change('reference',v)} required/>}
         {draftKind==='offline-events'&&<AppTextField id="payment-draft-source" label={t('source')} value={draft.source} onChange={v=>change('source',v)} required/>}
         <AppTextArea id="payment-draft-reason" label={t('reason')} value={draft.reason} onChange={v=>change('reason',v)} required={draftKind!=='incidents'}/>
-        <AppTextArea id="payment-draft-evidence" label={t('evidenceDescription')} value={draft.evidence} onChange={v=>change('evidence',v)} required={draftKind!=='incidents'} helper={t('noUpload')}/>
+        <AppTextArea id="payment-draft-evidence" label={t('evidenceDescription')} value={draft.evidence} onChange={v=>change('evidence',v)} required={draftKind!=='incidents'}/>
       </div>
       {formError&&<p role="alert" className="payment-module__error">{formError}</p>}
-      {draftPreview&&<section className="payment-module__preview card" aria-live="polite"><h3>{t('draftReviewed')}</h3><p>{t('cannotSave')}</p><p>{t('tin')}: {draft.tin} · {t('reference')}: {normal(draft.reference)}</p><p>{t('reason')}: {draft.reason}</p><p>{t('postingDisabled')}: {String(canPostOfficerMutation())}</p></section>}
+      {draftPreview&&<section className="payment-module__preview" aria-live="polite"><h3>{t('draftReviewed')}</h3><p>{t('tin')}: {normal(draft.tin)}</p><p>{t('reference')}: {normal(draft.reference)}</p><p>{t('reason')}: {normal(draft.reason)}</p></section>}
     </AppModal>
   </div>;
 }
