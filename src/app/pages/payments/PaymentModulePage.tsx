@@ -251,7 +251,7 @@ export function PaymentModulePage({page}: {page: string}) {
       </div>
       {formError&&<p role="alert" className="payment-module__error">{formError}</p>}
       {draftPreview&&<section className="payment-module__preview" aria-live="polite"><h3>{t('draftReviewed')}</h3><dl className="payment-module__review-grid">{Object.entries(draft).filter(([,value])=>value.trim()).map(([key,value])=><div key={key}><dt>{t(key,{defaultValue:key})}</dt><dd>{key==='type' && draftKind==='offline-events'?t(`event_${value}`):value}</dd></div>)}</dl></section>}
-      <button className="sr-only" type="submit">{draftPreview?t('addToList'):t('reviewDraft')}</button>
+      <button className="sr-only" type="submit" tabIndex={-1} aria-hidden="true">{draftPreview?t('addToList'):t('reviewDraft')}</button>
       </form>
     </AppModal>
   </div>;
