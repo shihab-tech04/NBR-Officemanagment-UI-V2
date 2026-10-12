@@ -53,6 +53,7 @@ test('Payment modal bottom sheet keeps accessible 44px side-by-side actions on p
  await expect(page.getByRole('dialog')).toBeVisible();
  const btns=page.locator('.app-modal-footer > .app-btn');
  await expect(btns).toHaveCount(2);
+ await page.locator('.app-modal-panel').evaluate(async el=>{await Promise.all(el.getAnimations().map(animation=>animation.finished));});
  const bs=await btns.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};}));
  for(const p of bs){expect(p.h).toBeGreaterThanOrEqual(44);expect(p.x).toBeGreaterThanOrEqual(0);expect(p.x+p.w).toBeLessThanOrEqual(391);}
  expect(Math.abs(bs[0].y-bs[1].y),'mobile actions side by side').toBeLessThan(5);
