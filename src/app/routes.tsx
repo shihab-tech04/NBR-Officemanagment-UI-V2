@@ -48,6 +48,7 @@ const SpecialRegistrationPage  = lazy(() => import("./pages/administration-reque
 const TimeExtensionPage        = lazy(() => import("./pages/administration-requests/TimeExtensionPage").then(m => ({ default: m.TimeExtensionPage })));
 const AuditSelectionPage       = lazy(() => import("./pages/administration-requests/AuditSelectionPage").then(m => ({ default: m.AuditSelectionPage })));
 const AuditModulePage          = lazy(() => import("./pages/audit/AuditModulePage").then(m => ({ default: m.AuditModulePage })));
+const RulesCalculationPage = lazy(() => import("./pages/rules-calculation/RulesCalculationPage").then(m => ({ default: m.RulesCalculationPage })));
 
 // ─── Param-based route components ────────────────────────────────────────────
 // These are stable function components — Suspense is provided by MainContentArea.
@@ -212,6 +213,7 @@ export const router = createBrowserRouter([
       { path: "administration/special-registration",Component: SpecialRegistrationPage },
       { path: "administration/time-extension",     Component: TimeExtensionPage },
       { path: "administration/audit-selection",    Component: AuditSelectionPage },
+      { path: "administration/rules-calculation/:thirdNav", Component: RulesCalculationPage },
     ],
   },
 ], {

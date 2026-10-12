@@ -96,6 +96,11 @@
     "permissionList": "Permission List",
     "specialRegistrationList": "Special Registration List",
     "timeExtension": "Time Extension",
-    "auditSelection": "Audit Selection"
+    "auditSelection": "Audit Selection",
+    "rulesCalculation": "Rules & Calculation",
+    "taxYears": "Tax Years",
+    "ruleLibrary": "Rule Library",
+    "calculationControls": "Calculation Controls",
+    "validationPublish": "Validation & Publish"
   }
 }

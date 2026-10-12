@@ -1,0 +1,21 @@
+name: Rules and Calculation UI QA
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/
+      - run: npm test -- --reporter=default
+      - run: npx tsx src/app/i18n/validateLocales.ts

@@ -1,0 +1,156 @@
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft, ArrowRight, ClipboardList, Download, FileCheck2 } from "lucide-react";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
+import { AppSearchField } from "../../components/forms/AppSearchField";
+import { AppSelectField } from "../../components/forms/AppSelectField";
+import { SQL_RULE_GROUPS, TAX_YEAR_SNAPSHOT } from "../../data/rulesEngineSnapshot";
+import {
+  CANDIDATE_IMPACTS, LEGAL_EFFECTS, createDraftReviewPackage, freshDraftInput,
+  isValidCustomRuleId, type CandidateImpact, type CandidateLegalEffect,
+  type DraftDocumentEvidence, type TaxYearDraftInput,
+} from "../../data/taxYearDraftModel";
+import ruleSnapshot from "../../data/rulesSqlSnapshot.json";
+
+const catalog = ruleSnapshot.rules;
+const canonicalIds = new Set(catalog.map(rule => rule.id));
+const stepLabels: [string, string][] = [
+  ["Tax year & baseline", "করবর্ষ ও ভিত্তি"], ["Select & propose rules", "বিধি নির্বাচন ও প্রস্তাব"],
+  ["Official source intake", "সরকারি উৎস গ্রহণ"], ["Legal change review", "আইনি পরিবর্তন পর্যালোচনা"],
+  ["Impact analysis", "প্রভাব বিশ্লেষণ"], ["Review & export draft", "পর্যালোচনা ও খসড়া রপ্তানি"],
+];
+
+interface Props { onClose: () => void; }
+
+/** Client-only preparation of a review artifact. This page NEVER creates or activates SQL rows. */
+export function TaxYearDraftStepper({ onClose }: Props) {
+  const { i18n } = useTranslation();
+  const bn = i18n.language.startsWith("bn");
+  const tr = (en: string, translated: string) => bn ? translated : en;
+  const [stage, setStage] = useState(0);
+  const [draft, setDraft] = useState<TaxYearDraftInput>(freshDraftInput);
+  const [search, setSearch] = useState("");
+  const [group, setGroup] = useState("");
+  const [candidateId, setCandidateId] = useState("");
+  const [candidatePurpose, setCandidatePurpose] = useState("");
+  const [url, setUrl] = useState("");
+  const [issueDate, setIssueDate] = useState("");
+  const [commencement, setCommencement] = useState("");
+  const [documentError, setDocumentError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+
+  const existingDraft = TAX_YEAR_SNAPSHOT.find(x => x.assessmentYear === draft.targetYear);
+  const filteredRules = useMemo(() => catalog.filter(r =>
+    (!group || r.group === group) && (!search || [r.id, r.group, r.source ?? "", ...r.legalSource].join(" ").toLocaleLowerCase().includes(search.toLocaleLowerCase()))
+  ), [search, group]);
+  const selected = new Set(draft.selectedRuleIds);
+  const selectedFiltered = filteredRules.filter(r => selected.has(r.id));
+  const update = (patch: Partial<TaxYearDraftInput>) => { setDraft(prev => ({ ...prev, ...patch })); setStatusMessage(""); };
+  const switchRule = (id: string, enabled: boolean) => {
+    update({ selectedRuleIds: enabled ? Array.from(new Set([...draft.selectedRuleIds, id])) : draft.selectedRuleIds.filter(x => x !== id) });
+  };
+  const switchImpact = (id: CandidateImpact, enabled: boolean) => {
+    update({ proposedImpacts: enabled ? Array.from(new Set([...draft.proposedImpacts, id])) : draft.proposedImpacts.filter(x => x !== id) });
+  };
+  const addCustomRule = () => {
+    const id = candidateId.trim().toUpperCase();
+    if (!isValidCustomRuleId(id, canonicalIds, draft.customRules) || !candidatePurpose.trim()) {
+      setStatusMessage(tr("Enter a new unique candidate ID and purpose; never overwrite a canonical ID.", "একটি অনন্য নতুন পরিচয় ও উদ্দেশ্য দিন; মূল বিধি পরিবর্তন করা যাবে না।"));
+      return;
+    }
+    update({ customRules: [...draft.customRules, { candidateId: id, purpose: candidatePurpose.trim(), status: "PROPOSED" }] });
+    setCandidateId(""); setCandidatePurpose("");
+  };
+  const intake = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setDocumentError("");
+    const entries: DraftDocumentEvidence[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > 40 * 1024 * 1024) { setDocumentError(tr("Document exceeds the 40 MB intake limit.", "নথিটি ৪০ এমবি সীমা অতিক্রম করেছে।")); return; }
+      const extension = file.name.toLowerCase().split(".").pop();
+      if (extension !== "pdf" && extension !== "json") { setDocumentError(tr("Only PDF and JSON files are accepted.", "শুধু PDF ও JSON ফাইল গ্রহণযোগ্য।")); return; }
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      if (extension === "pdf" && new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") { setDocumentError(tr("Invalid PDF header.", "PDF হেডার সঠিক নয়।")); return; }
+      if (extension === "json") { try { JSON.parse(new TextDecoder().decode(bytes)); } catch { setDocumentError(tr("Invalid JSON syntax.", "JSON সিনট্যাক্স সঠিক নয়।")); return; } }
+      const hash = await crypto.subtle.digest("SHA-256", buffer);
+      const sha256 = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+      entries.push({ name: file.name, type: extension === "pdf" ? "PDF" : "JSON", sizeBytes: file.size, sha256, officialUrl: url.trim(), suppliedIssueDate: issueDate, suppliedCommencementDate: commencement, evidenceStatus: "UNVERIFIED", persisted: false });
+    }
+    update({ documents: [...draft.documents, ...entries] });
+  };
+  const getPackage = () => createDraftReviewPackage(draft, canonicalIds);
+  const exportDraft = () => {
+    try {
+      const payload = getPackage();
+      const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `NBR_TAX_YEAR_${draft.targetYear.replaceAll("-", "_")}_REVIEW_DRAFT.json`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      setStatusMessage(tr("Review-only draft exported. Nothing was saved to SQL.", "পর্যালোচনার খসড়া রপ্তানি হয়েছে। SQL-এ কিছু সংরক্ষণ হয়নি।"));
+    } catch (error) { setStatusMessage(error instanceof Error ? error.message : String(error)); }
+  };
+
+  return <section className="rules-engine__stepper" aria-labelledby="draft-stepper-title">
+    <div className="rules-engine__stepper-heading">
+      <div><h1 id="draft-stepper-title">{tr("Tax-Year Draft Preparation", "করবর্ষের খসড়া প্রস্তুতি")}</h1>
+        <p>{tr("Controlled source and rule review. Existing SQL draft — not a new database record.", "নিয়ন্ত্রিত উৎস ও বিধি পর্যালোচনা। বিদ্যমান SQL খসড়া — নতুন ডাটাবেস রেকর্ড নয়।")}</p></div>
+      <SecondaryButton icon={ArrowLeft} onClick={onClose}>{tr("Return to Tax Years", "করবর্ষে ফিরুন")}</SecondaryButton>
+    </div>
+    <p className="rules-engine__scope" role="status">{tr("LOCAL REVIEW ONLY • Source documents are hashed in this browser, not uploaded or verified as law. No SQL save, approval or calculation execution is possible in this workflow.", "শুধু স্থানীয় পর্যালোচনা • নথির হ্যাশ ব্রাউজারে তৈরি হয়; আপলোড বা আইন হিসেবে অনুমোদন হয় না। SQL সংরক্ষণ, অনুমোদন বা হিসাব চালু করা সম্ভব নয়।")}</p>
+    <nav className="rules-engine__steps" aria-label={tr("Tax-year preparation steps", "করবর্ষ প্রস্তুতির ধাপ")}>
+      {stepLabels.map(([en,bengali],i) => <button key={en} type="button" aria-current={stage === i ? "step" : undefined} disabled={i > stage} className={stage === i ? "rules-engine__step rules-engine__step--current" : "rules-engine__step"} onClick={() => setStage(i)}><span className="rules-engine__step-no">{i + 1}</span><p>{bn ? bengali : en}</p></button>)}
+    </nav>
+    <div className="rules-engine__panel rules-engine__wizard-panel">
+      <h2 className="rules-engine__heading">{bn ? stepLabels[stage][1] : stepLabels[stage][0]}</h2>
+      {stage === 0 && <div className="rules-engine__wizard-grid">
+        <div><label htmlFor="tax-year-target">{tr("Target assessment year", "প্রস্তাবিত করবর্ষ")}</label><input id="tax-year-target" readOnly value={draft.targetYear}/></div>
+        <div><label htmlFor="tax-year-income">{tr("Income year", "আয়বর্ষ")}</label><input id="tax-year-income" readOnly value={draft.incomeYear}/></div>
+        <div><label htmlFor="tax-year-base">{tr("Controlled source AY", "নিয়ন্ত্রিত উৎস করবর্ষ")}</label><input id="tax-year-base" readOnly value={draft.baseYear}/></div>
+        <div><label htmlFor="tax-year-cutoff">{tr("Proposed legal cutoff (optional, unverified)", "প্রস্তাবিত আইনি কাটঅফ (ঐচ্ছিক, অযাচাইকৃত)")}</label><input id="tax-year-cutoff" type="date" value={draft.legalCutoff} onChange={e => update({ legalCutoff: e.target.value })}/></div>
+        <div className="rules-engine__wide"><p>{tr(`Existing SQL year state: ${existingDraft?.dbState ?? "UNKNOWN"}. All 366 inherited versions remain pending review.`, `বিদ্যমান SQL বর্ষ: ${existingDraft?.dbState ?? "অজানা"}। ৩৬৬টি উত্তরাধিকারী সংস্করণ পর্যালোচনাধীন।`)}</p></div>
+      </div>}
+      {stage === 1 && <>
+        <p>{tr("Select the canonical IDs needing legal comparison. Selecting a rule does not authorize execution.", "যেসব মূল বিধির আইনি তুলনা দরকার সেগুলো নির্বাচন করুন। নির্বাচনে হিসাব অনুমোদিত হয় না।")}</p>
+        <div className="rules-engine__filters"><AppSearchField label={tr("Search canonical rules", "মূল বিধি খুঁজুন")} value={search} onChange={setSearch}/>
+          <AppSelectField id="stepper-rule-group" compact label={tr("Administrative group", "প্রশাসনিক গ্রুপ")} value={group} onChange={setGroup} searchableAfter={5} options={[{value:"",label:tr("All groups","সব গ্রুপ")},...SQL_RULE_GROUPS.map(g => ({value:g.id,label:bn?g.bn:g.en}))]}/></div>
+        <p>{tr(`${draft.selectedRuleIds.length} selected of ${catalog.length}; ${filteredRules.length} matching`, `${draft.selectedRuleIds.length}টি নির্বাচিত, মোট ${catalog.length}; মিলেছে ${filteredRules.length}টি`)}</p>
+        <div className="rules-engine__wizard-actions"><SecondaryButton onClick={() => update({ selectedRuleIds: Array.from(new Set([...draft.selectedRuleIds, ...filteredRules.map(r => r.id)])) })}>{tr("Select all filtered", "ফিল্টার করা সব নির্বাচন")}</SecondaryButton><SecondaryButton onClick={() => update({ selectedRuleIds: draft.selectedRuleIds.filter(id => !filteredRules.some(r => r.id === id)) })}>{tr("Clear filtered", "ফিল্টার করা নির্বাচন বাদ")}</SecondaryButton></div>
+        <div className="rules-engine__rule-list" role="group" aria-label={tr("Canonical rule selection", "মূল বিধি নির্বাচন")}>{filteredRules.slice(0, 100).map(r => <label className="rules-engine__rule-row" key={r.id}><input type="checkbox" checked={selected.has(r.id)} onChange={e => switchRule(r.id, e.target.checked)}/><span><strong>{r.id}</strong><small>{r.legalSource.join("; ") || r.source || tr("No source recorded", "উৎস নেই")}</small></span></label>)}</div>
+        {filteredRules.length > 100 && <p>{tr("Showing first 100 matches; filter to inspect others or select all filtered.", "প্রথম ১০০টি ফল দেখানো হয়েছে; বাকিগুলো ফিল্টার করুন বা একসঙ্গে নির্বাচন করুন।")}</p>}
+        <h3>{tr("Propose a new custom rule", "নতুন কাস্টম বিধি প্রস্তাব")}</h3>
+        <div className="rules-engine__wizard-grid"><div><label htmlFor="candidate-id">{tr("Unique proposal ID", "অনন্য প্রস্তাব পরিচয়")}</label><input id="candidate-id" value={candidateId} onChange={e => setCandidateId(e.target.value)}/></div><div><label htmlFor="candidate-purpose">{tr("Purpose / scope", "উদ্দেশ্য / পরিসর")}</label><input id="candidate-purpose" value={candidatePurpose} onChange={e => setCandidatePurpose(e.target.value)}/></div></div>
+        <SecondaryButton onClick={addCustomRule}>{tr("Add proposed rule", "প্রস্তাবিত বিধি যোগ")}</SecondaryButton>
+        {draft.customRules.map(r => <p key={r.candidateId}>{r.candidateId} · PROPOSED · {r.purpose} <button type="button" onClick={() => update({customRules:draft.customRules.filter(x=>x.candidateId!==r.candidateId)})}>{tr("Remove", "বাদ দিন")}</button></p>)}
+      </>}
+      {stage === 2 && <>
+        <p>{tr("Choose original official PDFs or JSON extracts. Only a checksum and user-entered provenance are retained in the local draft. JSON/OCR is never controlling law.", "সরকারি মূল PDF বা JSON নির্যাস বাছুন। স্থানীয় খসড়ায় কেবল হ্যাশ ও দেওয়া উৎসতথ্য থাকবে। JSON/OCR নিজে আইন নয়।")}</p>
+        <div className="rules-engine__wizard-grid"><div><label htmlFor="intake-official-url">{tr("Source URL (unverified)", "উৎস URL (অযাচাইকৃত)")}</label><input id="intake-official-url" type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://nbr.gov.bd/..."/></div><div><label htmlFor="intake-issue-date">{tr("Issue or Gazette date (as supplied)", "প্রকাশ বা গেজেটের তারিখ (দেওয়া তথ্য)")}</label><input id="intake-issue-date" type="date" value={issueDate} onChange={e=>setIssueDate(e.target.value)}/></div><div><label htmlFor="intake-commencement-date">{tr("Commencement date (as supplied)", "কার্যকারিতার তারিখ (দেওয়া তথ্য)")}</label><input id="intake-commencement-date" type="date" value={commencement} onChange={e=>setCommencement(e.target.value)}/></div><div><label htmlFor="intake-file">{tr("Select local evidence files", "স্থানীয় প্রমাণ ফাইল বাছুন")}</label><input id="intake-file" type="file" multiple accept=".pdf,.json,application/pdf,application/json" onChange={e => { void intake(e.target.files); e.target.value=""; }}/></div></div>
+        {documentError && <p role="alert">{documentError}</p>}
+        {draft.documents.map((d,i)=><div key={`${d.sha256}-${i}`} className="rules-engine__evidence"><p><strong>{d.name}</strong> · {d.type} · {d.sizeBytes} bytes · UNVERIFIED</p><p className="rules-engine__hash">SHA-256: {d.sha256}</p><SecondaryButton onClick={() => update({documents:draft.documents.filter((_,idx)=>i!==idx)})}>{tr("Remove", "বাদ দিন")}</SecondaryButton></div>)}
+      </>}
+      {stage === 3 && <>
+        <p>{tr("The software has not extracted, compared, or approved legal text. Categorize a proposed change for later human review only.", "সফটওয়্যার আইনের পাঠ তুলনা বা অনুমোদন করেনি। ভবিষ্যৎ মানবিক পর্যালোচনার জন্য প্রস্তাবের ধরন নির্ধারণ করুন।")}</p>
+        <div className="rules-engine__wizard-grid"><AppSelectField id="proposed-effect" label={tr("Proposed legal effect", "প্রস্তাবিত আইনি প্রভাব")} value={draft.legalEffect} onChange={v=>update({legalEffect:v as CandidateLegalEffect})} options={LEGAL_EFFECTS.map(v=>({value:v,label:v}))}/><div><label htmlFor="change-notes">{tr("Legal comparison review notes", "আইনি তুলনার পর্যালোচনা মন্তব্য")}</label><textarea id="change-notes" rows={5} value={draft.changeNote} onChange={e=>update({changeNote:e.target.value})}/></div></div>
+        <p>{tr(`Evidence attached: ${draft.documents.length}; selected rule candidates: ${draft.selectedRuleIds.length}. Actual original-versus-amended text verification remains OPEN.`, `প্রমাণ: ${draft.documents.length}; বিধি প্রার্থী: ${draft.selectedRuleIds.length}। মূল ও সংশোধিত পাঠের প্রকৃত যাচাই এখনও বাকি।`)}</p>
+      </>}
+      {stage === 4 && <>
+        <p>{tr("Mark possible downstream impacts. These are OPEN candidates, not confirmed impact mappings.", "সম্ভাব্য প্রভাব চিহ্নিত করুন। এগুলো উন্মুক্ত প্রার্থী, নিশ্চিত প্রভাব নয়।")}</p>
+        <div className="rules-engine__impact-grid">{CANDIDATE_IMPACTS.map(id=><label key={id} className="rules-engine__impact-row"><input type="checkbox" checked={draft.proposedImpacts.includes(id)} onChange={e=>switchImpact(id,e.target.checked)}/><span>{id.toUpperCase()} · OPEN</span></label>)}</div>
+      </>}
+      {stage === 5 && <>
+        <p>{tr("Review the immutable baseline and your draft before exporting a local review package. SQL is not changed.", "স্থানীয় খসড়া রপ্তানির আগে মূল ভিত্তি ও প্রস্তাব যাচাই করুন। SQL অপরিবর্তিত।")}</p>
+        <div className="rules-engine__comparison"><article className="rules-engine__panel"><h3>{tr("Version & selection", "সংস্করণ ও নির্বাচন")}</h3><p>AY {draft.targetYear} / IY {draft.incomeYear}</p><p>{tr("Selected canonical IDs", "নির্বাচিত মূল বিধি")}: {draft.selectedRuleIds.length} / 366</p><p>{tr("Custom proposals", "কাস্টম প্রস্তাব")}: {draft.customRules.length}</p><p>{tr("Source evidence", "উৎস প্রমাণ")}: {draft.documents.length}</p></article>
+          <article className="rules-engine__panel"><h3>{tr("Fail-closed disposition", "নিরাপদ অবরুদ্ধ অবস্থা")}</h3><p>DRAFT / INHERITED_PENDING_REVIEW</p><p>UNVERIFIED / NOT_CERTIFIED</p><p>{tr("Impacts requiring review", "পর্যালোচনাধীন প্রভাব")}: {draft.proposedImpacts.length}</p><p>{tr("SQL writes", "SQL পরিবর্তন")}: 0</p></article></div>
+        <PrimaryButton icon={Download} onClick={exportDraft}>{tr("Export review-only DRAFT JSON", "পর্যালোচনামূলক খসড়া JSON রপ্তানি")}</PrimaryButton>
+        <p className="rules-engine__scope">{tr("This is not a statutory rule publication, not an official-document upload, and not SQL persistence. A protected service must verify and save reviewed evidence separately.", "এটি বিধি প্রকাশ, সরকারি নথি আপলোড বা SQL সংরক্ষণ নয়। সুরক্ষিত সেবা পৃথকভাবে প্রমাণ যাচাই ও সংরক্ষণ করবে।")}</p>
+      </>}
+    </div>
+    {statusMessage && <p role="status" className="rules-engine__meta">{statusMessage}</p>}
+    <div className="rules-engine__wizard-actions"><SecondaryButton onClick={() => stage === 0 ? onClose() : setStage(s=>s-1)} icon={ArrowLeft}>{stage===0?tr("Cancel", "বাতিল"):tr("Back", "পেছনে")}</SecondaryButton>{stage < 5 && <PrimaryButton icon={stage===4?FileCheck2:ArrowRight} onClick={() => setStage(s=>Math.min(5,s+1))}>{tr("Next", "পরবর্তী")}</PrimaryButton>}{stage === 5 && <SecondaryButton icon={ClipboardList} onClick={onClose}>{tr("Done reviewing", "পর্যালোচনা শেষ")}</SecondaryButton>}</div>
+  </section>;
+}

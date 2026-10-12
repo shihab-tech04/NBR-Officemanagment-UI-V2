@@ -45,5 +45,7 @@
   "roleManagement": "Role Management",
   "auditSelection": "Audit Selection",
   "specialRegistration": "Special Registration",
-  "timeExtension": "Time Extension"
+  "timeExtension": "Time Extension",
+  "psrDashboard": "PSR Dashboard",
+  "combinedDashboard": "Double Entry Dashboard"
 }
