@@ -107,11 +107,11 @@
   "showSummary": "Show Summary",
   "hideSummary": "Hide Summary",
   "edit": "Edit",
-  "yearScope": "Assessment year",
-  "allYears": "All years",
+  "yearScope": "Sample AY",
+  "allYears": "All sample years",
   "invalidReference": "Needs data review",
   "sectionUnavailable": "No verified information is available for this section in the current workspace.",
-  "analyticsScope": "Last 30 days",
+  "analyticsScope": "Independent sample benchmark · all scenarios",
   "drawerTaxpayer": "Taxpayer & payer",
   "drawerFinancial": "Financial information",
   "drawerStatus": "Receipt & credit status",
@@ -160,5 +160,10 @@
   "field_mobile": "Mobile number",
   "field_noticed": "Date noticed",
   "field_altContact": "Alternative contact",
-  "field_reduces": "Liability component reduced"
+  "field_reduces": "Liability component reduced",
+  "taxPositionSummary": "Payment receipt and credit summary from the selected sample records. Tax liability is not modeled.",
+  "creditPreview": "Sample payment credit states only",
+  "noSampleReturns": "No return entries exist in the supplied sample records.",
+  "noSampleNotices": "No notice or case entries exist in the supplied sample records.",
+  "noSampleRecords": "No payment records match this taxpayer and sample year."
 }

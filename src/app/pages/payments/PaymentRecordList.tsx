@@ -11,6 +11,20 @@ import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { useUIState } from '../../hooks/useUI';
 import type { ColDef, FilterDef, MobileCardMapping, TableRow } from '../modulePageUtils';
 
+/** Parse the controlled Payment snapshot's human-readable dates, never sort them lexicographically. */
+export function paymentDateOrdinal(value:unknown):number|null {
+  if(typeof value !== 'string')return null;
+  const match=/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const month=months.indexOf(match[2]);
+  if(month<0)return null;
+  const day=Number(match[1]); const year=Number(match[3]);
+  const date=new Date(Date.UTC(year,month,day));
+  if(date.getUTCMonth()!==month||date.getUTCDate()!==day)return null;
+  return date.getTime();
+}
+
 type Props = {
   title: string; rows: TableRow[]; columns: ColDef[];
   filters?: FilterDef[]; mobileMapping?: MobileCardMapping;
@@ -38,7 +52,15 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
     if (!sort) return filteredRows;
     const desc = sort.startsWith('-');
     const key = desc ? sort.slice(1) : sort;
-    return [...filteredRows].sort((a,b) => String(a[key] ?? '').localeCompare(String(b[key] ?? ''), undefined, { numeric:true }) * (desc ? -1 : 1));
+    return [...filteredRows].sort((a,b) => {
+      if(key==='date') {
+        const left=paymentDateOrdinal(a.date), right=paymentDateOrdinal(b.date);
+        if(left===null)return right===null?0:1;
+        if(right===null)return -1;
+        return (left-right)*(desc?-1:1);
+      }
+      return String(a[key] ?? '').localeCompare(String(b[key] ?? ''), undefined, { numeric:true }) * (desc ? -1 : 1);
+    });
   }, [rows, query, applied, sort]);
   const signature = JSON.stringify(applied);
   useEffect(() => { setPage(1); }, [query, signature, pageSize, sort]);
@@ -64,7 +86,7 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
         </select><ChevronDown size={12} aria-hidden="true"/></label>
       </div>
       {isDesktop && showFilters && filters.length > 0 && <div className="table-card__filter-panel"><FilterPanel filters={filters} values={draftFilters} onChange={change} onApply={apply} onReset={reset}/></div>}
-      <AppliedFilterChips inCard values={applied} onClear={reset}/>
+      <AppliedFilterChips inCard values={applied} filters={filters} onClear={reset}/>
       <ResponsiveTable cols={columns} rows={paged} actions={actions} onActionClick={(_,row)=>onOpen(row)} onRowClick={onOpen}
         mobileCardMapping={mobileMapping} noCard aria-label={title}/>
       <div className="table-card__pagination"><Pagination page={page} total={filtered.length} perPage={pageSize} onPage={setPage}

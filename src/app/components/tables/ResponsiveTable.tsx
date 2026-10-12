@@ -80,6 +80,8 @@ export const ResponsiveTable = memo(function ResponsiveTable({
               row={row}
               cols={cols}
               onCardClick={makeCardClick(row)}
+              actions={actions}
+              onActionClick={actionId => handleActionClick(actionId,row)}
               mobileCardMapping={mobileCardMapping}
               clickableKeys={clickableKeys}
               onCellClick={onCellClick}
