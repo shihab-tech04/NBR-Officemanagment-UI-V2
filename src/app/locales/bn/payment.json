@@ -165,5 +165,12 @@
   "creditPreview": "শুধু নমুনা পেমেন্ট ক্রেডিট অবস্থা",
   "noSampleReturns": "প্রদত্ত নমুনা রেকর্ডে কোনো রিটার্ন নেই।",
   "noSampleNotices": "প্রদত্ত নমুনা রেকর্ডে কোনো নোটিশ বা মামলা নেই।",
-  "noSampleRecords": "এই করদাতা ও নমুনা করবর্ষের কোনো পেমেন্ট রেকর্ড নেই।"
+  "noSampleRecords": "এই করদাতা ও নমুনা করবর্ষের কোনো পেমেন্ট রেকর্ড নেই।",
+  "description_overview": "পরিশোধের কার্যক্রম ও পর্যালোচনাধীন বিষয়",
+  "description_transactions": "পেমেন্ট প্রাপ্তি, রেফারেন্স ও কর ক্রেডিটের অবস্থা",
+  "description_taxpayer_360": "করদাতার নমুনা পরিশোধের তথ্য",
+  "description_corrections": "পরিশোধ সংশোধন অনুরোধ ও খসড়া",
+  "description_incidents": "পরিচয় ও পরিশোধের অনুমোদনসংক্রান্ত রিপোর্ট",
+  "description_offline_events": "অফলাইন ইভেন্ট ও সমন্বয় খসড়া",
+  "description_analytics": "নমুনা পরিশোধ সূচকের বিশ্লেষণ"
 }
