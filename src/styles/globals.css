@@ -1037,6 +1037,18 @@ nav[aria-label="Breadcrumb"]::-webkit-scrollbar {
   background: var(--color-surface);
 }
 
+/* Legacy modal-footer also normalizes the standalone form's full-width md button. */
+.modal-footer > .app-btn {
+  width: auto;
+  max-width: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.modal-footer > .app-btn--md {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 14px;
+}
 /* Safe actions (cancel/submit) always push to the right */
 .modal-footer__actions {
   display: contents; /* buttons participate directly in the flex row */
