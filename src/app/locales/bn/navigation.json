@@ -89,7 +89,13 @@
     "overview": "সারসংক্ষেপ",
     "summary": "পেমেন্ট কর্মক্ষেত্র। বিদ্যমান দাবি ও পেমেন্টের কার্যক্রম অপরিবর্তিত আছে।",
     "currentTools": "বিদ্যমান দাবি ও পেমেন্টের কার্যক্রম",
-    "openCurrentTools": "দাবি ও পেমেন্ট খুলুন"
+    "openCurrentTools": "দাবি ও পেমেন্ট খুলুন",
+    "transactions": "লেনদেন",
+    "taxpayer360": "করদাতা ৩৬০",
+    "corrections": "সংশোধন",
+    "incidents": "ঘটনা",
+    "offlineEvents": "অফলাইন ইভেন্ট",
+    "analytics": "বিশ্লেষণ"
   },
   "administration": {
     "main": "প্রশাসন ও অনুরোধ",

@@ -1,0 +1,22 @@
+name: Payments UI integration checks
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Payment navigation and fixture tests
+        run: npx vitest run src/test/paymentsNavigation.test.ts src/app/pages/payments/__tests__/paymentReference.test.ts
+      - name: Compile project for GitHub Pages
+        run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/

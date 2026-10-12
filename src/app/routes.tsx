@@ -49,6 +49,7 @@ const TimeExtensionPage        = lazy(() => import("./pages/administration-reque
 const AuditSelectionPage       = lazy(() => import("./pages/administration-requests/AuditSelectionPage").then(m => ({ default: m.AuditSelectionPage })));
 const AuditModulePage          = lazy(() => import("./pages/audit/AuditModulePage").then(m => ({ default: m.AuditModulePage })));
 const PaymentsOverviewPage    = lazy(() => import("./pages/payments/PaymentsOverviewPage").then(m => ({ default: m.PaymentsOverviewPage })));
+const PaymentModulePage = lazy(() => import("./pages/payments/PaymentModulePage").then(m => ({ default: m.PaymentModulePage })));
 const RulesCalculationPage = lazy(() => import("./pages/rules-calculation/RulesCalculationPage").then(m => ({ default: m.RulesCalculationPage })));
 
 // ─── Param-based route components ────────────────────────────────────────────
@@ -109,6 +110,7 @@ const routeImporters = [
   () => import("./pages/administration-requests/TimeExtensionPage"),
   () => import("./pages/administration-requests/AuditSelectionPage"),
   () => import("./pages/payments/PaymentsOverviewPage"),
+  () => import("./pages/payments/PaymentModulePage"),
 ];
 
 export function preloadAllRoutes() {
@@ -123,6 +125,11 @@ export function preloadAllRoutes() {
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
+
+function PaymentRoute() {
+  const { subNav } = useParams<{ subNav: string }>();
+  return <PaymentModulePage page={subNav || "overview"} />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -151,6 +158,7 @@ export const router = createBrowserRouter([
       { path: "audit/:subNav",   Component: AuditModulePage },
       { path: "payments",        loader: async () => redirect("/payments/overview") },
       { path: "payments/overview", Component: PaymentsOverviewPage },
+      { path: "payments/:subNav", Component: PaymentRoute },
       { path: "administration",  Component: PlaceholderPage },
 
       // Dashboard
