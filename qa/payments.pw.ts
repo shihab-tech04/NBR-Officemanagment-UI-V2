@@ -20,6 +20,13 @@ for (const viewport of viewports) {
     await page.screenshot({path:`test-results/payments-${route}-${viewport.width}.png`,fullPage:true,animations:'disabled'});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth - innerWidth);
     expect(overflow,'no app-wide horizontal overflow').toBeLessThanOrEqual(2);
+    if(viewport.width<=390 && route==='transactions'){
+      const sort=page.locator('.payment-module__sort select');
+      const bounds=await sort.boundingBox();
+      expect(bounds,'sort control rendered').toBeTruthy();
+      expect(bounds!.x,'sort control left is on screen').toBeGreaterThanOrEqual(-1);
+      expect(bounds!.x+bounds!.width,'sort control right fits on screen').toBeLessThanOrEqual(viewport.width+1);
+    }
     if(viewport.width<=390 && route==='taxpayer-360'){
       const strip=page.locator('.payment-module__tab-scroll .tab-bar');
       await expect(strip).toBeVisible();

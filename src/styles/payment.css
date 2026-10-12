@@ -77,3 +77,10 @@
   .payment-module .dashboard-kpi-grid--1row .stat-card { min-width:0; }
 }
 @media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
+/* Keep the record toolbar usable even on 320px phones. */
+@media(max-width:420px) {
+  .payment-module__table-card .table-card__toolbar { flex-wrap:wrap; gap:8px; }
+  .payment-module__table-card .table-card__title-group { flex:0 0 100%; max-width:100%; }
+  .payment-module__table-card .payment-module__sort { margin-left:auto; max-width:100%; }
+  .payment-module__table-card .payment-module__sort select { max-width:160px; }
+}
