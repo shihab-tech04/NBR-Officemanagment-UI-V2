@@ -77,10 +77,29 @@
   .payment-module .dashboard-kpi-grid--1row .stat-card { min-width:0; }
 }
 @media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
-/* Keep the record toolbar usable even on 320px phones. */
-@media(max-width:420px) {
-  .payment-module__table-card .table-card__toolbar { flex-wrap:wrap; gap:8px; }
-  .payment-module__table-card .table-card__title-group { flex:0 0 100%; max-width:100%; }
-  .payment-module__table-card .payment-module__sort { margin-left:auto; max-width:100%; }
+/* Under 641px the shared table toolbar switches to CSS Grid (not flex).
+   Payment's sort control must occupy its own grid row to avoid 320px clipping. */
+@media(max-width:640px) {
+  .payment-module__table-card .table-card__toolbar {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto auto;
+    gap:8px;
+  }
+  .payment-module__table-card .table-card__title-group {
+    grid-column:1;
+    grid-row:1;
+    min-width:0;
+    max-width:100%;
+  }
+  .payment-module__table-card .payment-module__sort {
+    grid-column:1;
+    grid-row:2;
+    justify-self:end;
+    min-width:0;
+    max-width:100%;
+    margin-left:0;
+  }
   .payment-module__table-card .payment-module__sort select { max-width:160px; }
+  .payment-module__table-card .table-card__toolbar > .table-card__toolbar-btn { display:none; }
 }
