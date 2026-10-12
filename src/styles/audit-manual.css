@@ -1,0 +1,67 @@
+/* Audit Manual — layout-only extensions.
+   Visual treatment comes from the existing table, form-section, drawer,
+   filter, button and typography systems. */
+
+.audit-manual-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.audit-manual-section-stack .form-section {
+  min-width: 0;
+}
+
+.audit-manual-section-stack .form-subsection {
+  min-width: 0;
+}
+
+.audit-manual-section-stack .card-table {
+  min-width: 0;
+}
+
+.audit-manual-section-stack .form-summary-list__value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.audit-manual-empty-state {
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.audit-manual-empty-state h3 {
+  margin: 0 0 6px;
+  color: var(--color-text-primary);
+  font-size: var(--fs-h3);
+  font-weight: 600;
+}
+
+.audit-manual-empty-state p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+@media (max-width: 1023px) {
+  .audit-manual-desktop-only {
+    display: none !important;
+  }
+
+  .audit-manual-section-stack {
+    padding: 10px;
+    gap: 8px;
+  }
+}
+
+@media print {
+  .audit-manual-section-stack details.form-section {
+    display: block;
+  }
+
+  .audit-manual-section-stack details.form-section > .form-section__body--stack {
+    display: flex;
+  }
+}

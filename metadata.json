@@ -1,0 +1,7 @@
+{
+  "name": "Remix Remix NBR-eReturn-OfficeManagementUI",
+  "description": "Imported from GitHub: shihabshajib01-cell/NBR-eReturn-OfficeManagementUI",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,723 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY TOKEN SYSTEM — NBR e-Return Office Management
+   ════════════════════════════════════════════════════════════════════════════
+
+   Architecture:
+     --fs-*  canonical font-size tokens  ← single source of truth
+     --lh-*  line-height tokens          ← paired with --fs-*
+     --typ-* legacy compatibility aliases ← point to --fs-* / --lh-* only
+
+   Device ranges (typography only — does NOT change global layout breakpoints):
+     Large Desktop  > 1440px          (default :root)
+     Laptop         1025px – 1440px   (@media min 1025 max 1440)
+     Tablet         481px  – 1024px   (@media min 481  max 1024)
+     Mobile         ≤ 480px           (@media max 480)
+
+   Each range explicitly defines all three font scales:
+     Standard  :root, :root[data-font-scale="standard"]
+     Compact   :root[data-font-scale="compact"]
+     Large     :root[data-font-scale="large"]
+
+   Font-size scale rule:
+     Standard = base values for the active device range
+     Compact  = Standard × 0.90
+     Large    = Standard × 1.10
+
+   Only font sizes scale. Component hierarchy, line-height, spacing, row height,
+   padding, and layout remain the Standard design.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+
+/* ── Font family tokens ──────────────────────────────────────────────────── */
+
+:root {
+  --font-scale-factor: 1;
+  --font-family-base:    Poppins, 'Noto Sans Bengali', 'Noto Sans', sans-serif;
+  --font-family-heading: inherit;
+  --font-family-body:    inherit;
+  --font-family-label:   inherit;
+  --font-family-table:   inherit;
+  --font-family-button:  inherit;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LARGE DESKTOP — Standard  (> 1440px, default)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Heading ── */
+  --fs-h1: 40px;  --lh-h1: 48px;
+  --fs-h2: 28px;  --lh-h2: 36px;
+  --fs-h3: 22px;  --lh-h3: 30px;
+
+  /* ── Body ── */
+  --fs-body-lg: 18px;  --lh-body-lg: 28px;
+  --fs-body-md: 16px;  --lh-body-md: 24px;
+  --fs-body-sm: 14px;  --lh-body-sm: 20px;
+
+  /* ── Label ── */
+  --fs-label-md: 14px;  --lh-label-md: 20px;
+  --fs-label-sm: 12px;  --lh-label-sm: 16px;
+
+  /* ── Button / Input ── */
+  --fs-button: 16px;  --lh-button: 24px;
+  --fs-input:  16px;  --lh-input:  24px;
+
+  /* ── Table ── */
+  --fs-table-header: 14px;  --lh-table-header: 20px;
+  --fs-table-body:   14px;  --lh-table-body:   20px;
+
+  /* ── Small text ── */
+  --fs-caption: 12px;  --lh-caption: 16px;
+  --fs-badge:   12px;  --lh-badge:   16px;
+  --fs-tooltip: 12px;  --lh-tooltip: 16px;
+
+  /* ── Navigation ── */
+  --fs-nav-primary: 12px;  --lh-nav-primary: 1.25;
+  --fs-nav-main:    14px;  --lh-nav-main:    20px;
+  --fs-nav-sub:     14px;  --lh-nav-sub:     20px;
+  --fs-nav-header:  16px;  --lh-nav-header:  1.4;
+
+  /* ── Chrome ── */
+  --fs-breadcrumb:   12px;  --lh-breadcrumb:   16px;
+  --fs-topbar-name:  14px;  --lh-topbar-name:  20px;
+  --fs-topbar-role:  12px;  --lh-topbar-role:  16px;
+
+  /* ── Stat value (future semantic token — not yet wired into StatCard CSS) ── */
+  --fs-stat-value: 28px;
+
+  /* ── Spacing scale ── */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  /* Numeric aliases for 1-10 used elsewhere */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+
+  /* ── Component dimension tokens ── */
+  --card-padding:         20px;
+  --card-gap:             16px;
+  --modal-padding:        24px;
+  --drawer-padding:       20px;
+  --table-row-height:     48px;
+  --table-header-height:  44px;
+  --badge-padding-x:      10px;
+  --badge-padding-y:      4px;
+  --button-padding-x:     16px;
+  --button-padding-y:     8px;
+  --input-padding-x:      12px;
+  --input-padding-y:      8px;
+  --table-cell-padding-x: 14px;
+  --table-cell-padding-y: 10px;
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Legacy --typ-* compatibility aliases — point to canonical --fs-* / --lh-*.
+     Do NOT maintain separate numeric values here.
+     Responsive changes to --fs-* automatically propagate through these aliases.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  /* Size aliases */
+  --typ-h1-size:          var(--fs-h1);
+  --typ-h2-size:          var(--fs-h2);
+  --typ-h3-size:          var(--fs-h3);
+  --typ-body-lg-size:     var(--fs-body-lg);
+  --typ-body-md-size:     var(--fs-body-md);
+  --typ-body-sm-size:     var(--fs-body-sm);
+  --typ-label-md-size:    var(--fs-label-md);
+  --typ-label-sm-size:    var(--fs-label-sm);
+  --typ-button-size:      var(--fs-button);
+  --typ-input-size:       var(--fs-input);
+  --typ-table-header-size: var(--fs-table-header);
+  --typ-table-body-size:  var(--fs-table-body);
+  --typ-caption-size:     var(--fs-caption);
+  --typ-badge-size:       var(--fs-badge);
+  --typ-tooltip-size:     var(--fs-tooltip);
+  --typ-nav-label-size:   var(--fs-nav-main);
+
+  /* Line-height aliases */
+  --typ-h1-lh:            var(--lh-h1);
+  --typ-h2-lh:            var(--lh-h2);
+  --typ-h3-lh:            var(--lh-h3);
+  --typ-body-lg-lh:       var(--lh-body-lg);
+  --typ-body-md-lh:       var(--lh-body-md);
+  --typ-body-sm-lh:       var(--lh-body-sm);
+  --typ-label-md-lh:      var(--lh-label-md);
+  --typ-label-sm-lh:      var(--lh-label-sm);
+  --typ-button-lh:        var(--lh-button);
+  --typ-input-lh:         var(--lh-input);
+  --typ-table-header-lh:  var(--lh-table-header);
+  --typ-table-body-lh:    var(--lh-table-body);
+  --typ-caption-lh:       var(--lh-caption);
+  --typ-badge-lh:         var(--lh-badge);
+  --typ-tooltip-lh:       var(--lh-tooltip);
+  --typ-nav-label-lh:     var(--lh-nav-main);
+
+  /* Weight tokens (scale-independent) */
+  --typ-h1-weight:          700;
+  --typ-h2-weight:          600;
+  --typ-h3-weight:          600;
+  --typ-body-lg-weight:     400;
+  --typ-body-md-weight:     400;
+  --typ-body-sm-weight:     400;
+  --typ-label-md-weight:    500;
+  --typ-label-sm-weight:    500;
+  --typ-button-weight:      600;
+  --typ-input-weight:       400;
+  --typ-table-header-weight: 600;
+  --typ-table-body-weight:  400;
+  --typ-caption-weight:     400;
+  --typ-badge-weight:       600;
+  --typ-tooltip-weight:     500;
+  --typ-nav-label-weight:   400;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LARGE DESKTOP — Compact
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root[data-font-scale="compact"] {
+  --font-scale-factor: 0.9;
+  --fs-h1: 36px;  --lh-h1: 48px;
+  --fs-h2: 25.2px;  --lh-h2: 36px;
+  --fs-h3: 19.8px;  --lh-h3: 30px;
+
+  --fs-body-lg: 16.2px;  --lh-body-lg: 28px;
+  --fs-body-md: 14.4px;  --lh-body-md: 24px;
+  --fs-body-sm: 12.6px;  --lh-body-sm: 20px;
+
+  --fs-label-md: 12.6px;  --lh-label-md: 20px;
+  --fs-label-sm: 10.8px;  --lh-label-sm: 16px;
+
+  --fs-button: 14.4px;  --lh-button: 24px;
+  --fs-input: 14.4px;  --lh-input: 24px;   /* input never below 16px */
+
+  --fs-table-header: 12.6px;  --lh-table-header: 20px;
+  --fs-table-body: 12.6px;  --lh-table-body: 20px;
+
+  --fs-caption: 10.8px;  --lh-caption: 16px;
+  --fs-badge: 10.8px;  --lh-badge: 16px;
+  --fs-tooltip: 10.8px;  --lh-tooltip: 16px;
+
+  --fs-nav-primary: 10.8px;  --lh-nav-primary: 1.25;
+  --fs-nav-main: 12.6px;  --lh-nav-main: 20px;
+  --fs-nav-sub: 12.6px;  --lh-nav-sub: 20px;
+  --fs-nav-header: 14.4px;  --lh-nav-header: 1.4;
+
+  --fs-breadcrumb: 10.8px;  --lh-breadcrumb: 16px;
+  --fs-topbar-name: 12.6px;  --lh-topbar-name: 20px;
+  --fs-topbar-role: 10.8px;  --lh-topbar-role: 16px;
+
+  --fs-stat-value: 25.2px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LARGE DESKTOP — Large
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root[data-font-scale="large"] {
+  --font-scale-factor: 1.1;
+  --fs-h1: 44px;  --lh-h1: 48px;
+  --fs-h2: 30.8px;  --lh-h2: 36px;
+  --fs-h3: 24.2px;  --lh-h3: 30px;
+
+  --fs-body-lg: 19.8px;  --lh-body-lg: 28px;
+  --fs-body-md: 17.6px;  --lh-body-md: 24px;
+  --fs-body-sm: 15.4px;  --lh-body-sm: 20px;
+
+  --fs-label-md: 15.4px;  --lh-label-md: 20px;
+  --fs-label-sm: 13.2px;  --lh-label-sm: 16px;
+
+  --fs-button: 17.6px;  --lh-button: 24px;
+  --fs-input: 17.6px;  --lh-input: 24px;
+
+  --fs-table-header: 15.4px;  --lh-table-header: 20px;
+  --fs-table-body: 15.4px;  --lh-table-body: 20px;
+
+  --fs-caption: 13.2px;  --lh-caption: 16px;
+  --fs-badge: 13.2px;  --lh-badge: 16px;
+  --fs-tooltip: 13.2px;  --lh-tooltip: 16px;
+
+  --fs-nav-primary: 13.2px;  --lh-nav-primary: 1.25;
+  --fs-nav-main: 15.4px;  --lh-nav-main: 20px;
+  --fs-nav-sub: 15.4px;  --lh-nav-sub: 20px;
+  --fs-nav-header: 17.6px;  --lh-nav-header: 1.4;
+
+  --fs-breadcrumb: 13.2px;  --lh-breadcrumb: 16px;
+  --fs-topbar-name: 15.4px;  --lh-topbar-name: 20px;
+  --fs-topbar-role: 13.2px;  --lh-topbar-role: 16px;
+
+  --fs-stat-value: 30.8px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LAPTOP / SMALL LAPTOP  (1025px – 1440px)
+   Covers: 1440×900, 1366×768, 1333×786, 1280×800, 1280×720
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1025px) and (max-width: 1440px) {
+
+  /* Standard */
+  :root,
+  :root[data-font-scale="standard"] {
+    --fs-h1: 36px;  --lh-h1: 44px;
+    --fs-h2: 26px;  --lh-h2: 34px;
+    --fs-h3: 20px;  --lh-h3: 28px;
+
+    --fs-body-lg: 16px;  --lh-body-lg: 24px;
+    --fs-body-md: 16px;  --lh-body-md: 24px;
+    --fs-body-sm: 14px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 14px;  --lh-label-md: 20px;
+    --fs-label-sm: 12px;  --lh-label-sm: 16px;
+
+    --fs-button: 14px;  --lh-button: 22px;
+    --fs-input:  16px;  --lh-input:  24px;
+
+    --fs-table-header: 14px;  --lh-table-header: 20px;
+    --fs-table-body:   14px;  --lh-table-body:   20px;
+
+    --fs-caption: 12px;  --lh-caption: 16px;
+    --fs-badge:   12px;  --lh-badge:   16px;
+    --fs-tooltip: 12px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 12px;  --lh-nav-primary: 1.25;
+    --fs-nav-main:    14px;  --lh-nav-main:    20px;
+    --fs-nav-sub:     14px;  --lh-nav-sub:     20px;
+    --fs-nav-header:  16px;  --lh-nav-header:  1.4;
+
+    --fs-breadcrumb:   12px;  --lh-breadcrumb:   16px;
+    --fs-topbar-name:  14px;  --lh-topbar-name:  20px;
+    --fs-topbar-role:  12px;  --lh-topbar-role:  16px;
+
+    --fs-stat-value: 26px;
+  }
+
+  /* Compact */
+  :root[data-font-scale="compact"] {
+    --fs-h1: 32.4px;  --lh-h1: 44px;
+    --fs-h2: 23.4px;  --lh-h2: 34px;
+    --fs-h3: 18px;  --lh-h3: 28px;
+
+    --fs-body-lg: 14.4px;  --lh-body-lg: 24px;
+    --fs-body-md: 14.4px;  --lh-body-md: 24px;
+    --fs-body-sm: 12.6px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 12.6px;  --lh-label-md: 20px;
+    --fs-label-sm: 10.8px;  --lh-label-sm: 16px;
+
+    --fs-button: 12.6px;  --lh-button: 22px;
+    --fs-input: 14.4px;  --lh-input: 24px;
+
+    --fs-table-header: 12.6px;  --lh-table-header: 20px;
+    --fs-table-body: 12.6px;  --lh-table-body: 20px;
+
+    --fs-caption: 10.8px;  --lh-caption: 16px;
+    --fs-badge: 10.8px;  --lh-badge: 16px;
+    --fs-tooltip: 10.8px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 10.8px;  --lh-nav-primary: 1.25;
+    --fs-nav-main: 12.6px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 12.6px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 14.4px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 10.8px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 12.6px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 10.8px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 23.4px;
+  }
+
+  /* Large */
+  :root[data-font-scale="large"] {
+    --fs-h1: 39.6px;  --lh-h1: 44px;
+    --fs-h2: 28.6px;  --lh-h2: 34px;
+    --fs-h3: 22px;  --lh-h3: 28px;
+
+    --fs-body-lg: 17.6px;  --lh-body-lg: 24px;
+    --fs-body-md: 17.6px;  --lh-body-md: 24px;
+    --fs-body-sm: 15.4px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 15.4px;  --lh-label-md: 20px;
+    --fs-label-sm: 13.2px;  --lh-label-sm: 16px;
+
+    --fs-button: 15.4px;  --lh-button: 22px;
+    --fs-input: 17.6px;  --lh-input: 24px;
+
+    --fs-table-header: 15.4px;  --lh-table-header: 20px;
+    --fs-table-body: 15.4px;  --lh-table-body: 20px;
+
+    --fs-caption: 13.2px;  --lh-caption: 16px;
+    --fs-badge: 13.2px;  --lh-badge: 16px;
+    --fs-tooltip: 13.2px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 13.2px;  --lh-nav-primary: 1.25;
+    --fs-nav-main: 15.4px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 15.4px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 17.6px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 13.2px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 15.4px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 13.2px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 28.6px;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   TABLET  (481px – 1024px)
+   Covers: 1024×768, 820×1180, 768×1024
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 481px) and (max-width: 1024px) {
+
+  /* Standard */
+  :root,
+  :root[data-font-scale="standard"] {
+    --fs-h1: 32px;  --lh-h1: 40px;
+    --fs-h2: 24px;  --lh-h2: 32px;
+    --fs-h3: 18px;  --lh-h3: 26px;
+
+    --fs-body-lg: 16px;  --lh-body-lg: 24px;
+    --fs-body-md: 16px;  --lh-body-md: 24px;
+    --fs-body-sm: 14px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 14px;  --lh-label-md: 20px;
+    --fs-label-sm: 12px;  --lh-label-sm: 16px;
+
+    --fs-button: 14px;  --lh-button: 22px;
+    --fs-input:  16px;  --lh-input:  24px;
+
+    --fs-table-header: 14px;  --lh-table-header: 20px;
+    --fs-table-body:   14px;  --lh-table-body:   20px;
+
+    --fs-caption: 12px;  --lh-caption: 16px;
+    --fs-badge:   12px;  --lh-badge:   16px;
+    --fs-tooltip: 12px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 12px;  --lh-nav-primary: 1.25;
+    --fs-nav-main:    14px;  --lh-nav-main:    20px;
+    --fs-nav-sub:     14px;  --lh-nav-sub:     20px;
+    --fs-nav-header:  16px;  --lh-nav-header:  1.4;
+
+    --fs-breadcrumb:   12px;  --lh-breadcrumb:   16px;
+    --fs-topbar-name:  14px;  --lh-topbar-name:  20px;
+    --fs-topbar-role:  12px;  --lh-topbar-role:  16px;
+
+    --fs-stat-value: 24px;
+  }
+
+  /* Compact */
+  :root[data-font-scale="compact"] {
+    --fs-h1: 28.8px;  --lh-h1: 40px;
+    --fs-h2: 21.6px;  --lh-h2: 32px;
+    --fs-h3: 16.2px;  --lh-h3: 26px;
+
+    --fs-body-lg: 14.4px;  --lh-body-lg: 24px;
+    --fs-body-md: 14.4px;  --lh-body-md: 24px;
+    --fs-body-sm: 12.6px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 12.6px;  --lh-label-md: 20px;
+    --fs-label-sm: 10.8px;  --lh-label-sm: 16px;
+
+    --fs-button: 12.6px;  --lh-button: 22px;
+    --fs-input: 14.4px;  --lh-input: 24px;
+
+    --fs-table-header: 12.6px;  --lh-table-header: 20px;
+    --fs-table-body: 12.6px;  --lh-table-body: 20px;
+
+    --fs-caption: 10.8px;  --lh-caption: 16px;
+    --fs-badge: 10.8px;  --lh-badge: 16px;
+    --fs-tooltip: 10.8px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 10.8px;  --lh-nav-primary: 1.25;
+    --fs-nav-main: 12.6px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 12.6px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 14.4px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 10.8px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 12.6px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 10.8px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 21.6px;
+  }
+
+  /* Large */
+  :root[data-font-scale="large"] {
+    --fs-h1: 35.2px;  --lh-h1: 40px;
+    --fs-h2: 26.4px;  --lh-h2: 32px;
+    --fs-h3: 19.8px;  --lh-h3: 26px;
+
+    --fs-body-lg: 17.6px;  --lh-body-lg: 24px;
+    --fs-body-md: 17.6px;  --lh-body-md: 24px;
+    --fs-body-sm: 15.4px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 15.4px;  --lh-label-md: 20px;
+    --fs-label-sm: 13.2px;  --lh-label-sm: 16px;
+
+    --fs-button: 15.4px;  --lh-button: 22px;
+    --fs-input: 17.6px;  --lh-input: 24px;
+
+    --fs-table-header: 15.4px;  --lh-table-header: 20px;
+    --fs-table-body: 15.4px;  --lh-table-body: 20px;
+
+    --fs-caption: 13.2px;  --lh-caption: 16px;
+    --fs-badge: 13.2px;  --lh-badge: 16px;
+    --fs-tooltip: 13.2px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 13.2px;  --lh-nav-primary: 1.25;
+    --fs-nav-main: 15.4px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 15.4px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 17.6px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 13.2px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 15.4px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 13.2px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 26.4px;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBILE  (≤ 480px)
+   Covers: 480×900, 430×932, 390×844, 375×812, 360×800, 320×568
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+
+  /* Standard */
+  :root,
+  :root[data-font-scale="standard"] {
+    --fs-h1: 28px;  --lh-h1: 36px;
+    --fs-h2: 22px;  --lh-h2: 30px;
+    --fs-h3: 18px;  --lh-h3: 26px;
+
+    --fs-body-lg: 16px;  --lh-body-lg: 24px;
+    --fs-body-md: 16px;  --lh-body-md: 24px;
+    --fs-body-sm: 14px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 14px;  --lh-label-md: 20px;
+    --fs-label-sm: 12px;  --lh-label-sm: 16px;
+
+    --fs-button: 14px;  --lh-button: 22px;
+    --fs-input:  16px;  --lh-input:  24px;
+
+    --fs-table-header: 14px;  --lh-table-header: 20px;
+    --fs-table-body:   14px;  --lh-table-body:   20px;
+
+    --fs-caption: 12px;  --lh-caption: 16px;
+    --fs-badge:   12px;  --lh-badge:   16px;
+    --fs-tooltip: 12px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 12px;  --lh-nav-primary: 1.25;
+    --fs-nav-main:    14px;  --lh-nav-main:    20px;
+    --fs-nav-sub:     14px;  --lh-nav-sub:     20px;
+    --fs-nav-header:  16px;  --lh-nav-header:  1.4;
+
+    --fs-breadcrumb:   12px;  --lh-breadcrumb:   16px;
+    --fs-topbar-name:  14px;  --lh-topbar-name:  20px;
+    --fs-topbar-role:  12px;  --lh-topbar-role:  16px;
+
+    --fs-stat-value: 24px;
+  }
+
+  /* Compact */
+  :root[data-font-scale="compact"] {
+    --fs-h1: 25.2px;  --lh-h1: 36px;
+    --fs-h2: 19.8px;  --lh-h2: 30px;
+    --fs-h3: 16.2px;  --lh-h3: 26px;
+
+    --fs-body-lg: 14.4px;  --lh-body-lg: 24px;
+    --fs-body-md: 14.4px;  --lh-body-md: 24px;
+    --fs-body-sm: 12.6px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 12.6px;  --lh-label-md: 20px;
+    --fs-label-sm: 10.8px;  --lh-label-sm: 16px;
+
+    --fs-button: 12.6px;  --lh-button: 22px;
+    --fs-input: 14.4px;  --lh-input: 24px;
+
+    --fs-table-header: 12.6px;  --lh-table-header: 20px;
+    --fs-table-body: 12.6px;  --lh-table-body: 20px;
+
+    --fs-caption: 10.8px;  --lh-caption: 16px;
+    --fs-badge: 10.8px;  --lh-badge: 16px;
+    --fs-tooltip: 10.8px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 10.8px;  --lh-nav-primary: 1.25;
+    /* Touch navigation kept readable on mobile compact */
+    --fs-nav-main: 12.6px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 12.6px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 14.4px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 10.8px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 12.6px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 10.8px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 21.6px;
+  }
+
+  /* Large */
+  :root[data-font-scale="large"] {
+    --fs-h1: 30.8px;  --lh-h1: 36px;
+    --fs-h2: 24.2px;  --lh-h2: 30px;
+    --fs-h3: 19.8px;  --lh-h3: 26px;
+
+    --fs-body-lg: 17.6px;  --lh-body-lg: 24px;
+    --fs-body-md: 17.6px;  --lh-body-md: 24px;
+    --fs-body-sm: 15.4px;  --lh-body-sm: 20px;
+
+    --fs-label-md: 15.4px;  --lh-label-md: 20px;
+    --fs-label-sm: 13.2px;  --lh-label-sm: 16px;
+
+    --fs-button: 15.4px;  --lh-button: 22px;
+    --fs-input: 17.6px;  --lh-input: 24px;
+
+    --fs-table-header: 15.4px;  --lh-table-header: 20px;
+    --fs-table-body: 15.4px;  --lh-table-body: 20px;
+
+    --fs-caption: 13.2px;  --lh-caption: 16px;
+    --fs-badge: 13.2px;  --lh-badge: 16px;
+    --fs-tooltip: 13.2px;  --lh-tooltip: 16px;
+
+    --fs-nav-primary: 13.2px;  --lh-nav-primary: 1.25;
+    --fs-nav-main: 15.4px;  --lh-nav-main: 20px;
+    --fs-nav-sub: 15.4px;  --lh-nav-sub: 20px;
+    --fs-nav-header: 17.6px;  --lh-nav-header: 1.4;
+
+    --fs-breadcrumb: 13.2px;  --lh-breadcrumb: 16px;
+    --fs-topbar-name: 15.4px;  --lh-topbar-name: 20px;
+    --fs-topbar-role: 13.2px;  --lh-topbar-role: 16px;
+
+    --fs-stat-value: 26.4px;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITY CLASSES  (.typ-*)
+   These reference --typ-* aliases which in turn point to --fs-* / --lh-*.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.typ-h1 {
+  font-size: var(--typ-h1-size);
+  line-height: var(--typ-h1-lh);
+  font-weight: var(--typ-h1-weight);
+}
+.typ-h2 {
+  font-size: var(--typ-h2-size);
+  line-height: var(--typ-h2-lh);
+  font-weight: var(--typ-h2-weight);
+}
+.typ-h3 {
+  font-size: var(--typ-h3-size);
+  line-height: var(--typ-h3-lh);
+  font-weight: var(--typ-h3-weight);
+}
+.typ-body-lg {
+  font-size: var(--typ-body-lg-size);
+  line-height: var(--typ-body-lg-lh);
+  font-weight: var(--typ-body-lg-weight);
+}
+.typ-body-md {
+  font-size: var(--typ-body-md-size);
+  line-height: var(--typ-body-md-lh);
+  font-weight: var(--typ-body-md-weight);
+}
+.typ-body-sm {
+  font-size: var(--typ-body-sm-size);
+  line-height: var(--typ-body-sm-lh);
+  font-weight: var(--typ-body-sm-weight);
+}
+.typ-label-md {
+  font-size: var(--typ-label-md-size);
+  line-height: var(--typ-label-md-lh);
+  font-weight: var(--typ-label-md-weight);
+}
+.typ-label-sm {
+  font-size: var(--typ-label-sm-size);
+  line-height: var(--typ-label-sm-lh);
+  font-weight: var(--typ-label-sm-weight);
+}
+.typ-button {
+  font-size: var(--typ-button-size);
+  line-height: var(--typ-button-lh);
+  font-weight: var(--typ-button-weight);
+}
+.typ-input {
+  font-size: var(--typ-input-size);
+  line-height: var(--typ-input-lh);
+  font-weight: var(--typ-input-weight);
+}
+.typ-table-header {
+  font-size: var(--typ-table-header-size);
+  line-height: var(--typ-table-header-lh);
+  font-weight: var(--typ-table-header-weight);
+}
+.typ-table-body {
+  font-size: var(--typ-table-body-size);
+  line-height: var(--typ-table-body-lh);
+  font-weight: var(--typ-table-body-weight);
+}
+.typ-caption {
+  font-size: var(--typ-caption-size);
+  line-height: var(--typ-caption-lh);
+  font-weight: var(--typ-caption-weight);
+}
+.typ-badge {
+  font-size: var(--typ-badge-size);
+  line-height: var(--typ-badge-lh);
+  font-weight: var(--typ-badge-weight);
+}
+.typ-tooltip {
+  font-size: var(--typ-tooltip-size);
+  line-height: var(--typ-tooltip-lh);
+  font-weight: var(--typ-tooltip-weight);
+}
+.typ-nav-label {
+  font-size: var(--typ-nav-label-size);
+  line-height: var(--typ-nav-label-lh);
+  font-weight: var(--typ-nav-label-weight);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FONT-SCALE COMPATIBILITY
+   Component typography owns hierarchy. Only legacy Tailwind arbitrary-px
+   utilities need an explicit bridge to the global scale factor.
+   Standard = existing rendered size; Compact = -10%; Large = +10%.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root[data-font-scale] .text-\[11px\]    { font-size: calc(11px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[12px\]    { font-size: calc(12px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[12\.5px\] { font-size: calc(12.5px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[13px\]    { font-size: calc(13px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[14px\]    { font-size: calc(14px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[15px\]    { font-size: calc(15px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[16px\]    { font-size: calc(16px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[17px\]    { font-size: calc(17px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[18px\]    { font-size: calc(18px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[20px\]    { font-size: calc(20px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[22px\]    { font-size: calc(22px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[26px\]    { font-size: calc(26px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[28px\]    { font-size: calc(28px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[32px\]    { font-size: calc(32px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[40px\]    { font-size: calc(40px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[44px\]    { font-size: calc(44px * var(--font-scale-factor)) !important; }
+:root[data-font-scale] .text-\[48px\]    { font-size: calc(48px * var(--font-scale-factor)) !important; }
+

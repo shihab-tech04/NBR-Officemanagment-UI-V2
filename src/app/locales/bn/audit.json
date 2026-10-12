@@ -1,0 +1,869 @@
+{
+  "prototypeNotice": "এগুলো শুধুই উদাহরণভিত্তিক প্রোটোটাইপ রেকর্ড — লাইভ করদাতার তথ্য নয়। প্রস্তাবিত SLA ও অমীমাংসিত ভূমিকা/নীতিগত সিদ্ধান্ত আনুষ্ঠানিক অনুমোদনের অপেক্ষায় থাকবে।",
+  "common": {
+    "records": "রেকর্ড",
+    "search": "অডিট খুঁজুন",
+    "readOnly": "শুধু দেখা যাবে",
+    "readOnlyDetails": "অডিট ইভেন্টের বিস্তারিত",
+    "recordDetails": "অডিট রেকর্ডের বিস্তারিত"
+  },
+  "pages": {
+    "overview": {
+      "title": "অডিট ওভারভিউ",
+      "description": "Selection, active case, evidence, control, review, reconciliation ও closure—বর্তমান audit workload-এর সম্পূর্ণ চিত্র।"
+    },
+    "riskCases": {
+      "title": "রিস্ক কেস",
+      "description": "Officer-এর global Audit scope জুড়ে substantive A–E risk signal থেকে তৈরি prioritized case।",
+      "note": "Risk Level শুধু পর্যালোচনার অগ্রাধিকার, কোনো সিদ্ধান্ত নয়। Finding-এর জন্য যাচাইকৃত signal ও linked evidence লাগবে। TIN ডিফল্টভাবে মাস্কড থাকবে।"
+    },
+    "control": {
+      "title": "কন্ট্রোল ও ডেটা কোয়ালিটি",
+      "description": "F0–F5 consistency ও filing-control-এর আলাদা কিউ। এগুলো substantive Risk Level বাড়ায় না।",
+      "note": "Data-quality ও control flag Risk Case থেকে আলাদা পথে থাকবে। F5-এর dependency উৎস ফ্রেমওয়ার্কে এখনো অমীমাংসিত।"
+    },
+    "secondReview": {
+      "title": "দ্বিতীয় পর্যালোচনা",
+      "description": "কেস বন্ধের আগে সম্পূর্ণ verification trail-এর supervisory review।",
+      "note": "বর্তমান design brief অনুযায়ী supervising Range Officer second review করবেন। Review-এ নির্দিষ্ট signal ও evidence উল্লেখ করতে হবে; generic approval যথেষ্ট নয়। Outcome: Sign off অথবা Request rework।"
+    },
+    "rules": {
+      "title": "রুলস ও গভর্ন্যান্স",
+      "description": "Versioned rule change, বাধ্যতামূলক dry-run, endorsement, approval ও controlled rollout।",
+      "note": "Rule কখনো in-place edit হবে না। বর্তমান design assumption অনুযায়ী DCT authoring → Range Officer endorsement → Commissioner approval। Shadow mode case route না করে শুধু ফল record করে।"
+    },
+    "reconciliation": {
+      "title": "রিকনসিলিয়েশন",
+      "description": "প্রতিটি high-risk return-এর জন্য সংশ্লিষ্ট case আছে কি না—দৈনিক যাচাই।",
+      "note": "Range Officer তার Circles এবং Commissioner Zone স্তরে reconciliation দেখবেন। mismatch oversight issue; এটি Risk Level নীরবে বদলায় না।"
+    },
+    "trail": {
+      "title": "অডিট ট্রেইল",
+      "description": "Assessment, human decision ও sensitive-data access-এর append-only event history।",
+      "note": "কিছু overwrite বা delete হবে না। Correction নতুন event। Return Version, Classification Version ও Rule/Config Version সঙ্গে থাকবে যাতে মূল সিদ্ধান্ত পুনর্গঠন করা যায়।"
+    },
+    "allTaxpayers": {
+      "title": "সকল করদাতা",
+      "description": "সব Circle জুড়ে global audit population। যেকোনো taxpayer বা return খুঁজে Circle ও audit dimension দিয়ে population narrow করা যাবে।",
+      "note": "এই Audit workspace cross-Circle access-এর জন্য configured। Circle access boundary নয়; operational context ও filter হিসেবে থাকবে।"
+    }
+  },
+  "overview": {
+    "openRiskCases": "খোলা রিস্ক কেস",
+    "evidencePending": "Evidence pending",
+    "readyForSecondReview": "Second review-এর জন্য প্রস্তুত",
+    "slaEscalations": "SLA escalation",
+    "scopedByJurisdiction": "Circle / Range / Zone scope",
+    "signalLinkedEvidence": "Evidence নির্দিষ্ট signal-এর সাথে linked",
+    "rangeOfficerQueue": "Supervisory queue",
+    "proposedSlaNote": "প্রস্তাবিত, এখনো অনুমোদিত নয় এমন SLA ভিত্তিক",
+    "riskDistribution": "Risk Level distribution",
+    "queueHealth": "Queue health",
+    "roleScope": "Role ও jurisdiction scope",
+    "riskPrincipleTitle": "মূল সিদ্ধান্ত নীতি",
+    "riskPrinciple": "Screening → Verification → Audit → Final Determination আলাদা কার্যক্রম। কোনো signal বা Risk Level নিজে থেকে Finding, assessment, demand বা accusation হয়ে যায় না।",
+    "globalAccessTitle": "Global audit access",
+    "globalAccessDescription": "এই officer সব Circle-এর taxpayer inspect করতে পারবেন। Circle filtering, grouping ও operational context হিসেবে থাকবে।",
+    "allCircles": "সব Circle",
+    "globalScope": "সব Circle",
+    "auditCandidates": "অডিট প্রার্থী",
+    "auditCandidatesSub": "Audit register-এ নির্বাচিত taxpayer",
+    "activeAuditCases": "Active audit case",
+    "activeAuditCasesSub": "বর্তমানে audit workflow-এ থাকা case",
+    "evidenceToResolve": "সমাধানযোগ্য evidence",
+    "evidenceToResolveSub": "Pending, partial বা এখনো request না-করা evidence",
+    "openControlItems": "খোলা control item",
+    "openControlItemsSub": "অমীমাংসিত Control & Data Quality কাজ",
+    "secondReviewWorkload": "Second review workload",
+    "secondReviewWorkloadSub": "Supervisory review queue-এর case",
+    "closedAudits": "বন্ধ audit",
+    "closedAuditsSub": "বর্তমান audit data-তে সম্পন্ন case",
+    "auditPipeline": "Audit pipeline",
+    "circleWorkload": "Circle workload",
+    "selectionBreakdown": "Audit selection breakdown",
+    "recentActivity": "সাম্প্রতিক audit activity",
+    "existingPlan": "Existing audit plan",
+    "queues": {
+      "risk": "Risk Cases",
+      "control": "Control & Data Quality",
+      "secondReview": "Second Review",
+      "reconciliation": "Reconciliation"
+    },
+    "queueWaiting": {
+      "risk": "Officer / evidence / review",
+      "control": "Data correction / control review",
+      "secondReview": "Supervisory review",
+      "reconciliation": "Missing case resolution"
+    },
+    "pipelineFocus": {
+      "assigned": "শুরু হওয়ার অপেক্ষায়",
+      "verifying": "Signal ও evidence verification",
+      "evidencePending": "Evidence-এর অপেক্ষায়",
+      "readyForReview": "Supervisory review-এর জন্য প্রস্তুত",
+      "secondReview": "Supervisory review",
+      "rework": "অতিরিক্ত verification-এর জন্য ফেরত",
+      "closed": "সম্পন্ন"
+    },
+    "aggregateView": "Aggregate operational view",
+    "reconciliationGaps": "Reconciliation gap",
+    "reconciliationGapsSub": "Matching case ছাড়া high-risk return",
+    "reconciliationAttention": "Reconciliation-এ attention প্রয়োজন",
+    "reconciliationMatched": "Reconciliation matched",
+    "reconciliationSummary": "{{total}} high-risk return-এর মধ্যে {{matched}} case-এর সাথে matched · {{rate}}% matched · {{missing}} missing",
+    "auditOperations": "Audit operations",
+    "auditOperationsNote": "Screening, Verification, Audit এবং Final Determination আলাদা control activity হিসেবে থাকে।",
+    "screeningProfile": "Screening profile",
+    "populationCount": "National-scale prototype view-এ {{count}} returns",
+    "coverageTiers": "Coverage tier",
+    "dataQuality": "Data quality",
+    "signalFrequency": "Signal frequency",
+    "signalFrequencySub": "বর্তমান screening population-এ প্রতিটি risk signal কতবার এসেছে।",
+    "latestSelectionValue": "সর্বশেষ: {{date}}",
+    "viewCandidates": "Audit candidate দেখুন",
+    "candidatesShort": "candidates",
+    "activeShort": "Active",
+    "controlsShort": "Control",
+    "reviewShort": "2nd review",
+    "closedShort": "Closed",
+    "systemAssurance": "System assurance",
+    "reconciliation": "Reconciliation",
+    "reconciliationMatchedShort": "{{rate}}% matched",
+    "ruleGovernance": "Rule governance",
+    "live": "live",
+    "ruleMix": "{{staged}} staged · {{shadow}} shadow · {{draft}} draft · {{pending}} governance-এর অপেক্ষায়",
+    "auditTrailHealth": "Audit trail",
+    "auditTrailSummary": "{{sensitive}} sensitive-access event logged",
+    "viewAuditTrail": "Audit trail দেখুন",
+    "queueStatus": {
+      "inProgress": "In progress",
+      "pendingReview": "Pending review",
+      "needsAttention": "Attention প্রয়োজন",
+      "matched": "Matched"
+    },
+    "operations": {
+      "screening": "Screening",
+      "screeningDetail": "Audit register-এ নির্বাচিত candidate",
+      "verification": "Verification",
+      "verificationDetail": "Assigned, verifying বা evidence-এর অপেক্ষায়",
+      "audit": "Audit review",
+      "auditDetail": "Ready, second review বা rework",
+      "finalDetermination": "Final determination",
+      "finalDeterminationDetail": "Recorded outcome সহ closed case"
+    },
+    "interactiveScreening": "Interactive screening analytics",
+    "screenedPopulation": "Screened population",
+    "screenedPopulationSub": "National-scale prototype view-এ {{count}} returns",
+    "currentLens": "Current lens",
+    "allRiskLevels": "সব risk level",
+    "clearLens": "Clear",
+    "hoverToExplore": "Risk level-এর উপর hover বা select করলে chart update হবে",
+    "returnsShort": "return",
+    "signalMixForLens": "Risk signal mix",
+    "noSignalsForLens": "এই lens-এ কোনো risk signal নেই।",
+    "selectionActivity": "Selection activity",
+    "selectedOn": "Selection date",
+    "addedOnDate": "Added",
+    "cumulativeCandidates": "Cumulative candidate",
+    "moveThroughSelections": "Selection date-এর মধ্যে move করুন",
+    "currentMetric": "Current metric",
+    "workloadMetric": {
+      "candidates": "Candidate",
+      "active": "Active case",
+      "controls": "Open control",
+      "secondReview": "Second review",
+      "closed": "Closed",
+      "evidence": "Evidence pending"
+    },
+    "reconciliationKpiSub": "{{rate}}% matched · {{missing}} missing",
+    "all": "সব",
+    "dataExplorer": "অডিট ডেটা এক্সপ্লোরার",
+    "explorePopulation": "অডিট জনসংখ্যা বিশ্লেষণ",
+    "dashboardParameters": "ড্যাশবোর্ড প্যারামিটার",
+    "dragParameterHint": "প্যারামিটার নির্বাচন করুন বা চার্টে টেনে আনুন",
+    "dragParameterTitle": "চার্টে টেনে আনুন অথবা নির্বাচন করুন",
+    "analyzeBy": "বিশ্লেষণ",
+    "dropParameter": "এখানে প্যারামিটার ছাড়ুন",
+    "openTable": "টেবিল খুলুন",
+    "parameters": {
+      "risk": "রিস্ক লেভেল",
+      "signal": "রিস্ক সিগন্যাল",
+      "coverage": "কভারেজ টিয়ার",
+      "quality": "ডেটা কোয়ালিটি",
+      "circle": "সার্কেল",
+      "auditState": "অডিট স্টেট",
+      "controlFlag": "Control flag",
+      "assessmentYear": "Assessment year",
+      "returnVersion": "Return version"
+    },
+    "auditFlow": "অডিট প্রবাহ",
+    "customAnalysis": "ইন্টার‌্যাক্টিভ অডিট বিশ্লেষণ",
+    "customAnalysisHint": "ডেটা গ্রুপ করতে একটি প্যারামিটার বাছাই করুন বা টেনে আনুন। একই জনসংখ্যা সংকুচিত করতে ঐচ্ছিক ফিল্টার দিন।",
+    "groupBy": "গ্রুপ করুন",
+    "filterBy": "ফিল্টার করুন",
+    "filterValue": "মান",
+    "noFilter": "কোনো ফিল্টার নেই",
+    "allValues": "সব মান",
+    "resetAnalysis": "রিসেট",
+    "ofCurrentView": "বর্তমান ভিউ-এর",
+    "openRecords": "রেকর্ড খুলুন",
+    "qualityComplete": "{{rate}}% সম্পূর্ণ",
+    "hoverTimelineHint": "নির্বাচনের তারিখ দেখতে চার্টের উপর সরান",
+    "viewBy": "ভিউ",
+    "addFilter": "ফিল্টার যোগ করুন",
+    "clearFilter": "ফিল্টার মুছুন",
+    "chooseParameter": "প্যারামিটার নির্বাচন করুন",
+    "workloadScope": "Circle scope",
+    "allVerifiedCircles": "Verified Circle",
+    "circlesShort": "Circle",
+    "busiestCircle": "সর্বোচ্চ workload",
+    "averagePerCircle": "প্রতি Circle গড়",
+    "searchCircles": "Circle খুঁজুন",
+    "sortCircles": "Circle সাজান",
+    "circleOrder": "Circle ক্রম",
+    "highestFirst": "সর্বোচ্চ আগে",
+    "noCircleMatch": "এই অনুসন্ধানে কোনো Circle পাওয়া যায়নি।",
+    "selectionDate": "Selection date",
+    "openCandidates": "Candidates খুলুন",
+    "candidateGrowth": "Candidate growth",
+    "chartLegend": "Chart legend",
+    "selectionSources": "Selection sources",
+    "selectionSourcesHint": "নির্বাচিত audit population কোন source থেকে এসেছে",
+    "latestSelection": "সর্বশেষ selection",
+    "nationalScale": "National-scale view",
+    "nationalScaleHelp": "4.0M+ screened-return baseline এবং 72,341 automatic-audit selection baseline ব্যবহার করা হয়েছে। Dashboard-এর অন্যান্য বড় সংখ্যা representative record থেকে proportional prototype projection.",
+    "officialSelectionBaseline": "Published automatic-audit selection baseline",
+    "explainer": {
+      "openDetails": "বিস্তারিত দেখুন",
+      "currentView": "বর্তমান view",
+      "modeledReturns": "Modeled returns",
+      "shareOfView": "বর্তমান view-এর অংশ",
+      "filterContext": "Filter context",
+      "allScreenedReturns": "সব screened return"
+    }
+  },
+  "columns": {
+    "caseId": "Case ID",
+    "caseCount": "কেস",
+    "returnId": "Return ID",
+    "tin": "TIN",
+    "assessmentYear": "Assessment Year",
+    "returnVersion": "Return Version",
+    "circle": "Circle",
+    "coverageTier": "Coverage Tier",
+    "riskLevel": "Risk Level",
+    "status": "Status",
+    "sla": "SLA / handling",
+    "signals": "Signals",
+    "verification": "Verification",
+    "evidenceStatus": "Evidence Status",
+    "evidenceRefs": "Evidence reference",
+    "findingStatus": "Finding Status",
+    "reason": "Reason / basis",
+    "assignedTo": "Assigned to",
+    "flagId": "Flag",
+    "check": "Check",
+    "source": "Source",
+    "dependency": "Dependency",
+    "queue": "Queue",
+    "primarySignal": "Primary signal",
+    "verificationBasis": "Verification basis",
+    "findingSummary": "Finding summary",
+    "submittedBy": "Submitted by",
+    "permittedActions": "Permitted actions",
+    "ruleId": "Rule ID",
+    "version": "Version",
+    "ruleFamily": "Rule family",
+    "dryRun": "Dry run",
+    "governanceStatus": "Governance status",
+    "mode": "Mode",
+    "rolloutScope": "Rollout scope",
+    "authorRole": "Author role",
+    "plainLanguageCondition": "Plain-language condition",
+    "versionNote": "Version note",
+    "date": "তারিখ",
+    "scope": "Scope",
+    "highRiskReturns": "High-risk returns",
+    "matchingCases": "Matching cases",
+    "missingCases": "Missing cases",
+    "supervisorView": "Supervisor view",
+    "timestampUtc": "Timestamp (UTC)",
+    "eventId": "Event ID",
+    "actorRole": "Actor role",
+    "actorId": "Actor ID",
+    "action": "Action",
+    "dataState": "Data state",
+    "assessment": "Assessment record",
+    "humanRecord": "Human record",
+    "accessRecord": "Access record",
+    "classificationVersion": "Classification Version",
+    "ruleConfigVersion": "Rule/Config Version",
+    "reviewHandling": "Review handling",
+    "openItems": "Open items",
+    "waitingOn": "Waiting on",
+    "role": "Role",
+    "jurisdiction": "Jurisdiction",
+    "primaryAuditWork": "Primary audit work",
+    "dataAccess": "Data access",
+    "taxpayer": "করদাতা",
+    "dataQuality": "Data Quality",
+    "controlFlags": "Control Flag",
+    "auditState": "Audit State",
+    "availableData": "Available Data",
+    "stage": "Audit stage",
+    "focus": "বর্তমান focus",
+    "selectionTrack": "Selection track",
+    "candidateCount": "Candidate",
+    "latestSelection": "সর্বশেষ selection",
+    "activeCases": "Active case",
+    "controlOpen": "Open control",
+    "secondReview": "Second review",
+    "closedCases": "Closed"
+  },
+  "filters": {
+    "all": "সব",
+    "riskLevel": "Risk Level",
+    "coverageTier": "Coverage Tier",
+    "status": "Status",
+    "controlFlag": "Control Flag",
+    "governanceStatus": "Governance Status",
+    "mode": "Mode",
+    "viewer": "Viewer",
+    "role": "Role",
+    "return": "Return",
+    "circle": "Circle",
+    "allCircles": "সব Circle",
+    "assessmentYear": "Assessment Year",
+    "dataQuality": "Data Quality",
+    "auditState": "Audit State"
+  },
+  "explainer": {
+    "whatItMeans": "এর অর্থ",
+    "whatItAffects": "এটি কী প্রভাব ফেলে",
+    "nextStep": "পরবর্তী ধাপ",
+    "important": "গুরুত্বপূর্ণ"
+  },
+  "initiate": {
+    "title": "Audit Candidate নির্বাচন",
+    "description": "অডিট candidate নির্বাচন ও confirm করুন।",
+    "progressLabel": "Candidate selection progress",
+    "stepLabels": {
+      "setup": "Selection setup",
+      "population": "Population",
+      "readiness": "Data readiness",
+      "criteria": "Audit criteria",
+      "preview": "Candidate preview",
+      "review": "Final list ও confirm",
+      "riskCriteria": "Risk criteria",
+      "controlCriteria": "Control criteria",
+      "manualSelection": "Taxpayer নির্বাচন",
+      "funnel": "Funnel",
+      "screeningRun": "Screening run"
+    },
+    "steps": {
+      "setup": {
+        "title": "Selection setup",
+        "desc": "Assessment Year এবং selection exercise কীভাবে তৈরি হবে তা নির্ধারণ করুন।"
+      },
+      "population": {
+        "title": "Population নির্বাচন",
+        "desc": "সব Circle অথবা যেকোনো একাধিক Circle একসাথে নির্বাচন করুন। এই officer-এর জন্য Circle access limit নয়; operational filter।"
+      },
+      "readiness": {
+        "title": "Data readiness",
+        "desc": "Checked value-গুলো eligible থাকবে। কোনো Data Quality state বা Coverage Tier uncheck করলে matching return পরের ধাপ থেকে বাদ যাবে।"
+      },
+      "criteria": {
+        "title": "Audit criteria নির্বাচন",
+        "desc": "Risk, control অথবা manual-selection logic প্রয়োগ করুন। Control Flag substantive Risk Signal থেকে আলাদা থাকবে।"
+      },
+      "preview": {
+        "title": "Candidate preview",
+        "desc": "Funnel-এর আগে initial matched candidate list review করুন। এটি আগের step-এর selection ও filter অনুযায়ী তৈরি read-only preview।"
+      },
+      "review": {
+        "title": "Final list ও confirm",
+        "desc": "Funnel-এর পর final candidate list review করুন, তারপর Audit Candidates register-এর জন্য batch confirm করুন।"
+      },
+      "riskCriteria": {
+        "title": "Risk criteria",
+        "desc": "Screen করার জন্য risk condition নির্বাচন করুন।"
+      },
+      "controlCriteria": {
+        "title": "Control criteria",
+        "desc": "এক বা একাধিক F0–F5 filing, arithmetic বা consistency control নির্বাচন করুন। এগুলো substantive Risk Level থেকে আলাদা থাকবে।"
+      },
+      "manualSelection": {
+        "title": "Taxpayer নির্বাচন",
+        "desc": "Readiness-eligible population থেকে search করে নির্দিষ্ট return নির্বাচন করুন। Approved source-এ সংজ্ঞায়িত না থাকলে কোনো legal selection reason code যোগ করা হবে না।"
+      },
+      "funnel": {
+        "title": "Matched candidate funnel করুন",
+        "desc": "Reviewed candidate list-এ transparent batch-size rule প্রয়োগ করে final list তৈরি করুন।"
+      },
+      "screeningRun": {
+        "title": "Screening run",
+        "desc": "Background-এ candidate matching চালান।"
+      }
+    },
+    "fields": {
+      "assessmentYear": "Assessment Year",
+      "selectionTrack": "Selection track",
+      "circleScope": "Circle scope",
+      "selectCircles": "Circle নির্বাচন",
+      "dataQuality": "Data Quality",
+      "coverageTier": "Coverage Tier",
+      "riskLevel": "Risk Level",
+      "riskSignals": "Risk Signal",
+      "controlFlags": "Control Flag",
+      "matchLogic": "Signal match logic",
+      "manualTaxpayers": "Manualভাবে নির্বাচিত taxpayer",
+      "searchTaxpayer": "TIN, Return ID, taxpayer বা Circle খুঁজুন",
+      "searchCircles": "Circle খুঁজুন",
+      "searchDataQuality": "Data Quality খুঁজুন",
+      "searchCoverageTier": "Coverage Tier খুঁজুন",
+      "searchRiskLevel": "Risk Level খুঁজুন",
+      "zone": "Zone"
+    },
+    "tracks": {
+      "population": {
+        "title": "Population / Circle-based Audit",
+        "desc": "Circle ও readiness only"
+      },
+      "risk": {
+        "title": "Risk-based Audit",
+        "desc": "Risk Level বা screening signal"
+      },
+      "control": {
+        "title": "Control / Data Quality Review",
+        "desc": "F0–F5 control flag"
+      },
+      "manual": {
+        "title": "Manual Selection",
+        "desc": "নির্দিষ্ট return নির্বাচন করুন"
+      }
+    },
+    "scope": {
+      "all": {
+        "title": "সব Circle",
+        "desc": "Scope-এর সব Circle"
+      },
+      "selected": {
+        "title": "নির্বাচিত Circle",
+        "desc": "নির্দিষ্ট Circle নির্বাচন করুন"
+      },
+      "unverifiedCircles": "এই Zone-এর verified Circle list এখনও available নয়।",
+      "verifiedOnly": "Selected Circles-এ বর্তমানে NBR source থেকে verified Zone/Circle jurisdiction-গুলোই দেখানো হচ্ছে।"
+    },
+    "actions": {
+      "selectAll": "সব নির্বাচন",
+      "clear": "Clear",
+      "back": "Back",
+      "continue": "Continue",
+      "confirmCandidates": "Candidate confirm",
+      "startScreening": "Screening শুরু করুন",
+      "viewCandidatePreview": "Candidate preview দেখুন",
+      "continueLater": "পরে চালিয়ে যান",
+      "checkStatus": "Status দেখুন",
+      "continueToCandidatePreview": "Candidate preview-এ যান",
+      "next": "Next"
+    },
+    "summary": {
+      "population": "Population",
+      "returns": "returns",
+      "eligibleAfterReadiness": "Screenable",
+      "excludedByReadiness": "Excluded",
+      "matchedCriteria": "Matched",
+      "candidates": "candidate",
+      "finalCandidates": "Final candidate",
+      "allCircles": "সব Circle",
+      "afterFunnel": "Funnel-এর পর",
+      "afterPreview": "Funnel-ready",
+      "allZones": "সব Zone",
+      "alreadyInAudit": "ইতোমধ্যে audit-এ",
+      "available": "Available"
+    },
+    "populationCriteria": {
+      "title": "অতিরিক্ত screening rule প্রয়োজন নেই",
+      "desc": "Population / Circle-based Audit-এ নির্বাচিত Data Quality ও Coverage filter pass করা সব taxpayer Candidate Preview-এ যাবে। এটি product selection workflow; supplied framework-এর Risk Signal নয়।"
+    },
+    "controlCriteria": {
+      "note": "F0–F5 আলাদা Control / Data Quality track-এ handle হবে এবং এগুলো substantive Risk Level নিজে থেকে বাড়ায় না।"
+    },
+    "match": {
+      "any": "নির্বাচিত যেকোনো signal match",
+      "all": "নির্বাচিত সব signal match",
+      "help": "একাধিক signal নির্বাচিত হলে এই logic প্রযোজ্য হবে।",
+      "anyDesc": "নির্বাচিত signal-এর অন্তত একটি থাকলে return অন্তর্ভুক্ত হবে।",
+      "allDesc": "নির্বাচিত সব signal থাকলেই শুধু return অন্তর্ভুক্ত হবে।"
+    },
+    "adjustments": {
+      "title": "Candidate adjustment",
+      "desc": "Confirm করার আগে matched candidate রাখা বা বাদ দিন। কাউকে বাদ দিলে reason বাধ্যতামূলক, যাতে original selection result silently rewrite না হয়।",
+      "include": "Candidate রাখুন",
+      "reason": "Exclusion reason",
+      "reasonPlaceholder": "এই matched taxpayer-কে selection batch থেকে বাদ দেওয়ার কারণ লিখুন।"
+    },
+    "review": {
+      "scope": "Audit scope",
+      "criteria": "Selection criteria",
+      "outcome": "Selection outcome",
+      "candidateCount": "taxpayer Audit Candidates register-এ যোগ হবে।",
+      "confirmTitle": "Confirmation effect",
+      "confirmDesc": "Confirm করলে শুধু candidate record তৈরি হবে; formal audit, Finding ও final determination আলাদা থাকবে।",
+      "funnelRule": "Funnel rule",
+      "finalList": "Representative final list ({{count}})",
+      "finalListHelp": "Confirm করলে এই post-funnel list-ই যোগ হবে।"
+    },
+    "validation": {
+      "completeStep": "Required selection সম্পন্ন করুন।",
+      "noCirclesFound": "এই search-এর সাথে কোনো Circle মেলেনি।",
+      "noResults": "কোনো matching option পাওয়া যায়নি।"
+    },
+    "explain": "{{value}} ব্যাখ্যা",
+    "toast": {
+      "candidatesConfirmed": "{{count}} audit candidate confirm হয়েছে।"
+    },
+    "readiness": {
+      "dataQualityHelp": "অন্তর্ভুক্ত Data Quality state নির্বাচন করুন।",
+      "coverageHelp": "অন্তর্ভুক্ত Coverage Tier নির্বাচন করুন।",
+      "complete": "Complete",
+      "incomplete": "Incomplete",
+      "invalid": "Invalid",
+      "readyCount": "{{count}} ready",
+      "holdCount": "{{count}} hold",
+      "completeOnly": "শুধু Complete"
+    },
+    "impact": {
+      "title": "Selection impact",
+      "description": "Modeled count — কোনো finding নয়।",
+      "populationHelp": "Scoped return population। ২০২৫–২৬ national baseline-এ NBR-এর reported 4M+ e-return ব্যবহার করা হয়েছে।",
+      "eligibleHelp": "নির্বাচিত Data Quality ও Coverage filter-এর পর থাকা return।",
+      "excludedHelp": "বর্তমান readiness selection-এ বাদ পড়া return।",
+      "matchedHelp": "Completed screening run-এ match হওয়া available return।",
+      "finalHelp": "Funnel-এর পর final list-এ থাকা candidate।",
+      "funnelHelp": "Individual preview adjustment-এর আগে funnel rule অনুযায়ী রাখা candidate।",
+      "previewHelp": "Candidate Preview-এ review করা matched candidate। Preview candidate বাদ দেয় না; Funnel ধাপে list কমানো হয়।",
+      "alreadyInAuditHelp": "Readiness-eligible return যেগুলো ইতোমধ্যে audit workflow-এ আছে। এগুলো দেখা যাবে, কিন্তু আবার selection-এ ঢুকবে না।",
+      "availableHelp": "নতুন candidate batch-এর জন্য available readiness-eligible return।",
+      "reauditGuardrail": "ইতোমধ্যে audit-এ থাকা record context-এর জন্য visible থাকবে, কিন্তু আবার Matched, Funnel বা Final candidate হতে পারবে না।"
+    },
+    "riskSignals": {
+      "help": "Return কোন screening signal match করবে তা নির্বাচন করুন। Signal code বা description দিয়ে search করুন।",
+      "searchLabel": "Risk Signal খুঁজুন",
+      "searchPlaceholder": "Signal খুঁজুন",
+      "selectedCount": "{{count}} selected",
+      "noResults": "এই search-এর সাথে কোনো Risk Signal মেলেনি।"
+    },
+    "funnel": {
+      "modes": {
+        "all": {
+          "title": "সব রাখুন",
+          "desc": "সব matched candidate রাখুন"
+        },
+        "percentage": {
+          "title": "Percentage",
+          "desc": "একটি percentage রাখুন"
+        },
+        "fixed": {
+          "title": "Fixed number",
+          "desc": "নির্দিষ্ট সংখ্যা রাখুন"
+        },
+        "limited": {
+          "title": "Percentage with limits",
+          "desc": "Percentage + min/max"
+        }
+      },
+      "fields": {
+        "percentage": "Percentage",
+        "fixedCount": "Candidate সংখ্যা",
+        "minimum": "Minimum candidate",
+        "maximum": "Maximum candidate"
+      },
+      "helpers": {
+        "percentage": "1–100"
+      },
+      "basis": {
+        "percentage": "Matched candidate-এর {{percentage}}%",
+        "fixed": "Fixed {{count}} candidate",
+        "limited": "{{percentage}}% · Min {{minimum}} · Max {{maximum}}"
+      },
+      "orderingNote": "Funnel reviewed-list order বজায় রাখে। কোনো hidden risk score বা ranking তৈরি করে না।"
+    },
+    "previewInfo": "{{value}}-এর details ও explanation দেখুন",
+    "previewSummary": {
+      "initialList": "Representative preview · {{count}} record",
+      "keptCount": "সব {{count}} matched candidate Funnel step-এ যাবে।",
+      "rowsPerPage": "প্রতি পৃষ্ঠায় রেকর্ড",
+      "filteredList": "{{total}} matched candidate-এর মধ্যে {{filtered}}টি"
+    },
+    "previewDecision": {
+      "search": "Candidate খুঁজুন",
+      "sortLabel": "Candidate sort করুন",
+      "sortMismatch": "Mismatch — বেশি আগে",
+      "sortSignals": "Signals — বেশি আগে",
+      "sortRisk": "Risk — বেশি আগে",
+      "sortName": "নাম — A থেকে Z",
+      "signalSwitchLabel": "Risk Signal অনুযায়ী candidate filter",
+      "allSignals": "সব",
+      "patternLabel": "Signal breadth অনুযায়ী filter",
+      "patternAll": "সব candidate",
+      "patternSingle": "একটি signal",
+      "patternMulti": "একাধিক signal",
+      "mapTitle": "Signals বনাম financial mismatch",
+      "mapDescription": "Signal breadth এবং screening discrepancy-এর পরিমাণ পাশাপাশি তুলনা করুন।",
+      "signalBreadth": "Signal breadth",
+      "financialMismatch": "Financial mismatch",
+      "signalCountAxis": "Risk Signals",
+      "risk": "Risk",
+      "signals": "Signals",
+      "mismatch": "Mismatch",
+      "pointLabel": "{{name}}, {{signals}} signal, {{mismatch}} mismatch",
+      "noResults": "এই preview filter-এ কোনো candidate পাওয়া যায়নি।",
+      "guardrail": "Signal count ও mismatch amount আলাদা screening dimension।",
+      "mismatchComparison": "Mismatch comparison",
+      "notAssessedTax": "Screening discrepancy — assessed tax নয়",
+      "thisCandidate": "এই candidate",
+      "previewMedian": "Preview median",
+      "signalBreadthHelp": "Framework-এর ১৫টি signal-এর মধ্যে triggered signal।",
+      "signalBreadthAria": "১৫টির মধ্যে {{count}}টি Risk Signal triggered",
+      "signalFamilies": "Signal family",
+      "availableForSelection": "এই audit-এর জন্য {{count}}টি available",
+      "alreadyInAuditCount": "{{count}}টি ইতোমধ্যে audit-এ",
+      "alreadyInAudit": "ইতোমধ্যে audit-এ",
+      "alreadyInAuditState": "ইতোমধ্যে audit-এ: {{state}}",
+      "comparisonTitle": "Mismatch comparison",
+      "comparisonDescription": "Mismatch amount দিয়ে candidate তুলনা করুন; প্রতিটি record-এর পাশে signal count থাকবে।",
+      "comparisonLegend": "Bar = mismatch · badge = signals",
+      "signalCountShort": "{{count}}টি signal",
+      "selectionSnapshot": "Selection snapshot",
+      "screeningOnly": "শুধু screening context — এটি finding বা assessed tax নয়।",
+      "whySelected": "কেন নির্বাচিত",
+      "noTriggeredSignals": "এই record-এ কোনো substantive Risk Signal যুক্ত নেই।",
+      "medianRatio": "Preview median-এর {{value}}×",
+      "screeningContext": "Screening context",
+      "auditStatus": "Audit status",
+      "available": "Available",
+      "returnId": "Return ID",
+      "controlFlags": "Control flags",
+      "circle": "Circle",
+      "moreEvidenceDetails": "আরও evidence details",
+      "viewLabel": "Candidate preview view",
+      "listView": "List",
+      "comparisonView": "Comparison"
+    },
+    "screening": {
+      "screenable": "Screenable",
+      "criteria": "Criteria",
+      "criteriaValue": "{{levels}} risk level · {{signals}} signal",
+      "expected": "Expected",
+      "duration": "2–10 hours",
+      "started": "Started",
+      "progressLabel": "Screening progress",
+      "status": {
+        "idle": {
+          "title": "Run করার জন্য প্রস্তুত",
+          "desc": "Background-এ candidate matching চলবে।",
+          "label": "শুরু হয়নি"
+        },
+        "processing": {
+          "title": "Screening চলছে",
+          "desc": "Processing শেষ হলে Candidate Preview unlock হবে।",
+          "label": "Processing"
+        },
+        "ready": {
+          "title": "Candidate Preview প্রস্তুত",
+          "desc": "Screening শেষ। Matched candidate review করুন।",
+          "label": "Complete"
+        }
+      },
+      "timeline": {
+        "criteria": "Criteria",
+        "screening": "Screening",
+        "preview": "Candidate preview"
+      },
+      "note": {
+        "idle": "Criteria final হলে run শুরু করুন।",
+        "processing": "এই window বন্ধ করতে পারেন। Run চলতে থাকবে।",
+        "ready": "Matched result review-এর জন্য প্রস্তুত।"
+      },
+      "toastStarted": "Screening run শুরু হয়েছে।",
+      "toastProcessing": "Screening এখনো চলছে।",
+      "toastReady": "Screening শেষ হয়েছে। Candidate Preview প্রস্তুত।"
+    }
+  },
+  "candidates": {
+    "title": "অডিট প্রার্থী",
+    "description": "Candidate batch ও নির্বাচিত return দেখুন।",
+    "yearTitle": "বার্ষিক candidate register",
+    "yearDesc": "Selected মানে taxpayer audit-এর জন্য planned, কিন্তু active audit case এখনো শুরু নাও হতে পারে। কাজ শুরু হলে Audit Status case workflow অনুসরণ করবে।",
+    "tableTitle": "এ বছরের audit candidate",
+    "detailsTitle": "Audit candidate details",
+    "columns": {
+      "candidateId": "Candidate ID",
+      "batchId": "Selection Batch",
+      "selectionTrack": "Selection Track",
+      "selectionBasis": "Selection Basis",
+      "candidateStatus": "Candidate Status",
+      "auditStatus": "Audit Status",
+      "selectedOn": "Selected On",
+      "funnelRule": "Funnel Rule",
+      "populationConsidered": "Population Considered",
+      "eligibleAfterReadiness": "Eligible After Readiness",
+      "matchedCriteria": "Matched Criteria",
+      "afterPreview": "After Preview",
+      "finalCandidates": "Final Candidates",
+      "candidateCount": "Candidate",
+      "primaryReason": "প্রধান selection reason"
+    },
+    "filters": {
+      "selectionTrack": "Selection Track"
+    },
+    "initiateAction": "অডিট শুরু করুন",
+    "batchTableTitle": "অডিট selection batch",
+    "selectedTitle": "অডিটের জন্য নির্বাচিত candidate",
+    "selectedTableTitle": "নির্বাচিত candidate",
+    "selectedTableDescription": "{{batchId}} · {{track}} · {{funnelRule}} · {{count}} candidate",
+    "backToBatches": "Selection batch-এ ফিরে যান",
+    "batchContext": "Selection batch context",
+    "detail": {
+      "title": "Candidate audit profile",
+      "backToCandidates": "নির্বাচিত candidate-এ ফিরে যান",
+      "pathLabel": "Audit candidate path",
+      "taxpayerSummary": "করদাতার সারসংক্ষেপ",
+      "selectionReason": "এই taxpayer audit-এর জন্য কেন নির্বাচিত",
+      "selectionReasonHelp": "এগুলো selection support করা screening indicator; audit finding নয়।",
+      "batchCriteria": "Batch selection criteria",
+      "funnelRule": "Funnel rule",
+      "triggeredSignals": "Triggered screening signal",
+      "screeningBasis": "Audit selection basis",
+      "keyIndicatorsTitle": "প্রধান selection indicator",
+      "evidenceSnapshotHelp": "Selection rationale-এর পেছনের latest value ও change.",
+      "notFinding": "Finding নয়",
+      "selectionProcessDetails": "Selection process details",
+      "controlFlags": "Control ও data quality flag",
+      "comparisonTitle": "৩ বছরের eReturn comparison",
+      "comparisonDescription": "eReturn structure-এর income, tax, wealth, lifestyle, business ও property-এর প্রধান field ব্যবহার করে সর্বশেষ ৩ assessment year পাশাপাশি তুলনা করা হয়েছে।",
+      "keyChangesTitle": "Signal-এর সঙ্গে সম্পর্কিত প্রধান পরিবর্তন",
+      "keyChangesDescription": "এই candidate-এর triggered selection signal-এর সঙ্গে আগে থেকেই linked comparison row-গুলোর দ্রুত সারসংক্ষেপ। এটি নিচের table-এর summary; নতুন score বা finding নয়।",
+      "latestValue": "সর্বশেষ মান",
+      "visualAnalysisTitle": "Signal-linked pattern",
+      "visualAnalysisDescription": "Chart-গুলো comparison table-এ থাকা একই signal-linked value ব্যবহার করে। এগুলো দ্রুত review-এর জন্য; নতুন score, finding বা determination তৈরি করে না।",
+      "trendMetric": "Trend metric",
+      "trendTitle": "৩ বছরের trend",
+      "trendDescription": "নির্বাচিত signal-linked return item-এর বছরভিত্তিক পরিবর্তন।",
+      "changeChartTitle": "Three-year value comparison",
+      "changeChartDescription": "একই monetary scale-এ তিন assessment year-এর signal-linked return value তুলনা করা হয়েছে।",
+      "returnItem": "Return item",
+      "change1y": "১ বছরের পরিবর্তন",
+      "change3y": "৩ বছরের পরিবর্তন",
+      "relatedToSelection": "Selection signal-এর সঙ্গে সম্পর্কিত",
+      "signalTag": "Signal-linked",
+      "negativeBalance": "Negative balance",
+      "viewMode": "Comparison view",
+      "focusView": "Evidence focus",
+      "fullView": "সম্পূর্ণ return data",
+      "evidenceTableTitle": "Signal-linked return values",
+      "evidenceTableDescription": "Triggered screening signal-এর সঙ্গে linked item-গুলোর সঠিক ৩ বছরের return value।",
+      "reasonFallback": "Confirmed audit criteria অনুযায়ী নির্বাচিত।",
+      "manualReason": "Data-readiness pass করা taxpayer population থেকে manually নির্বাচিত।",
+      "populationReason": "Confirmed population scope ও data-readiness criteria অনুযায়ী অন্তর্ভুক্ত।",
+      "controlReason": "Control বা data-quality flag match করেছে: {{flags}}।",
+      "labels": {
+        "returnId": "Return ID",
+        "dataQuality": "Data quality",
+        "coverageTier": "Coverage tier",
+        "selectionTrack": "Selection track"
+      },
+      "sections": {
+        "income": "আয়",
+        "tax": "Tax computation ও payment",
+        "wealth": "সম্পদ, দায় ও fund flow",
+        "business": "Business বা profession",
+        "property": "Rental property"
+      },
+      "metrics": {
+        "employmentIncome": "চাকরি থেকে আয়",
+        "rentalIncome": "ভাড়া থেকে আয়",
+        "agricultureIncome": "কৃষি থেকে আয়",
+        "businessIncome": "Business বা profession থেকে আয়",
+        "financialAssetIncome": "Financial asset থেকে আয়",
+        "totalIncome": "মোট আয়",
+        "grossTax": "Taxable income-এর gross tax",
+        "taxPayable": "Tax payable",
+        "tds": "উৎসে কর্তিত বা সংগৃহীত tax",
+        "advanceTax": "Advance tax paid",
+        "totalTaxPaid": "মোট tax paid ও adjusted",
+        "exemptIncome": "Tax exempted বা tax-free income",
+        "sourceOfFund": "Fund-এর source",
+        "openingNetWealth": "Previous year net wealth carry forward",
+        "netWealth": "Net wealth",
+        "grossWealth": "Gross wealth",
+        "liabilities": "Business-এর বাইরে liabilities",
+        "lifestyleExpense": "Lifestyle expense",
+        "fundOutflow": "মোট fund outflow",
+        "difference": "Source of fund difference",
+        "businessTurnover": "Sales, turnover বা receipts",
+        "businessNetProfit": "Business net profit",
+        "annualRent": "Annual rent",
+        "allowableRentalDeduction": "Allowable rental deduction",
+        "netRentalIncome": "Net rental income"
+      },
+      "signalLabels": {
+        "R-A1": "Zero income + declared asset",
+        "R-A2": "Income declared, tax payable zero",
+        "R-A3": "TDS-implied income floor",
+        "R-B1": "Large asset growth",
+        "R-B2": "Income কমলেও asset বৃদ্ধি",
+        "R-C1": "Reconciliation gap",
+        "R-C2": "Multi-year cumulative gap",
+        "R-C3": "Opening wealth continuity break",
+        "R-C4": "অস্বাভাবিকভাবে কম expenditure",
+        "R-D1": "বারবার zero income বা zero tax",
+        "R-D2": "Alternating declaration pattern",
+        "R-D3": "Trigger-এর পরে amendment",
+        "R-E1": "Payroll বা third-party income mismatch",
+        "R-E2": "Asset registry mismatch",
+        "R-E3": "VAT turnover mismatch"
+      },
+      "signalsShort": "Signals",
+      "guardrailShort": "Screening indicator — audit finding নয়",
+      "moreInfo": "আরও তথ্য",
+      "selectionTrackLabel": "Selection track",
+      "circlesLabel": "Circles",
+      "customComparisonTitle": "Custom comparison",
+      "customComparisonMetric": "Comparison metric",
+      "customComparisonView": "Custom comparison view",
+      "graphView": "Graph",
+      "tableView": "Table",
+      "auditNote": {
+        "title": "Audit note",
+        "situation": "পরিস্থিতি",
+        "issue": "মূল সমস্যা",
+        "nextActionLabel": "পরবর্তী কাজ",
+        "situationValue": "{{risk}} priority · {{status}}",
+        "moreSignals": "+আরও {{count}}টি",
+        "nextAction": "Review-এর আগে {{evidence}} যাচাই করুন।",
+        "nextActionWithMore": "প্রথমে {{evidence}} যাচাই করুন, এরপর বাকি {{count}}টি signal review করুন।",
+        "defaultAction": "এগোনোর আগে selection basis ও supporting evidence review করুন।",
+        "defaultEvidence": "supporting evidence",
+        "actions": {
+          "R-A1": "declared income ও asset evidence",
+          "R-A2": "tax computation ও zero-payable basis",
+          "R-A3": "declared income-এর বিপরীতে TDS data",
+          "R-B1": "asset growth-এর source ও supporting funds",
+          "R-B2": "asset growth-এর বিপরীতে income decline",
+          "R-C1": "fund-flow reconciliation",
+          "R-C2": "multi-year fund-flow gap",
+          "R-C3": "opening wealth continuity",
+          "R-C4": "available evidence-এর বিপরীতে declared expenditure",
+          "R-D1": "zero-income ও zero-tax history",
+          "R-D2": "year-to-year declaration pattern",
+          "R-D3": "post-trigger amendment ও prior return version",
+          "R-E1": "payroll বা third-party income evidence",
+          "R-E2": "external asset-registry evidence",
+          "R-E3": "declared business receipts-এর বিপরীতে VAT turnover"
+        }
+      }
+    }
+  }
+}

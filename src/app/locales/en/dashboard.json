@@ -1,0 +1,115 @@
+{
+  "main": {
+    "title": "Dashboard",
+    "subtitle": "View key return, approval, collection, and user activity for the selected assessment year.",
+    "welcome": "Welcome back",
+    "overview": "Overview"
+  },
+  "kpis": {
+    "totalReturnsFiled": "Total Returns Filed",
+    "totalRequests": "Total Requests",
+    "totalPsr": "Total PSR",
+    "pendingApprovals": "Pending Approvals",
+    "approvedToday": "Approved Today",
+    "rejectedToday": "Rejected Today",
+    "taxCollectedBdt": "Tax Collected (BDT)",
+    "totalTaxCollected": "Total Tax Collected",
+    "activeUsers": "Active Users",
+    "totalPsrEntries": "Total PSR Entries",
+    "totalDoubleEntry": "Total Double Entry",
+    "pendingApproval": "Pending Approval"
+  },
+  "sections": {
+    "recentSubmissions": "Recent Submissions",
+    "recentPsrEntries": "Recent PSR Entries",
+    "circlewiseSummary": "Circle-wise Summary",
+    "circlewisePsrStatus": "Circle-wise PSR Status",
+    "offlineReturnsToday": "Offline Returns (Today)",
+    "litigationArrearToday": "Litigation Arrear (Today)",
+    "taxCategorySubmissions": "Tax Category Submissions"
+  },
+  "psr": {
+    "title": "PSR Dashboard",
+    "subtitle": "Track PSR entries, approvals, rejections, and circle-wise progress",
+    "kpis": {
+      "totalPsrEntries": "Total PSR Entries",
+      "pendingApproval": "Pending Approval",
+      "approvedToday": "Approved Today",
+      "rejectedToday": "Rejected Today",
+      "totalDoubleEntry": "Total Double Entry"
+    },
+    "sections": {
+      "circlewisePsrStatus": "Circle-wise PSR Status",
+      "recentPsrEntries": "Recent PSR Entries",
+      "overview": "PSR Overview",
+      "requestSummary": "PSR Request Summary"
+    },
+    "requestSummary": {
+      "today": "Today",
+      "thisMonth": "This Month (October 2026)",
+      "totalToDate": "Total to Date"
+    }
+  },
+  "combined": {
+    "title": "Double Entry Dashboard",
+    "subtitle": "Track double-entry initialization, completion, and approvals by zone, circle, and user.",
+    "kpis": {
+      "notInitialized": "Not Initialized",
+      "initialized": "Initialized",
+      "pending": "Pending",
+      "totalApproved": "Total Approved"
+    },
+    "sections": {
+      "offlineReturnsToday": "Offline Returns (Today)",
+      "litigationArrearToday": "Litigation Arrear (Today)",
+      "taxCategorySubmissions": "Tax Category Submissions",
+      "overview": "PSR Status Overview",
+      "zonewiseStatus": "Zone-wise Double Entry Status",
+      "circlewiseStatus": "Circle-wise Double Entry Status",
+      "userwiseStatus": "User Entry Activity"
+    },
+    "zoneSubtitle": "Showing circle-level Double Entry progress for {{zone}}.",
+    "circleSubtitle": "Showing officer-level Double Entry progress for {{circle}} in {{zone}}.",
+    "actions": {
+      "backToZones": "Back to Zones",
+      "backToCircles": "Back to Circles"
+    }
+  },
+  "combineDashboard": {
+    "title": "Combine Dashboard",
+    "subtitle": "View online and offline submission and tax totals for the selected assessment year.",
+    "reportTitle": "Online and Offline (Combined Report)"
+  },
+  "stats": {
+    "totalReturns": "Total Returns",
+    "pendingApprovals": "Pending Approvals",
+    "completedCases": "Completed Cases",
+    "activePSR": "Active PSR",
+    "revenue": "Revenue",
+    "growth": "Growth",
+    "change": "Change"
+  },
+  "charts": {
+    "monthlyReturns": "Monthly Returns",
+    "revenueByCategory": "Revenue by Category",
+    "approvalStatus": "Approval Status",
+    "activityTrend": "Activity Trend"
+  },
+  "recent": {
+    "recentActivity": "Recent Activity",
+    "recentApprovals": "Recent Approvals",
+    "recentReturns": "Recent Returns",
+    "viewAll": "View All"
+  },
+  "actions": {
+    "seeMore": "See More",
+    "seeLess": "See Less"
+  },
+  "labels": {
+    "asOf": "As of",
+    "paidBy": "Paid by {{count}} taxpayers",
+    "paidByZero": "Paid by 0 taxpayers",
+    "claimedBy": "Claimed by {{count}} taxpayers",
+    "claimedByZero": "Claimed by 0 taxpayers"
+  }
+}

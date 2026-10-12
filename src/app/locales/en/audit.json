@@ -1,0 +1,869 @@
+{
+  "prototypeNotice": "Illustrative prototype records only — not live taxpayer data. Proposed SLA values and unresolved role/policy assumptions remain subject to formal approval.",
+  "common": {
+    "records": "records",
+    "search": "Search Audit",
+    "readOnly": "Read only",
+    "readOnlyDetails": "Audit event details",
+    "recordDetails": "Audit record details"
+  },
+  "pages": {
+    "overview": {
+      "title": "Audit Overview",
+      "description": "Current audit workload across selection, active cases, evidence, controls, review, reconciliation and closure."
+    },
+    "riskCases": {
+      "title": "Risk Cases",
+      "description": "Prioritized cases created from substantive A–E risk signals across the officer's global Audit scope.",
+      "note": "Risk Level is a review priority, not a conclusion. Findings require a verified signal linked to evidence. TIN is masked by default."
+    },
+    "control": {
+      "title": "Control & Data Quality",
+      "description": "Separate F0–F5 consistency and filing-control queue. These items do not increase substantive Risk Level.",
+      "note": "Data-quality and control flags stay on a separate path from Risk Cases. F5 dependency remains unresolved in the source framework."
+    },
+    "secondReview": {
+      "title": "Second Review",
+      "description": "Supervisory review of completed verification trails before closure.",
+      "note": "The current design brief assigns second review to the supervising Range Officer. Review must name the signal and evidence; generic approval text is not sufficient. Permitted outcomes are Sign off or Request rework."
+    },
+    "rules": {
+      "title": "Rules & Governance",
+      "description": "Versioned rule change requests, mandatory dry-runs, endorsement, approval and controlled rollout.",
+      "note": "Rules are never edited in place. New or changed rules require a dry-run, then follow DCT authoring → Range Officer endorsement → Commissioner approval under the current design assumption. Shadow mode records results without routing cases."
+    },
+    "reconciliation": {
+      "title": "Reconciliation",
+      "description": "Daily confirmation that each high-risk return has a corresponding case within the relevant supervisory scope.",
+      "note": "Reconciliation is surfaced to Range Officers for their Circles and to the Commissioner for the Zone. A mismatch is an oversight issue; it does not silently change Risk Level."
+    },
+    "trail": {
+      "title": "Audit Trail",
+      "description": "Append-only event history for assessment, human decisions and sensitive-data access.",
+      "note": "Nothing is overwritten or deleted. Corrections are new events. Return Version, Classification Version and Rule/Config Version travel with the assessment so the original decision can be reconstructed."
+    },
+    "allTaxpayers": {
+      "title": "All Taxpayers",
+      "description": "Global audit population across all Circles. Search any taxpayer or return, then use Circle and audit dimensions to narrow the population.",
+      "note": "This Audit workspace is configured for cross-Circle access. Circle remains an operational context and filter, not an access boundary."
+    }
+  },
+  "overview": {
+    "openRiskCases": "Open risk cases",
+    "evidencePending": "Evidence pending",
+    "readyForSecondReview": "Ready for second review",
+    "slaEscalations": "SLA escalations",
+    "scopedByJurisdiction": "Circle / Range / Zone scope",
+    "signalLinkedEvidence": "Evidence stays linked to a specific signal",
+    "rangeOfficerQueue": "Supervisory queue",
+    "proposedSlaNote": "Based on proposed, not approved, SLA defaults",
+    "riskDistribution": "Risk Level distribution",
+    "queueHealth": "Queue health",
+    "roleScope": "Role and jurisdiction scope",
+    "riskPrincipleTitle": "Core decision principle",
+    "riskPrinciple": "Screening → Verification → Audit → Final Determination are separate activities. A signal or Risk Level does not automatically become a Finding, assessment, demand or accusation.",
+    "globalAccessTitle": "Global audit access",
+    "globalAccessDescription": "This officer can inspect taxpayers across all Circles. Circle is retained for filtering, grouping and operational context.",
+    "allCircles": "All Circles",
+    "globalScope": "All Circles",
+    "auditCandidates": "Audit candidates",
+    "auditCandidatesSub": "Selected taxpayers in the audit register",
+    "activeAuditCases": "Active audit cases",
+    "activeAuditCasesSub": "Cases currently moving through audit",
+    "evidenceToResolve": "Evidence to resolve",
+    "evidenceToResolveSub": "Pending, partial or not-yet-requested evidence",
+    "openControlItems": "Open control items",
+    "openControlItemsSub": "Unresolved Control & Data Quality work",
+    "secondReviewWorkload": "Second review workload",
+    "secondReviewWorkloadSub": "Cases in the supervisory review queue",
+    "closedAudits": "Closed audits",
+    "closedAuditsSub": "Completed cases in the current audit data",
+    "auditPipeline": "Audit pipeline",
+    "circleWorkload": "Circle workload",
+    "selectionBreakdown": "Audit selection breakdown",
+    "recentActivity": "Recent audit activity",
+    "existingPlan": "Existing audit plan",
+    "queues": {
+      "risk": "Risk Cases",
+      "control": "Control & Data Quality",
+      "secondReview": "Second Review",
+      "reconciliation": "Reconciliation"
+    },
+    "queueWaiting": {
+      "risk": "Officer / evidence / review",
+      "control": "Data correction / control review",
+      "secondReview": "Supervisory review",
+      "reconciliation": "Missing case resolution"
+    },
+    "pipelineFocus": {
+      "assigned": "Waiting to start",
+      "verifying": "Signal and evidence verification",
+      "evidencePending": "Waiting for evidence",
+      "readyForReview": "Ready for supervisory review",
+      "secondReview": "Supervisory review",
+      "rework": "Returned for additional verification",
+      "closed": "Completed"
+    },
+    "aggregateView": "Aggregate operational view",
+    "reconciliationGaps": "Reconciliation gaps",
+    "reconciliationGapsSub": "High-risk returns without a matching case",
+    "reconciliationAttention": "Reconciliation needs attention",
+    "reconciliationMatched": "Reconciliation matched",
+    "reconciliationSummary": "{{matched}} of {{total}} high-risk returns matched to cases · {{rate}}% matched · {{missing}} missing",
+    "auditOperations": "Audit operations",
+    "auditOperationsNote": "Screening, Verification, Audit and Final Determination remain separate control activities.",
+    "screeningProfile": "Screening profile",
+    "populationCount": "{{count}} returns in the national-scale prototype view",
+    "coverageTiers": "Coverage tiers",
+    "dataQuality": "Data quality",
+    "signalFrequency": "Signal frequency",
+    "signalFrequencySub": "How often each risk signal appears in the current screening population.",
+    "latestSelectionValue": "Latest: {{date}}",
+    "viewCandidates": "View audit candidates",
+    "candidatesShort": "candidates",
+    "activeShort": "Active",
+    "controlsShort": "Controls",
+    "reviewShort": "2nd review",
+    "closedShort": "Closed",
+    "systemAssurance": "System assurance",
+    "reconciliation": "Reconciliation",
+    "reconciliationMatchedShort": "{{rate}}% matched",
+    "ruleGovernance": "Rule governance",
+    "live": "live",
+    "ruleMix": "{{staged}} staged · {{shadow}} shadow · {{draft}} draft · {{pending}} awaiting governance",
+    "auditTrailHealth": "Audit trail",
+    "auditTrailSummary": "{{sensitive}} sensitive-access event(s) logged",
+    "viewAuditTrail": "View audit trail",
+    "queueStatus": {
+      "inProgress": "In progress",
+      "pendingReview": "Pending review",
+      "needsAttention": "Needs attention",
+      "matched": "Matched"
+    },
+    "operations": {
+      "screening": "Screening",
+      "screeningDetail": "Selected candidates in the audit register",
+      "verification": "Verification",
+      "verificationDetail": "Assigned, verifying or waiting for evidence",
+      "audit": "Audit review",
+      "auditDetail": "Ready, second review or rework",
+      "finalDetermination": "Final determination",
+      "finalDeterminationDetail": "Cases closed with a recorded outcome"
+    },
+    "interactiveScreening": "Interactive screening analytics",
+    "screenedPopulation": "Screened population",
+    "screenedPopulationSub": "{{count}} returns in the national-scale prototype view",
+    "currentLens": "Current lens",
+    "allRiskLevels": "All risk levels",
+    "clearLens": "Clear",
+    "hoverToExplore": "Hover or select a risk level to update the charts",
+    "returnsShort": "returns",
+    "signalMixForLens": "Risk signal mix",
+    "noSignalsForLens": "No risk signals are present in this lens.",
+    "selectionActivity": "Selection activity",
+    "selectedOn": "Selection date",
+    "addedOnDate": "Added",
+    "cumulativeCandidates": "Cumulative candidates",
+    "moveThroughSelections": "Move through selection dates",
+    "currentMetric": "Current metric",
+    "workloadMetric": {
+      "candidates": "Candidates",
+      "active": "Active cases",
+      "controls": "Open controls",
+      "secondReview": "Second review",
+      "closed": "Closed",
+      "evidence": "Evidence pending"
+    },
+    "reconciliationKpiSub": "{{rate}}% matched · {{missing}} missing",
+    "all": "All",
+    "dataExplorer": "Audit data explorer",
+    "explorePopulation": "Explore audit population",
+    "dashboardParameters": "Dashboard parameters",
+    "dragParameterHint": "Select a parameter or drag it into the chart",
+    "dragParameterTitle": "Drag this parameter into the chart, or select it",
+    "analyzeBy": "Analyze by",
+    "dropParameter": "Drop a parameter here",
+    "openTable": "Open table",
+    "parameters": {
+      "risk": "Risk level",
+      "signal": "Risk signal",
+      "coverage": "Coverage tier",
+      "quality": "Data quality",
+      "circle": "Circle",
+      "auditState": "Audit state",
+      "controlFlag": "Control flag",
+      "assessmentYear": "Assessment year",
+      "returnVersion": "Return version"
+    },
+    "auditFlow": "Audit flow",
+    "customAnalysis": "Interactive audit analysis",
+    "customAnalysisHint": "Choose or drag a parameter to group the data. Add an optional filter to narrow the same population.",
+    "groupBy": "Group by",
+    "filterBy": "Filter by",
+    "filterValue": "Value",
+    "noFilter": "No filter",
+    "allValues": "All values",
+    "resetAnalysis": "Reset",
+    "ofCurrentView": "of current view",
+    "openRecords": "Open records",
+    "qualityComplete": "{{rate}}% complete",
+    "hoverTimelineHint": "Move across the chart to inspect a selection date",
+    "viewBy": "View by",
+    "addFilter": "Add filter",
+    "clearFilter": "Clear filter",
+    "chooseParameter": "Choose parameter",
+    "workloadScope": "Circle scope",
+    "allVerifiedCircles": "Verified circles",
+    "circlesShort": "circles",
+    "busiestCircle": "Highest workload",
+    "averagePerCircle": "Average per circle",
+    "searchCircles": "Search circles",
+    "sortCircles": "Sort circles",
+    "circleOrder": "Circle order",
+    "highestFirst": "Highest first",
+    "noCircleMatch": "No circles match this search.",
+    "selectionDate": "Selection date",
+    "openCandidates": "Open candidates",
+    "candidateGrowth": "Candidate growth",
+    "chartLegend": "Chart legend",
+    "selectionSources": "Selection sources",
+    "selectionSourcesHint": "Where the selected audit population came from",
+    "latestSelection": "Latest selection",
+    "nationalScale": "National-scale view",
+    "nationalScaleHelp": "4.0M+ screened-return baseline and 72,341 automatic-audit selection baseline. Other dashboard totals are proportional prototype projections from representative records.",
+    "officialSelectionBaseline": "Published automatic-audit selection baseline",
+    "explainer": {
+      "openDetails": "View details",
+      "currentView": "Current view",
+      "modeledReturns": "Modeled returns",
+      "shareOfView": "Share of current view",
+      "filterContext": "Filter context",
+      "allScreenedReturns": "All screened returns"
+    }
+  },
+  "columns": {
+    "caseId": "Case ID",
+    "caseCount": "Cases",
+    "returnId": "Return ID",
+    "tin": "TIN",
+    "assessmentYear": "Assessment Year",
+    "returnVersion": "Return Version",
+    "circle": "Circle",
+    "coverageTier": "Coverage Tier",
+    "riskLevel": "Risk Level",
+    "status": "Status",
+    "sla": "SLA / handling",
+    "signals": "Signals",
+    "verification": "Verification",
+    "evidenceStatus": "Evidence Status",
+    "evidenceRefs": "Evidence references",
+    "findingStatus": "Finding Status",
+    "reason": "Reason / basis",
+    "assignedTo": "Assigned to",
+    "flagId": "Flag",
+    "check": "Check",
+    "source": "Source",
+    "dependency": "Dependency",
+    "queue": "Queue",
+    "primarySignal": "Primary signal",
+    "verificationBasis": "Verification basis",
+    "findingSummary": "Finding summary",
+    "submittedBy": "Submitted by",
+    "permittedActions": "Permitted actions",
+    "ruleId": "Rule ID",
+    "version": "Version",
+    "ruleFamily": "Rule family",
+    "dryRun": "Dry run",
+    "governanceStatus": "Governance status",
+    "mode": "Mode",
+    "rolloutScope": "Rollout scope",
+    "authorRole": "Author role",
+    "plainLanguageCondition": "Plain-language condition",
+    "versionNote": "Version note",
+    "date": "Date",
+    "scope": "Scope",
+    "highRiskReturns": "High-risk returns",
+    "matchingCases": "Matching cases",
+    "missingCases": "Missing cases",
+    "supervisorView": "Supervisor view",
+    "timestampUtc": "Timestamp (UTC)",
+    "eventId": "Event ID",
+    "actorRole": "Actor role",
+    "actorId": "Actor ID",
+    "action": "Action",
+    "dataState": "Data state",
+    "assessment": "Assessment record",
+    "humanRecord": "Human record",
+    "accessRecord": "Access record",
+    "classificationVersion": "Classification Version",
+    "ruleConfigVersion": "Rule/Config Version",
+    "reviewHandling": "Review handling",
+    "openItems": "Open items",
+    "waitingOn": "Waiting on",
+    "role": "Role",
+    "jurisdiction": "Jurisdiction",
+    "primaryAuditWork": "Primary audit work",
+    "dataAccess": "Data access",
+    "taxpayer": "Taxpayer",
+    "dataQuality": "Data Quality",
+    "controlFlags": "Control Flags",
+    "auditState": "Audit State",
+    "availableData": "Available Data",
+    "stage": "Audit stage",
+    "focus": "Current focus",
+    "selectionTrack": "Selection track",
+    "candidateCount": "Candidates",
+    "latestSelection": "Latest selection",
+    "activeCases": "Active cases",
+    "controlOpen": "Open controls",
+    "secondReview": "Second review",
+    "closedCases": "Closed"
+  },
+  "filters": {
+    "all": "All",
+    "riskLevel": "Risk Level",
+    "coverageTier": "Coverage Tier",
+    "status": "Status",
+    "controlFlag": "Control Flag",
+    "governanceStatus": "Governance Status",
+    "mode": "Mode",
+    "viewer": "Viewer",
+    "role": "Role",
+    "return": "Return",
+    "circle": "Circle",
+    "allCircles": "All Circles",
+    "assessmentYear": "Assessment Year",
+    "dataQuality": "Data Quality",
+    "auditState": "Audit State"
+  },
+  "explainer": {
+    "whatItMeans": "What it means",
+    "whatItAffects": "What it affects",
+    "nextStep": "Next step",
+    "important": "Important"
+  },
+  "initiate": {
+    "title": "Select Audit Candidates",
+    "description": "Select and confirm audit candidates.",
+    "progressLabel": "Candidate selection progress",
+    "stepLabels": {
+      "setup": "Selection setup",
+      "population": "Population",
+      "readiness": "Data readiness",
+      "criteria": "Audit criteria",
+      "preview": "Candidate preview",
+      "review": "Final list & confirm",
+      "riskCriteria": "Risk criteria",
+      "controlCriteria": "Control criteria",
+      "manualSelection": "Select taxpayers",
+      "funnel": "Funnel",
+      "screeningRun": "Screening run"
+    },
+    "steps": {
+      "setup": {
+        "title": "Selection setup",
+        "desc": "Choose the assessment year and how this selection exercise will be built."
+      },
+      "population": {
+        "title": "Select population",
+        "desc": "Audit all Circles or combine any set of Circles. Circle is an operational filter, not an access limit for this officer."
+      },
+      "readiness": {
+        "title": "Data readiness",
+        "desc": "Checked values stay eligible. Uncheck a Data Quality state or Coverage Tier to remove matching returns from the next step."
+      },
+      "criteria": {
+        "title": "Select audit criteria",
+        "desc": "Apply the relevant risk, control or manual-selection logic. The system keeps Control Flags separate from substantive Risk Signals."
+      },
+      "preview": {
+        "title": "Candidate preview",
+        "desc": "Review the initial matched candidate list before funneling. This is a read-only preview of the selections and filters completed in the earlier steps."
+      },
+      "review": {
+        "title": "Final list & confirm",
+        "desc": "Review the final candidate list after the funnel, then confirm the batch for the Audit Candidates register."
+      },
+      "riskCriteria": {
+        "title": "Risk criteria",
+        "desc": "Choose the risk conditions to screen."
+      },
+      "controlCriteria": {
+        "title": "Control criteria",
+        "desc": "Select one or more F0–F5 filing, arithmetic or consistency controls. These controls remain separate from substantive Risk Level."
+      },
+      "manualSelection": {
+        "title": "Select taxpayers",
+        "desc": "Search the readiness-eligible population and select individual returns directly. No legal selection reason code is added unless it is defined by an approved source."
+      },
+      "funnel": {
+        "title": "Funnel matched candidates",
+        "desc": "Apply a transparent batch-size rule to the reviewed candidate list before producing the final list."
+      },
+      "screeningRun": {
+        "title": "Screening run",
+        "desc": "Run candidate matching in the background."
+      }
+    },
+    "fields": {
+      "assessmentYear": "Assessment Year",
+      "selectionTrack": "Selection track",
+      "circleScope": "Circle scope",
+      "selectCircles": "Select Circles",
+      "dataQuality": "Data Quality",
+      "coverageTier": "Coverage Tier",
+      "riskLevel": "Risk Level",
+      "riskSignals": "Risk Signals",
+      "controlFlags": "Control Flags",
+      "matchLogic": "Signal match logic",
+      "manualTaxpayers": "Taxpayers selected manually",
+      "searchTaxpayer": "Search TIN, Return ID, taxpayer or Circle",
+      "searchCircles": "Search Circles",
+      "searchDataQuality": "Search Data Quality",
+      "searchCoverageTier": "Search Coverage Tier",
+      "searchRiskLevel": "Search Risk Level",
+      "zone": "Zone"
+    },
+    "tracks": {
+      "population": {
+        "title": "Population / Circle-based Audit",
+        "desc": "Circle and readiness only"
+      },
+      "risk": {
+        "title": "Risk-based Audit",
+        "desc": "Risk level or screening signals"
+      },
+      "control": {
+        "title": "Control / Data Quality Review",
+        "desc": "F0–F5 control flags"
+      },
+      "manual": {
+        "title": "Manual Selection",
+        "desc": "Select individual returns"
+      }
+    },
+    "scope": {
+      "all": {
+        "title": "All Circles",
+        "desc": "All Circles in scope"
+      },
+      "selected": {
+        "title": "Selected Circles",
+        "desc": "Choose specific Circles"
+      },
+      "unverifiedCircles": "Verified Circle list is not available for this Zone yet.",
+      "verifiedOnly": "Selected Circles shows only Zone/Circle jurisdictions currently verified from NBR sources."
+    },
+    "actions": {
+      "selectAll": "Select all",
+      "clear": "Clear",
+      "back": "Back",
+      "continue": "Continue",
+      "confirmCandidates": "Confirm candidates",
+      "startScreening": "Start screening",
+      "viewCandidatePreview": "View candidate preview",
+      "continueLater": "Continue later",
+      "checkStatus": "Check status",
+      "continueToCandidatePreview": "Continue to Candidate preview",
+      "next": "Next"
+    },
+    "summary": {
+      "population": "Population",
+      "returns": "returns",
+      "eligibleAfterReadiness": "Screenable",
+      "excludedByReadiness": "Excluded",
+      "matchedCriteria": "Matched",
+      "candidates": "candidates",
+      "finalCandidates": "Final candidates",
+      "allCircles": "All Circles",
+      "afterFunnel": "After funnel",
+      "afterPreview": "Ready for funnel",
+      "allZones": "All Zones",
+      "alreadyInAudit": "Already in audit",
+      "available": "Available"
+    },
+    "populationCriteria": {
+      "title": "No additional screening rule required",
+      "desc": "For a Population / Circle-based Audit, every taxpayer that survives the selected Data Quality and Coverage filters moves to Candidate Preview. This track is a product selection workflow, not a Risk Signal from the supplied framework."
+    },
+    "controlCriteria": {
+      "note": "F0–F5 are handled on the separate Control / Data Quality track and do not automatically increase substantive Risk Level."
+    },
+    "match": {
+      "any": "Match any selected signal",
+      "all": "Match all selected signals",
+      "help": "This only matters when more than one signal is selected.",
+      "anyDesc": "Include a return when at least one selected signal is present.",
+      "allDesc": "Include a return only when every selected signal is present."
+    },
+    "adjustments": {
+      "title": "Candidate adjustments",
+      "desc": "Keep or exclude individual matches before confirmation. Excluding a matched taxpayer requires a reason so the original selection result is not silently rewritten.",
+      "include": "Include candidate",
+      "reason": "Exclusion reason",
+      "reasonPlaceholder": "Explain why this matched taxpayer is excluded from this selection batch."
+    },
+    "review": {
+      "scope": "Audit scope",
+      "criteria": "Selection criteria",
+      "outcome": "Selection outcome",
+      "candidateCount": "taxpayers will be added to the Audit Candidates register.",
+      "confirmTitle": "Confirmation effect",
+      "confirmDesc": "Confirming creates candidate records only; formal audit, Findings and final determination remain separate.",
+      "funnelRule": "Funnel rule",
+      "finalList": "Representative final list ({{count}})",
+      "finalListHelp": "This is the post-funnel list that will be added when you confirm."
+    },
+    "validation": {
+      "completeStep": "Complete required selections.",
+      "noCirclesFound": "No Circles match this search.",
+      "noResults": "No matching options found."
+    },
+    "explain": "Explain {{value}}",
+    "toast": {
+      "candidatesConfirmed": "{{count}} audit candidates confirmed."
+    },
+    "readiness": {
+      "dataQualityHelp": "Select the Data Quality states to include.",
+      "coverageHelp": "Select the Coverage Tiers to include.",
+      "complete": "Complete",
+      "incomplete": "Incomplete",
+      "invalid": "Invalid",
+      "readyCount": "{{count}} ready",
+      "holdCount": "{{count}} on hold",
+      "completeOnly": "Complete only"
+    },
+    "impact": {
+      "title": "Selection impact",
+      "description": "Modeled counts — no findings.",
+      "populationHelp": "Scoped return population. National 2025–26 baseline uses NBR's reported 4M+ e-returns.",
+      "eligibleHelp": "Returns remaining after selected Data Quality and Coverage filters.",
+      "excludedHelp": "Returns excluded by the current readiness selections.",
+      "matchedHelp": "Available returns matched by the completed screening run.",
+      "finalHelp": "Candidates retained after the funnel and shown in the final list.",
+      "funnelHelp": "Candidates retained by the selected funnel rule before individual preview adjustments.",
+      "previewHelp": "Matched candidates reviewed in Candidate Preview. Preview does not remove candidates; the Funnel controls the reduction.",
+      "alreadyInAuditHelp": "Readiness-eligible returns already in an audit workflow. They remain visible but are excluded from re-selection.",
+      "availableHelp": "Readiness-eligible returns available for a new candidate batch.",
+      "reauditGuardrail": "Already in audit records remain visible for context and cannot enter Matched, Funnel, or Final candidates again."
+    },
+    "riskSignals": {
+      "help": "Select the screening signals a return should match. Search by signal code or description.",
+      "searchLabel": "Search Risk Signals",
+      "searchPlaceholder": "Search signals",
+      "selectedCount": "{{count}} selected",
+      "noResults": "No Risk Signals match this search."
+    },
+    "funnel": {
+      "modes": {
+        "all": {
+          "title": "Keep all",
+          "desc": "Keep all matched candidates"
+        },
+        "percentage": {
+          "title": "Percentage",
+          "desc": "Keep a percentage"
+        },
+        "fixed": {
+          "title": "Fixed number",
+          "desc": "Keep a set number"
+        },
+        "limited": {
+          "title": "Percentage with limits",
+          "desc": "Percentage with min/max limits"
+        }
+      },
+      "fields": {
+        "percentage": "Percentage",
+        "fixedCount": "Number of candidates",
+        "minimum": "Minimum candidates",
+        "maximum": "Maximum candidates"
+      },
+      "helpers": {
+        "percentage": "1–100"
+      },
+      "basis": {
+        "percentage": "{{percentage}}% of matched candidates",
+        "fixed": "Fixed {{count}} candidates",
+        "limited": "{{percentage}}% · Min {{minimum}} · Max {{maximum}}"
+      },
+      "orderingNote": "The funnel preserves the reviewed-list order. It does not create a hidden risk score or ranking."
+    },
+    "previewInfo": "View {{value}} details and explanations",
+    "previewSummary": {
+      "initialList": "Representative preview · {{count}} records",
+      "keptCount": "All {{count}} matched candidates will move to the Funnel step.",
+      "rowsPerPage": "Rows per page",
+      "filteredList": "{{filtered}} of {{total}} matched candidates"
+    },
+    "previewDecision": {
+      "search": "Search candidates",
+      "sortLabel": "Sort candidates",
+      "sortMismatch": "Mismatch — high to low",
+      "sortSignals": "Signals — most first",
+      "sortRisk": "Risk — highest first",
+      "sortName": "Name — A to Z",
+      "signalSwitchLabel": "Filter candidates by Risk Signal",
+      "allSignals": "All",
+      "patternLabel": "Filter by signal breadth",
+      "patternAll": "All candidates",
+      "patternSingle": "Single signal",
+      "patternMulti": "Multiple signals",
+      "mapTitle": "Signals vs financial mismatch",
+      "mapDescription": "Compare signal breadth with the size of the screening discrepancy.",
+      "signalBreadth": "Signal breadth",
+      "financialMismatch": "Financial mismatch",
+      "signalCountAxis": "Risk Signals",
+      "risk": "Risk",
+      "signals": "Signals",
+      "mismatch": "Mismatch",
+      "pointLabel": "{{name}}, {{signals}} signals, {{mismatch}} mismatch",
+      "noResults": "No candidates match these preview filters.",
+      "guardrail": "Signal count and mismatch amount are separate screening dimensions.",
+      "mismatchComparison": "Mismatch comparison",
+      "notAssessedTax": "Screening discrepancy — not assessed tax",
+      "thisCandidate": "This candidate",
+      "previewMedian": "Preview median",
+      "signalBreadthHelp": "Triggered signals out of the 15 framework signals.",
+      "signalBreadthAria": "{{count}} Risk Signals triggered out of 15",
+      "signalFamilies": "Signal families",
+      "availableForSelection": "{{count}} available for this audit",
+      "alreadyInAuditCount": "{{count}} already in audit",
+      "alreadyInAudit": "Already in audit",
+      "alreadyInAuditState": "Already in audit: {{state}}",
+      "comparisonTitle": "Mismatch comparison",
+      "comparisonDescription": "Compare candidates by mismatch amount; signal count stays visible beside each record.",
+      "comparisonLegend": "Bar = mismatch · badge = signals",
+      "signalCountShort": "{{count}} signal",
+      "selectionSnapshot": "Selection snapshot",
+      "screeningOnly": "Screening context only — not a finding or assessed tax.",
+      "whySelected": "Why selected",
+      "noTriggeredSignals": "No substantive Risk Signal is attached to this record.",
+      "medianRatio": "{{value}}× preview median",
+      "screeningContext": "Screening context",
+      "auditStatus": "Audit status",
+      "available": "Available",
+      "returnId": "Return ID",
+      "controlFlags": "Control flags",
+      "circle": "Circle",
+      "moreEvidenceDetails": "More evidence details",
+      "viewLabel": "Candidate preview view",
+      "listView": "List",
+      "comparisonView": "Comparison"
+    },
+    "screening": {
+      "screenable": "Screenable",
+      "criteria": "Criteria",
+      "criteriaValue": "{{levels}} risk levels · {{signals}} signals",
+      "expected": "Expected",
+      "duration": "2–10 hours",
+      "started": "Started",
+      "progressLabel": "Screening progress",
+      "status": {
+        "idle": {
+          "title": "Ready to run",
+          "desc": "Candidate matching will run in the background.",
+          "label": "Not started"
+        },
+        "processing": {
+          "title": "Screening in progress",
+          "desc": "Candidate Preview unlocks when processing finishes.",
+          "label": "Processing"
+        },
+        "ready": {
+          "title": "Candidate Preview ready",
+          "desc": "Screening finished. Review the matched candidates.",
+          "label": "Complete"
+        }
+      },
+      "timeline": {
+        "criteria": "Criteria",
+        "screening": "Screening",
+        "preview": "Candidate preview"
+      },
+      "note": {
+        "idle": "Start the run when the criteria are final.",
+        "processing": "You can close this window. The run will continue.",
+        "ready": "The matched result is ready for review."
+      },
+      "toastStarted": "Screening run started.",
+      "toastProcessing": "Screening is still in progress.",
+      "toastReady": "Screening is complete. Candidate Preview is ready."
+    }
+  },
+  "candidates": {
+    "title": "Audit Candidates",
+    "description": "Review candidate batches and selected returns.",
+    "yearTitle": "Annual candidate register",
+    "yearDesc": "Selected means the taxpayer is planned for audit but an active audit case has not necessarily started. Once work begins, Audit Status follows the case workflow.",
+    "tableTitle": "This year's audit candidates",
+    "detailsTitle": "Audit candidate details",
+    "columns": {
+      "candidateId": "Candidate ID",
+      "batchId": "Selection Batch",
+      "selectionTrack": "Selection Track",
+      "selectionBasis": "Selection Basis",
+      "candidateStatus": "Candidate Status",
+      "auditStatus": "Audit Status",
+      "selectedOn": "Selected On",
+      "funnelRule": "Funnel Rule",
+      "populationConsidered": "Population Considered",
+      "eligibleAfterReadiness": "Eligible After Readiness",
+      "matchedCriteria": "Matched Criteria",
+      "afterPreview": "After Preview",
+      "finalCandidates": "Final Candidates",
+      "candidateCount": "Candidates",
+      "primaryReason": "Primary selection reason"
+    },
+    "filters": {
+      "selectionTrack": "Selection Track"
+    },
+    "initiateAction": "Initiate Audit",
+    "batchTableTitle": "Audit selection batches",
+    "selectedTitle": "Candidates selected for audit",
+    "selectedTableTitle": "Selected candidates",
+    "selectedTableDescription": "{{batchId}} · {{track}} · {{funnelRule}} · {{count}} candidates",
+    "backToBatches": "Back to selection batches",
+    "batchContext": "Selection batch context",
+    "detail": {
+      "title": "Candidate audit profile",
+      "backToCandidates": "Back to selected candidates",
+      "pathLabel": "Audit candidate path",
+      "taxpayerSummary": "Taxpayer summary",
+      "selectionReason": "Why this taxpayer is selected for audit",
+      "selectionReasonHelp": "These are screening indicators supporting selection. They are not audit findings.",
+      "batchCriteria": "Batch selection criteria",
+      "funnelRule": "Funnel rule",
+      "triggeredSignals": "Triggered screening signals",
+      "screeningBasis": "Audit selection basis",
+      "keyIndicatorsTitle": "Key selection indicators",
+      "evidenceSnapshotHelp": "Latest values and changes behind the selection rationale.",
+      "notFinding": "Not a finding",
+      "selectionProcessDetails": "Selection process details",
+      "controlFlags": "Control and data quality flags",
+      "comparisonTitle": "Three-year eReturn comparison",
+      "comparisonDescription": "Side-by-side comparison of the latest three assessment years using the major income, tax, wealth, lifestyle, business and property fields from the eReturn structure.",
+      "keyChangesTitle": "Key signal-linked changes",
+      "keyChangesDescription": "A quick view of the comparison rows already linked to this candidate's triggered selection signals. This is a summary of the table below, not a new score or finding.",
+      "latestValue": "Latest value",
+      "visualAnalysisTitle": "Signal-linked patterns",
+      "visualAnalysisDescription": "Charts use only the same signal-linked values shown in the comparison table. They support scanning and do not create a new score, finding or determination.",
+      "trendMetric": "Trend metric",
+      "trendTitle": "Three-year trend",
+      "trendDescription": "Year-by-year movement for the selected signal-linked return item.",
+      "changeChartTitle": "Three-year value comparison",
+      "changeChartDescription": "Compares signal-linked return values across the same three assessment years on one monetary scale.",
+      "returnItem": "Return item",
+      "change1y": "1-year change",
+      "change3y": "3-year change",
+      "relatedToSelection": "Related to selection signal",
+      "signalTag": "Signal-linked",
+      "negativeBalance": "Negative balance",
+      "viewMode": "Comparison view",
+      "focusView": "Evidence focus",
+      "fullView": "Full return data",
+      "evidenceTableTitle": "Signal-linked return values",
+      "evidenceTableDescription": "Exact three-year return values for the items linked to the triggered screening signals.",
+      "reasonFallback": "Selected by the confirmed audit criteria.",
+      "manualReason": "Selected manually from the readiness-eligible taxpayer population.",
+      "populationReason": "Included by the confirmed population scope and data-readiness criteria.",
+      "controlReason": "Matched control or data-quality flag: {{flags}}.",
+      "labels": {
+        "returnId": "Return ID",
+        "dataQuality": "Data quality",
+        "coverageTier": "Coverage tier",
+        "selectionTrack": "Selection track"
+      },
+      "sections": {
+        "income": "Income",
+        "tax": "Tax computation and payment",
+        "wealth": "Assets, liabilities and fund flow",
+        "business": "Business or profession",
+        "property": "Rental property"
+      },
+      "metrics": {
+        "employmentIncome": "Income from employment",
+        "rentalIncome": "Income from rent",
+        "agricultureIncome": "Income from agriculture",
+        "businessIncome": "Income from business or profession",
+        "financialAssetIncome": "Income from financial assets",
+        "totalIncome": "Total income",
+        "grossTax": "Gross tax on taxable income",
+        "taxPayable": "Tax payable",
+        "tds": "Tax deducted or collected at source",
+        "advanceTax": "Advance tax paid",
+        "totalTaxPaid": "Total tax paid and adjusted",
+        "exemptIncome": "Tax exempted or tax-free income",
+        "sourceOfFund": "Source of fund",
+        "openingNetWealth": "Previous-year net wealth carried forward",
+        "netWealth": "Net wealth",
+        "grossWealth": "Gross wealth",
+        "liabilities": "Liabilities outside business",
+        "lifestyleExpense": "Lifestyle expense",
+        "fundOutflow": "Total fund outflow",
+        "difference": "Source of fund difference",
+        "businessTurnover": "Sales, turnover or receipts",
+        "businessNetProfit": "Business net profit",
+        "annualRent": "Annual rent",
+        "allowableRentalDeduction": "Allowable rental deduction",
+        "netRentalIncome": "Net rental income"
+      },
+      "signalLabels": {
+        "R-A1": "Zero income with declared assets",
+        "R-A2": "Income declared while tax payable is zero",
+        "R-A3": "TDS-implied income floor",
+        "R-B1": "Large asset growth",
+        "R-B2": "Income falls while assets grow",
+        "R-C1": "Reconciliation gap",
+        "R-C2": "Multi-year cumulative gap",
+        "R-C3": "Opening wealth continuity break",
+        "R-C4": "Implausibly low expenditure",
+        "R-D1": "Persistent zero income or zero tax",
+        "R-D2": "Alternating declaration pattern",
+        "R-D3": "Amendment after trigger",
+        "R-E1": "Payroll or third-party income mismatch",
+        "R-E2": "Asset registry mismatch",
+        "R-E3": "VAT turnover mismatch"
+      },
+      "signalsShort": "Signals",
+      "guardrailShort": "Screening indicators — not audit findings",
+      "moreInfo": "More information",
+      "selectionTrackLabel": "Selection track",
+      "circlesLabel": "Circles",
+      "customComparisonTitle": "Custom comparison",
+      "customComparisonMetric": "Comparison metric",
+      "customComparisonView": "Custom comparison view",
+      "graphView": "Graph",
+      "tableView": "Table",
+      "auditNote": {
+        "title": "Audit note",
+        "situation": "Situation",
+        "issue": "Issue",
+        "nextActionLabel": "Next action",
+        "situationValue": "{{risk}} priority · {{status}}",
+        "moreSignals": "+{{count}} more",
+        "nextAction": "Verify {{evidence}} before review.",
+        "nextActionWithMore": "Verify {{evidence}} first, then review the remaining {{count}} signal(s).",
+        "defaultAction": "Review the selection basis and supporting evidence before proceeding.",
+        "defaultEvidence": "supporting evidence",
+        "actions": {
+          "R-A1": "declared income and asset evidence",
+          "R-A2": "tax computation and the zero-payable basis",
+          "R-A3": "TDS data against declared income",
+          "R-B1": "the source of asset growth and supporting funds",
+          "R-B2": "the income decline against asset growth",
+          "R-C1": "fund-flow reconciliation",
+          "R-C2": "the multi-year fund-flow gaps",
+          "R-C3": "opening wealth continuity",
+          "R-C4": "declared expenditure against available evidence",
+          "R-D1": "zero-income and zero-tax history",
+          "R-D2": "the year-to-year declaration pattern",
+          "R-D3": "the post-trigger amendment and prior return version",
+          "R-E1": "payroll or third-party income evidence",
+          "R-E2": "external asset-registry evidence",
+          "R-E3": "VAT turnover against declared business receipts"
+        }
+      }
+    }
+  }
+}
