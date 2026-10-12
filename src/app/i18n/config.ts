@@ -27,6 +27,7 @@ import enHelp from "../locales/en/help.json";
 import enPermissions from "../locales/en/permissions.json";
 import enSpecialRegistration from "../locales/en/specialRegistration.json";
 import enAudit from "../locales/en/audit.json";
+import enPayment from "../locales/en/payment.json";
 
 import bnCommon from "../locales/bn/common.json";
 import bnNavigation from "../locales/bn/navigation.json";
@@ -53,6 +54,7 @@ import bnHelp from "../locales/bn/help.json";
 import bnPermissions from "../locales/bn/permissions.json";
 import bnSpecialRegistration from "../locales/bn/specialRegistration.json";
 import bnAudit from "../locales/bn/audit.json";
+import bnPayment from "../locales/bn/payment.json";
 
 const resources = {
   en: {
@@ -81,6 +83,7 @@ const resources = {
     permissions: enPermissions,
     specialRegistration: enSpecialRegistration,
     audit: enAudit,
+    payment: enPayment,
   },
   bn: {
     common: bnCommon,
@@ -108,6 +111,7 @@ const resources = {
     permissions: bnPermissions,
     specialRegistration: bnSpecialRegistration,
     audit: bnAudit,
+    payment: bnPayment,
   },
 };
 
@@ -144,6 +148,7 @@ i18n
       "permissions",
       "specialRegistration",
       "audit",
+      "payment",
     ],
     interpolation: {
       escapeValue: false,

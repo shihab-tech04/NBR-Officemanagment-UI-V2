@@ -8,7 +8,7 @@ describe("Office Management Payments navigation", () => {
     const ids = NAVIGATION.map((item) => item.id);
     expect(ids.indexOf("payments")).toBe(ids.indexOf("audit") + 1);
     expect(NAVIGATION.find((item) => item.id === "payments")?.children.map((item) => item.id))
-      .toEqual(["overview"]);
+      .toEqual(["overview", "transactions", "taxpayer-360", "corrections", "incidents", "offline-events", "analytics"]);
     expect(NAVIGATION.find((item) => item.id === "audit")?.children.some((item) => item.id === "payments"))
       .toBe(false);
   });

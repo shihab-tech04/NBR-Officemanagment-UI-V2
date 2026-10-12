@@ -89,7 +89,13 @@
     "overview": "Overview",
     "summary": "Payment workspace. Existing demand and payment functions remain unchanged.",
     "currentTools": "Existing demand and payment tools",
-    "openCurrentTools": "Open Demand & Payment"
+    "openCurrentTools": "Open Demand & Payment",
+    "transactions": "Transactions",
+    "taxpayer360": "Taxpayer 360",
+    "corrections": "Corrections",
+    "incidents": "Incidents",
+    "offlineEvents": "Offline Events",
+    "analytics": "Analytics"
   },
   "administration": {
     "main": "Administration & Requests",
