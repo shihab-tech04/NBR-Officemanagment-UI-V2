@@ -44,7 +44,7 @@ test('small-screen correction modal has tappable actions',async({page})=>{
  await page.getByRole('button',{name:'Add New'}).click();
  const modal=page.locator('#payment-draft-form');
  await expect(modal).toBeVisible();
- const btn=page.getByRole('button',{name:'Review draft'}).first();
+ const btn=page.locator('.app-modal-footer .app-btn--primary');
  await expect(btn).toBeVisible();
  const height=await btn.evaluate(el=>el.getBoundingClientRect().height);
  expect(height).toBeGreaterThanOrEqual(44);
