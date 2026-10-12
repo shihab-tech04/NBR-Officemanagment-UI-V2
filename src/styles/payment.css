@@ -46,10 +46,10 @@
 @media(max-width:520px){ .payment-module__kpis { grid-template-columns:1fr; } .payment-module__metric { grid-template-columns:1fr auto; } .payment-module__metric progress { grid-column:1/-1; grid-row:2; } }
 
 /* Payment integration uses the baseline GeneratedTablePage shell; scoped only. */
-.payment-module__year-control { width:min(280px,100%); min-width:0; }
+.payment-module__year-control { width:min(280px,100%); min-width:0; margin-top:12px; margin-bottom:20px; }
 .payment-module__sort { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--color-text-secondary); }
 .payment-module__sort select { border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); padding:6px 9px; max-width:140px; }
-.payment-module__sort svg { pointer-events:none; }
+.payment-module__sort svg { display:none; }
 .payment-module__tab-scroll { max-width:100%; overflow-x:auto; scrollbar-width:thin; }
 .payment-module__tab-scroll .tab-bar { flex-wrap:nowrap; width:max-content; min-width:100%; margin-bottom:var(--space-3); }
 .payment-module__tab-scroll .tab-bar__tab { flex:0 0 auto; white-space:nowrap; }
@@ -72,7 +72,8 @@
   .payment-module .table-page__actions .table-page__kpi-toggle { min-height:44px; }
   .app-modal:has(#payment-draft-form) .app-btn { min-height:44px; }
   .payment-module__summary-grid { grid-template-columns:1fr; }
-  .payment-module .dashboard-kpi-grid--1row { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:row; }
+  .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; grid-auto-flow:row; }
+  .payment-module .dashboard-kpi-grid--1row .stat-card__value { white-space:nowrap; overflow:visible; overflow-wrap:normal; }
   .payment-module .dashboard-kpi-grid--1row .stat-card { min-width:0; }
 }
 @media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
