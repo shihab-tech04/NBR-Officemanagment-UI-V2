@@ -163,6 +163,27 @@
   background: var(--color-surface);
 }
 
+/* Footer sizing is shared by ALL AppModal consumers.
+   The Audit Candidates stepper is the reference: compact actions aligned right.
+   .app-btn--md has width:100% for standalone forms; undo that ONLY in footers.
+   Wrapped .crm-footer wizard actions keep their own established contract. */
+.app-modal-footer > .app-btn {
+  width: auto;
+  max-width: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.app-modal-footer > .app-btn--md {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 14px;
+}
+.app-modal-footer > .crm-footer,
+.app-modal-footer > .modal-footer,
+.app-modal-footer > .mobile-modal-footer {
+  width: 100%;
+  min-width: 0;
+}
 /* Danger button inside modal footer → separated to the far left */
 .app-modal-footer .app-btn--danger {
   margin-right: auto;
@@ -232,11 +253,17 @@
     padding: 14px 16px 20px;
   }
 
-  /* One or two direct shared buttons share the mobile row evenly. */
+  /* Keep standard bottom-sheet buttons reachable, side by side, ≥44px tall. */
+  .app-modal-footer > .app-btn {
+    min-height: 44px;
+    height: auto;
+    padding: 10px 12px;
+  }
   .app-modal-footer > .app-btn:only-child,
   .app-modal-footer > .app-btn:first-child:nth-last-child(2),
   .app-modal-footer > .app-btn:first-child:nth-last-child(2) ~ .app-btn {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
   }
 }
