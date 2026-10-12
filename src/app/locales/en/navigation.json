@@ -84,6 +84,13 @@
     "auditCandidates": "Audit Candidates",
     "auditManual": "Audit Manual"
   },
+  "payments": {
+    "main": "Payments",
+    "overview": "Overview",
+    "summary": "Payment workspace. Existing demand and payment functions remain unchanged.",
+    "currentTools": "Existing demand and payment tools",
+    "openCurrentTools": "Open Demand & Payment"
+  },
   "administration": {
     "main": "Administration & Requests",
     "certificateRequests": "Certificate Requests",

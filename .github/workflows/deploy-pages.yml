@@ -31,6 +31,31 @@ jobs:
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
+      - name: Verify built asset paths and files
+        run: |
+          python3 - <<'PYVERIFY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import urlsplit, unquote
+          class Assets(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.paths=[]
+              def handle_starttag(self,tag,attrs):
+                  a=dict(attrs)
+                  if tag == 'script' and a.get('src'): self.paths.append(a['src'])
+                  if tag == 'link' and a.get('rel') == 'stylesheet' and a.get('href'): self.paths.append(a['href'])
+          parser=Assets()
+          parser.feed(Path('dist/index.html').read_text())
+          assert parser.paths, 'No compiled JS/CSS in index.html'
+          prefix='/NBR-Officemanagment-UI-V2/'
+          for url in parser.paths:
+              path=urlsplit(url).path
+              assert path.startswith(prefix), f'Asset outside Pages basename: {path}'
+              file=Path('dist') / unquote(path.removeprefix(prefix))
+              assert file.is_file(), f'Missing built asset: {file}'
+          print('Built asset references verified:', *parser.paths)
+          PYVERIFY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -45,3 +70,51 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify live page and compiled assets
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python3 - <<'PYLIVE'
+          from html.parser import HTMLParser
+          from urllib.parse import urljoin, urlsplit
+          from urllib.request import Request, urlopen
+          import time
+          class Assets(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.paths=[]
+              def handle_starttag(self,tag,attrs):
+                  a=dict(attrs)
+                  if tag == 'script' and a.get('src'): self.paths.append(a['src'])
+                  if tag == 'link' and a.get('rel') == 'stylesheet' and a.get('href'): self.paths.append(a['href'])
+          import os
+          site=(os.environ['SITE_URL'].rstrip('/') + '/')
+          prefix='/NBR-Officemanagment-UI-V2/'
+          assert urlsplit(site).path == prefix, f'Unexpected Pages URL: {site}'
+          def fetch(url):
+              with urlopen(Request(url,headers={'User-Agent':'NBR-Office-Management-release-smoke/1.0','Cache-Control':'no-cache'}),timeout=20) as r:
+                  content=r.read()
+                  return r.status, r.headers.get_content_type(), content
+          last_error=None
+          for attempt in range(12):
+              try:
+                  status,typ,content=fetch(site+'?release='+os.environ['GITHUB_SHA'])
+                  assert status==200 and typ=='text/html', f'HTML: {status}, {typ}'
+                  parser=Assets()
+                  parser.feed(content.decode('utf-8'))
+                  assert parser.paths, 'No built JS/CSS references in live HTML'
+                  for path in parser.paths:
+                      assert urlsplit(path).path.startswith(prefix), f'Wrong asset basename: {path}'
+                      u=urljoin(site,path)
+                      st,ct,data=fetch(u)
+                      assert st==200 and len(data)>50, f'Unusable asset: {u}: {st}'
+                      assert ct in ('text/css','text/javascript','application/javascript'), f'Wrong MIME type: {u}: {ct}'
+                  print('Live HTML and JS/CSS loaded successfully:',site,parser.paths)
+                  break
+              except Exception as e:
+                  last_error=e
+                  if attempt==11: raise RuntimeError(f'GitHub Pages browser-asset smoke failed: {e}') from e
+                  print(f'Waiting for live Pages propagation ({attempt+1}/12): {e}')
+                  time.sleep(10)
+          PYLIVE

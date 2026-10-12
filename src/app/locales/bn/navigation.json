@@ -84,6 +84,13 @@
     "auditCandidates": "অডিট প্রার্থী",
     "auditManual": "অডিট ম্যানুয়াল"
   },
+  "payments": {
+    "main": "পেমেন্ট",
+    "overview": "সারসংক্ষেপ",
+    "summary": "পেমেন্ট কর্মক্ষেত্র। বিদ্যমান দাবি ও পেমেন্টের কার্যক্রম অপরিবর্তিত আছে।",
+    "currentTools": "বিদ্যমান দাবি ও পেমেন্টের কার্যক্রম",
+    "openCurrentTools": "দাবি ও পেমেন্ট খুলুন"
+  },
   "administration": {
     "main": "প্রশাসন ও অনুরোধ",
     "certificateRequests": "সার্টিফিকেট অনুরোধ",

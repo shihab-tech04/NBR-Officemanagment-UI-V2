@@ -48,6 +48,7 @@ const SpecialRegistrationPage  = lazy(() => import("./pages/administration-reque
 const TimeExtensionPage        = lazy(() => import("./pages/administration-requests/TimeExtensionPage").then(m => ({ default: m.TimeExtensionPage })));
 const AuditSelectionPage       = lazy(() => import("./pages/administration-requests/AuditSelectionPage").then(m => ({ default: m.AuditSelectionPage })));
 const AuditModulePage          = lazy(() => import("./pages/audit/AuditModulePage").then(m => ({ default: m.AuditModulePage })));
+const PaymentsOverviewPage    = lazy(() => import("./pages/payments/PaymentsOverviewPage").then(m => ({ default: m.PaymentsOverviewPage })));
 const RulesCalculationPage = lazy(() => import("./pages/rules-calculation/RulesCalculationPage").then(m => ({ default: m.RulesCalculationPage })));
 
 // ─── Param-based route components ────────────────────────────────────────────
@@ -107,6 +108,7 @@ const routeImporters = [
   () => import("./pages/administration-requests/SpecialRegistrationPage"),
   () => import("./pages/administration-requests/TimeExtensionPage"),
   () => import("./pages/administration-requests/AuditSelectionPage"),
+  () => import("./pages/payments/PaymentsOverviewPage"),
 ];
 
 export function preloadAllRoutes() {
@@ -147,6 +149,8 @@ export const router = createBrowserRouter([
       { path: "case-financial",  Component: PlaceholderPage },
       { path: "audit",           Component: PlaceholderPage },
       { path: "audit/:subNav",   Component: AuditModulePage },
+      { path: "payments",        loader: async () => redirect("/payments/overview") },
+      { path: "payments/overview", Component: PaymentsOverviewPage },
       { path: "administration",  Component: PlaceholderPage },
 
       // Dashboard

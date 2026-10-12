@@ -194,6 +194,15 @@ export const NAVIGATION: MainNavDef[] = [
     ],
   },
   {
+    id: "payments",
+    label: "Payments",
+    labelKey: "navigation.payments.main",
+    icon: CreditCard,
+    children: [
+      { id: "overview", label: "Overview", labelKey: "navigation.payments.overview", icon: LayoutDashboard },
+    ],
+  },
+  {
     id: "administration",
     label: "Administration & Requests",
     labelKey: "navigation.administration.main",
@@ -264,5 +273,6 @@ export const NAV_DISPLAY_LABEL: Record<string, string> = {
   "misfiled-returns": "Misfiled",
   "case-financial": "Case & Fin.",
   audit: "Audit",
+  payments: "Payments",
   administration: "Admin & Req.",
 };
