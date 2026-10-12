@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const root = new URL('../', import.meta.url);
-const payment = readFileSync(new URL('../src/app/pages/payments/PaymentModulePage.tsx', root), 'utf8');
-const css = readFileSync(new URL('../src/styles/payment.css', root), 'utf8');
+const payment = readFileSync(resolve(process.cwd(), 'src/app/pages/payments/PaymentModulePage.tsx'), 'utf8');
+const css = readFileSync(resolve(process.cwd(), 'src/styles/payment.css'), 'utf8');
 
 /** Regression contracts derived from the Office Management screenshot/design audit. */
 describe('Payments UI consistency', () => {
