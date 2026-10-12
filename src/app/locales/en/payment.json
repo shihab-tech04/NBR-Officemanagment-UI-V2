@@ -165,5 +165,12 @@
   "creditPreview": "Sample payment credit states only",
   "noSampleReturns": "No return entries exist in the supplied sample records.",
   "noSampleNotices": "No notice or case entries exist in the supplied sample records.",
-  "noSampleRecords": "No payment records match this taxpayer and sample year."
+  "noSampleRecords": "No payment records match this taxpayer and sample year.",
+  "description_overview": "Payment activity and outstanding review items",
+  "description_transactions": "Review payment receipts, references and tax-credit states",
+  "description_taxpayer_360": "View a taxpayer's sample payment record",
+  "description_corrections": "Review payment correction requests and drafts",
+  "description_incidents": "Review identity and payment authorization reports",
+  "description_offline_events": "Review offline event and adjustment drafts",
+  "description_analytics": "Explore payment sample benchmarks"
 }
