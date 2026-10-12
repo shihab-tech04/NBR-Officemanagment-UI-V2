@@ -7,7 +7,7 @@ interface StatusBadgeProps {
 const SUCCESS_STATUSES = new Set([
   "approved", "active", "verified", "paid", "resolved", "transferred",
   "disposed", "matched", "decided", "issued", "completed", "disbursed",
-  "closed", "signed off", "live",
+  "closed", "signed off", "live", "received by government", "eligible — credited",
 ]);
 const ERROR_STATUSES = new Set([
   "rejected", "inactive", "released", "invalid", "unpaid", "failed", "cancelled",
@@ -18,11 +18,14 @@ const WARNING_STATUSES = new Set([
   "adjourned", "under review", "misfiled", "out of jurisdiction",
   "assigned", "verifying", "evidence pending", "ready for review", "second review",
   "rework requested", "partially verified", "unable to verify", "shadow", "staged",
-  "dry run required", "awaiting endorsement", "awaiting approval",
+  "dry run required", "awaiting endorsement", "awaiting approval", "awaiting bank payment", "blocked — under review",
 ]);
-const SECONDARY_STATUSES = new Set(["waived", "superseded", "refuted", "not verified", "read only"]);
+const SECONDARY_STATUSES = new Set(["waived", "superseded", "refuted", "not verified", "read only", "not yet credited"]);
 
 const STATUS_KEYS: Record<string, string> = {
+  "received by government": "receivedByGovernment", "eligible — credited": "eligibleCredited",
+  "blocked — under review": "blockedUnderReview", "not yet credited": "notYetCredited",
+  "awaiting bank payment": "awaitingBankPayment",
   "active": "active", "inactive": "inactive", "released": "released", "pending": "pending",
   "approved": "approved", "rejected": "rejected", "verified": "verified",
   "unverified": "unverified", "draft": "draft", "submitted": "submitted",

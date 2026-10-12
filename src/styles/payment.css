@@ -1,5 +1,6 @@
 /* Payment pages follow Office Management's table-page, card and modal system. */
-.payment-module { flex:1 1 0; width:100%; min-width:0; height:100%; overflow:auto; box-sizing:border-box; padding:20px 24px 36px; display:flex; flex-direction:column; gap:var(--space-4); color:var(--color-text-primary); }
+.payment-module { width:100%; min-width:0; box-sizing:border-box; color:var(--color-text-primary); }
+.payment-module > .payment-module__summary-grid, .payment-module > .payment-module__identity, .payment-module > .payment-module__year-control { margin-bottom:16px; }
 .payment-module__header { flex-shrink:0; margin-bottom:0; }
 .payment-module__header .app-btn { width:auto; }
 .payment-module__note { color:var(--color-text-secondary); font-size:var(--fs-caption); line-height:var(--lh-body-sm); }
@@ -41,5 +42,37 @@
 /* Shared buttons default to width:100% at md; local form footer must not inherit this. */
 
 @media(max-width:1199px){ .payment-module__kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:767px){ .payment-module { padding:var(--space-4); } .payment-module__summary-grid,.payment-module__filters,.payment-module__form { grid-template-columns:minmax(0,1fr); } .payment-module__form > :nth-last-child(-n+2) { grid-column:auto; } }
+@media(max-width:767px){ .payment-module__summary-grid,.payment-module__filters,.payment-module__form { grid-template-columns:minmax(0,1fr); } .payment-module__form > :nth-last-child(-n+2) { grid-column:auto; } }
 @media(max-width:520px){ .payment-module__kpis { grid-template-columns:1fr; } .payment-module__metric { grid-template-columns:1fr auto; } .payment-module__metric progress { grid-column:1/-1; grid-row:2; } }
+
+/* Payment integration uses the baseline GeneratedTablePage shell; scoped only. */
+.payment-module__year-control { width:min(280px,100%); min-width:0; }
+.payment-module__sort { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--color-text-secondary); }
+.payment-module__sort select { border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); padding:6px 9px; max-width:140px; }
+.payment-module__sort svg { pointer-events:none; }
+.payment-module__tab-scroll { max-width:100%; overflow-x:auto; scrollbar-width:thin; }
+.payment-module__tab-scroll .tab-bar { flex-wrap:nowrap; width:max-content; min-width:100%; margin-bottom:var(--space-3); }
+.payment-module__tab-scroll .tab-bar__tab { flex:0 0 auto; white-space:nowrap; }
+.payment-module__review-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
+.payment-module__review-grid div { min-width:0; border-bottom:1px solid var(--color-border); padding-bottom:var(--space-2); }
+.payment-module__review-grid dt { font-size:var(--fs-caption); color:var(--color-text-secondary); }
+.payment-module__review-grid dd { margin:0; font-size:var(--fs-body-sm); overflow-wrap:anywhere; }
+.payment-module .dashboard-kpi-grid .stat-card__value { overflow:visible; white-space:normal; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.payment-module__table-card .card-table__td:has(.badge) { vertical-align:middle; }
+.payment-module__table-card .card-table__table { min-width:720px; }
+.payment-module__tab-scroll .tab-bar__tab:focus-visible { outline-offset:-2px; }
+@media(max-width:1023px) {
+  .payment-module__table-card .card-table__table { min-width:0; }
+  .payment-module .table-page__actions .table-card__toolbar-btn--primary { min-height:40px; }
+}
+@media(max-width:640px) {
+  .payment-module__review-grid { grid-template-columns:1fr; }
+  .payment-module__form { grid-template-columns:1fr; }
+  .payment-module .table-page__actions .table-card__toolbar-btn--primary,
+  .payment-module .table-page__actions .table-page__kpi-toggle { min-height:44px; }
+  .app-modal:has(#payment-draft-form) .app-btn { min-height:44px; }
+  .payment-module__summary-grid { grid-template-columns:1fr; }
+  .payment-module .dashboard-kpi-grid--1row { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:row; }
+  .payment-module .dashboard-kpi-grid--1row .stat-card { min-width:0; }
+}
+@media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
