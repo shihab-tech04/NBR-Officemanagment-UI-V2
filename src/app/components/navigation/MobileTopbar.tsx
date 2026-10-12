@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, startTransition } from "react";
 import { Menu, Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { AppDispatch } from "../../store/store";
 import { useSettings } from "../../hooks/useSettings";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -22,6 +22,7 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
   const { t: translate } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const isPaymentSampleRoute = useLocation().pathname.startsWith("/payments");
 
   const { assessmentYear } = useSettings();
   const currentUser = useCurrentUser();
@@ -60,7 +61,7 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
       </button>
 
       {/* Center: Assessment Year dropdown */}
-      <div className="mobile-topbar__assessment-year-wrapper">
+      {!isPaymentSampleRoute && <div className="mobile-topbar__assessment-year-wrapper">
         <AppSelectField
           id="mobile-topbar-assessment-year"
           label=""
@@ -69,7 +70,7 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
           options={ASSESSMENT_YEARS.map(y => ({ value: y, label: `${translate("common.ayAbbrev")} ${y}` }))}
           compact
         />
-      </div>
+      </div>}
 
       {/* Notification bell */}
       <div className="mobile-topbar__notification-wrapper" ref={notificationRef}>

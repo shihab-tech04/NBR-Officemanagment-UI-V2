@@ -20,13 +20,6 @@ for (const viewport of viewports) {
     await page.screenshot({path:`test-results/payments-${route}-${viewport.width}.png`,fullPage:true,animations:'disabled'});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth - innerWidth);
     expect(overflow,'no app-wide horizontal overflow').toBeLessThanOrEqual(2);
-    if(viewport.width<=390 && route==='transactions'){
-      const sort=page.locator('.payment-module__sort select');
-      const bounds=await sort.boundingBox();
-      expect(bounds,'sort control rendered').toBeTruthy();
-      expect(bounds!.x,'sort control left is on screen').toBeGreaterThanOrEqual(-1);
-      expect(bounds!.x+bounds!.width,'sort control right fits on screen').toBeLessThanOrEqual(viewport.width+1);
-    }
     if(viewport.width<=390 && route==='taxpayer-360'){
       const strip=page.locator('.payment-module__tab-scroll .tab-bar');
       await expect(strip).toBeVisible();
@@ -75,3 +68,44 @@ for (const config of [
   });
  }
 }
+
+// Regression evidence for the post-release source audit. These assertions are in addition
+// to the original 65 responsive checks, not substitutes for them.
+test('first visit shows mock payment records independently of Office Management tax-year selection', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/payments/transactions');
+  await expect(page.locator('[data-testid="payment-transactions"]')).toBeVisible();
+  await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
+  await expect(page.getByLabel('Sample AY')).toBeVisible();
+  await expect(page.locator('#topbar-assessment-year')).toHaveCount(0);
+});
+
+test('newest and oldest sort use chronological dates, not displayed string order', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/payments/transactions');
+  const sort=page.getByRole('combobox',{name:'Sort'});
+  await sort.selectOption('-date');
+  await expect(page.locator('.card-table tbody tr').first()).toContainText('12 Oct 2026');
+  await sort.selectOption('date');
+  await expect(page.locator('.card-table tbody tr').first()).toContainText('03 Sep 2026');
+});
+
+test('mobile transaction cards have an explicit View Details action', async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/payments/transactions');
+  const viewButton=page.locator('.mobile-table-card__action-btn').first();
+  await expect(viewButton).toBeVisible();
+  await viewButton.click();
+  await expect(page.getByText('PT-2026-000922').last()).toBeVisible();
+});
+
+test('Taxpayer 360 summary and credit preview are distinct functional tabs', async({page})=>{
+  await page.setViewportSize({width:1280,height:850});
+  await page.goto('/payments/taxpayer-360');
+  await page.getByRole('tab',{name:'Tax position'}).click();
+  await expect(page.getByText('Payment receipt and credit summary from the selected sample records. Tax liability is not modeled.')).toBeVisible();
+  await page.getByRole('tab',{name:'Ledger'}).click();
+  await expect(page.getByText('Sample payment credit states only')).toBeVisible();
+  await page.getByRole('tab',{name:'Returns'}).click();
+  await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
+});

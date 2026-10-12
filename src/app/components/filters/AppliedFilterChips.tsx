@@ -1,14 +1,16 @@
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { FilterDef } from "../../pages/modulePageUtils";
 
 interface AppliedFilterChipsProps {
   values: Record<string, string>;
   onClear: () => void;
   inCard?: boolean;
+  filters?: FilterDef[];
   cardView?: boolean;
 }
 
-export function AppliedFilterChips({ values, onClear, inCard, cardView }: AppliedFilterChipsProps) {
+export function AppliedFilterChips({ values, onClear, filters, inCard, cardView }: AppliedFilterChipsProps) {
   const { t: translateFilters } = useTranslation("filters");
   const active = Object.entries(values).filter(([, v]) => v && !v.startsWith("All"));
   if (!active.length) return null;
@@ -17,7 +19,7 @@ export function AppliedFilterChips({ values, onClear, inCard, cardView }: Applie
     <div className={`applied-chips${inCard ? " applied-chips--in-card" : ""}${cardView ? " applied-chips--card-content" : ""}`}>
       <span className="applied-chips__label">{translateFilters("filteredBy")}</span>
       {active.map(([k, v]) => (
-        <span key={k} className="applied-chips__tag">{v}</span>
+        <span key={k} className="applied-chips__tag">{filters?.find(f=>f.key===k)?.optionKeys?.[v] ? translateFilters(filters!.find(f=>f.key===k)!.optionKeys![v]) : v}</span>
       ))}
       <button
         type="button"

@@ -4,7 +4,7 @@ import { SearchField } from "../shared/SearchField";
 import { AppSelectField } from "../forms/AppSelectField";
 import { useTranslation } from "react-i18next";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { AppDispatch } from "../../store/store";
 import { useSettings } from "../../hooks/useSettings";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -27,6 +27,7 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
   const { t: translate } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const isPaymentSampleRoute = useLocation().pathname.startsWith("/payments");
 
   const { assessmentYear } = useSettings();
   const currentUser = useCurrentUser();
@@ -78,7 +79,7 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
           className="topbar__search-field"
         />
 
-        <div className="topbar__assessment-year-wrapper">
+        {!isPaymentSampleRoute && <div className="topbar__assessment-year-wrapper">
           <AppSelectField
             id="topbar-assessment-year"
             label=""
@@ -87,7 +88,7 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
             options={ASSESSMENT_YEARS.map(y => ({ value: y, label: `${translate("common.ayAbbrev")} ${y}` }))}
             compact
           />
-        </div>
+        </div>}
       </div>
 
       {/* Right: notifications, appearance, user profile */}

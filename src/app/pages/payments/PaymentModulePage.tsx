@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../store/store';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
@@ -24,8 +22,6 @@ import {
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
-const EVENT_LABELS:Record<string,string> = { LIABILITY_REDUCED:'Liability reduced', OFFLINE_PAYMENT:'Offline payment', LIABILITY_CREATED:'Liability created' };
-const formatEvent = (event: string) => EVENT_LABELS[event] || event;
 const samplePayments = referencePayments.map(p => ({
   key:p.key, date:p.date, taxpayer_name:p.taxpayer_name, tin:p.tin, payer_name:p.payer_name,
   payment_type:p.type, assessment_year:p.ay, income_year:p.iy, amount:money(p.amount),
@@ -38,7 +34,7 @@ const samplePayments = referencePayments.map(p => ({
 function paymentColumns(t:(key:string)=>string) {
   const columns = (fields: [string,string,boolean?][]):ColDef[] => fields.map(([key,label,badge])=>({type:'col',col:{key,label:t(label),badge:!!badge,truncate:'normal'}}));
   return {
-    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['payer_name','colPayer'],['payment_type','colType'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true],['ledger_status','colCredit',true]]),
+    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true],['ledger_status','colCredit',true]]),
     correction:columns([['id','colCase'],['taxpayer','colTaxpayer'],['reason','colReason'],['amount','colAmount'],['stage','colStage'],['status','status',true]]),
     offline:columns([['id','colEvent'],['taxpayer','colTaxpayer'],['event','colType'],['component','component'],['amount','colAmount'],['status','status',true]]),
     incident:columns([['id','colReference'],['taxpayer','colTaxpayer'],['type','incidentType'],['date','colReported'],['status','status',true]]),
@@ -61,8 +57,7 @@ export function PaymentModulePage({page}: {page: string}) {
   const {t} = useTranslation('payment');
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
-  const globalAY = useSelector((state:RootState)=>state.settings.assessmentYear);
-  const [scopeYear,setScopeYear] = useState(globalAY);
+  const [scopeYear,setScopeYear] = useState('all');
   const [kpiOpen,setKpiOpen] = useState(true);
   const [selectedTin,setSelectedTin] = useState<string>(referenceTaxpayers[0].tin);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
@@ -94,14 +89,14 @@ export function PaymentModulePage({page}: {page: string}) {
   const scopedPayments=scopeYear==='all'?samplePayments:samplePayments.filter(p=>p.assessment_year.replace('–','-')===scopeYear);
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
-    options={[{value:'all',label:t('allYears')},...[globalAY,'2027-28','2026-27','2025-26','2024-25'].filter((v,i,a)=>a.indexOf(v)===i).map(y=>({value:y,label:y}))]}/>;
+    options={[{value:'all',label:t('allYears')},...Array.from(new Set(referencePayments.map(p=>p.ay.replace('–','-')))).sort().reverse().map(y=>({value:y,label:y}))]}/>;
   const taxP=referenceTaxpayers.find(p=>p.tin===selectedTin)??referenceTaxpayers[0];
   const taxPayments=scopedPayments.filter(p=>p.tin===selectedTin);
   const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,amount:money(x.amount)}))];
   const incidentRows=localRecords.incidents;
-  const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:formatEvent(e.event),amount:money(e.amount)}))];
+  const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:t(`event_${e.event}`),amount:money(e.amount)}))];
   const yearFilters:FilterDef[]=[{key:'assessment_year',label:t('ay'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.assessment_year)))]}];
   const optionKeys={ 'All':'paymentStatuses.all','Failed':'paymentStatuses.failed','Awaiting bank payment':'paymentStatuses.awaiting','Received by Government':'paymentStatuses.received','Not yet credited':'paymentStatuses.notCredited','Eligible — credited':'paymentStatuses.credited','Blocked — under review':'paymentStatuses.blockedCredit','Blocked':'paymentStatuses.blocked','Decided':'paymentStatuses.decided','Draft':'paymentStatuses.draft','Pending':'paymentStatuses.pending','With Reviewer':'paymentStatuses.withReviewer' };
   const payFilters:FilterDef[]=[...yearFilters,{key:'financial_receipt_status',label:t('colReceipt'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.financial_receipt_status)))],optionKeys},{key:'ledger_status',label:t('colCredit'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.ledger_status)))],optionKeys}];
@@ -129,7 +124,7 @@ export function PaymentModulePage({page}: {page: string}) {
     <PaymentRecordList key={key+':'+scopeYear} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
   const toolbar=(label:string,action?:()=>void)=> (
     <header className="table-page__header payment-module__header">
-      <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t('moduleDescription')}</p></div>
+      <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t(`description_${current.replace(/-/g,'_')}`)}</p></div>
       <div className="table-page__actions">
         {action && <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--primary" onClick={action}><FilePlus2 size={14} aria-hidden="true"/>{t('addNew')}</button>}
         {(['overview','taxpayer-360','analytics'].includes(current)) && <button type="button" className="table-page__kpi-toggle" aria-expanded={kpiOpen} aria-controls="kpi-section-panel" onClick={()=>setKpiOpen(v=>!v)}>{kpiOpen?<ChevronUp size={14}/>:<ChevronDown size={14}/>} {kpiOpen?t('hideSummary'):t('showSummary')}</button>}
@@ -175,23 +170,30 @@ export function PaymentModulePage({page}: {page: string}) {
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{v}</p></div>)}
-    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>referenceTaxpayers.some(p=>p.tin===taxP.tin&&p.name===c.taxpayer)).map(c=>({...c,amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
-      <section className="card payment-module__card payment-module__empty"><h2>{t(taxpayerTab)}</h2><p>{t('sectionUnavailable')}</p></section>}
+    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name).map(c=>({...c,amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
+      taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),money(totalReceived(original))],[t('eligible'),money(totalEligible(original))],[t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
+      taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
+      taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2><p>{t('noSampleNotices')}</p></section> :
+      <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}
   </>;
   const corrections=()=> <>
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
+    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.correction,corrRows,'corrections',queueFilters,correctionMapping)}
   </>;
   const incidents=()=> <>
     {toolbar(t('incidents'),()=>openDraft('incidents'))}
+    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.incident,incidentRows,'incidents',incidentFilters,incidentMapping)}
   </>;
   const offline=()=> <>
     {toolbar(t('offlineEvents'),()=>openDraft('offline-events'))}
+    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.offline,offlineRows,'offlineEvents',offlineFilters,offlineMapping)}
   </>;
   const analytics=()=> <>
     {toolbar(t('analytics'))}
+    <div className="payment-module__year-control">{yearSelect}</div>
     {showKpis([
       kpi(t('paymentVolume'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.volume),BarChart3),
       kpi(t('successful'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.successful),CheckCircle2,'success'),
