@@ -281,3 +281,24 @@ test('phone sorts transaction cards inside standard Filter sheet, and resets',as
  await expect(page.locator('.mobile-table-card').first()).toHaveAttribute('aria-label',/Md\. Rahman/);
  await page.screenshot({path:'test-results/payments-mobile-sort-in-filter-390.png',animations:'disabled'});
 });
+
+
+test('mixed-payment demo is opt-in and preserves the certified reference register', async ({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/payments/transactions');
+ const rows=page.locator('.card-table tbody tr');
+ await expect(rows).toHaveCount(5);
+ const source=page.locator('#payment-dataset-scope');
+ await expect(source).toBeVisible();
+ await source.click();
+ await page.getByRole('option',{name:'Mixed-payment scenarios (demo)'}).click();
+ await expect(rows).toHaveCount(9);
+ await expect(page.locator('[data-testid="payment-transactions"]')).toContainText('Fictional scenarios only');
+ const mixed=rows.filter({hasText:'৳11,400'});
+ await expect(mixed).toHaveCount(1);
+ await expect(mixed).toContainText('user4, user1, user5');
+ await mixed.click();
+ await expect(page.getByText('DEMO-TX-005').first()).toBeVisible();
+ await expect(page.getByText(/DEMO-L-007/).first()).toBeVisible();
+ await page.screenshot({path:'test-results/payment-mixed-multi-beneficiary-1440.png',fullPage:true,animations:'disabled'});
+});
