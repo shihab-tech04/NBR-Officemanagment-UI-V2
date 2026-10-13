@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { PaymentRecordList } from './PaymentRecordList';
-import { OfficeReviewQueue } from './OfficeReviewQueue';
+import { OfficeReviewQueue, getOfficeReviewClient } from './OfficeReviewQueue';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { AppModal } from '../../components/modals/AppModal';
 import { TabBar } from '../../components/tabs/TabBar';
@@ -132,11 +132,50 @@ export function PaymentModulePage({page}: {page: string}) {
   const [formError,setFormError] = useState('');
   const [errors,setErrors] = useState<Record<string,string>>({});
   useEffect(()=>{
+    const client=getOfficeReviewClient();
+    if(!client)return;
+    let active=true;
+    let lastUserId:string|null|undefined=undefined;
+    const synchronizeOfficer=async()=>{
+      const {data:identity,error:authError}=await client.auth.getUser();
+      if(!active)return;
+      const uid=authError?null:identity.user?.id??null;
+      if(uid!==lastUserId){
+        lastUserId=uid;
+        setLiveTransactions([]);
+        setLiveNotices([]);
+        setDetails(null);
+        setLiveError(uid?'':'Authorized officer sign-in required');
+        setPaymentDataset('reference');
+        setLiveLoading(Boolean(uid));
+      }
+      if(!uid)return;
+      const access=await client.from('taxpay_officer_roles').select('role,active').eq('user_uid',uid).maybeSingle();
+      const {data:verified}=await client.auth.getUser();
+      if(!active||verified.user?.id!==uid)return;
+      if(access.error||!access.data?.active||!['MAKER','REVIEWER','APPROVER'].includes(access.data.role)){
+        setLiveTransactions([]);setLiveNotices([]);setPaymentDataset('reference');setLiveError('Active officer authorization required');
+        setLiveLoading(false);
+        return;
+      }
+      setPaymentDataset(current=>current==='reference'?'connected':current);
+    };
+    const {data:sub}=client.auth.onAuthStateChange(()=>{
+      // Wipe immediately, before the first asynchronous role verification.
+      setLiveTransactions([]);
+      setLiveNotices([]);
+      setDetails(null);
+      window.setTimeout(()=>{if(active)void synchronizeOfficer();},0);
+    });
+    void synchronizeOfficer();
+    return()=>{active=false;sub.subscription.unsubscribe();};
+  },[]);
+  useEffect(()=>{
     let active=true;
     const sync=async()=>{
       try {const rows=await loadSimulationHistory(null,'all');
         if(active){setLiveTransactions(rows);setLiveError('');setLiveLoading(false);}}
-      catch(e){if(active){setLiveError(e instanceof Error?e.message:'SQL connection failed');setLiveLoading(false);}}
+      catch(e){if(active){setLiveTransactions([]);setLiveError(e instanceof Error?e.message:'SQL connection failed');setLiveLoading(false);}}
     };
     void sync();const interval=window.setInterval(()=>void sync(),7000);
     return()=>{active=false;window.clearInterval(interval);};
@@ -146,7 +185,7 @@ export function PaymentModulePage({page}: {page: string}) {
     if(index<0){setLiveNotices([]);return;}
     const id=demoUserIds[index];
     let active=true;setLiveNotices([]);
-    const sync=async()=>{try{const items=await loadSimulationNotices(id);if(active)setLiveNotices(items);}catch{/* SQL status reported in connected table */}};
+    const sync=async()=>{try{const items=await loadSimulationNotices(id);if(active)setLiveNotices(items);}catch{if(active)setLiveNotices([]);/* No cached notices survive identity/authorization loss */}};
     void sync();const interval=window.setInterval(()=>void sync(),7000);
     return()=>{active=false;window.clearInterval(interval);};
   },[selectedTin]);
