@@ -11,6 +11,7 @@ import { AppTextField } from "../forms/AppTextField";
 import { AppPasswordField } from "../forms/AppPasswordField";
 import { AppCheckbox } from "../forms/AppCheckbox";
 import { useHelp } from "../../context/HelpContext";
+import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -28,7 +29,14 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const demoUrl = getTaxPayDemoLoginUrl(userId);
+
   const handleSignIn = () => {
+    if (demoUrl) {
+      // Deliberately no office session is created; these IDs open read-only synthetic scenarios.
+      window.location.assign(demoUrl);
+      return;
+    }
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -88,7 +96,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               autoComplete="username"
             />
 
-            <AppPasswordField
+            {!demoUrl && <AppPasswordField
               id="login-password"
               label={translate("login.password")}
               value={password}
@@ -96,8 +104,10 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               onKeyDown={handleKeyDown}
               placeholder={translate("login.passwordPlaceholder")}
               autoComplete="current-password"
-            />
+            />}
+            {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Sample taxpayer IDs user1–user10 need no password. These accounts show non-official demonstration data only.</p>}
 
+            {!demoUrl && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <AppCheckbox
                 id="login-remember-me"
@@ -109,6 +119,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
                 {translate("login.forgotPassword")}
               </button>
             </div>
+            )}
 
             <button
               type="button"
