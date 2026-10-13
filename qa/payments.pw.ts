@@ -126,9 +126,11 @@ test('newest and oldest sort use chronological dates, not displayed string order
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/payments/transactions');
   const sort=page.getByRole('combobox',{name:'Sort'});
-  await sort.selectOption('-date');
+  await sort.click();
+  await page.getByRole('option',{name:'Newest first'}).click();
   await expect(page.locator('.card-table tbody tr').first()).toContainText('12 Oct 2026');
-  await sort.selectOption('date');
+  await sort.click();
+  await page.getByRole('option',{name:'Oldest first'}).click();
   await expect(page.locator('.card-table tbody tr').first()).toContainText('03 Sep 2026');
 });
 
@@ -159,9 +161,11 @@ for(const width of [1704,1440,1280]) {
   await page.goto('/payments/corrections');
   await expect(page.getByRole('columnheader',{name:'Reason'})).toBeVisible();
   const sort=page.getByRole('combobox',{name:'Sort'});
-  await expect(sort.locator('option[value="date"]')).toHaveCount(0);
-  await expect(sort.locator('option[value="-date"]')).toHaveCount(0);
-  await expect(sort.locator('option[value="taxpayer"]')).toHaveCount(1);
+  await sort.click();
+  await expect(page.getByRole('option',{name:'Newest first'})).toHaveCount(0);
+  await expect(page.getByRole('option',{name:'Oldest first'})).toHaveCount(0);
+  await expect(page.getByRole('option',{name:'Taxpayer A–Z'})).toHaveCount(1);
+  await page.keyboard.press('Escape');
   await expect(page.locator('.payment-module__table-card .table-card__search-wrapper input[placeholder="Search case, taxpayer or reason"]')).toBeVisible();
   const add=page.getByRole('button',{name:'Add New'});
   const bounds=await add.boundingBox();
