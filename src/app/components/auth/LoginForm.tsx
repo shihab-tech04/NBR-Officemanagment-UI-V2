@@ -12,6 +12,7 @@ import { AppPasswordField } from "../forms/AppPasswordField";
 import { AppCheckbox } from "../forms/AppCheckbox";
 import { useHelp } from "../../context/HelpContext";
 import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
+import { getOfficeReviewClient } from "../../pages/payments/OfficeReviewQueue";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -28,26 +29,47 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [authFeedback,setAuthFeedback]=useState<{error:boolean;text:string}|null>(null);
+  const secureClient=getOfficeReviewClient();
 
   const demoUrl = getTaxPayDemoLoginUrl(userId);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (demoUrl) {
-      // Deliberately no office session is created; these IDs open read-only synthetic scenarios.
-      window.location.assign(demoUrl);
+      window.location.assign(demoUrl); // Fictional TaxPay destination, no Office access.
       return;
     }
+    if(secureClient){
+      if(isLoading)return;
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId.trim())){
+        setAuthFeedback({error:true,text:'Enter a valid authorized officer email.'});
+        return;
+      }
+      setAuthFeedback(null);setIsLoading(true);
+      try{
+        const {error}=await secureClient.auth.signInWithOtp({
+          email:userId.trim(),options:{
+            emailRedirectTo:window.location.origin+window.location.pathname,
+            shouldCreateUser:false
+          }
+        });
+        if(error)throw error;
+        setAuthFeedback({error:false,text:'Secure sign-in link requested. An active officer role is required.'});
+      }catch(e){
+        setAuthFeedback({error:true,text:e instanceof Error?e.message:'Sign-in request failed.'});
+      }finally{setIsLoading(false);}
+      return;
+    }
+    // Disconnected UX preview only. This cannot authorize any hosted Office SQL action.
     setIsLoading(true);
-    setTimeout(() => {
+    setTimeout(()=>{
       setIsLoading(false);
-      startTransition(() => {
-        dispatch(login({ userId: userId || undefined }));
-      });
-    }, 800);
+      startTransition(()=>dispatch(login({userId:userId||undefined})));
+    },800);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSignIn();
+    if (e.key === "Enter") void handleSignIn();
   };
 
   return (
@@ -88,15 +110,15 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
           <div className="flex flex-col gap-5">
             <AppTextField
               id="login-user-id"
-              label={translate("login.userId")}
+              label={secureClient ? "Authorized officer email" : translate("login.userId")}
               value={userId}
               onChange={setUserId}
               onKeyDown={handleKeyDown}
               placeholder={translate("login.userIdPlaceholder")}
-              autoComplete="username"
+              autoComplete={secureClient?"email":"username"}
             />
 
-            {!demoUrl && <AppPasswordField
+            {!demoUrl && !secureClient && <AppPasswordField
               id="login-password"
               label={translate("login.password")}
               value={password}
@@ -107,7 +129,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
             />}
             {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Sample taxpayer IDs user1–user10 need no password. These accounts show non-official demonstration data only.</p>}
 
-            {!demoUrl && (
+            {!demoUrl && !secureClient && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <AppCheckbox
                 id="login-remember-me"
@@ -121,9 +143,11 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
             </div>
             )}
 
+            {secureClient&&!demoUrl&&<p className="text-[13px] text-[var(--color-text-secondary)]">Sign in by secure email link. A verified officer role is required; browser state or an arbitrary password cannot grant access.</p>}
+            {authFeedback&&<p role={authFeedback.error?'alert':'status'}>{authFeedback.text}</p>}
             <button
               type="button"
-              onClick={handleSignIn}
+              onClick={()=>void handleSignIn()}
               disabled={isLoading}
               className="login-form-submit"
             >
@@ -133,7 +157,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
                   <span>{translate("login.signingIn")}</span>
                 </>
               ) : (
-                <span>{translate("login.signIn")}</span>
+                <span>{secureClient&&!demoUrl?"Send secure sign-in link":translate("login.signIn")}</span>
               )}
             </button>
 
