@@ -1,9 +1,5 @@
 import {getOfficeReviewClient} from './OfficeReviewQueue';
-/** Shared public synthetic-only API. The embedded key is PUBLIC anon, never a service key.
- * RLS keeps financial tables isolated; only the purpose-built simulator RPCs are exposed.
- */
-const ROOT='https://eyqhoavnitkrajvyqvxn.supabase.co';
-const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5cWhvYXZuaXRrcmFqdnlxdnhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2MDYxMTMsImV4cCI6MjEwNzE4MjExM30.cNoto22zmRNIykEM5oItwLL2ykw1LSwI4qqaycw0jI4';
+/** Only an authenticated, authorized NBR Office simulation reviewer may read connected SQL. */
 export const simulationUsers=['user1','user2','user3','user4','user5','user6','user7','user8','user9','user10'] as const;
 export type SimulationUser=typeof simulationUsers[number];
 export const simulationCategories=['TAX_WITH_RETURN','ADVANCE_TAX','ASSESSED_DEMAND','PENALTY','SOURCE_TAX_DEPOSIT','APPELLATE_TRIBUNAL','OTHER_TAX_PAYMENT'] as const;
@@ -14,40 +10,25 @@ export type SimulationEvent={id:number;action:string;note:string;occurredAt:stri
 export type SimulationTransaction={id:string;transactionId:string;payer:SimulationUser;state:'SIMULATED'|'PENDING'|'FAILED'|'REVERSED';createdAt:string;simulationOnly:true;totalMinor:number;allocations:SimulationAllocation[];events:SimulationEvent[]};
 export type SimulationNotice={id:number;userId:SimulationUser;transactionId:string;messageCode:string;createdAt:string;isRead:boolean};
 export type SimSubmission={transactionId:string;reference:string;totalMinor:number;replayed:boolean};
-async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{
- const response=await fetch(ROOT+'/rest/v1/rpc/'+name,{
-   method:'POST',cache:'no-store',
-   headers:{apikey:ANON,Authorization:'Bearer '+ANON,'Content-Type':'application/json'},
-   body:JSON.stringify(args)
- });
- if(!response.ok){let message='Simulation API returned HTTP '+response.status;
-   try{const data=await response.json();if(typeof data.message==='string')message=data.message;}catch{/* keep status */}
-   throw new Error(message);
- }
- return response.json() as Promise<T>;
-}
-async function officerOrPublicRead<T>(name:string,args:Record<string,unknown>):Promise<T>{
- const session=getOfficeReviewClient();
- if(session){
-   const {data:identity,error:authError}=await session.auth.getUser();
-   if(authError)throw Error('Officer session could not be verified');
-   if(identity.user){
-     const {data,error}=await session.rpc(name,args);
-     if(error)throw Error(error.message);
-     const {data:checked}=await session.auth.getUser();
-     if(checked.user?.id!==identity.user.id)throw Error('Officer session changed during SQL read');
-     return data as T;
-   }
- }
- // Anonymous queries return only fictional, UNBOUND synthetic profiles.
- return rpc<T>(name,args);
+async function officerOnlyRead<T>(name:string,args:Record<string,unknown>):Promise<T>{
+ const client=getOfficeReviewClient();
+ if(!client)throw Error('Connected SQL requires a configured officer sign-in');
+ const {data:identity,error:identityError}=await client.auth.getUser();
+ if(identityError||!identity.user)throw Error('Sign in with an authorized officer account to view the shared SQL ledger');
+ const active=await client.from('taxpay_officer_roles').select('role,active').eq('user_uid',identity.user.id).maybeSingle();
+ if(active.error)throw Error(active.error.message);
+ if(!active.data?.active||!['MAKER','REVIEWER','APPROVER'].includes(active.data.role))throw Error('Active officer permission required');
+ const {data,error}=await client.rpc(name,args);
+ if(error)throw Error(error.message);
+ const {data:verified,error:recheck}=await client.auth.getUser();
+ if(recheck||verified.user?.id!==identity.user.id)throw Error('Officer session changed during SQL read');
+ return data as T;
 }
 export const loadSimulationHistory=(user:SimulationUser|null,view:'beneficiary'|'payer'|'all'='beneficiary')=>
- officerOrPublicRead<SimulationTransaction[]>('sim_payment_history',{p_user_id:user,p_view:view});
+ officerOnlyRead<SimulationTransaction[]>('sim_payment_history',{p_user_id:user,p_view:view});
 export const loadSimulationNotices=(user:SimulationUser)=>
- officerOrPublicRead<SimulationNotice[]>('sim_payment_notices',{p_user_id:user});
-export const submitSimulatedPayment=(payer:SimulationUser,lines:SimulationLine[],key:string)=>
- rpc<SimSubmission>('sim_submit_payment',{p_payer_id:payer,p_lines:lines,p_idempotency_key:key});
+ officerOnlyRead<SimulationNotice[]>('sim_payment_notices',{p_user_id:user});
+export const submitSimulatedPayment=(_payer:SimulationUser,_lines:SimulationLine[],_key:string):Promise<SimSubmission>=>Promise.reject(Error('Officers cannot impersonate taxpayer payment submissions'));
 /** Decimal money input is converted to integer paisa without floating-point rounding. */
 export function parseSimulatedAmount(value:string):number {
  const s=value.trim();
