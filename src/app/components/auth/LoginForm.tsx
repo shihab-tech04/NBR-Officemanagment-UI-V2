@@ -33,6 +33,10 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
   const secureClient=getOfficeReviewClient();
 
   const demoUrl = getTaxPayDemoLoginUrl(userId);
+  // Preserve the original ID/password layout until an explicitly approved demo ID or
+  // verified officer email is entered. Only the latter uses secure email-link auth.
+  const officerEmail = Boolean(secureClient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId.trim()));
+  const showPasswordControls = !demoUrl && !officerEmail;
 
   const handleSignIn = async () => {
     if (demoUrl) {
@@ -41,8 +45,8 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
     }
     if(secureClient){
       if(isLoading)return;
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId.trim())){
-        setAuthFeedback({error:true,text:'Enter a valid authorized officer email.'});
+      if(!officerEmail){
+        setAuthFeedback({error:true,text:'Enter user1–user10 or an authorized officer email.'});
         return;
       }
       setAuthFeedback(null);setIsLoading(true);
@@ -112,13 +116,13 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               id="login-user-id"
               label={translate("login.userId")}
               value={userId}
-              onChange={setUserId}
+              onChange={value => { setUserId(value); setAuthFeedback(null); }}
               onKeyDown={handleKeyDown}
-              placeholder={secureClient ? "user1–user10 or officer email" : translate("login.userIdPlaceholder")}
+              placeholder={translate("login.userIdPlaceholder")}
               autoComplete="username"
             />
 
-            {!demoUrl && !secureClient && <AppPasswordField
+            {showPasswordControls && <AppPasswordField
               id="login-password"
               label={translate("login.password")}
               value={password}
@@ -127,10 +131,10 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               placeholder={translate("login.passwordPlaceholder")}
               autoComplete="current-password"
             />}
-            {secureClient && !demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Taxpayer demo: enter user1–user10 (no password). Officers: enter a verified officer email for a secure sign-in link.</p>}
-            {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Taxpayer demonstration account · no password required.</p>}
+            {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Demo account · no password needed.</p>}
+            {officerEmail && <p className="text-[13px] text-[var(--color-text-secondary)]">Officer sign-in uses a secure email link.</p>}
 
-            {!demoUrl && !secureClient && (
+            {showPasswordControls && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <AppCheckbox
                 id="login-remember-me"
@@ -144,7 +148,6 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
             </div>
             )}
 
-            {secureClient&&!demoUrl&&<p className="text-[13px] text-[var(--color-text-secondary)]">Sign in by secure email link. A verified officer role is required; browser state or an arbitrary password cannot grant access.</p>}
             {authFeedback&&<p role={authFeedback.error?'alert':'status'}>{authFeedback.text}</p>}
             <button
               type="button"
@@ -158,7 +161,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
                   <span>{translate("login.signingIn")}</span>
                 </>
               ) : (
-                <span>{secureClient&&!demoUrl?"Send secure sign-in link":translate("login.signIn")}</span>
+                <span>{officerEmail?"Send secure sign-in link":translate("login.signIn")}</span>
               )}
             </button>
 
