@@ -79,7 +79,7 @@ export function OfficeReviewQueue() {
   const login=async(event:React.FormEvent)=>{
     event.preventDefault();if(!client||busy)return;
     setBusy(true);setStatus('');
-    try{const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:window.location.origin+window.location.pathname}});if(error)throw error;
+    try{const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:false}});if(error)throw error;
       setStatus(t('Sign-in link sent. Access requires an assigned officer role.','সাইন-ইন লিংক পাঠানো হয়েছে। নির্ধারিত কর্মকর্তা ভূমিকা প্রয়োজন।'));
     }catch(e){setStatus(e instanceof Error?e.message:'Could not sign in');}finally{setBusy(false);}
   };
@@ -102,16 +102,25 @@ export function OfficeReviewQueue() {
     }catch(e){setStatus(e instanceof Error?e.message:'Notification update failed');}finally{setBusy(false);}
   };
 
+  const signOut=async()=>{
+    if(!client||busy)return;
+    setBusy(true);setStatus('');
+    try {const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;
+      setUser(null);setRole(null);setRows([]);setNotices([]);setSelected(null);setReason('');
+    }catch(e){setStatus(e instanceof Error?e.message:'Sign-out failed');}finally{setBusy(false);}
+  };
+
   // Preserve the accepted Office Payments UI when no verified backend is configured.
   if(!client) return null;
   return <section className="card payment-module__card" aria-label={t('Connected officer review','সংযুক্ত কর্মকর্তা পর্যালোচনা')}>
     <h2>{t('Officer review inbox','কর্মকর্তার পর্যালোচনা ইনবক্স')}</h2>
     <p>{t('Non-financial requests only. Financial receipts and tax credits cannot be changed here.','শুধু অ-আর্থিক অনুরোধ। এখানে আর্থিক রসিদ বা কর ক্রেডিট পরিবর্তন করা যায় না।')}</p>
     {!client?<p role="status">{t('Secure review connection not configured. Existing payment screens remain unchanged.','নিরাপদ রিভিউ সংযোগ কনফিগার করা নেই। বিদ্যমান পেমেন্ট স্ক্রিন অপরিবর্তিত।')}</p>:
-    !user?<form onSubmit={e=>void login(e)}><AppTextField id="office-review-email" label={t('Officer email','কর্মকর্তার ইমেইল')} value={email} onChange={setEmail} required/><PrimaryButton size="sm" disabled={busy}>{t('Send sign-in link','সাইন-ইন লিংক পাঠান')}</PrimaryButton></form>:
+    !user?<form onSubmit={e=>void login(e)}><AppTextField id="office-review-email" label={t('Officer email','কর্মকর্তার ইমেইল')} value={email} onChange={setEmail} required/><PrimaryButton type="submit" size="sm" disabled={busy}>{t('Send sign-in link','সাইন-ইন লিংক পাঠান')}</PrimaryButton></form>:
     !role?<p role="status">{t('No active officer role assigned to this account.','এই অ্যাকাউন্টে সক্রিয় কর্মকর্তা ভূমিকা নির্ধারিত নেই।')}</p>:
     <>
       <p>{t('Authorized role','অনুমোদিত ভূমিকা')}: {role}</p>
+      <SecondaryButton size="sm" disabled={busy} onClick={()=>void signOut()}>{t('Sign out','সাইন আউট')}</SecondaryButton>
       <SecondaryButton size="sm" onClick={()=>setRevision(v=>v+1)}>{t('Refresh inbox','ইনবক্স হালনাগাদ')}</SecondaryButton>
       {notices.some(n=>!n.is_read)&&<section><h3>{t('New notices','নতুন বিজ্ঞপ্তি')}</h3><ul>{notices.filter(n=>!n.is_read).map(n=><li key={n.id}><p>{label(n.message_code)} · {n.request_id}</p><SecondaryButton size="sm" onClick={()=>void markRead(n)}>{t('Mark read','পড়া হয়েছে')}</SecondaryButton></li>)}</ul></section>}
       <div><h3>{t('Review requests','পর্যালোচনার অনুরোধ')}</h3>{rows.length===0?<p>{t('No requests assigned to this review inbox.','এই ইনবক্সে কোনো অনুরোধ নেই।')}</p>:<ul>{rows.map(r=><li key={r.id}><button type="button" className="table-card__toolbar-btn" onClick={()=>{setSelected(r.id);setReason('');}} aria-pressed={selected===r.id}>{r.id} · {r.category} · {r.assessment_year} · {label(r.request_status)}</button></li>)}</ul>}</div>
