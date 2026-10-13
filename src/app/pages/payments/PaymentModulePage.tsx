@@ -20,9 +20,42 @@ import {
   referenceAudit, referenceCorrections, referenceIntelligence,
   referenceOffline, referencePayments, referenceTaxpayers, totalEligible, totalReceived,
 } from './paymentReference';
+import { demoTransactions, demoUserIds, getDemoUserAllocations, transactionTotalMinor } from './paymentScenarioModel';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
+const demoProfiles = demoUserIds.map((id,index)=>({
+  name:id,tin:`DEMO-TIN-${String(index+1).padStart(3,'0')}`,
+  zone:'Demo only',circle:'Demo only',status:'Demo',type:'Synthetic',
+  nid:'—',phone:'—'
+}));
+const demoUserTin=(id:string)=>`DEMO-TIN-${String(demoUserIds.indexOf(id as typeof demoUserIds[number])+1).padStart(3,'0')}`;
+const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+const demoTimeline=(events:readonly {occurredAt:string;action:string;note:string}[])=>
+  events.map(e=>`${new Date(e.occurredAt).toISOString()} · ${e.action} · ${e.note}`).join(' | ');
+const demoGlobalRows=demoTransactions.map(tx=>({
+  key:tx.id,date:demoDate(tx.createdAt),taxpayer_name:Array.from(new Set(tx.allocations.map(a=>a.beneficiary))).join(', '),
+  tin:'DEMO-MULTI',payer_name:tx.payer,
+  payment_type:Array.from(new Set(tx.allocations.map(a=>a.category))).join(', '),
+  assessment_year:Array.from(new Set(tx.allocations.map(a=>a.assessmentYear))).join(', '),
+  income_year:'—',amount:money(transactionTotalMinor(tx)/100),
+  financial_receipt_status:`Demo · ${tx.state}`,ledger_status:'Not credited — demo',
+  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
+  beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
+  allocation_count:tx.allocations.length,
+  allocations:tx.allocations.map(a=>`${a.id}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
+  transaction_timeline:demoTimeline(tx.events),
+  note:'SIMULATED ONLY — no Government receipt, tax credit, eTIN authentication or ACS settlement'
+}));
+const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
+  key:`${tx.id}:${a.id}`,date:demoDate(tx.createdAt),taxpayer_name:a.beneficiary,
+  tin:demoUserTin(a.beneficiary),payer_name:tx.payer,payment_type:a.category,
+  assessment_year:a.assessmentYear,income_year:'—',amount:money(a.amountMinor/100),
+  financial_receipt_status:`Demo · ${tx.state}`,ledger_status:'Not credited — demo',
+  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
+  allocation_id:a.id,transaction_total:money(transactionTotalMinor(tx)/100),
+  transaction_timeline:demoTimeline(tx.events),note:'Beneficiary allocation only; never an official tax credit'
+})));
 const samplePayments = referencePayments.map(p => ({
   key:p.key, date:p.date, taxpayer_name:p.taxpayer_name, tin:p.tin, payer_name:p.payer_name,
   payment_type:p.type, assessment_year:p.ay, income_year:p.iy, amount:money(p.amount),
@@ -59,8 +92,9 @@ export function PaymentModulePage({page}: {page: string}) {
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
   const [scopeYear,setScopeYear] = useState('all');
+  const [paymentDataset,setPaymentDataset] = useState<'reference'|'scenarios'>('reference');
   const [kpiOpen,setKpiOpen] = useState(true);
-  const [selectedTin,setSelectedTin] = useState<string>(referenceTaxpayers[0].tin);
+  const [selectedTin,setSelectedTin] = useState<string>(demoProfiles[0].tin);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
@@ -87,12 +121,16 @@ export function PaymentModulePage({page}: {page: string}) {
     setFormError('');setDraftPreview(true);
   };
   const keys=paymentColumns(t);
-  const scopedPayments=scopeYear==='all'?samplePayments:samplePayments.filter(p=>p.assessment_year.replace('–','-')===scopeYear);
+  const allRows=paymentDataset==='reference'?samplePayments:demoGlobalRows;
+  const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
-    options={[{value:'all',label:t('allYears')},...Array.from(new Set(referencePayments.map(p=>p.ay.replace('–','-')))).sort().reverse().map(y=>({value:y,label:y}))]}/>;
-  const taxP=referenceTaxpayers.find(p=>p.tin===selectedTin)??referenceTaxpayers[0];
-  const taxPayments=scopedPayments.filter(p=>p.tin===selectedTin);
+    options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
+  const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??demoProfiles[0];
+  const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
+  const taxPayments=isDemo?demoAllocationRows.filter(p=>p.tin===selectedTin && (scopeYear==='all'||p.assessment_year.replace('–','-')===scopeYear)):scopedPayments.filter(p=>p.tin===selectedTin);
+  const beneficiaryNotices=isDemo?getDemoUserAllocations(demoUserIds[demoProfiles.findIndex(p=>p.tin===selectedTin)])
+    .filter(entry=>scopeYear==='all'||entry.allocation.assessmentYear===scopeYear):[];
   const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
@@ -157,16 +195,19 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
+    <div className="payment-module__year-control"><AppSelectField id="payment-dataset-scope" label={t('demoDataSource')} value={paymentDataset} onChange={value=>setPaymentDataset(value as 'reference'|'scenarios')} compact options={[{value:'reference',label:t('demoReferenceData')},{value:'scenarios',label:t('demoMixedData')}]}/></div>
+    {paymentDataset==='scenarios'&&<p className="table-page__desc">{t('demoScopeNotice')}</p>}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
     {toolbar(t('taxpayer360'))}
+    <p className="table-page__desc">{t('demoScopeNotice')}</p>
     <div className="payment-module__filters"><AppSelectField id="payment-taxpayer" label={t('taxpayer')} value={selectedTin} onChange={setSelectedTin}
-      options={referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}${/^\d{12}$/.test(p.tin)?'':` (${t('invalidReference')})`}`}))} searchableAfter={5}/></div>
+      options={[...demoProfiles.map(p=>({value:p.tin,label:`${p.name} · Demo only`})),...referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}${/^\d{12}$/.test(p.tin)?'':` (${t('invalidReference')})`}`}))]} searchableAfter={5}/></div>
     <div className="payment-module__year-control">{yearSelect}</div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
-      kpi(t('payments'),String(original.length),CreditCard),
+      kpi(t('payments'),String(isDemo?taxPayments.length:original.length),CreditCard),
       kpi(t('received'),money(totalReceived(original)),Landmark,'success'),
       kpi(t('eligible'),money(totalEligible(original)),CheckCircle2,'success'),
       kpi(t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
@@ -177,7 +218,12 @@ export function PaymentModulePage({page}: {page: string}) {
     </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=>({...c,ay:c.before.startsWith('AY ')?c.before.slice(3):'',amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),money(totalReceived(original))],[t('eligible'),money(totalEligible(original))],[t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
-      taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2><p>{t('noSampleNotices')}</p></section> :
+      taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
+        {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(({transaction,allocation})=><li key={allocation.id}>
+          <p><strong>{transaction.id}</strong> · {transaction.payer} → {allocation.beneficiary} · {money(allocation.amountMinor/100)}</p>
+          <p>{demoDate(transaction.createdAt)} · Demo {transaction.state} · {t('demoAllocationNotice')}</p>
+        </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
+      </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}
   </>;
   const corrections=()=> <>
