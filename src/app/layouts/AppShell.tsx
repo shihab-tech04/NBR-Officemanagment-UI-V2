@@ -4,6 +4,7 @@ import { preloadAllRoutes } from "../routes";
 import { useTranslation } from "react-i18next";
 import type { AppDispatch } from "../store/store";
 import { logout } from "../store/authSlice";
+import { getOfficeReviewClient } from "../pages/payments/OfficeReviewQueue";
 import { useSettings } from "../hooks/useSettings";
 import { FONTS } from "../data/fonts";
 import { useNavigation } from "../hooks/useNavigation";
@@ -15,6 +16,7 @@ import { MainShell } from "./MainShell";
 import { MobileBackdrop } from "./MobileBackdrop";
 export function AppShell() {
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signOutError,setSignOutError]=useState("");
   const { t: translate } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
 
@@ -34,7 +36,16 @@ export function AppShell() {
   // Warm all route chunks in the background so first-click navigation is instant
   useEffect(() => { preloadAllRoutes(); }, []);
 
-  const handleConfirmSignOut = () => {
+  const handleConfirmSignOut = async () => {
+    setSignOutError("");
+    const client=getOfficeReviewClient();
+    if(client){
+      const {error}=await client.auth.signOut({scope:"local"});
+      if(error){
+        setSignOutError("Sign-out failed. Your protected officer session may still be active.");
+        return;
+      }
+    }
     setSignOutOpen(false);
     dispatch(logout());
   };
@@ -46,6 +57,7 @@ export function AppShell() {
         {translate("accessibility.skipToMainContent")}
       </a>
 
+      {signOutError&&<p role="alert">{signOutError}</p>}
       <MobileBackdrop
         isOpen={mobileDrawerOpen}
         onClose={() => setMobileDrawerOpen(false)}
