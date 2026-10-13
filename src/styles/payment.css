@@ -47,9 +47,7 @@
 
 /* Payment integration uses the baseline GeneratedTablePage shell; scoped only. */
 .payment-module__year-control { width:min(280px,100%); min-width:0; margin-top:12px; margin-bottom:20px; }
-.payment-module__sort { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-caption); color:var(--color-text-secondary); }
-.payment-module__sort select { border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); padding:6px 9px; max-width:140px; }
-.payment-module__sort svg { display:none; }
+.payment-module__sort { width:160px; max-width:100%; min-width:0; flex:0 0 160px; align-self:center; }
 .payment-module__tab-scroll { max-width:100%; overflow-x:auto; scrollbar-width:thin; }
 .payment-module__tab-scroll .tab-bar { flex-wrap:nowrap; width:max-content; min-width:100%; margin-bottom:var(--space-3); }
 .payment-module__tab-scroll .tab-bar__tab { flex:0 0 auto; white-space:nowrap; }
@@ -104,16 +102,6 @@
     max-width:100%;
     margin-left:0;
   }
-  .payment-module__table-card .payment-module__sort select { max-width:160px; }
 }
 
-/* Keep compact register filters at the same control density as the Office
-   Management table toolbar. Shared FilterPanel fields and buttons remain in use. */
-@media (min-width:1024px) {
-  .payment-module__table-card .filter-grid {
-    grid-template-columns:repeat(auto-fit,minmax(200px,240px));
-    gap:12px;
-    justify-content:start;
-  }
-  .payment-module__table-card .filter-actions { margin-top:12px; }
-}
+/* Payment register filters use the unchanged Office Management FilterPanel grid. */

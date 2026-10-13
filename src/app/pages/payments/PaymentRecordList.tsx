@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, Filter, ChevronDown } from 'lucide-react';
+import { Eye, Filter, Download, Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AppSearchField } from '../../components/forms/AppSearchField';
+import { AppSelectField } from '../../components/forms/AppSelectField';
 import { MobileSearchFilter } from '../../components/shared/MobileSearchFilter';
 import { FilterPanel } from '../../components/filters/FilterPanel';
 import { MobileFilterOverlay } from '../../components/filters/MobileFilterOverlay';
@@ -9,6 +10,7 @@ import { AppliedFilterChips } from '../../components/filters/AppliedFilterChips'
 import { Pagination } from '../../components/shared/Pagination';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { useUIState } from '../../hooks/useUI';
+import { handleExportDisabled } from '../../utils/exportDisabled';
 import type { ColDef, FilterDef, MobileCardMapping, TableRow } from '../modulePageUtils';
 
 /** Parse the controlled Payment snapshot's human-readable dates, never sort them lexicographically. */
@@ -35,6 +37,7 @@ type Props = {
 /** Standard Office Management table + filter workflow, Payment-configured. */
 export function PaymentRecordList({ title, rows, columns, filters = [], mobileMapping, kind, onOpen }: Props) {
   const { t } = useTranslation('payment');
+  const { t: tc } = useTranslation('common');
   const { isDesktop } = useUIState();
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -86,9 +89,9 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
         {filters.length > 0 && <button type="button" className={`table-card__toolbar-btn${showFilters?' table-card__toolbar-btn--active':''}`} onClick={toggle} aria-expanded={showFilters}>
           <Filter size={13} aria-hidden="true"/>{t('filters')}
         </button>}
-        <label className="payment-module__sort">{t('sort')} <span className="sr-only">{title}</span><select aria-label={t('sort')} value={sort} onChange={e=>setSort(e.target.value)}>
-          <option value="">{t('defaultOrder')}</option>{sortChoices.map(choice=><option key={choice.value} value={choice.value}>{choice.label}</option>)}
-        </select><ChevronDown size={12} aria-hidden="true"/></label>
+        <div className="payment-module__sort"><AppSelectField id="payment-record-sort" label={t('sort')} ariaLabel={t('sort')} value={sort} onChange={setSort} compact options={[{value:'',label:t('defaultOrder')},...sortChoices]}/></div>
+        <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--download" onClick={()=>handleExportDisabled(tc('actions.exportDisabled'))}><Download size={13} aria-hidden="true"/>{tc('actions.export')}</button>
+        <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--print" onClick={()=>window.print()}><Printer size={13} aria-hidden="true"/>{tc('actions.print')}</button>
       </div>
       {isDesktop && showFilters && filters.length > 0 && <div className="table-card__filter-panel"><FilterPanel filters={filters} values={draftFilters} onChange={change} onApply={apply} onReset={reset}/></div>}
       <AppliedFilterChips inCard values={applied} filters={filters} onClear={reset}/>

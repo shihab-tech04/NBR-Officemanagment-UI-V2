@@ -179,5 +179,6 @@
   "search_incidents": "Search incident, taxpayer or reference",
   "search_offline_events": "Search event, taxpayer or order",
   "sortTaxpayer": "Taxpayer A–Z",
-  "sortRecordId": "Record ID A–Z"
+  "sortRecordId": "Record ID A–Z",
+  "registerFilterYear": "Assessment year"
 }
