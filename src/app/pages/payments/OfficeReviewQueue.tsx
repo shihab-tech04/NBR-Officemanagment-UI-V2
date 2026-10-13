@@ -10,7 +10,8 @@ import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
-const client = url.startsWith('https://') && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
+const approvedOrigin = url.startsWith('https://') || (import.meta.env.DEV && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]+)?\/?$/.test(url));
+const client = approvedOrigin && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
   ? createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 /** Reuse the authenticated officer session for protected simulation reads. */
 export const getOfficeReviewClient = () => client;
