@@ -193,10 +193,12 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
+    <p className="table-page__desc">{t('demoScopeNotice')}</p>
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
     {toolbar(t('taxpayer360'))}
+    <p className="table-page__desc">{t('demoScopeNotice')}</p>
     <div className="payment-module__filters"><AppSelectField id="payment-taxpayer" label={t('taxpayer')} value={selectedTin} onChange={setSelectedTin}
       options={[...demoProfiles.map(p=>({value:p.tin,label:`${p.name} · Demo only`})),...referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}${/^\d{12}$/.test(p.tin)?'':` (${t('invalidReference')})`}`}))]} searchableAfter={5}/></div>
     <div className="payment-module__year-control">{yearSelect}</div>
@@ -216,7 +218,7 @@ export function PaymentModulePage({page}: {page: string}) {
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(({transaction,allocation})=><li key={allocation.id}>
           <p><strong>{transaction.id}</strong> · {transaction.payer} → {allocation.beneficiary} · {money(allocation.amountMinor/100)}</p>
-          <p>{demoDate(transaction.createdAt)} · Demo {transaction.state} · No confirmed payment or credit</p>
+          <p>{demoDate(transaction.createdAt)} · Demo {transaction.state} · {t('demoAllocationNotice')}</p>
         </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
       </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}
