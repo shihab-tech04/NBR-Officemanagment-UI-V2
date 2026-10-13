@@ -92,5 +92,16 @@
     "draft": "Draft",
     "pending": "Pending",
     "withReviewer": "With Reviewer"
+  },
+  "paymentSort": {
+    "default": "Default order",
+    "newest": "Date: newest first",
+    "oldest": "Date: oldest first",
+    "taxpayerAsc": "Taxpayer: A–Z",
+    "taxpayerDesc": "Taxpayer: Z–A",
+    "recordAsc": "Record ID: A–Z",
+    "recordDesc": "Record ID: Z–A",
+    "amountAsc": "Amount: low to high",
+    "amountDesc": "Amount: high to low"
   }
 }
