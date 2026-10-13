@@ -179,5 +179,6 @@
   "search_incidents": "ঘটনা, করদাতা বা রেফারেন্স অনুসন্ধান",
   "search_offline_events": "ইভেন্ট, করদাতা বা আদেশ অনুসন্ধান",
   "sortTaxpayer": "করদাতার নাম অনুযায়ী",
-  "sortRecordId": "রেকর্ড আইডি অনুযায়ী"
+  "sortRecordId": "রেকর্ড আইডি অনুযায়ী",
+  "registerFilterYear": "করবর্ষ"
 }

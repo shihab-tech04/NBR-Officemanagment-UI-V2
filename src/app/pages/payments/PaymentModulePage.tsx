@@ -94,15 +94,17 @@ export function PaymentModulePage({page}: {page: string}) {
   const taxPayments=scopedPayments.filter(p=>p.tin===selectedTin);
   const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
-  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,amount:money(x.amount)}))];
+  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
   const incidentRows=localRecords.incidents;
   const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:t(`event_${e.event}`),amount:money(e.amount)}))];
-  const yearFilters:FilterDef[]=[{key:'assessment_year',label:t('ay'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.assessment_year)))]}];
+  const yearOptions=['All',...Array.from(new Set(referencePayments.map(p=>p.ay).concat(referenceOffline.map(e=>e.ay))))];
+  const yearFilters:FilterDef[]=[{key:'assessment_year',label:t('ay'),type:'select',options:yearOptions}];
+  const eventYearFilter:FilterDef={key:'ay',label:t('ay'),type:'select',options:yearOptions};
   const optionKeys={ 'All':'paymentStatuses.all','Failed':'paymentStatuses.failed','Awaiting bank payment':'paymentStatuses.awaiting','Received by Government':'paymentStatuses.received','Not yet credited':'paymentStatuses.notCredited','Eligible — credited':'paymentStatuses.credited','Blocked — under review':'paymentStatuses.blockedCredit','Blocked':'paymentStatuses.blocked','Decided':'paymentStatuses.decided','Draft':'paymentStatuses.draft','Pending':'paymentStatuses.pending','With Reviewer':'paymentStatuses.withReviewer' };
   const payFilters:FilterDef[]=[...yearFilters,{key:'financial_receipt_status',label:t('colReceipt'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.financial_receipt_status)))],optionKeys},{key:'ledger_status',label:t('colCredit'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.ledger_status)))],optionKeys}];
-  const queueFilters:FilterDef[]=[{key:'status',label:t('status'),type:'select',options:['All','Blocked','Decided','Draft'],optionKeys},{key:'stage',label:t('colStage'),type:'select',options:['All','With Reviewer','Decided (illustrative)','Draft']}];
-  const offlineFilters:FilterDef[]=[{key:'status',label:t('status'),type:'select',options:['All','Pending','Draft'],optionKeys},{key:'event',label:t('eventType'),type:'select',options:['All',...Array.from(new Set(offlineRows.map(e=>String(e.event))))]}];
-  const incidentFilters:FilterDef[]=[{key:'type',label:t('incidentType'),type:'select',options:['All',...Array.from(new Set(incidentRows.map(e=>String(e.type))))]}];
+  const queueFilters:FilterDef[]=[eventYearFilter,{key:'status',label:t('status'),type:'select',options:['All','Blocked','Decided','Draft'],optionKeys},{key:'stage',label:t('colStage'),type:'select',options:['All','With Reviewer','Decided (illustrative)','Draft']}];
+  const offlineFilters:FilterDef[]=[eventYearFilter,{key:'status',label:t('status'),type:'select',options:['All','Pending','Draft'],optionKeys},{key:'event',label:t('eventType'),type:'select',options:['All',...Array.from(new Set(offlineRows.map(e=>String(e.event))))]}];
+  const incidentFilters:FilterDef[]=[eventYearFilter,{key:'type',label:t('incidentType'),type:'select',options:['All',...Array.from(new Set(incidentRows.map(e=>String(e.type))))]}];
   const saveDraft=()=>{
     if(!draftKind||!draftPreview)return;
     const id=`DRAFT-${++mockDraftCounter}`;
@@ -120,8 +122,10 @@ export function PaymentModulePage({page}: {page: string}) {
   const showKpis=(kpis:KpiDef[]) => <CollapsibleKpiSection open={kpiOpen} kpis={kpis}/>;
   const kpi=(label:string,value:string,Icon:typeof Wallet,tone:'primary'|'success'|'warning'|'error'|'neutral'='primary'):KpiDef=>({label,value,icon:Icon,tone});
   const openDetails=(record:TableRow,title:string)=>view(record,title);
-  const table=(cols:ColDef[],items:TableRow[],key:string,filters:FilterDef[]=[],mobileMapping?:MobileCardMapping)=>
-    <PaymentRecordList key={key+':'+scopeYear} kind={key as 'transactions'|'corrections'|'incidents'|'offline-events'} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
+  const table=(cols:ColDef[],items:TableRow[],key:string,filters:FilterDef[]=[],mobileMapping?:MobileCardMapping)=> {
+    const kind=key==='offlineEvents'?'offline-events':key as 'transactions'|'corrections'|'incidents'|'offline-events';
+    return <PaymentRecordList key={kind+':'+scopeYear} kind={kind} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
+  };
   const toolbar=(label:string,action?:()=>void)=> (
     <header className="table-page__header payment-module__header">
       <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t(`description_${current.replace(/-/g,'_')}`)}</p></div>
@@ -143,7 +147,7 @@ export function PaymentModulePage({page}: {page: string}) {
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
-        {referenceCorrections.filter(c=>c.status==='Blocked').map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{c.reason} · {money(c.amount)}</p></button>)}
+        {referenceCorrections.filter(c=>c.status==='Blocked' && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{c.reason} · {money(c.amount)}</p></button>)}
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
         {referenceAudit.slice(0,4).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{e.action.replace(/_/g,' ').toLowerCase().replace(/\b\w/g,k=>k.toUpperCase())}</strong><p>{e.date} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
@@ -152,7 +156,6 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
-    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
@@ -170,7 +173,7 @@ export function PaymentModulePage({page}: {page: string}) {
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{v}</p></div>)}
-    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name).map(c=>({...c,amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
+    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=>({...c,ay:c.before.startsWith('AY ')?c.before.slice(3):'',amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),money(totalReceived(original))],[t('eligible'),money(totalEligible(original))],[t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2><p>{t('noSampleNotices')}</p></section> :
@@ -178,22 +181,19 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const corrections=()=> <>
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
-    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.correction,corrRows,'corrections',queueFilters,correctionMapping)}
   </>;
   const incidents=()=> <>
     {toolbar(t('incidents'),()=>openDraft('incidents'))}
-    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.incident,incidentRows,'incidents',incidentFilters,incidentMapping)}
   </>;
   const offline=()=> <>
     {toolbar(t('offlineEvents'),()=>openDraft('offline-events'))}
-    <div className="payment-module__year-control">{yearSelect}</div>
     {table(keys.offline,offlineRows,'offlineEvents',offlineFilters,offlineMapping)}
   </>;
   const analytics=()=> <>
     {toolbar(t('analytics'))}
-    <div className="payment-module__year-control">{yearSelect}</div>
+    <p className="table-page__desc">{t('analyticsScope')}</p>
     {showKpis([
       kpi(t('paymentVolume'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.volume),BarChart3),
       kpi(t('successful'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.successful),CheckCircle2,'success'),
@@ -206,7 +206,6 @@ export function PaymentModulePage({page}: {page: string}) {
       kpi(t('invalidated'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.invalidatedCredits),AlertTriangle,'error'),
     ])}
     <div className="payment-module__tab-scroll"><TabBar active={analyticsTab} onChange={setAnalyticsTab} tabs={[{id:'insights',label:t('insights')},{id:'monitoring',label:t('monitoring')}]} /></div>
-    <p className="table-page__desc">{t('analyticsScope')}</p>
     {analyticsTab==='insights' ? <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><h2>{t('channelPerformance')}</h2>
         {([['Internet Banking',98.1],['bKash',97.6],['Nagad',97.2],['Rocket',96.4],['Visa / Mastercard',91.3]] as const).map(([name,value],index)=><div className="payment-module__metric" key={name}><label htmlFor={`pay-channel-${index}`}>{name}</label><progress id={`pay-channel-${index}`} value={value} max="100"/><p>{value}%</p></div>)}

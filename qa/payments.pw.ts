@@ -170,8 +170,10 @@ for(const width of [1704,1440,1280]) {
   const panel=page.locator('.payment-module__table-card .table-card__filter-panel');
   await expect(panel).toBeVisible();
   const sizes=await panel.locator('.filter-grid > *').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
-  expect(sizes).toHaveLength(2);
-  for(const w of sizes) {expect(w,'no oversized filter fields').toBeLessThanOrEqual(245);expect(w,'usable filter field').toBeGreaterThanOrEqual(180);}
+  expect(sizes).toHaveLength(3);
+  const panelWidth=await panel.evaluate(el=>el.getBoundingClientRect().width);
+  for(const w of sizes) {expect(w,'shared responsive grid distributes fields evenly').toBeGreaterThan(panelWidth/5);}
+  expect(Math.max(...sizes)-Math.min(...sizes),'FilterPanel columns use shared equal-width sizing').toBeLessThanOrEqual(2);
   await page.screenshot({path:`test-results/payment-corrections-filter-${width}.png`,animations:'disabled'});
  });
 }
@@ -192,4 +194,32 @@ test('Corrections mobile filter uses shared bottom sheet, and Bengali headings r
  await page.locator('.payment-module__table-card .table-card__toolbar').getByRole('button',{name:'Filter',exact:true}).click();
  await expect(page.locator('.mobile-filter-overlay')).toBeVisible();
  await page.screenshot({path:'test-results/payment-corrections-mobile-filter.png',animations:'disabled'});
+});
+
+// Full-module parity regressions: no orphan AY selector in register headers,
+// no raw translation keys, and standard Office Management table actions.
+for(const route of ['transactions','corrections','incidents','offline-events']){
+ test(`${route}: common table toolbar, AY inside filter and resolved translations`,async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto(`/payments/${route}`);
+  await expect(page.locator('#payment-year-scope')).toHaveCount(0);
+  await expect(page.locator('.payment-module__table-card .table-card__toolbar-btn--download')).toBeVisible();
+  await expect(page.locator('.payment-module__table-card .table-card__toolbar-btn--print')).toBeVisible();
+  await page.locator('.payment-module__table-card .table-card__toolbar').getByRole('button',{name:'Filter',exact:true}).click();
+  await expect(page.locator('#filter-'+(route==='transactions'?'assessment_year':'ay'))).toBeVisible();
+  const keyLeaks=await page.locator('[data-testid="payment-'+route+'"]').innerText();
+  expect(keyLeaks).not.toContain('search_offlineEvents');
+  expect(keyLeaks).not.toContain('colReason');
+  await page.screenshot({path:`test-results/parity-${route}-1440.png`,animations:'disabled'});
+ });
+}
+test('Offline Events uses localized search and AY filter actually narrows its source records',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/payments/offline-events');
+ await expect(page.getByPlaceholder('Search event, taxpayer or order').first()).toBeVisible();
+ await page.getByRole('button',{name:'Filter',exact:true}).click();
+ await page.locator('#filter-ay').click();
+ await page.getByRole('option',{name:'2027–28'}).click();
+ await page.getByRole('button',{name:'Apply Filters'}).click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(0);
 });
