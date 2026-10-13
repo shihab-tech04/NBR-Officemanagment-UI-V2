@@ -271,11 +271,13 @@ test('phone sorts transaction cards inside standard Filter sheet, and resets',as
  await page.locator('#mobile-filter-__paymentSort').click();
  await page.getByRole('option',{name:'Amount: high to low'}).click();
  await page.getByRole('button',{name:'Apply Filters'}).click();
- await expect(page.locator('.mobile-table-card').first()).toContainText('৳100,000');
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('৳100,000');
+ await expect(page.locator('.mobile-table-card').first()).toHaveAttribute('aria-label',/Md\. Abdul Karim/);
  await page.locator('.payment-module__table-card .table-card__toolbar').getByRole('button',{name:'Filter',exact:true}).click();
  await page.locator('#mobile-filter-__paymentSort').click();
  await page.getByRole('option',{name:'Default order'}).click();
  await page.getByRole('button',{name:'Apply Filters'}).click();
- await expect(page.locator('.mobile-table-card').first()).toContainText('৳42,500');
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('৳42,500');
+ await expect(page.locator('.mobile-table-card').first()).toHaveAttribute('aria-label',/Md\. Rahman/);
  await page.screenshot({path:'test-results/payments-mobile-sort-in-filter-390.png',animations:'disabled'});
 });
