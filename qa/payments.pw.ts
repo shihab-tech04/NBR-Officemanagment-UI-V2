@@ -189,7 +189,7 @@ test('Corrections filter genuinely applies status and clears it',async({page})=>
 test('Corrections mobile filter uses shared bottom sheet, and Bengali headings resolve',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto('/payments/corrections');
- await page.locator('.mobile-search-filter__filter-btn').click();
+ await page.locator('.payment-module__table-card .table-card__toolbar').getByRole('button',{name:'Filter',exact:true}).click();
  await expect(page.locator('.mobile-filter-overlay')).toBeVisible();
  await page.screenshot({path:'test-results/payment-corrections-mobile-filter.png',animations:'disabled'});
 });
