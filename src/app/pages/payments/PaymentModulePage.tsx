@@ -91,6 +91,7 @@ export function PaymentModulePage({page}: {page: string}) {
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
   const [scopeYear,setScopeYear] = useState('all');
+  const [paymentDataset,setPaymentDataset] = useState<'reference'|'scenarios'>('reference');
   const [kpiOpen,setKpiOpen] = useState(true);
   const [selectedTin,setSelectedTin] = useState<string>(demoProfiles[0].tin);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
@@ -119,7 +120,7 @@ export function PaymentModulePage({page}: {page: string}) {
     setFormError('');setDraftPreview(true);
   };
   const keys=paymentColumns(t);
-  const allRows=[...samplePayments,...demoGlobalRows];
+  const allRows=paymentDataset==='reference'?samplePayments:demoGlobalRows;
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
@@ -193,7 +194,8 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
-    <p className="table-page__desc">{t('demoScopeNotice')}</p>
+    <div className="payment-module__year-control"><AppSelectField id="payment-dataset-scope" label={t('demoDataSource')} value={paymentDataset} onChange={value=>setPaymentDataset(value as 'reference'|'scenarios')} compact options={[{value:'reference',label:t('demoReferenceData')},{value:'scenarios',label:t('demoMixedData')}]}/></div>
+    {paymentDataset==='scenarios'&&<p className="table-page__desc">{t('demoScopeNotice')}</p>}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
