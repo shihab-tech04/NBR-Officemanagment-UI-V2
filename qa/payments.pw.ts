@@ -117,7 +117,8 @@ test('first visit shows mock payment records independently of Office Management 
   await page.goto('/payments/transactions');
   await expect(page.locator('[data-testid="payment-transactions"]')).toBeVisible();
   await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
-  await expect(page.getByLabel('Sample AY')).toBeVisible();
+  await page.locator('.payment-module__table-card .table-card__toolbar').getByRole('button',{name:'Filter',exact:true}).click();
+  await expect(page.locator('#filter-assessment_year')).toBeVisible();
   await expect(page.locator('#topbar-assessment-year')).toHaveCount(0);
 });
 
@@ -216,7 +217,7 @@ for(const route of ['transactions','corrections','incidents','offline-events']){
 test('Offline Events uses localized search and AY filter actually narrows its source records',async({page})=>{
  await page.setViewportSize({width:1440,height:900});
  await page.goto('/payments/offline-events');
- await expect(page.getByPlaceholder('Search event, taxpayer or order').first()).toBeVisible();
+ await expect(page.locator('.payment-module__table-card .table-card__search-wrapper input[placeholder="Search event, taxpayer or order"]')).toBeVisible();
  await page.getByRole('button',{name:'Filter',exact:true}).click();
  await page.locator('#filter-ay').click();
  await page.getByRole('option',{name:'2027–28'}).click();
