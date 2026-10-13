@@ -107,6 +107,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
             />}
             {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Sample taxpayer IDs user1–user10 need no password. These accounts show non-official demonstration data only.</p>}
 
+            {!demoUrl && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <AppCheckbox
                 id="login-remember-me"
@@ -118,6 +119,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
                 {translate("login.forgotPassword")}
               </button>
             </div>
+            )}
 
             <button
               type="button"
