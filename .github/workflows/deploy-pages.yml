@@ -25,12 +25,24 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
-      - run: npm run build
+      - name: Compile Office Management with scoped TaxPay review-only inbox
+        run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
+          VITE_TAXPAY_REVIEW_DISABLED: 'false'
+          VITE_TAXPAY_REVIEW_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
+          # Publishable API key only. No privileged token can be used in a browser build.
+          VITE_TAXPAY_REVIEW_PUBLIC_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
+      - name: Verify review build contains approved public endpoint only
+        shell: bash
+        run: |
+          grep -RFq 'https://eyqhoavnitkrajvyqvxn.supabase.co' dist/assets
+          ! grep -REq 'sb_secret_|service_role' dist/assets
+          echo 'PASS: segregated review inbox connected with a publishable-only key; no financial processing API'
+
       - name: Verify built asset paths and files
         run: |
           python3 - <<'PYVERIFY'
