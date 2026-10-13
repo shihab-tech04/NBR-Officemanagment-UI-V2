@@ -161,7 +161,7 @@ for(const width of [1704,1440,1280]) {
   await expect(sort.locator('option[value="date"]')).toHaveCount(0);
   await expect(sort.locator('option[value="-date"]')).toHaveCount(0);
   await expect(sort.locator('option[value="taxpayer"]')).toHaveCount(1);
-  await expect(page.getByPlaceholder('Search case, taxpayer or reason')).toBeVisible();
+  await expect(page.locator('.payment-module__table-card .table-card__search-wrapper input[placeholder="Search case, taxpayer or reason"]')).toBeVisible();
   const add=page.getByRole('button',{name:'Add New'});
   const bounds=await add.boundingBox();
   expect(bounds,'Add New is visible').toBeTruthy();
@@ -189,7 +189,7 @@ test('Corrections filter genuinely applies status and clears it',async({page})=>
 test('Corrections mobile filter uses shared bottom sheet, and Bengali headings resolve',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto('/payments/corrections');
- await page.locator('.mobile-search-filter').getByRole('button',{name:/Filter/i}).click();
+ await page.locator('.mobile-search-filter__filter-btn').click();
  await expect(page.locator('.mobile-filter-overlay')).toBeVisible();
  await page.screenshot({path:'test-results/payment-corrections-mobile-filter.png',animations:'disabled'});
 });
