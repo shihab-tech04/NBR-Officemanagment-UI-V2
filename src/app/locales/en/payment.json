@@ -172,5 +172,12 @@
   "description_corrections": "Review payment correction requests and drafts",
   "description_incidents": "Review identity and payment authorization reports",
   "description_offline_events": "Review offline event and adjustment drafts",
-  "description_analytics": "Explore payment sample benchmarks"
+  "description_analytics": "Explore payment sample benchmarks",
+  "colReason": "Reason",
+  "search_transactions": "Search payments, TIN or reference",
+  "search_corrections": "Search case, taxpayer or reason",
+  "search_incidents": "Search incident, taxpayer or reference",
+  "search_offline_events": "Search event, taxpayer or order",
+  "sortTaxpayer": "Taxpayer A–Z",
+  "sortRecordId": "Record ID A–Z"
 }

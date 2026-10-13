@@ -172,5 +172,12 @@
   "description_corrections": "পরিশোধ সংশোধন অনুরোধ ও খসড়া",
   "description_incidents": "পরিচয় ও পরিশোধের অনুমোদনসংক্রান্ত রিপোর্ট",
   "description_offline_events": "অফলাইন ইভেন্ট ও সমন্বয় খসড়া",
-  "description_analytics": "নমুনা পরিশোধ সূচকের বিশ্লেষণ"
+  "description_analytics": "নমুনা পরিশোধ সূচকের বিশ্লেষণ",
+  "colReason": "কারণ",
+  "search_transactions": "পরিশোধ, টিআইএন বা রেফারেন্স অনুসন্ধান",
+  "search_corrections": "কেস, করদাতা বা কারণ অনুসন্ধান",
+  "search_incidents": "ঘটনা, করদাতা বা রেফারেন্স অনুসন্ধান",
+  "search_offline_events": "ইভেন্ট, করদাতা বা আদেশ অনুসন্ধান",
+  "sortTaxpayer": "করদাতার নাম অনুযায়ী",
+  "sortRecordId": "রেকর্ড আইডি অনুযায়ী"
 }

@@ -106,3 +106,14 @@
   }
   .payment-module__table-card .payment-module__sort select { max-width:160px; }
 }
+
+/* Keep compact register filters at the same control density as the Office
+   Management table toolbar. Shared FilterPanel fields and buttons remain in use. */
+@media (min-width:1024px) {
+  .payment-module__table-card .filter-grid {
+    grid-template-columns:repeat(auto-fit,minmax(200px,240px));
+    gap:12px;
+    justify-content:start;
+  }
+  .payment-module__table-card .filter-actions { margin-top:12px; }
+}
