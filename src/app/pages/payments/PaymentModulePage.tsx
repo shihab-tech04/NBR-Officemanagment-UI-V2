@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
@@ -20,7 +20,8 @@ import {
   referenceAudit, referenceCorrections, referenceIntelligence,
   referenceOffline, referencePayments, referenceTaxpayers, totalEligible, totalReceived,
 } from './paymentReference';
-import { demoTransactions, demoUserIds, getDemoUserAllocations, transactionTotalMinor } from './paymentScenarioModel';
+import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
+import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
@@ -55,6 +56,29 @@ const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
   tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
   allocation_id:a.id,transaction_total:money(transactionTotalMinor(tx)/100),
   transaction_timeline:demoTimeline(tx.events),note:'Beneficiary allocation only; never an official tax credit'
+})));
+/** Transactions always come from the same hosted SQL snapshot as TaxPay. */
+const liveTransactionRows=(records:SimulationTransaction[])=>records.map(tx=>({
+  key:tx.transactionId,date:demoDate(tx.createdAt),
+  taxpayer_name:Array.from(new Set(tx.allocations.map(a=>a.beneficiary))).join(', '),
+  tin:'SIMULATED-MULTI',payer_name:tx.payer,payment_type:Array.from(new Set(tx.allocations.map(a=>a.category))).join(', '),
+  assessment_year:Array.from(new Set(tx.allocations.map(a=>a.assessmentYear))).join(', '),income_year:'—',
+  amount:money(tx.totalMinor/100),financial_receipt_status:'Simulated · '+tx.state,
+  ledger_status:'No official credit',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
+  payment_channel:'Database simulation',beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
+  allocation_count:tx.allocations.length,
+  allocations:tx.allocations.map(a=>`#${a.lineNo}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
+  transaction_timeline:demoTimeline(tx.events),
+  note:'Shared SQL simulation, not a government payment or tax credit'
+}));
+const liveAllocationRows=(records:SimulationTransaction[])=>records.flatMap(tx=>tx.allocations.map(a=>({
+  key:tx.transactionId+':'+a.lineNo,date:demoDate(tx.createdAt),
+  taxpayer_name:a.beneficiary,tin:demoUserTin(a.beneficiary),payer_name:tx.payer,
+  payment_type:a.category,assessment_year:a.assessmentYear,income_year:'—',
+  amount:money(a.amountMinor/100),financial_receipt_status:'Simulated · '+tx.state,
+  ledger_status:'No official credit',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
+  payment_channel:'Database simulation',allocation_id:a.id,transaction_timeline:demoTimeline(tx.events),
+  note:'SQL-beneficiary allocation; no official credit'
 })));
 const samplePayments = referencePayments.map(p => ({
   key:p.key, date:p.date, taxpayer_name:p.taxpayer_name, tin:p.tin, payer_name:p.payer_name,
@@ -92,7 +116,11 @@ export function PaymentModulePage({page}: {page: string}) {
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
   const [scopeYear,setScopeYear] = useState('all');
-  const [paymentDataset,setPaymentDataset] = useState<'reference'|'scenarios'>('reference');
+  const [paymentDataset,setPaymentDataset] = useState<'reference'|'scenarios'|'connected'>('reference');
+  const [liveTransactions,setLiveTransactions] = useState<SimulationTransaction[]>([]);
+  const [liveNotices,setLiveNotices] = useState<SimulationNotice[]>([]);
+  const [liveError,setLiveError] = useState('');
+  const [liveLoading,setLiveLoading] = useState(true);
   const [kpiOpen,setKpiOpen] = useState(true);
   const [selectedTin,setSelectedTin] = useState<string>(demoProfiles[0].tin);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
@@ -103,6 +131,25 @@ export function PaymentModulePage({page}: {page: string}) {
   const [draftPreview,setDraftPreview] = useState(false);
   const [formError,setFormError] = useState('');
   const [errors,setErrors] = useState<Record<string,string>>({});
+  useEffect(()=>{
+    let active=true;
+    const sync=async()=>{
+      try {const rows=await loadSimulationHistory(null,'all');
+        if(active){setLiveTransactions(rows);setLiveError('');setLiveLoading(false);}}
+      catch(e){if(active){setLiveError(e instanceof Error?e.message:'SQL connection failed');setLiveLoading(false);}}
+    };
+    void sync();const interval=window.setInterval(()=>void sync(),7000);
+    return()=>{active=false;window.clearInterval(interval);};
+  },[]);
+  useEffect(()=>{
+    const index=demoProfiles.findIndex(p=>p.tin===selectedTin);
+    if(index<0){setLiveNotices([]);return;}
+    const id=demoUserIds[index];
+    let active=true;setLiveNotices([]);
+    const sync=async()=>{try{const items=await loadSimulationNotices(id);if(active)setLiveNotices(items);}catch{/* SQL status reported in connected table */}};
+    void sync();const interval=window.setInterval(()=>void sync(),7000);
+    return()=>{active=false;window.clearInterval(interval);};
+  },[selectedTin]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});};
@@ -121,16 +168,15 @@ export function PaymentModulePage({page}: {page: string}) {
     setFormError('');setDraftPreview(true);
   };
   const keys=paymentColumns(t);
-  const allRows=paymentDataset==='reference'?samplePayments:demoGlobalRows;
+  const allRows=paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:liveTransactionRows(liveTransactions);
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
     options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
   const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??demoProfiles[0];
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
-  const taxPayments=isDemo?demoAllocationRows.filter(p=>p.tin===selectedTin && (scopeYear==='all'||p.assessment_year.replace('–','-')===scopeYear)):scopedPayments.filter(p=>p.tin===selectedTin);
-  const beneficiaryNotices=isDemo?getDemoUserAllocations(demoUserIds[demoProfiles.findIndex(p=>p.tin===selectedTin)])
-    .filter(entry=>scopeYear==='all'||entry.allocation.assessmentYear===scopeYear):[];
+  const taxPayments=isDemo?liveAllocationRows(liveTransactions).filter(p=>p.tin===selectedTin && (scopeYear==='all'||p.assessment_year.replace('–','-')===scopeYear)):scopedPayments.filter(p=>p.tin===selectedTin);
+  const beneficiaryNotices=isDemo?liveNotices:[];
   const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
@@ -195,13 +241,19 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
-    <div className="payment-module__year-control"><AppSelectField id="payment-dataset-scope" label={t('demoDataSource')} value={paymentDataset} onChange={value=>setPaymentDataset(value as 'reference'|'scenarios')} compact options={[{value:'reference',label:t('demoReferenceData')},{value:'scenarios',label:t('demoMixedData')}]}/></div>
+    <div className="payment-module__year-control"><AppSelectField id="payment-dataset-scope" label={t('demoDataSource')} value={paymentDataset} onChange={value=>setPaymentDataset(value as 'reference'|'scenarios'|'connected')} compact options={[{value:'reference',label:t('demoReferenceData')},{value:'scenarios',label:t('demoMixedData')},{value:'connected',label:'Connected SQL payment simulation'}]}/></div>
     {paymentDataset==='scenarios'&&<p className="table-page__desc">{t('demoScopeNotice')}</p>}
+    <div className="table-page__desc" role="status" aria-live="polite">
+      {liveError?`Shared SQL connection error: ${liveError}`:
+       liveLoading?'Loading shared SQL simulation ledger…':
+       `Shared SQL simulation: ${liveTransactions.length} transactions, ${liveTransactions.reduce((n,x)=>n+x.allocations.length,0)} allocations. Select Connected SQL payment simulation to inspect.`}
+    </div>
+    {paymentDataset==='connected'&&liveLoading?<p role="status">Loading connected records…</p>:null}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
     {toolbar(t('taxpayer360'))}
-    <p className="table-page__desc">{t('demoScopeNotice')}</p>
+    <p className="table-page__desc">Connected SQL simulation profile (no official tax credit). {liveError?'Synchronization error: '+liveError:liveLoading?'Loading…':'Live transaction data refreshed automatically.'}</p>
     <div className="payment-module__filters"><AppSelectField id="payment-taxpayer" label={t('taxpayer')} value={selectedTin} onChange={setSelectedTin}
       options={[...demoProfiles.map(p=>({value:p.tin,label:`${p.name} · Demo only`})),...referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}${/^\d{12}$/.test(p.tin)?'':` (${t('invalidReference')})`}`}))]} searchableAfter={5}/></div>
     <div className="payment-module__year-control">{yearSelect}</div>
@@ -219,9 +271,9 @@ export function PaymentModulePage({page}: {page: string}) {
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),money(totalReceived(original))],[t('eligible'),money(totalEligible(original))],[t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
-        {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(({transaction,allocation})=><li key={allocation.id}>
-          <p><strong>{transaction.id}</strong> · {transaction.payer} → {allocation.beneficiary} · {money(allocation.amountMinor/100)}</p>
-          <p>{demoDate(transaction.createdAt)} · Demo {transaction.state} · {t('demoAllocationNotice')}</p>
+        {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
+          <p><strong>{n.messageCode}</strong> · {n.transactionId}</p>
+          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · Connected SQL simulation notice</p>
         </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
       </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}
