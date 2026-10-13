@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Eye, Filter, Download, Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AppSearchField } from '../../components/forms/AppSearchField';
-import { AppSelectField } from '../../components/forms/AppSelectField';
 import { MobileSearchFilter } from '../../components/shared/MobileSearchFilter';
 import { FilterPanel } from '../../components/filters/FilterPanel';
 import { MobileFilterOverlay } from '../../components/filters/MobileFilterOverlay';
@@ -63,6 +62,13 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
         if(right===null)return -1;
         return (left-right)*(desc?-1:1);
       }
+      if(key==='amount') {
+        const parse=(v:unknown)=>{const raw=String(v??'').replace(/[,৳\s]/g,''); return /^-?\d+(?:\.\d+)?$/.test(raw)?Number(raw):null;};
+        const left=parse(a[key]),right=parse(b[key]);
+        if(left===null)return right===null?0:1;
+        if(right===null)return -1;
+        return (left-right)*(desc?-1:1);
+      }
       return String(a[key] ?? '').localeCompare(String(b[key] ?? ''), undefined, { numeric:true }) * (desc ? -1 : 1);
     });
   }, [rows, query, applied, sort]);
@@ -75,9 +81,19 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
   const toggle = () => { setDraftFilters({...applied});setShowFilters(s=>!s); };
   const actions = [{id:'view',label:t('viewDetails'),icon:Eye}];
   const searchLabel = t('search_' + kind.replace(/-/g, '_'));
-  const sortChoices = kind === 'transactions'
-    ? [{value:'-date',label:t('newestFirst')},{value:'date',label:t('oldestFirst')},{value:'taxpayer_name',label:t('sortTaxpayer')}]
-    : [{value:'taxpayer',label:t('sortTaxpayer')},{value:'id',label:t('sortRecordId')}];
+  const sortedKey = sort.replace(/^-/, '');
+  const sortDirection = sort.startsWith('-') ? 'descending' as const : 'ascending' as const;
+  const sortColumn = (key:string) => setSort(current => {
+    if (key === 'date') {
+      // Newest → oldest → default; don't skip the ascending state.
+      if (current === '-date') return 'date';
+      if (current === 'date') return '';
+      return '-date';
+    }
+    if(current === key) return '-' + key;
+    if(current === '-' + key) return '';
+    return key;
+  });
   const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All');
 
   return <>
@@ -89,14 +105,14 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
         {filters.length > 0 && <button type="button" className={`table-card__toolbar-btn${showFilters?' table-card__toolbar-btn--active':''}`} onClick={toggle} aria-expanded={showFilters}>
           <Filter size={13} aria-hidden="true"/>{t('filters')}
         </button>}
-        <div className="payment-module__sort"><AppSelectField id="payment-record-sort" label={t('sort')} ariaLabel={t('sort')} value={sort} onChange={setSort} compact options={[{value:'',label:t('defaultOrder')},...sortChoices]}/></div>
         <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--download" onClick={()=>handleExportDisabled(tc('actions.exportDisabled'))}><Download size={13} aria-hidden="true"/>{tc('actions.export')}</button>
         <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--print" onClick={()=>window.print()}><Printer size={13} aria-hidden="true"/>{tc('actions.print')}</button>
       </div>
       {isDesktop && showFilters && filters.length > 0 && <div className="table-card__filter-panel"><FilterPanel filters={filters} values={draftFilters} onChange={change} onApply={apply} onReset={reset}/></div>}
       <AppliedFilterChips inCard values={applied} filters={filters} onClear={reset}/>
       <ResponsiveTable cols={columns} rows={paged} actions={actions} onActionClick={(_,row)=>onOpen(row)} onRowClick={onOpen}
-        mobileCardMapping={mobileMapping} noCard aria-label={title}/>
+        mobileCardMapping={mobileMapping} noCard aria-label={title}
+        sortKey={sortedKey || undefined} sortDirection={sortDirection} onSortColumn={sortColumn}/>
       <div className="table-card__pagination"><Pagination page={page} total={filtered.length} perPage={pageSize} onPage={setPage}
         perPageOptions={[5,10,20,50]} onPerPageChange={setPageSize}/></div>
     </section>

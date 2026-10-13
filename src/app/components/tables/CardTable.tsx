@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "../badges/StatusBadge";
 import type { ColDef, FlatCol, RowAction, TableRow } from "../../pages/modulePageUtils";
@@ -15,6 +15,10 @@ interface CardTableProps {
   clickableKeys?: string[];
   onCellClick?: (key: string, value: string, row: TableRow) => void;
   "aria-label"?: string;
+  /** Optional header sorting; no effect on existing unsorted registers. */
+  sortKey?: string;
+  sortDirection?: "ascending" | "descending";
+  onSortColumn?: (key: string) => void;
 }
 
 // ── Resolve truncation class from column key or explicit override ─────────────
@@ -42,7 +46,7 @@ function cellTextClass(col: FlatCol): string {
   return "card-table__cell-text card-table__cell-text--normal";
 }
 
-export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, "aria-label": ariaLabel }: CardTableProps) {
+export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, "aria-label": ariaLabel }: CardTableProps) {
   const { t: translateTables } = useTranslation("tables");
   const { t: translateEmptyStates } = useTranslation("emptyStates");
   const { t: translateUser } = useTranslation("user");
@@ -59,6 +63,17 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
     return (!translated || translated === headerKey) ? fallback : translated;
   };
 
+  const headerContent = (col: FlatCol) => {
+    const text = translateHeader(col.headerKey, col.label);
+    if (!onSortColumn) return <span className="card-table__th-text" title={text}>{text}</span>;
+    const active = sortKey === col.key;
+    const SortIcon = active ? (sortDirection === "descending" ? ArrowDown : ArrowUp) : ArrowUpDown;
+    return <button type="button" className={`card-table__sort-button${active ? " card-table__sort-button--active" : ""}`}
+      aria-label={`Sort by ${text}`} onClick={() => onSortColumn(col.key)} title={`Sort by ${text}`}>
+      <span className="card-table__th-text">{text}</span><SortIcon className="card-table__sort-icon" size={13} aria-hidden="true"/>
+    </button>;
+  };
+
   const rowId = (row: TableRow): string =>
     String(row[flat[0]?.key] ?? "").trim() || String(row["id"] ?? "");
 
@@ -71,10 +86,8 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
               <tr className="card-table__header-group">
                 {cols.map((c, ci) =>
                   c.type === "col" ? (
-                    <th key={ci} rowSpan={2} scope="col" className="card-table__th card-table__th--secondary">
-                      <span className="card-table__th-text" title={translateHeader(c.col.headerKey, c.col.label)}>
-                        {translateHeader(c.col.headerKey, c.col.label)}
-                      </span>
+                    <th key={ci} rowSpan={2} scope="col" className="card-table__th card-table__th--secondary" aria-sort={onSortColumn ? (sortKey===c.col.key ? sortDirection : "none") : undefined}>
+                      {headerContent(c.col)}
                     </th>
                   ) : (
                     <th key={ci} colSpan={c.group.cols.length} scope="colgroup" className="card-table__th card-table__th--group">
@@ -95,18 +108,14 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                     c.type === "col"
                       ? []
                       : c.group.cols.map((sc, sci) => (
-                          <th key={`${ci}-${sci}`} scope="col" className="card-table__th card-table__th--sub">
-                            <span className="card-table__th-text" title={translateHeader(sc.headerKey, sc.label)}>
-                              {translateHeader(sc.headerKey, sc.label)}
-                            </span>
+                          <th key={`${ci}-${sci}`} scope="col" className="card-table__th card-table__th--sub" aria-sort={onSortColumn ? (sortKey===sc.key ? sortDirection : "none") : undefined}>
+                            {headerContent(sc)}
                           </th>
                         ))
                   )
                 : flat.map((col, ci) => (
-                    <th key={ci} scope="col" className="card-table__th card-table__th--secondary">
-                      <span className="card-table__th-text" title={translateHeader(col.headerKey, col.label)}>
-                        {translateHeader(col.headerKey, col.label)}
-                      </span>
+                    <th key={ci} scope="col" className="card-table__th card-table__th--secondary" aria-sort={onSortColumn ? (sortKey===col.key ? sortDirection : "none") : undefined}>
+                      {headerContent(col)}
                     </th>
                   ))}
               {!hasGroups && actions && (
