@@ -1351,3 +1351,15 @@
 .double-entry-table--user .card-table__td:last-child {
   text-align: center;
 }
+
+/* Opt-in shared table-header sorting. Existing unsorted registers retain plain labels. */
+.card-table__sort-button {
+  display:inline-flex; align-items:center; gap:var(--space-2);
+  border:0; padding:0; background:transparent;
+  color:inherit; font:inherit; font-weight:inherit; letter-spacing:inherit;
+  cursor:pointer; text-align:left; max-width:100%;
+}
+.card-table__sort-button:hover,.card-table__sort-button--active { color:var(--color-primary); }
+.card-table__sort-button:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; border-radius:var(--radius-sm); }
+.card-table__sort-icon { opacity:.55; flex:0 0 auto; }
+.card-table__sort-button--active .card-table__sort-icon { opacity:1; }

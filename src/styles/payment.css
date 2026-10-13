@@ -1,7 +1,7 @@
 /* Payment pages follow Office Management's table-page, card and modal system. */
 .payment-module { width:100%; min-width:0; box-sizing:border-box; color:var(--color-text-primary); }
 .payment-module > .payment-module__summary-grid, .payment-module > .payment-module__identity, .payment-module > .payment-module__year-control { margin-bottom:16px; }
-.payment-module__header { flex-shrink:0; margin-bottom:0; }
+.payment-module__header { flex-shrink:0; }
 .payment-module__header .app-btn { width:auto; }
 .payment-module__note { color:var(--color-text-secondary); font-size:var(--fs-caption); line-height:var(--lh-body-sm); }
 .payment-module__kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-4); }
@@ -47,7 +47,6 @@
 
 /* Payment integration uses the baseline GeneratedTablePage shell; scoped only. */
 .payment-module__year-control { width:min(280px,100%); min-width:0; margin-top:12px; margin-bottom:20px; }
-.payment-module__sort { width:160px; max-width:100%; min-width:0; flex:0 0 160px; align-self:center; }
 .payment-module__tab-scroll { max-width:100%; overflow-x:auto; scrollbar-width:thin; }
 .payment-module__tab-scroll .tab-bar { flex-wrap:nowrap; width:max-content; min-width:100%; margin-bottom:var(--space-3); }
 .payment-module__tab-scroll .tab-bar__tab { flex:0 0 auto; white-space:nowrap; }
@@ -79,29 +78,4 @@
   .payment-module .dashboard-kpi-grid--1row .stat-card { min-width:0; }
 }
 @media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
-/* Under 641px the shared table toolbar switches to CSS Grid (not flex).
-   Payment's sort control must occupy its own grid row to avoid 320px clipping. */
-@media(max-width:640px) {
-  .payment-module__table-card .table-card__toolbar {
-    display:grid;
-    grid-template-columns:minmax(0,1fr) auto;
-    grid-template-rows:auto auto auto;
-    gap:8px;
-  }
-  .payment-module__table-card .table-card__title-group {
-    grid-column:1/-1;
-    grid-row:1;
-    min-width:0;
-    max-width:100%;
-  }
-  .payment-module__table-card .payment-module__sort {
-    grid-column:1/-1;
-    grid-row:3;
-    justify-self:end;
-    min-width:0;
-    max-width:100%;
-    margin-left:0;
-  }
-}
-
 /* Payment register filters use the unchanged Office Management FilterPanel grid. */

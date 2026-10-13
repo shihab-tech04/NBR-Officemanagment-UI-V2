@@ -125,12 +125,13 @@ test('first visit shows mock payment records independently of Office Management 
 test('newest and oldest sort use chronological dates, not displayed string order', async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/payments/transactions');
-  const sort=page.getByRole('combobox',{name:'Sort'});
+  await expect(page.getByRole('combobox',{name:'Sort'})).toHaveCount(0);
+  const sort=page.getByRole('button',{name:'Sort by Date'});
   await sort.click();
-  await page.getByRole('option',{name:'Newest first'}).click();
+  await expect(page.getByRole('columnheader',{name:/Date/})).toHaveAttribute('aria-sort','descending');
   await expect(page.locator('.card-table tbody tr').first()).toContainText('12 Oct 2026');
   await sort.click();
-  await page.getByRole('option',{name:'Oldest first'}).click();
+  await expect(page.getByRole('columnheader',{name:/Date/})).toHaveAttribute('aria-sort','ascending');
   await expect(page.locator('.card-table tbody tr').first()).toContainText('03 Sep 2026');
 });
 
@@ -160,12 +161,9 @@ for(const width of [1704,1440,1280]) {
   await page.setViewportSize({width,height:900});
   await page.goto('/payments/corrections');
   await expect(page.getByRole('columnheader',{name:'Reason'})).toBeVisible();
-  const sort=page.getByRole('combobox',{name:'Sort'});
-  await sort.click();
-  await expect(page.getByRole('option',{name:'Newest first'})).toHaveCount(0);
-  await expect(page.getByRole('option',{name:'Oldest first'})).toHaveCount(0);
-  await expect(page.getByRole('option',{name:'Taxpayer A–Z'})).toHaveCount(1);
-  await page.keyboard.press('Escape');
+  await expect(page.getByRole('combobox',{name:'Sort'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Sort by Taxpayer'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Sort by Case'})).toBeVisible();
   await expect(page.locator('.payment-module__table-card .table-card__search-wrapper input[placeholder="Search case, taxpayer or reason"]')).toBeVisible();
   const add=page.getByRole('button',{name:'Add New'});
   const bounds=await add.boundingBox();
@@ -230,3 +228,32 @@ test('Offline Events uses localized search and AY filter actually narrows its so
  await expect(page.getByText('OFE-2026-000008')).toHaveCount(0);
  await expect(page.getByText('No records match your search criteria')).toBeVisible();
 });
+
+// Sorting belongs in the table column headers, never a floating toolbar dropdown.
+test('sort by Amount numerically via the shared header, keyboard supported',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/payments/transactions');
+ await expect(page.locator('.payment-module__sort')).toHaveCount(0);
+ const control=page.getByRole('button',{name:'Sort by Amount'});
+ await control.focus();
+ await page.keyboard.press('Enter');
+ await expect(page.getByRole('columnheader',{name:/Amount/})).toHaveAttribute('aria-sort','ascending');
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('৳20,000');
+ await control.click();
+ await expect(page.getByRole('columnheader',{name:/Amount/})).toHaveAttribute('aria-sort','descending');
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('৳100,000');
+ await control.click();
+ await expect(page.getByRole('columnheader',{name:/Amount/})).toHaveAttribute('aria-sort','none');
+});
+for(const width of [1713,1440,1024,390,320]){
+ test(`${width}px Payment page-header spacing follows Audit 16px token`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.goto('/payments/offline-events');
+  await expect(page.locator('.payment-module__header')).toBeVisible();
+  const margin=await page.locator('.payment-module__header').evaluate(el=>parseFloat(getComputedStyle(el).marginBottom));
+  expect(margin,'standard table-page header gap').toBe(16);
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+  expect(overflow,'no horizontal viewport spill').toBeLessThanOrEqual(2);
+  await page.screenshot({path:`test-results/payment-header-sort-${width}.png`,animations:'disabled'});
+ });
+}

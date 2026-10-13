@@ -15,6 +15,9 @@ interface ResponsiveTableProps {
   clickableKeys?: string[];
   onCellClick?: (key: string, value: string, row: TableRow) => void;
   "aria-label"?: string;
+  sortKey?: string;
+  sortDirection?: "ascending" | "descending";
+  onSortColumn?: (key: string) => void;
 }
 
 export const ResponsiveTable = memo(function ResponsiveTable({
@@ -28,6 +31,9 @@ export const ResponsiveTable = memo(function ResponsiveTable({
   clickableKeys,
   onCellClick,
   "aria-label": ariaLabel,
+  sortKey,
+  sortDirection,
+  onSortColumn,
 }: ResponsiveTableProps) {
   const { t: translateCommon } = useTranslation("common");
 
@@ -61,6 +67,9 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         clickableKeys={clickableKeys}
         onCellClick={onCellClick}
         aria-label={ariaLabel}
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSortColumn={onSortColumn}
       />
 
       {/* Mobile card view */}
