@@ -45,7 +45,7 @@ const demoGlobalRows=demoTransactions.map(tx=>({
   beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
   allocation_count:tx.allocations.length,
   allocations:tx.allocations.map(a=>`${a.id}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
-  transaction_timeline:demoTimeline(tx.events),
+  transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
   note:'SIMULATED ONLY — no Government receipt, tax credit, eTIN authentication or ACS settlement'
 }));
 const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
@@ -55,7 +55,7 @@ const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
   financial_receipt_status:`Demo · ${tx.state}`,ledger_status:'Not credited — demo',
   tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
   allocation_id:a.id,transaction_total:money(transactionTotalMinor(tx)/100),
-  transaction_timeline:demoTimeline(tx.events),note:'Beneficiary allocation only; never an official tax credit'
+  transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),note:'Beneficiary allocation only; never an official tax credit'
 })));
 /** Transactions always come from the same hosted SQL snapshot as TaxPay. */
 const liveTransactionRows=(records:SimulationTransaction[])=>records.map(tx=>({
@@ -68,7 +68,7 @@ const liveTransactionRows=(records:SimulationTransaction[])=>records.map(tx=>({
   payment_channel:'Database simulation',beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
   allocation_count:tx.allocations.length,
   allocations:tx.allocations.map(a=>`#${a.lineNo}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
-  transaction_timeline:demoTimeline(tx.events),
+  transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
   note:'Shared SQL simulation, not a government payment or tax credit'
 }));
 const liveAllocationRows=(records:SimulationTransaction[])=>records.flatMap(tx=>tx.allocations.map(a=>({
@@ -77,7 +77,7 @@ const liveAllocationRows=(records:SimulationTransaction[])=>records.flatMap(tx=>
   payment_type:a.category,assessment_year:a.assessmentYear,income_year:'—',
   amount:money(a.amountMinor/100),financial_receipt_status:'Simulated · '+tx.state,
   ledger_status:'No official credit',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
-  payment_channel:'Database simulation',allocation_id:a.id,transaction_timeline:demoTimeline(tx.events),
+  payment_channel:'Database simulation',allocation_id:a.id,transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
   note:'SQL-beneficiary allocation; no official credit'
 })));
 const samplePayments = referencePayments.map(p => ({
