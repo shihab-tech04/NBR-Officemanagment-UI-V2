@@ -102,6 +102,8 @@ export function OfficeReviewQueue() {
     }catch(e){setStatus(e instanceof Error?e.message:'Notification update failed');}finally{setBusy(false);}
   };
 
+  // Preserve the accepted Office Payments UI when no verified backend is configured.
+  if(!client) return null;
   return <section className="card payment-module__card" aria-label={t('Connected officer review','সংযুক্ত কর্মকর্তা পর্যালোচনা')}>
     <h2>{t('Officer review inbox','কর্মকর্তার পর্যালোচনা ইনবক্স')}</h2>
     <p>{t('Non-financial requests only. Financial receipts and tax credits cannot be changed here.','শুধু অ-আর্থিক অনুরোধ। এখানে আর্থিক রসিদ বা কর ক্রেডিট পরিবর্তন করা যায় না।')}</p>
