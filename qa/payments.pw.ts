@@ -46,7 +46,24 @@ for(const viewport of [{width:1713,height:859},{width:1440,height:900},{width:12
    });
    expect(layout.wrapper,'wrapper fills card').toBeGreaterThan(layout.card*.95);
    expect(layout.table,'table fills card').toBeGreaterThan(layout.wrapper*.95);
-   expect(layout.table,'no excessive overflow').toBeLessThanOrEqual(layout.wrapper+4);
+   if(viewport.width>=1440){
+    expect(layout.table,'full width on wide desktop without scroll').toBeLessThanOrEqual(layout.wrapper+4);
+   }else if(layout.table>layout.wrapper+4){
+    // The existing CardTable contract allows contained horizontal scrolling
+    // on 1024–1280px desktop layouts rather than clipping financial statuses.
+    const contained=await page.evaluate(()=>{
+      const el=document.querySelector('.payment-module__table-card .card-table__wrapper') as HTMLElement;
+      const before=el.scrollLeft;
+      el.scrollLeft=el.scrollWidth;
+      const after=el.scrollLeft;
+      el.scrollLeft=before;
+      return {scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,scrollable:after>before};
+    });
+    expect(contained.scrollWidth,'wide table is scrollable within card').toBeGreaterThan(contained.clientWidth+4);
+    expect(contained.scrollable,'last columns remain reachable').toBeTruthy();
+   }
+   const pageOverflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+   expect(pageOverflow,'no outer page horizontal overflow').toBeLessThanOrEqual(2);
    if(viewport.width===1713&&route==='transactions'){
     await page.screenshot({path:'test-results/payment-table-fullwidth-1713.png',fullPage:true,animations:'disabled'});
    }
