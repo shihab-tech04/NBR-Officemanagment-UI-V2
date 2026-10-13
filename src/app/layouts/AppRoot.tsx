@@ -8,6 +8,7 @@ import { AppShell } from "./AppShell";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { getOfficeReviewClient } from "../pages/payments/OfficeReviewQueue";
+import { PRIMARY_ADMIN_EMAIL } from "../utils/primaryAdminIdentity";
 
 /**
  * Connected Office access MUST be based on server-verified Supabase identity and
@@ -40,11 +41,23 @@ export function AppRoot() {
         if(authError||!identity.user){setVerification('denied');return;}
         const role=await client.from('taxpay_officer_roles')
           .select('role,active').eq('user_uid',identity.user.id).maybeSingle();
+        // Administrator membership is separately verified by Supabase RLS and cannot
+        // authorize officer maker/reviewer/approver SQL operations.
+        const isApprovedEmail=identity.user.email?.toLowerCase()===PRIMARY_ADMIN_EMAIL
+          && Boolean(identity.user.email_confirmed_at);
+        const admin=isApprovedEmail
+          ? await client.from('taxpay_portal_admins')
+              .select('active').eq('user_uid',identity.user.id).maybeSingle()
+          : null;
         if(!alive||sequence!==current)return;
         const {data:confirm,error:confirmError}=await client.auth.getUser();
         if(!alive||sequence!==current)return;
-        setVerification(!role.error && role.data?.active===true &&
-          !confirmError && confirm.user?.id===identity.user.id?'authorized':'denied');
+        const unchangedSession=!confirmError && confirm.user?.id===identity.user.id;
+        const authorizedOfficer=!role.error && role.data?.active===true;
+        const authorizedAdministrator=isApprovedEmail && !!admin && !admin.error
+          && admin.data?.active===true && confirm.user?.email?.toLowerCase()===PRIMARY_ADMIN_EMAIL
+          && Boolean(confirm.user?.email_confirmed_at);
+        setVerification(unchangedSession && (authorizedOfficer || authorizedAdministrator)?'authorized':'denied');
       }catch{if(alive&&sequence===current)setVerification('denied');}
     };
     const {data:listener}=client.auth.onAuthStateChange((event)=>{
