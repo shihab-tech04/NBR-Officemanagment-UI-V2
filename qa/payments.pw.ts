@@ -133,6 +133,8 @@ test('newest and oldest sort use chronological dates, not displayed string order
   await sort.click();
   await expect(page.getByRole('columnheader',{name:/Date/})).toHaveAttribute('aria-sort','ascending');
   await expect(page.locator('.card-table tbody tr').first()).toContainText('03 Sep 2026');
+  await sort.click();
+  await expect(page.getByRole('columnheader',{name:/Date/})).toHaveAttribute('aria-sort','none');
 });
 
 test('mobile transaction cards have an explicit View Details action', async({page})=>{
