@@ -189,5 +189,8 @@
   "field_beneficiary_count": "সুবিধাভোগী",
   "field_allocation_count": "বরাদ্দের সারি",
   "field_allocation_id": "বরাদ্দ আইডি",
-  "field_transaction_total": "সম্পূর্ণ লেনদেনের মোট পরিমাণ"
+  "field_transaction_total": "সম্পূর্ণ লেনদেনের মোট পরিমাণ",
+  "demoDataSource": "রেকর্ডের উৎস",
+  "demoReferenceData": "বিদ্যমান রেফারেন্স নমুনা",
+  "demoMixedData": "মিশ্র পেমেন্টের উদাহরণ (ডেমো)"
 }
