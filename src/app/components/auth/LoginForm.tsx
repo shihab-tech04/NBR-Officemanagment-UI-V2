@@ -110,12 +110,12 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
           <div className="flex flex-col gap-5">
             <AppTextField
               id="login-user-id"
-              label={secureClient ? "Authorized officer email" : translate("login.userId")}
+              label={translate("login.userId")}
               value={userId}
               onChange={setUserId}
               onKeyDown={handleKeyDown}
-              placeholder={translate("login.userIdPlaceholder")}
-              autoComplete={secureClient?"email":"username"}
+              placeholder={secureClient ? "user1–user10 or officer email" : translate("login.userIdPlaceholder")}
+              autoComplete="username"
             />
 
             {!demoUrl && !secureClient && <AppPasswordField
@@ -127,7 +127,8 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               placeholder={translate("login.passwordPlaceholder")}
               autoComplete="current-password"
             />}
-            {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Sample taxpayer IDs user1–user10 need no password. These accounts show non-official demonstration data only.</p>}
+            {secureClient && !demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Taxpayer demo: enter user1–user10 (no password). Officers: enter a verified officer email for a secure sign-in link.</p>}
+            {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Taxpayer demonstration account · no password required.</p>}
 
             {!demoUrl && !secureClient && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
