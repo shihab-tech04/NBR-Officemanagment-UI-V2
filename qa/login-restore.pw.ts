@@ -34,3 +34,14 @@ test('unapproved demo ID does not receive password-free access',async ({page})=>
   await expect(page.locator('#login-password')).toBeVisible();
   await expect(page.getByText('Demo account · no password needed.')).toHaveCount(0);
 });
+
+
+test('admin alias requires verified secure backend and cannot use a password-only preview',async({page})=>{
+  await page.goto('/payments/transactions');
+  await page.getByRole('textbox',{name:'User ID'}).fill('admin');
+  await expect(page.locator('#login-password')).toHaveCount(0);
+  await expect(page.getByText('Demo account · no password needed.')).toHaveCount(0);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Secure administrator sign-in is temporarily unavailable.');
+  await expect(page.getByText('Officer review inbox')).toHaveCount(0);
+});
