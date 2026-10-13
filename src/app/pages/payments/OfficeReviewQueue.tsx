@@ -6,11 +6,14 @@ import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import { AppTextField } from '../../components/forms/AppTextField';
 import { AppTextArea } from '../../components/forms/AppTextArea';
 import { SimulatedOfficerReview } from './SimulatedOfficerReview';
+import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
 const client = url.startsWith('https://') && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
   ? createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
+/** Reuse the authenticated officer session for protected simulation reads. */
+export const getOfficeReviewClient = () => client;
 
 type ReviewRequest = { id:string; owner_uid:string; purpose:string; category:string; assessment_year:string; amount_minor:number; request_status:string; financial_receipt_status:string; tax_credit_status:string; submitted_at:string };
 type InboxNotice = { id:string; request_id:string; message_code:string; is_read:boolean; created_at:string };
@@ -122,6 +125,7 @@ export function OfficeReviewQueue() {
     <>
       <p>{t('Authorized role','অনুমোদিত ভূমিকা')}: {role}</p>
       <SimulatedOfficerReview client={client} userId={user.id} role={role}/>
+      {role==='APPROVER'&&<SimulatedProfileAssignment client={client} officerId={user.id}/>}
       <SecondaryButton size="sm" disabled={busy} onClick={()=>void signOut()}>{t('Sign out','সাইন আউট')}</SecondaryButton>
       <SecondaryButton size="sm" onClick={()=>setRevision(v=>v+1)}>{t('Refresh inbox','ইনবক্স হালনাগাদ')}</SecondaryButton>
       {notices.some(n=>!n.is_read)&&<section><h3>{t('New notices','নতুন বিজ্ঞপ্তি')}</h3><ul>{notices.filter(n=>!n.is_read).map(n=><li key={n.id}><p>{label(n.message_code)} · {n.request_id}</p><SecondaryButton size="sm" onClick={()=>void markRead(n)}>{t('Mark read','পড়া হয়েছে')}</SecondaryButton></li>)}</ul></section>}
