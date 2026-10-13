@@ -5,6 +5,7 @@ import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import { AppTextField } from '../../components/forms/AppTextField';
 import { AppTextArea } from '../../components/forms/AppTextArea';
+import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
@@ -120,6 +121,7 @@ export function OfficeReviewQueue() {
     !role?<p role="status">{t('No active officer role assigned to this account.','এই অ্যাকাউন্টে সক্রিয় কর্মকর্তা ভূমিকা নির্ধারিত নেই।')}</p>:
     <>
       <p>{t('Authorized role','অনুমোদিত ভূমিকা')}: {role}</p>
+      <SimulatedOfficerReview client={client} userId={user.id} role={role}/>
       <SecondaryButton size="sm" disabled={busy} onClick={()=>void signOut()}>{t('Sign out','সাইন আউট')}</SecondaryButton>
       <SecondaryButton size="sm" onClick={()=>setRevision(v=>v+1)}>{t('Refresh inbox','ইনবক্স হালনাগাদ')}</SecondaryButton>
       {notices.some(n=>!n.is_read)&&<section><h3>{t('New notices','নতুন বিজ্ঞপ্তি')}</h3><ul>{notices.filter(n=>!n.is_read).map(n=><li key={n.id}><p>{label(n.message_code)} · {n.request_id}</p><SecondaryButton size="sm" onClick={()=>void markRead(n)}>{t('Mark read','পড়া হয়েছে')}</SecondaryButton></li>)}</ul></section>}
