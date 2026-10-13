@@ -12,6 +12,7 @@ import { AppPasswordField } from "../forms/AppPasswordField";
 import { AppCheckbox } from "../forms/AppCheckbox";
 import { useHelp } from "../../context/HelpContext";
 import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
+import { emailForPrimaryAdminId } from "../../utils/primaryAdminIdentity";
 import { getOfficeReviewClient } from "../../pages/payments/OfficeReviewQueue";
 
 interface LoginFormProps {
@@ -33,32 +34,37 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
   const secureClient=getOfficeReviewClient();
 
   const demoUrl = getTaxPayDemoLoginUrl(userId);
+  const adminEmail = emailForPrimaryAdminId(userId);
   // Preserve the original ID/password layout until an explicitly approved demo ID or
   // verified officer email is entered. Only the latter uses secure email-link auth.
-  const officerEmail = Boolean(secureClient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId.trim()));
-  const showPasswordControls = !demoUrl && !officerEmail;
+  const officerEmail = Boolean(secureClient && (adminEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userId.trim())));
+  const showPasswordControls = !demoUrl && !officerEmail && !adminEmail;
 
   const handleSignIn = async () => {
     if (demoUrl) {
       window.location.assign(demoUrl); // Fictional TaxPay destination, no Office access.
       return;
     }
+    if(adminEmail && !secureClient){
+      setAuthFeedback({error:true,text:'Secure administrator sign-in is temporarily unavailable.'});
+      return;
+    }
     if(secureClient){
       if(isLoading)return;
       if(!officerEmail){
-        setAuthFeedback({error:true,text:'Enter user1–user10 or an authorized officer email.'});
+        setAuthFeedback({error:true,text:'Enter admin, user1–user10 or an authorized officer email.'});
         return;
       }
       setAuthFeedback(null);setIsLoading(true);
       try{
         const {error}=await secureClient.auth.signInWithOtp({
-          email:userId.trim(),options:{
+          email:adminEmail || userId.trim(),options:{
             emailRedirectTo:window.location.origin+window.location.pathname,
-            shouldCreateUser:false
+            shouldCreateUser:Boolean(adminEmail)
           }
         });
         if(error)throw error;
-        setAuthFeedback({error:false,text:'Secure sign-in link requested. An active officer role is required.'});
+        setAuthFeedback({error:false,text:adminEmail ? 'A secure sign-in link was requested for the approved administrator mailbox. Verify the email to activate this account.' : 'Secure sign-in link requested. An active officer role is required.'});
       }catch(e){
         setAuthFeedback({error:true,text:e instanceof Error?e.message:'Sign-in request failed.'});
       }finally{setIsLoading(false);}
@@ -132,7 +138,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
               autoComplete="current-password"
             />}
             {demoUrl && <p className="text-[13px] text-[var(--color-text-secondary)]">Demo account · no password needed.</p>}
-            {officerEmail && <p className="text-[13px] text-[var(--color-text-secondary)]">Officer sign-in uses a secure email link.</p>}
+            {officerEmail && <p className="text-[13px] text-[var(--color-text-secondary)]">{adminEmail ? 'Administrator sign-in uses an email verification link.' : 'Officer sign-in uses a secure email link.'}</p>}
 
             {showPasswordControls && (
             <div className="flex items-center justify-between gap-4 flex-wrap">
