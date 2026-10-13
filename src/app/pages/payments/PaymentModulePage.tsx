@@ -121,7 +121,7 @@ export function PaymentModulePage({page}: {page: string}) {
   const kpi=(label:string,value:string,Icon:typeof Wallet,tone:'primary'|'success'|'warning'|'error'|'neutral'='primary'):KpiDef=>({label,value,icon:Icon,tone});
   const openDetails=(record:TableRow,title:string)=>view(record,title);
   const table=(cols:ColDef[],items:TableRow[],key:string,filters:FilterDef[]=[],mobileMapping?:MobileCardMapping)=>
-    <PaymentRecordList key={key+':'+scopeYear} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
+    <PaymentRecordList key={key+':'+scopeYear} kind={key as 'transactions'|'corrections'|'incidents'|'offline-events'} title={t(key)} columns={cols} rows={items} filters={filters} mobileMapping={mobileMapping} onOpen={row=>openDetails(row,t(key))}/>;
   const toolbar=(label:string,action?:()=>void)=> (
     <header className="table-page__header payment-module__header">
       <div><h1 className="table-page__title">{label}</h1><p className="table-page__desc">{t(`description_${current.replace(/-/g,'_')}`)}</p></div>

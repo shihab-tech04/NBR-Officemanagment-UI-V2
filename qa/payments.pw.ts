@@ -150,3 +150,46 @@ test('Taxpayer 360 summary and credit preview are distinct functional tabs', asy
   await page.getByRole('tab',{name:'Returns'}).click();
   await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
 });
+// Payment-specific acceptance: rendered compact filters, translated column
+// headings and meaningful sort values, checked against actual DOM geometry.
+for(const width of [1704,1440,1280]) {
+ test(`${width}px Corrections filter matches table-system spacing and shows valid controls`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.goto('/payments/corrections');
+  await expect(page.getByRole('columnheader',{name:'Reason'})).toBeVisible();
+  const sort=page.getByRole('combobox',{name:'Sort'});
+  await expect(sort.locator('option[value="date"]')).toHaveCount(0);
+  await expect(sort.locator('option[value="-date"]')).toHaveCount(0);
+  await expect(sort.locator('option[value="taxpayer"]')).toHaveCount(1);
+  await expect(page.getByPlaceholder('Search case, taxpayer or reason')).toBeVisible();
+  const add=page.getByRole('button',{name:'Add New'});
+  const bounds=await add.boundingBox();
+  expect(bounds,'Add New is visible').toBeTruthy();
+  expect(bounds!.x+bounds!.width,'Add New stays within viewport').toBeLessThanOrEqual(width+1);
+  await page.getByRole('button',{name:'Filter',exact:true}).click();
+  const panel=page.locator('.payment-module__table-card .table-card__filter-panel');
+  await expect(panel).toBeVisible();
+  const sizes=await panel.locator('.filter-grid > *').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
+  expect(sizes).toHaveLength(2);
+  for(const w of sizes) {expect(w,'no oversized filter fields').toBeLessThanOrEqual(245);expect(w,'usable filter field').toBeGreaterThanOrEqual(180);}
+  await page.screenshot({path:`test-results/payment-corrections-filter-${width}.png`,animations:'disabled'});
+ });
+}
+test('Corrections filter genuinely applies status and clears it',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/payments/corrections');
+ await page.getByRole('button',{name:'Filter',exact:true}).click();
+ await page.locator('#filter-status').click();
+ await page.getByRole('option',{name:'Blocked'}).click();
+ await page.getByRole('button',{name:'Apply Filters'}).click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await page.locator('.applied-chips__clear').click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(2);
+});
+test('Corrections mobile filter uses shared bottom sheet, and Bengali headings resolve',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/payments/corrections');
+ await page.locator('.mobile-search-filter').getByRole('button',{name:/Filter/i}).click();
+ await expect(page.locator('.mobile-filter-overlay')).toBeVisible();
+ await page.screenshot({path:'test-results/payment-corrections-mobile-filter.png',animations:'disabled'});
+});

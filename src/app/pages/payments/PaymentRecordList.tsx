@@ -28,11 +28,12 @@ export function paymentDateOrdinal(value:unknown):number|null {
 type Props = {
   title: string; rows: TableRow[]; columns: ColDef[];
   filters?: FilterDef[]; mobileMapping?: MobileCardMapping;
+  kind: 'transactions' | 'corrections' | 'offline-events' | 'incidents';
   onOpen: (record: TableRow) => void;
 };
 
 /** Standard Office Management table + filter workflow, Payment-configured. */
-export function PaymentRecordList({ title, rows, columns, filters = [], mobileMapping, onOpen }: Props) {
+export function PaymentRecordList({ title, rows, columns, filters = [], mobileMapping, kind, onOpen }: Props) {
   const { t } = useTranslation('payment');
   const { isDesktop } = useUIState();
   const [query, setQuery] = useState('');
@@ -70,19 +71,23 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
   const change = (key:string,value:string) => setDraftFilters(s => ({...s,[key]:value}));
   const toggle = () => { setDraftFilters({...applied});setShowFilters(s=>!s); };
   const actions = [{id:'view',label:t('viewDetails'),icon:Eye}];
+  const searchLabel = t('search_' + kind.replace(/-/g, '_'));
+  const sortChoices = kind === 'transactions'
+    ? [{value:'-date',label:t('newestFirst')},{value:'date',label:t('oldestFirst')},{value:'taxpayer_name',label:t('sortTaxpayer')}]
+    : [{value:'taxpayer',label:t('sortTaxpayer')},{value:'id',label:t('sortRecordId')}];
+  const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All');
 
   return <>
-    <MobileSearchFilter searchValue={query} onSearchChange={setQuery} onFilterClick={toggle} hasActiveFilters={Object.keys(applied).length > 0} placeholder={t('search')}/>
+    <MobileSearchFilter searchValue={query} onSearchChange={setQuery} onFilterClick={toggle} hasActiveFilters={hasActiveFilters} placeholder={searchLabel}/>
     <section className="table-card payment-module__table-card" aria-label={title}>
       <div className="table-card__toolbar">
         <div className="table-card__title-group"><h2 className="table-card__title">{title}</h2><span className="table-card__count" aria-live="polite">{filtered.length} {t('records')}</span></div>
-        <div className="table-card__search-wrapper"><AppSearchField value={query} onChange={setQuery} label={t('search')} placeholder={t('search')} size="compact" clearable/></div>
+        <div className="table-card__search-wrapper"><AppSearchField value={query} onChange={setQuery} label={searchLabel} placeholder={searchLabel} size="compact" clearable/></div>
         {filters.length > 0 && <button type="button" className={`table-card__toolbar-btn${showFilters?' table-card__toolbar-btn--active':''}`} onClick={toggle} aria-expanded={showFilters}>
           <Filter size={13} aria-hidden="true"/>{t('filters')}
         </button>}
         <label className="payment-module__sort">{t('sort')} <span className="sr-only">{title}</span><select aria-label={t('sort')} value={sort} onChange={e=>setSort(e.target.value)}>
-          <option value="">{t('defaultOrder')}</option><option value="-date">{t('newestFirst')}</option><option value="date">{t('oldestFirst')}</option>
-          <option value="taxpayer_name">{t('taxpayer')}</option>
+          <option value="">{t('defaultOrder')}</option>{sortChoices.map(choice=><option key={choice.value} value={choice.value}>{choice.label}</option>)}
         </select><ChevronDown size={12} aria-hidden="true"/></label>
       </div>
       {isDesktop && showFilters && filters.length > 0 && <div className="table-card__filter-panel"><FilterPanel filters={filters} values={draftFilters} onChange={change} onApply={apply} onReset={reset}/></div>}
