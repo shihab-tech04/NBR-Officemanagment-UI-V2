@@ -180,5 +180,17 @@
   "search_offline_events": "Search event, taxpayer or order",
   "sortTaxpayer": "Taxpayer A–Z",
   "sortRecordId": "Record ID A–Z",
-  "registerFilterYear": "Assessment year"
+  "registerFilterYear": "Assessment year",
+  "demoScopeNotice": "Fictional scenarios only. No money movement, Government challan, Treasury settlement or tax credit is recorded.",
+  "demoAllocationNotice": "Beneficiary activity is a simulated allocation, not proof of payment or tax-credit entitlement.",
+  "demoPaymentActivity": "Simulated payment activity",
+  "field_allocations": "Beneficiary allocations",
+  "field_transaction_timeline": "Transaction timeline",
+  "field_beneficiary_count": "Beneficiaries",
+  "field_allocation_count": "Allocation lines",
+  "field_allocation_id": "Allocation ID",
+  "field_transaction_total": "Whole transaction total",
+  "demoDataSource": "Record source",
+  "demoReferenceData": "Existing reference snapshot",
+  "demoMixedData": "Mixed-payment scenarios (demo)"
 }

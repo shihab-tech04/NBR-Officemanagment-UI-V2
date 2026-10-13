@@ -180,5 +180,17 @@
   "search_offline_events": "ইভেন্ট, করদাতা বা আদেশ অনুসন্ধান",
   "sortTaxpayer": "করদাতার নাম অনুযায়ী",
   "sortRecordId": "রেকর্ড আইডি অনুযায়ী",
-  "registerFilterYear": "করবর্ষ"
+  "registerFilterYear": "করবর্ষ",
+  "demoScopeNotice": "শুধু কাল্পনিক উদাহরণ। অর্থ স্থানান্তর, সরকারি চালান, ট্রেজারি নিষ্পত্তি বা কর ক্রেডিট রেকর্ড করা হয়নি।",
+  "demoAllocationNotice": "সুবিধাভোগীর কার্যক্রমটি অনুকরণমূলক বরাদ্দ; এটি কর পরিশোধ বা কর ক্রেডিট পাওয়ার প্রমাণ নয়।",
+  "demoPaymentActivity": "অনুকরণমূলক পেমেন্ট কার্যক্রম",
+  "field_allocations": "সুবিধাভোগীর বরাদ্দ",
+  "field_transaction_timeline": "লেনদেনের সময়রেখা",
+  "field_beneficiary_count": "সুবিধাভোগী",
+  "field_allocation_count": "বরাদ্দের সারি",
+  "field_allocation_id": "বরাদ্দ আইডি",
+  "field_transaction_total": "সম্পূর্ণ লেনদেনের মোট পরিমাণ",
+  "demoDataSource": "রেকর্ডের উৎস",
+  "demoReferenceData": "বিদ্যমান রেফারেন্স নমুনা",
+  "demoMixedData": "মিশ্র পেমেন্টের উদাহরণ (ডেমো)"
 }

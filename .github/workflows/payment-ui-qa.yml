@@ -15,7 +15,7 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - name: Payment navigation and fixture tests
-        run: npx vitest run src/test/paymentsNavigation.test.ts src/app/pages/payments/__tests__/paymentReference.test.ts
+        run: npx vitest run src/test/paymentsNavigation.test.ts src/app/pages/payments/__tests__/paymentReference.test.ts src/app/pages/payments/__tests__/paymentScenarioModel.test.ts
       - name: Compile project for GitHub Pages
         run: npm run build
         env:
