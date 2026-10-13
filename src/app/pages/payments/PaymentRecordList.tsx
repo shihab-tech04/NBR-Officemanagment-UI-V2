@@ -75,10 +75,15 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
   const signature = JSON.stringify(applied);
   useEffect(() => { setPage(1); }, [query, signature, pageSize, sort]);
   const paged = filtered.slice((page-1)*pageSize,page*pageSize);
-  const apply = () => { setApplied({...draftFilters});setShowFilters(false); };
-  const reset = () => { setDraftFilters({});setApplied({});setShowFilters(false);setPage(1); };
+  const apply = () => {
+    const {__paymentSort,...filterValues}=draftFilters;
+    setApplied(filterValues);
+    if(!isDesktop) setSort(__paymentSort ?? '');
+    setShowFilters(false);
+  };
+  const reset = () => { setDraftFilters({});setApplied({});if(!isDesktop)setSort('');setShowFilters(false);setPage(1); };
   const change = (key:string,value:string) => setDraftFilters(s => ({...s,[key]:value}));
-  const toggle = () => { setDraftFilters({...applied});setShowFilters(s=>!s); };
+  const toggle = () => { setDraftFilters({...applied,__paymentSort:sort});setShowFilters(s=>!s); };
   const actions = [{id:'view',label:t('viewDetails'),icon:Eye}];
   const searchLabel = t('search_' + kind.replace(/-/g, '_'));
   const sortedKey = sort.replace(/^-/, '');
@@ -94,7 +99,22 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
     if(current === '-' + key) return '';
     return key;
   });
-  const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All');
+  const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All') || (!isDesktop && !!sort);
+  const sortOptions = kind === 'transactions'
+    ? ['', '-date','date','taxpayer_name','-taxpayer_name','amount','-amount']
+    : kind === 'incidents'
+      ? ['', '-date','date','taxpayer','-taxpayer','id','-id']
+      : ['', 'taxpayer','-taxpayer','id','-id','amount','-amount'];
+  const sortOptionKeys:Record<string,string>={
+    '':'paymentSort.default','-date':'paymentSort.newest','date':'paymentSort.oldest',
+    taxpayer:'paymentSort.taxpayerAsc','-taxpayer':'paymentSort.taxpayerDesc',
+    taxpayer_name:'paymentSort.taxpayerAsc','-taxpayer_name':'paymentSort.taxpayerDesc',
+    id:'paymentSort.recordAsc','-id':'paymentSort.recordDesc',
+    amount:'paymentSort.amountAsc','-amount':'paymentSort.amountDesc'
+  };
+  const mobileFilters:FilterDef[]=[...filters,{
+    key:'__paymentSort', label:t('sort'), type:'select', options:sortOptions, optionKeys:sortOptionKeys
+  }];
 
   return <>
     <MobileSearchFilter searchValue={query} onSearchChange={setQuery} onFilterClick={toggle} hasActiveFilters={hasActiveFilters} placeholder={searchLabel}/>
@@ -116,7 +136,7 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
       <div className="table-card__pagination"><Pagination page={page} total={filtered.length} perPage={pageSize} onPage={setPage}
         perPageOptions={[5,10,20,50]} onPerPageChange={setPageSize}/></div>
     </section>
-    {!isDesktop && filters.length > 0 && <MobileFilterOverlay isOpen={showFilters} filters={filters} values={draftFilters}
+    {!isDesktop && filters.length > 0 && <MobileFilterOverlay isOpen={showFilters} filters={mobileFilters} values={draftFilters}
       onChange={change} onApply={apply} onReset={reset} onClose={()=>setShowFilters(false)}/>}
   </>;
 }
