@@ -1,3 +1,4 @@
+import {getOfficeReviewClient} from './OfficeReviewQueue';
 /** Shared public synthetic-only API. The embedded key is PUBLIC anon, never a service key.
  * RLS keeps financial tables isolated; only the purpose-built simulator RPCs are exposed.
  */
@@ -25,10 +26,26 @@ async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{
  }
  return response.json() as Promise<T>;
 }
+async function officerOrPublicRead<T>(name:string,args:Record<string,unknown>):Promise<T>{
+ const session=getOfficeReviewClient();
+ if(session){
+   const {data:identity,error:authError}=await session.auth.getUser();
+   if(authError)throw Error('Officer session could not be verified');
+   if(identity.user){
+     const {data,error}=await session.rpc(name,args);
+     if(error)throw Error(error.message);
+     const {data:checked}=await session.auth.getUser();
+     if(checked.user?.id!==identity.user.id)throw Error('Officer session changed during SQL read');
+     return data as T;
+   }
+ }
+ // Anonymous queries return only fictional, UNBOUND synthetic profiles.
+ return rpc<T>(name,args);
+}
 export const loadSimulationHistory=(user:SimulationUser|null,view:'beneficiary'|'payer'|'all'='beneficiary')=>
- rpc<SimulationTransaction[]>('sim_payment_history',{p_user_id:user,p_view:view});
+ officerOrPublicRead<SimulationTransaction[]>('sim_payment_history',{p_user_id:user,p_view:view});
 export const loadSimulationNotices=(user:SimulationUser)=>
- rpc<SimulationNotice[]>('sim_payment_notices',{p_user_id:user});
+ officerOrPublicRead<SimulationNotice[]>('sim_payment_notices',{p_user_id:user});
 export const submitSimulatedPayment=(payer:SimulationUser,lines:SimulationLine[],key:string)=>
  rpc<SimSubmission>('sim_submit_payment',{p_payer_id:payer,p_lines:lines,p_idempotency_key:key});
 /** Decimal money input is converted to integer paisa without floating-point rounding. */
