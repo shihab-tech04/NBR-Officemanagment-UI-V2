@@ -8,14 +8,15 @@ import { AppTextArea } from '../../components/forms/AppTextArea';
 import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
 import { OFFICE_AUTH_CALLBACK_URL } from '../../utils/officeAuthRedirect';
+import { isOfficeAdminDemo } from '../../utils/officeAdminDemo';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
 const approvedOrigin = url.startsWith('https://') || (import.meta.env.DEV && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]+)?\/?$/.test(url));
-const client = approvedOrigin && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
+const connectedClient = approvedOrigin && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
   ? createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 /** Reuse the authenticated officer session for protected simulation reads. */
-export const getOfficeReviewClient = () => client;
+export const getOfficeReviewClient = () => isOfficeAdminDemo() ? null : connectedClient;
 
 type ReviewRequest = { id:string; owner_uid:string; purpose:string; category:string; assessment_year:string; amount_minor:number; request_status:string; financial_receipt_status:string; tax_credit_status:string; submitted_at:string };
 type InboxNotice = { id:string; request_id:string; message_code:string; is_read:boolean; created_at:string };
@@ -28,6 +29,8 @@ const descriptions:Record<string,[string,string]> = {
 
 /** Segregated non-financial SQL inbox. No officer may post or approve tax receipt/credit here. */
 export function OfficeReviewQueue() {
+  // A simple ID login is preview-only: never expose a connected client to it.
+  const client = getOfficeReviewClient();
   const {i18n}=useTranslation();
   const bn=i18n.language.toLowerCase().startsWith('bn');
   const t=(en:string,local:string)=>bn?local:en;
@@ -54,7 +57,7 @@ export function OfficeReviewQueue() {
     });
     void client.auth.getUser().then(({data})=>{if(active)setUser(data.user);});
     return()=>{active=false;sub.subscription.unsubscribe();};
-  },[]);
+  },[client]);
 
   const refresh=useCallback(async()=>{
     if(!client||!user)return;
