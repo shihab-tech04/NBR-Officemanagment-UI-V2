@@ -12,6 +12,8 @@ const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
 const client = url.startsWith('https://') && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
   ? createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
+/** Reuse the authenticated officer session for protected simulation reads. */
+export const getOfficeReviewClient = () => client;
 
 type ReviewRequest = { id:string; owner_uid:string; purpose:string; category:string; assessment_year:string; amount_minor:number; request_status:string; financial_receipt_status:string; tax_credit_status:string; submitted_at:string };
 type InboxNotice = { id:string; request_id:string; message_code:string; is_read:boolean; created_at:string };
