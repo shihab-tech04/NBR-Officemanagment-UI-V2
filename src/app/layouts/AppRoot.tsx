@@ -9,6 +9,7 @@ import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { getOfficeReviewClient } from "../pages/payments/OfficeReviewQueue";
 import { PRIMARY_ADMIN_EMAIL } from "../utils/primaryAdminIdentity";
+import { isOfficeAdminDemo } from "../utils/officeAdminDemo";
 
 /**
  * Connected Office access MUST be based on server-verified Supabase identity and
@@ -17,7 +18,7 @@ import { PRIMARY_ADMIN_EMAIL } from "../utils/primaryAdminIdentity";
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
-  const legacyPreviewAuthenticated = useSelector((s:RootState)=>s.auth.isAuthenticated);
+  const previewAdminAuthenticated = useSelector((s:RootState)=>s.auth.isAuthenticated && s.auth.userId === "admin");
   const client=getOfficeReviewClient();
   const [verification,setVerification]=useState<'checking'|'authorized'|'denied'>(client?'checking':'denied');
   const [showShell,setShowShell]=useState(false);
@@ -69,7 +70,7 @@ export function AppRoot() {
     return()=>{alive=false;sequence++;listener.subscription.unsubscribe();};
   },[client]);
 
-  const authorized=client?verification==='authorized':legacyPreviewAuthenticated;
+  const authorized=client?verification==='authorized':(previewAdminAuthenticated && isOfficeAdminDemo());
   useEffect(()=>{startTransition(()=>setShowShell(authorized));},[authorized]);
   return <HelpProvider>
     {client&&verification==='checking'

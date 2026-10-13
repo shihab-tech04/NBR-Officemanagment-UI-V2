@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test.beforeEach(async({page})=>{
  await page.addInitScript(()=>{
-  localStorage.setItem('gov_ui_auth',JSON.stringify({isAuthenticated:true,userId:'mock-officer'}));
+  localStorage.setItem('gov_ui_auth',JSON.stringify({isAuthenticated:true,userId:'admin'}));
   localStorage.setItem('gov_ui_settings',JSON.stringify({assessmentYear:'2024-25',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:'en'}));
  });
 });
