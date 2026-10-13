@@ -13,6 +13,7 @@ import { AppCheckbox } from "../forms/AppCheckbox";
 import { useHelp } from "../../context/HelpContext";
 import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
 import { emailForPrimaryAdminId } from "../../utils/primaryAdminIdentity";
+import { OFFICE_AUTH_CALLBACK_URL } from "../../utils/officeAuthRedirect";
 import { getOfficeReviewClient } from "../../pages/payments/OfficeReviewQueue";
 
 interface LoginFormProps {
@@ -59,7 +60,7 @@ export function LoginForm({ isDesktop, onForgotPassword }: LoginFormProps) {
       try{
         const {error}=await secureClient.auth.signInWithOtp({
           email:adminEmail || userId.trim(),options:{
-            emailRedirectTo:window.location.origin+window.location.pathname,
+            emailRedirectTo:OFFICE_AUTH_CALLBACK_URL,
             shouldCreateUser:Boolean(adminEmail)
           }
         });

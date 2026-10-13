@@ -7,6 +7,7 @@ import { AppTextField } from '../../components/forms/AppTextField';
 import { AppTextArea } from '../../components/forms/AppTextArea';
 import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
+import { OFFICE_AUTH_CALLBACK_URL } from '../../utils/officeAuthRedirect';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
@@ -84,7 +85,7 @@ export function OfficeReviewQueue() {
   const login=async(event:React.FormEvent)=>{
     event.preventDefault();if(!client||busy)return;
     setBusy(true);setStatus('');
-    try{const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:window.location.origin+window.location.pathname,shouldCreateUser:false}});if(error)throw error;
+    try{const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:OFFICE_AUTH_CALLBACK_URL,shouldCreateUser:false}});if(error)throw error;
       setStatus(t('Sign-in link sent. Access requires an assigned officer role.','সাইন-ইন লিংক পাঠানো হয়েছে। নির্ধারিত কর্মকর্তা ভূমিকা প্রয়োজন।'));
     }catch(e){setStatus(e instanceof Error?e.message:'Could not sign in');}finally{setBusy(false);}
   };
