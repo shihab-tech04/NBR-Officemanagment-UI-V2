@@ -29,6 +29,31 @@ for (const viewport of viewports) {
   });
  }
 }
+// Regression from the 13 Oct desktop screenshot: content-width tables left
+// the majority of the Payment card empty. Compare actual rendered geometry.
+for(const viewport of [{width:1713,height:859},{width:1440,height:900},{width:1280,height:800},{width:1024,height:768}]){
+ for(const route of ['transactions','corrections','offline-events','incidents']){
+  test(`${viewport.width}px ${route} desktop table occupies its card`,async({page})=>{
+   await page.setViewportSize(viewport);
+   await page.goto(`/payments/${route}`);
+   const root=page.locator('.payment-module__table-card');
+   await expect(root).toBeVisible();
+   const layout=await page.evaluate(()=>{
+     const card=document.querySelector('.payment-module__table-card')!;
+     const wrapper=card.querySelector('.card-table__wrapper')!;
+     const table=card.querySelector('.card-table__table')!;
+     return {card:card.getBoundingClientRect().width,wrapper:wrapper.getBoundingClientRect().width,table:table.getBoundingClientRect().width};
+   });
+   expect(layout.wrapper,'wrapper fills card').toBeGreaterThan(layout.card*.95);
+   expect(layout.table,'table fills card').toBeGreaterThan(layout.wrapper*.95);
+   expect(layout.table,'no excessive overflow').toBeLessThanOrEqual(layout.wrapper+4);
+   if(viewport.width===1713&&route==='transactions'){
+    await page.screenshot({path:'test-results/payment-table-fullwidth-1713.png',fullPage:true,animations:'disabled'});
+   }
+  });
+ }
+}
+
 test('mobile transaction card distinguishes receipt and tax-credit status',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto('/payments/transactions');
