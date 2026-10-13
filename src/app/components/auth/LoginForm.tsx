@@ -24,7 +24,6 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
 
   const [userId, setUserId] = useState("");
   const [authFeedback,setAuthFeedback]=useState<{error:boolean;text:string}|null>(null);
-  const secureClient=getOfficeReviewClient();
 
   const demoUrl = getTaxPayDemoLoginUrl(userId);
   const normalizedId = userId.trim().toLowerCase();
