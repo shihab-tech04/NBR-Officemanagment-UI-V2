@@ -7,6 +7,13 @@ import { AppTextArea } from '../../components/forms/AppTextArea';
 
 type Role = 'MAKER' | 'REVIEWER' | 'APPROVER';
 type Action = 'MAKER_ACKNOWLEDGE' | 'REVIEWER_VERIFY' | 'APPROVER_CLOSE';
+type LifecycleAction='COMPLETE_SIMULATION'|'FAIL_SIMULATION'|'REVERSE_SIMULATION';
+const permittedLifecycle=(role:Role,reviewStatus:string,state:string):LifecycleAction[]=>{
+ if(role!=='APPROVER'||reviewStatus!=='APPROVER_CLOSED')return [];
+ if(state==='PENDING')return ['COMPLETE_SIMULATION','FAIL_SIMULATION'];
+ if(state==='SIMULATED')return ['REVERSE_SIMULATION'];
+ return [];
+};
 type Allocation = { beneficiary:string; category:string; assessmentYear:string; amountMinor:number };
 type Event = { id:number;action:string;note:string;occurredAt:string };
 type DemoTransaction = {
@@ -33,6 +40,8 @@ export function SimulatedOfficerReview({client,userId,role}:{
   const [rows,setRows]=useState<DemoTransaction[]>([]);
   const [selected,setSelected]=useState<string|null>(null);
   const [reason,setReason]=useState('');
+  const [lifecycleReason,setLifecycleReason]=useState('');
+  const lifecycleNonce=useRef<{id:string;action:LifecycleAction;key:string}|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [loaded,setLoaded]=useState(false);
@@ -52,7 +61,7 @@ export function SimulatedOfficerReview({client,userId,role}:{
 
   useEffect(()=>{
     let live=true;
-    setRows([]);setLoaded(false);setSelected(null);setReason('');nonce.current=null;
+    setRows([]);setLoaded(false);setSelected(null);setReason('');setLifecycleReason('');nonce.current=null;lifecycleNonce.current=null;
     const run=()=>void refresh().catch(e=>{if(live)setError(e instanceof Error?e.message:'Could not refresh');});
     run();const timer=window.setInterval(run,10000);
     return()=>{live=false;window.clearInterval(timer);};
@@ -60,6 +69,7 @@ export function SimulatedOfficerReview({client,userId,role}:{
 
   const current=rows.find(r=>r.transactionId===selected);
   const action=current?nextAction(role,current.reviewStatus):null;
+  const lifecycleActions=current?permittedLifecycle(role,current.reviewStatus,current.state):[];
   const act=async()=>{
     if(!current||!action||busy||reason.trim().length<10)return;
     setBusy(true);setError('');
@@ -80,6 +90,32 @@ export function SimulatedOfficerReview({client,userId,role}:{
     finally{setBusy(false);}
   };
 
+  const actLifecycle=async(requested:LifecycleAction)=>{
+    if(!current||busy||!lifecycleActions.includes(requested)||
+       lifecycleReason.trim().length<10||lifecycleReason.trim().length>1000)return;
+    setBusy(true);setError('');
+    const previous=lifecycleNonce.current;
+    const key=previous?.id===current.transactionId&&previous.action===requested?previous.key:crypto.randomUUID();
+    lifecycleNonce.current={id:current.transactionId,action:requested,key};
+    const expected=requested==='COMPLETE_SIMULATION'?'SIMULATED':requested==='FAIL_SIMULATION'?'FAILED':'REVERSED';
+    try {
+      const {data:identity,error:authError}=await client.auth.getUser();
+      if(authError||identity.user?.id!==userId)throw Error('Officer session changed');
+      const {data,error:sqlError}=await client.rpc('sim_payment_status_action',{
+        p_transaction_id:current.transactionId,p_action:requested,
+        p_reason:lifecycleReason.trim(),p_idempotency_key:key
+      });
+      if(sqlError||!data||data.state!==expected)throw Error(sqlError?.message||'Simulation state change not confirmed by SQL');
+      const persisted=(await refresh()).find(r=>r.transactionId===current.transactionId);
+      if(persisted?.state!==expected)throw Error('Read-back state does not match the authorized simulation transition');
+      const newest=persisted.events.at(-1)?.action;
+      const expectedEvent=requested==='COMPLETE_SIMULATION'?'SIMULATION_RECORDED':requested==='FAIL_SIMULATION'?'FAILED':'REVERSED';
+      if(newest!==expectedEvent)throw Error('SQL event timeline did not record the expected transition');
+      lifecycleNonce.current=null;setLifecycleReason('');
+    } catch(e){setError(e instanceof Error?e.message:'Simulation state change failed');}
+    finally{setBusy(false);}
+  };
+
   return <section className="card payment-module__card" aria-label={tx('Simulation review actions','সিমুলেটেড পর্যালোচনা')}>
     <h3>{tx('Shared SQL — simulated transaction decisions','যৌথ SQL — সিমুলেটেড লেনদেনের সিদ্ধান্ত')}</h3>
     <p>{tx('Only fictional transactions. Different Maker, Reviewer and Approver accounts are required; no Government receipt, funds movement or tax credit can result.',
@@ -90,7 +126,7 @@ export function SimulatedOfficerReview({client,userId,role}:{
       rows.length===0?<p>{tx('No synthetic transactions','কোনো নমুনা লেনদেন নেই')}</p>:
       <ul>{rows.slice(0,100).map(r=><li key={r.transactionId}>
         <button type="button" className="table-card__toolbar-btn" aria-pressed={r.transactionId===selected}
-          onClick={()=>{setSelected(r.transactionId);setReason('');nonce.current=null;}}>
+          onClick={()=>{setSelected(r.transactionId);setReason('');setLifecycleReason('');nonce.current=null;lifecycleNonce.current=null;}}>
           {r.id} · {r.payer} · {r.reviewStatus} · {new Intl.NumberFormat('en-BD').format(r.totalMinor/100)} BDT
         </button>
       </li>)}</ul>}
@@ -102,6 +138,24 @@ export function SimulatedOfficerReview({client,userId,role}:{
       <details><summary>{tx('SQL event timeline','SQL ইভেন্ট সময়রেখা')}</summary>
         <ol>{current.events.map(e=><li key={e.id}><p>{e.action} · {e.occurredAt}</p><p>{e.note}</p></li>)}</ol>
       </details>
+      {lifecycleActions.length>0&&<div className="payment-module__review-lifecycle">
+        <h4>{tx('Controlled simulated lifecycle','নিয়ন্ত্রিত সিমুলেশন অবস্থা')}</h4>
+        <p>{tx('Only an authorized Approver may change the simulated outcome after independent three-officer review. No money or official credit moves.',
+          'শুধুমাত্র অনুমোদিত কর্মকর্তা পৃথক তিন-ধাপ পর্যালোচনার পরে সিমুলেশনের অবস্থা পরিবর্তন করতে পারবেন। কোনো অর্থ বা সরকারি ক্রেডিট স্থানান্তর হয় না।')}</p>
+        <AppTextArea id="sim-lifecycle-reason"
+          label={tx('Reason for simulation status change, 10–1000 characters','সিমুলেশন অবস্থার পরিবর্তনের কারণ, ১০–১০০০ অক্ষর')}
+          value={lifecycleReason} onChange={value=>{setLifecycleReason(value);lifecycleNonce.current=null;}} required/>
+        <div className="table-page__actions">
+          {lifecycleActions.map(requested=><PrimaryButton key={requested} size="sm"
+            disabled={busy||lifecycleReason.trim().length<10||lifecycleReason.trim().length>1000}
+            onClick={()=>void actLifecycle(requested)}>
+            {busy?tx('Recording…','সংরক্ষণ হচ্ছে…'):
+             requested==='COMPLETE_SIMULATION'?tx('Mark simulation completed','সিমুলেশন সম্পন্ন করুন'):
+             requested==='FAIL_SIMULATION'?tx('Mark simulation failed','সিমুলেশন ব্যর্থ করুন'):
+             tx('Reverse simulated payment','সিমুলেটেড পেমেন্ট প্রত্যাহার করুন')}
+          </PrimaryButton>)}
+        </div>
+      </div>}
       {action?<div>
         <AppTextArea id="sim-review-reason" label={tx('Reason, 10–1000 characters','কারণ, ১০–১০০০ অক্ষর')}
           value={reason} onChange={value=>{setReason(value);nonce.current=null;}} required/>
