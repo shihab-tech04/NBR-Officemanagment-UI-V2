@@ -1,0 +1,2 @@
+# This application is built and deployed by the audited Vite GitHub Actions workflow.
+# Prevent legacy source-based Pages/Jekyll processing of TSX/Markdown.
