@@ -222,5 +222,7 @@ test('Offline Events uses localized search and AY filter actually narrows its so
  await page.locator('#filter-ay').click();
  await page.getByRole('option',{name:'2027–28'}).click();
  await page.getByRole('button',{name:'Apply Filters'}).click();
- await expect(page.locator('.card-table tbody tr')).toHaveCount(0);
+ await expect(page.locator('.payment-module__table-card .table-card__count')).toContainText('0 records');
+ await expect(page.getByText('OFE-2026-000008')).toHaveCount(0);
+ await expect(page.getByText('No records match your search criteria')).toBeVisible();
 });
