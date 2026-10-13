@@ -84,9 +84,15 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
   const sortedKey = sort.replace(/^-/, '');
   const sortDirection = sort.startsWith('-') ? 'descending' as const : 'ascending' as const;
   const sortColumn = (key:string) => setSort(current => {
+    if (key === 'date') {
+      // Newest → oldest → default; don't skip the ascending state.
+      if (current === '-date') return 'date';
+      if (current === 'date') return '';
+      return '-date';
+    }
     if(current === key) return '-' + key;
     if(current === '-' + key) return '';
-    return key === 'date' ? '-' + key : key;
+    return key;
   });
   const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All');
 
