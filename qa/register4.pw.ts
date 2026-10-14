@@ -1,0 +1,68 @@
+import { test, expect } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("gov_ui_auth", JSON.stringify({ isAuthenticated: true, userId: "admin" }));
+    localStorage.setItem("gov_ui_settings", JSON.stringify({
+      assessmentYear: "2024-25", themeId: "indigo-blue", fontId: "inter",
+      fontSizeId: "standard", languageId: "en",
+    }));
+  });
+});
+
+test("Register-4 desktop preserves shared table and scopes sample rows to selected AY", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  await expect(page.locator(".app-shell")).toBeVisible();
+  const table = page.locator(".card-table__table");
+  await expect(table).toBeVisible();
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+  await expect(table.getByRole("columnheader", { name: "Created Demand / Allocation" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Arrear Tax Year" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Current Tax Year" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Book No." })).toHaveCount(0);
+  await expect(page.getByText("Illustrative sample records; not verified tax assessments.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Issued", { exact: true })).toHaveCount(0);
+  const sorter = table.getByRole("button", { name: "Sort by Taxpayer Name & TIN" });
+  await sorter.click();
+  await expect(sorter).toHaveClass(/card-table__sort-button--active/);
+  await page.screenshot({ path: "test-results/register4-verified-desktop.png", fullPage: true, animations: "disabled" });
+});
+
+test("Register-4 date filters actually change results, and local draft is session-only", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  const table = page.locator(".card-table__table");
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+  await page.locator(".table-card__toolbar").getByRole("button", { name: "Filter" }).click();
+  await page.locator("#filter-from").fill("2026-01-01");
+  await page.getByRole("button", { name: "Apply Filters" }).click();
+  await expect(table.locator(".card-table__empty")).toBeVisible();
+  // Clear the applied date range using the established chips control.
+  await page.locator(".applied-chips__clear").click();
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Taxpayer Name" }).fill("E2E Synthetic Test");
+  await dialog.getByRole("textbox", { name: "TIN" }).fill("DEMO-123456");
+  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await expect(table.locator("tbody tr")).toHaveCount(9);
+  await expect(table.getByText("E2E Synthetic Test (DEMO-123456)")).toBeVisible();
+  await page.reload();
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+});
+
+test("Register-4 mobile uses the existing readable card pattern", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register-stock/register-4");
+  await expect(page.locator(".app-shell")).toBeVisible();
+  await expect(page.locator(".card-table")).toBeHidden();
+  const cards = page.locator(".mobile-table-card-list .mobile-table-card");
+  await expect(cards).toHaveCount(8);
+  await expect(cards.first()).toContainText("Circle-1");
+  await cards.first().click();
+  await expect(page.locator(".dynamic-drawer")).toBeVisible();
+  await page.screenshot({ path: "test-results/register4-verified-mobile.png", fullPage: true, animations: "disabled" });
+});
