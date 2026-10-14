@@ -138,7 +138,7 @@ test("Register-4 headers and cells use content alignment while Stock Register ke
     ["Assessed Income", "right"], ["Arrear Tax Year", "right"],
     ["Current Tax Year", "right"], ["Remarks (if any)", "left"],
   ]) {
-    const header = table.getByRole("columnheader", { name, exact: true });
+    const header = table.getByRole("button", { name: `Sort by ${name}`, exact: true }).locator("..");
     await expect(header).toHaveCSS("text-align", alignment);
   }
   await expect(table.locator("tbody tr").first().locator("td").nth(3)).toBeEmpty();
