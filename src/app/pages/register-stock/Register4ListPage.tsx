@@ -43,7 +43,7 @@ export function Register4ListPage() {
     buildVisibleKpis: buildRegister4Kpis,
     entryBtn: translateActions("newEntry"),
     entryModalComponent: Register4EntryModal,
-    entrySubmitLabel: translatePages("register4.addLocalDraft"),
+    entrySubmitLabel: translatePages("register4.createNewEntry"),
     entryFields: buildRegister4EntryFields(assessmentYear, translateTables, translatePages),
     createEntryRow: createRegister4LocalDraft,
     onExportRows: rows => downloadRegister4SampleCsv(rows, translateTables),

@@ -102,7 +102,7 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
       footer={<>
         <SecondaryButton type="button" onClick={onClose}>{common("actions.cancel")}</SecondaryButton>
         <PrimaryButton type="button" disabled={!selected} onClick={() => formRef.current?.requestSubmit()}>
-          {tp("register4.addLocalDraft")}
+          {tp("register4.createNewEntry")}
         </PrimaryButton>
       </>}
     >
