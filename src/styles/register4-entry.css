@@ -1,8 +1,21 @@
 /* Register-4 entry only. Uses existing AppModal, EntryForm and design tokens. */
 .register4-entry { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.register4-entry__lookup-group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .register4-entry__lookup { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .register4-entry__search { min-width: 0; flex: 1 1 auto; }
-.register4-entry__lookup > .app-btn { width: auto; flex: 0 0 auto; }
+/* Shared medium buttons are auto-height/full-width; scope the lookup action
+   to the shared compact search field's 36px height without touching global buttons. */
+.register4-entry__lookup > .app-btn { width: auto; flex: 0 0 auto; height: 36px; min-height: 36px; padding: 0 var(--space-4); }
+.register4-entry__suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+.register4-entry__suggestion {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 32px; padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font: inherit; font-size: var(--fs-label-md); cursor: pointer;
+}
+.register4-entry__suggestion:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-alpha-5); }
+.register4-entry__suggestion:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .register4-entry__identity { padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-background-subtle); min-width: 0; }
 .register4-entry__name { margin: 0 0 var(--space-2); color: var(--color-text-primary); font-size: var(--fs-body-md); font-weight: 600; overflow-wrap: anywhere; }
 .register4-entry__identity-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
@@ -13,7 +26,10 @@
 @media (max-width: 640px) {
   .register4-entry { gap: var(--space-4); }
   .register4-entry__lookup { gap: var(--space-2); }
-  .register4-entry__lookup > .app-btn { flex-shrink: 0; }
+  /* Maintain 44px touch targets on both search controls. */
+  .register4-entry__search .MuiInputBase-root { height: 44px; }
+  .register4-entry__lookup > .app-btn { flex-shrink: 0; height: 44px; min-height: 44px; }
+  .register4-entry__suggestion { min-height: 44px; }
   .register4-entry__fields .entry-form__grid { grid-template-columns: minmax(0, 1fr); }
   .register4-entry__identity-facts { flex-direction: column; gap: var(--space-1); }
 }

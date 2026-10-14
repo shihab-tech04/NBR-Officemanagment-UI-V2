@@ -26,6 +26,19 @@ export function findRegister4Taxpayer(tin: string): Taxpayer | null {
     circle: found.circle, assessment_year: found.assessment_year };
 }
 
+/** Deterministic, deduplicated TIN suggestions from the existing demo fixture.
+ * Prefix/substring matching is display-only, never an authenticated identity lookup.
+ */
+export function getRegister4TinSuggestions(query: string, limit = 4): string[] {
+  const normalized = query.trim().toLocaleUpperCase("en");
+  const unique = [...new Set(REGISTER4_ASSESSMENT_ROWS
+    .map(row => typeof row.tin === "string" ? row.tin : "")
+    .filter(Boolean))];
+  return unique
+    .filter(tin => tin.toLocaleUpperCase("en").includes(normalized))
+    .slice(0, Math.max(0, limit));
+}
+
 interface Register4EntryModalProps {
   open: boolean;
   onClose: () => void;
@@ -47,6 +60,17 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
   useEffect(() => {
     if (!open) { setTinQuery(""); setSelected(null); setSearched(false); }
   }, [open]);
+
+  const suggestions = useMemo(
+    () => selected ? [] : getRegister4TinSuggestions(tinQuery),
+    [tinQuery, selected]
+  );
+
+  const chooseSuggestion = (tin: string) => {
+    setTinQuery(tin);
+    setSelected(findRegister4Taxpayer(tin));
+    setSearched(true);
+  };
 
   const formFields = useMemo(() => selected
     ? buildRegister4EntryFields(assessmentYear, th, tp)
@@ -83,18 +107,34 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
       </>}
     >
       <div className="register4-entry">
-        <form className="register4-entry__lookup" onSubmit={search} role="search">
-          <div className="register4-entry__search">
-            <AppSearchField
-              value={tinQuery}
-              onChange={updateQuery}
-              label={tp("register4.searchTin")}
-              placeholder={tp("register4.searchTin")}
-              size="compact"
-            />
-          </div>
-          <SecondaryButton type="submit">{tp("register4.searchAction")}</SecondaryButton>
-        </form>
+        <div className="register4-entry__lookup-group">
+          <form className="register4-entry__lookup" onSubmit={search} role="search">
+            <div className="register4-entry__search">
+              <AppSearchField
+                value={tinQuery}
+                onChange={updateQuery}
+                label={tp("register4.searchTin")}
+                placeholder={tp("register4.searchTin")}
+                size="compact"
+              />
+            </div>
+            <SecondaryButton type="submit">{tp("register4.searchAction")}</SecondaryButton>
+          </form>
+          {suggestions.length > 0 && (
+            <div className="register4-entry__suggestions" role="group" aria-label={tp("register4.tinSuggestions")}>
+              {suggestions.map(tin => (
+                <button
+                  key={tin}
+                  type="button"
+                  className="register4-entry__suggestion"
+                  onClick={() => chooseSuggestion(tin)}
+                >
+                  {tin}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {searched && !selected && (
           <p role="status" className="register4-entry__feedback">{tp("register4.tinNotFound")}</p>

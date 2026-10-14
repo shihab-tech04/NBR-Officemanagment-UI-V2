@@ -92,7 +92,8 @@
     "searchTin": "Search TIN",
     "searchAction": "Search",
     "taxpayerDetails": "Taxpayer details",
-    "tinNotFound": "No taxpayer found for this TIN."
+    "tinNotFound": "No taxpayer found for this TIN.",
+    "tinSuggestions": "TIN suggestions"
   },
   "stockRegister": {
     "title": "Stock Register",
