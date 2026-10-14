@@ -376,9 +376,9 @@ test("Register-4 custom section popover never stretches New Entry form grid", as
   await expect(dialog.locator(".register4-section-field__custom")).toHaveCount(0);
   // The underlying form remains laid out, but is aria-hidden while MUI Popover owns focus.
   await expect(page.locator(".app-modal-panel .entry-form__grid")).toBeVisible();
-  await page.locator("#disposal_code-custom").fill("182(4)");
+  await page.locator("#disposal_code-custom").fill("183(7)");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
-  await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
+  await expect(dialog.locator("#disposal_code")).toContainText("183(7)");
   await expect(page.locator(".register4-section-field__popover")).toHaveCount(0);
   await page.screenshot({ path:"test-results/register4-section-form-clean.png", animations:"disabled" });
 });
@@ -450,9 +450,9 @@ test("Register-4 custom section Add is visible outside dropdown, balanced popove
   await expect(buttons).toHaveCount(2);
   const heights=await buttons.evaluateAll(els=>els.map(x=>x.getBoundingClientRect().height));
   expect(Math.abs(heights[0]-heights[1])).toBeLessThanOrEqual(1);
-  await pop.getByRole("textbox",{name:"Section number"}).fill("১৮২(৪)");
+  await pop.getByRole("textbox",{name:"Section number"}).fill("১৮৩(৭)");
   await pop.getByRole("button",{name:"Add section",exact:true}).click();
-  await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
+  await expect(dialog.locator("#disposal_code")).toContainText("183(7)");
 });
 
 test("Register-4 blocks an unsupported transition and preserves the existing trail",async({page})=>{
