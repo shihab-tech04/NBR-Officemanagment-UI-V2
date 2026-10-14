@@ -101,22 +101,30 @@ export const REGISTER4_ASSESSMENT_FILTERS = [
   { key: "to", label: "To Date", labelKey: "labels.toDate", type: "date" as const },
 ];
 
-export function buildRegister4EntryFields(year: string): FormField[] {
+type HeaderTranslate = (key: string, options?: { defaultValue?: string }) => string;
+
+export function buildRegister4EntryFields(
+  year: string,
+  th: HeaderTranslate,
+  tp: HeaderTranslate,
+): FormField[] {
+  const label = (key: string, fallback: string) => th(`headers.${key}`, { defaultValue: fallback });
   return [
-    { key: "taxpayer_name", label: "Taxpayer Name", type: "text", required: true },
-    { key: "tin", label: "TIN", type: "text", required: true },
-    { key: "circle", label: "Circle", type: "text", required: true, defaultValue: "Circle-1" },
-    { key: "assessment_year", label: "Assessment Year", type: "text", required: true, defaultValue: year,
-      helper: "Must match the selected assessment year" },
-    { key: "folio_no", label: "Folio No.", type: "text" },
-    { key: "disposal_code", label: "Disposal Code (Section)", type: "text" },
-    { key: "assessment_date", label: "Assessment Date", type: "date" },
-    { key: "assessed_income", label: "Assessed Income (BDT)", type: "number" },
-    { key: "arrear_year_demand", label: "Arrear Tax Year Demand (BDT)", type: "number" },
-    { key: "current_year_demand", label: "Current Tax Year Demand (BDT)", type: "number" },
-    { key: "penalty", label: "Penalty (BDT)", type: "number" },
-    { key: "revised_demand", label: "Revised Demand / Allocation (BDT)", type: "number" },
-    { key: "remarks", label: "Remarks", type: "textarea", span: true },
+    { key: "taxpayer_name", label: label("taxpayerName", "Taxpayer Name"), type: "text", required: true },
+    { key: "tin", label: label("tin", "TIN"), type: "text", required: true },
+    { key: "circle", label: label("circle", "Circle"), type: "text", required: true, defaultValue: "Circle-1" },
+    { key: "assessment_year", label: label("register4AssessmentYear", "Tax Year"), type: "select",
+      options: [year], required: true, defaultValue: year,
+      helper: tp("register4.yearHelp", { defaultValue: "Matches the selected assessment year" }) },
+    { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text" },
+    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"), type: "text" },
+    { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date" },
+    { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"), type: "number" },
+    { key: "arrear_year_demand", label: label("register4ArrearYearDemand", "Arrear Tax Year Demand (BDT)"), type: "number" },
+    { key: "current_year_demand", label: label("register4CurrentYearDemand", "Current Tax Year Demand (BDT)"), type: "number" },
+    { key: "penalty", label: label("register4Penalty", "Penalty (BDT)"), type: "number" },
+    { key: "revised_demand", label: label("register4RevisedDemand", "Revised Demand / Allocation (BDT)"), type: "number" },
+    { key: "remarks", label: label("register4Remarks", "Remarks"), type: "textarea", span: true },
   ];
 }
 
@@ -150,7 +158,6 @@ export function createRegister4LocalDraft(
   };
 }
 
-type HeaderTranslate = (key: string, options?: { defaultValue?: string }) => string;
 
 /** CSV data is explicitly sample/local-only and never a government assessment export. */
 export function buildRegister4SampleCsv(rows: TableRow[], translate?: HeaderTranslate): string {
