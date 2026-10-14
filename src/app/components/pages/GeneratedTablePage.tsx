@@ -267,6 +267,9 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
   useEffect(() => () => { revokeRowAttachmentUrls(rowsRef.current); }, []);
 
   const [page, setPage]     = useState(1);
+  const [perPage, setPerPage] = useState(PER);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"ascending" | "descending">("ascending");
   const [q, setQ]           = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [fVals, setFVals]   = useState<Record<string, string>>({});
@@ -286,23 +289,68 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
     }));
   }), [sourceForDrawer]);
 
-  const filtered = useMemo(() =>
-    rows.filter(r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q.toLowerCase()))),
-    [rows, q]
-  );
-  const pageRows = useMemo(() => filtered.slice((page - 1) * PER, page * PER), [filtered, page]);
+  const filtered = useMemo(() => rows.filter(row => {
+    if (cfg.assessmentYearScope && String(row[cfg.assessmentYearScope.field] ?? "") !== cfg.assessmentYearScope.year) {
+      return false;
+    }
+    if (q && !Object.values(row).some(v => String(v ?? "").toLocaleLowerCase().includes(q.toLocaleLowerCase()))) {
+      return false;
+    }
+    if (!cfg.applyTableFilters) return true;
+    for (const [key, value] of Object.entries(applied)) {
+      if (!value || value.startsWith("All ")) continue;
+      if (key === "from" || key === "to") {
+        const rowDate = String(row[cfg.filterDateField ?? "date"] ?? "");
+        if (!rowDate || rowDate === "—" || (key === "from" && rowDate < value) || (key === "to" && rowDate > value)) {
+          return false;
+        }
+      } else if (String(row[key] ?? "") !== value) {
+        return false;
+      }
+    }
+    return true;
+  }), [rows, q, applied, cfg.assessmentYearScope?.field, cfg.assessmentYearScope?.year, cfg.applyTableFilters, cfg.filterDateField]);
+
+  const sortedRows = useMemo(() => {
+    if (!cfg.enableSort || !sortKey) return filtered;
+    const comparator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    return [...filtered].sort((left, right) => {
+      const a = String(left[sortKey] ?? "");
+      const b = String(right[sortKey] ?? "");
+      const aMissing = !a || a === "—";
+      const bMissing = !b || b === "—";
+      if (aMissing !== bMissing) return aMissing ? 1 : -1;
+      const result = comparator.compare(a, b);
+      return sortDirection === "ascending" ? result : -result;
+    });
+  }, [filtered, cfg.enableSort, sortKey, sortDirection]);
+  const pageRows = useMemo(() => sortedRows.slice((page - 1) * perPage, page * perPage), [sortedRows, page, perPage]);
+  const visibleKpis = cfg.buildVisibleKpis?.(filtered) ?? cfg.kpis;
+  const handleSortColumn = useCallback((key: string) => {
+    setSortDirection(prev => sortKey === key && prev === "ascending" ? "descending" : "ascending");
+    setSortKey(key);
+    setPage(1);
+  }, [sortKey]);
 
   const handleSearchChange = useCallback((value: string) => { setQ(value); setPage(1); }, []);
   const handleFilterToggle = useCallback(() => setShowFilter(s => !s), []);
   const handleFilterChange = useCallback((k: string, v: string) => setFVals(p => ({ ...p, [k]: v })), []);
-  const handleFilterApply  = useCallback(() => { setApplied(fVals); setShowFilter(false); setPage(1); }, [fVals]);
+  const handleFilterApply  = useCallback(() => {
+    if (cfg.applyTableFilters && fVals.from && fVals.to && fVals.from > fVals.to) {
+      toast.error(translatePages("register4.invalidDateRange", { defaultValue: "Start date must be on or before end date" }));
+      return;
+    }
+    setApplied(fVals); setShowFilter(false); setPage(1);
+  }, [fVals, cfg.applyTableFilters, translatePages]);
   const handleFilterReset  = useCallback(() => { setFVals({}); setApplied({}); }, []);
   const handleRowClick     = useCallback((row: TableRow) => setDrawer(row), []);
   const handleDrawerClose  = useCallback(() => setDrawer(null), []);
 
   // ── Submit handlers ───────────────────────────────────────────────────────
   const handleEntrySubmit = useCallback((values: Record<string, EntryFormValue>) => {
-    const newRow = createGenericRow(values,
+    const newRow = cfg.createEntryRow
+      ? cfg.createEntryRow(values, rows)
+      : createGenericRow(values,
       [
         { key: "tin",             label: translateForms("fields.tin"),            type: "text" },
         { key: "taxpayer_name",   label: translateForms("fields.taxpayerName"),   type: "text" },
@@ -318,8 +366,10 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
     setRows(prev => [newRow, ...prev]);
     setPage(1);
     setModal(null);
-    toast.success(translateActions("entryCreated", { defaultValue: "Entry created successfully" }));
-  }, [rows, translateForms, translateActions]);
+    toast.success(cfg.createEntryRow
+      ? translatePages("register4.localDraftAdded", { defaultValue: "Local draft added (not saved to the server)" })
+      : translateActions("entryCreated", { defaultValue: "Entry created successfully" }));
+  }, [rows, translateForms, translateActions, translatePages, cfg.createEntryRow]);
 
   const handleExtraBtnSubmit = useCallback((btn: NonNullable<PageCfg["extraBtns"]>[number], fields: FormField[]) =>
     (values: Record<string, EntryFormValue>) => {
@@ -368,7 +418,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
                 </button>
               );
             })}
-            {cfg.kpis && (
+            {visibleKpis && (
               <button
                 onClick={() => setKpiOpen(o => !o)}
                 className="table-page__kpi-toggle"
@@ -386,7 +436,8 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
         </div>
       )}
 
-      {cfg.kpis && <CollapsibleKpiSection kpis={cfg.kpis} open={kpiOpen} />}
+      {visibleKpis && <CollapsibleKpiSection kpis={visibleKpis} open={kpiOpen} />}
+      {cfg.workspaceNote && <p className="table-page__desc" role="note">{cfg.workspaceNote}</p>}
 
       <MobileSearchFilter
         searchValue={q}
@@ -416,7 +467,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           <button onClick={handleFilterToggle} className={`table-card__toolbar-btn${showFilter ? " table-card__toolbar-btn--active" : ""}`}>
             <Filter size={13} aria-hidden="true" /> {translateCommon("actions.filter")}
           </button>
-          <button className="table-card__toolbar-btn table-card__toolbar-btn--download" onClick={() => handleExportDisabled(translateCommon("actions.exportDisabled"))}>
+          <button className="table-card__toolbar-btn table-card__toolbar-btn--download" onClick={() => cfg.onExportRows ? cfg.onExportRows(sortedRows) : handleExportDisabled(translateCommon("actions.exportDisabled"))}>
             <Download size={13} aria-hidden="true" /> {translateCommon("actions.export")}
           </button>
           <button className="table-card__toolbar-btn table-card__toolbar-btn--print" onClick={() => window.print()}>
@@ -440,10 +491,16 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           onActionClick={(_actionId, row) => handleRowClick(row)}
           mobileCardMapping={cfg.mobileCardMapping}
           noCard
+          sortKey={cfg.enableSort ? sortKey ?? undefined : undefined}
+          sortDirection={cfg.enableSort ? sortDirection : undefined}
+          onSortColumn={cfg.enableSort ? handleSortColumn : undefined}
         />
 
         <div className="table-card__pagination">
-          <Pagination page={page} total={filtered.length} perPage={PER} onPage={setPage} />
+          <Pagination page={page} total={filtered.length} perPage={perPage} onPage={setPage}
+            perPageOptions={cfg.pageSizeOptions}
+            onPerPageChange={cfg.pageSizeOptions ? (n) => { setPerPage(n); setPage(1); } : undefined}
+          />
         </div>
       </div>
 
@@ -462,7 +519,8 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           <EntryForm
             onClose={() => setModal(null)}
             onSubmit={handleEntrySubmit}
-            fields={[
+            submitLabel={cfg.entrySubmitLabel}
+            fields={cfg.entryFields ?? [
               { key: "tin",           label: translateForms("fields.tin"),            type: "text" },
               { key: "taxpayer_name", label: translateForms("fields.taxpayerName"),   type: "text" },
               { key: "ay",            label: translateForms("fields.assessmentYear"), type: "select", options: AY_OPTS },
