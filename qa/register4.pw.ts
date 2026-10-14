@@ -641,7 +641,7 @@ test("Register-4 mobile inline TIN suggestions and Folio No parity with New Entr
   const options=card.getByRole("group",{name:"TIN suggestions"});
   await expect(options.getByRole("button",{name:"TIN-10002"})).toContainText("180/180(2)");
   await options.getByRole("button",{name:"TIN-10002"}).click();
-  await expect(card).toContainText("TIN-10002");
+  await expect(card.locator("#register4-inline-mobile-tin")).toHaveValue("TIN-10002");
   await expect(card.locator("#register4-inline-mobile-circle")).toHaveValue("Circle-1");
   await expect(card.locator("#register4-inline-mobile-disposal_code")).toContainText("180/180(2)");
   await expect(folio).toHaveValue("");
