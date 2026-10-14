@@ -53,9 +53,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   const keyDown=(e:KeyboardEvent)=>{
     if(e.defaultPrevented || (e.target as HTMLElement).closest(".register4-section-field"))return;
     if(e.key==="Escape"){
-      e.preventDefault();
-      if(tinOpen){setTinOpen(false);return;}
-      onCancel();return;
+      e.preventDefault();onCancel();return;
     }
     // Enter from TIN, amount, date or any intermediate field must NOT save
     // an incomplete row. Only the final Remarks field retains the eLedger
