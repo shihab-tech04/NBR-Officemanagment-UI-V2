@@ -137,7 +137,7 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     const inputs = fields.filter(f=>f.key!=="taxpayer_name"&&f.key!=="tin").map(f=>f.key);
     expect(inputs).toEqual([
       "circle","assessment_year","folio_no","assessment_date","disposal_code",
-      "assessed_income","penalty","arrear_year_demand","current_year_demand",
+      "proceeding_reference","proceeding_event_date","assessed_income","penalty","arrear_year_demand","current_year_demand",
       "revised_demand","remarks",
     ]);
     expect(new Set(fields.map(f=>f.group)).size).toBeGreaterThanOrEqual(4);
