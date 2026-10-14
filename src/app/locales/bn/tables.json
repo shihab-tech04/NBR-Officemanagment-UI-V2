@@ -202,7 +202,8 @@
     "draftEntry": "খসড়া এন্ট্রি",
     "savedEntry": "সংরক্ষিত এন্ট্রি",
     "entryComplete": "এন্ট্রি সম্পন্ন",
-    "approvedEntry": "অনুমোদিত এন্ট্রি"
+    "approvedEntry": "অনুমোদিত এন্ট্রি",
+    "register4RecordSource": "রেকর্ডের উৎস"
   },
   "groups": {
     "entryToday": "আজকের এন্ট্রি",

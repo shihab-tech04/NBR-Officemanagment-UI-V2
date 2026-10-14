@@ -9,7 +9,8 @@
  * Do not copy taxpayer data or financial amounts from screenshot references.
  */
 import { fc, reg4Rows } from "../modulePageUtils";
-import type { ColDef, MobileCardMapping, TableRow } from "../modulePageUtils";
+import type { ColDef, MobileCardMapping, TableRow, KpiDef } from "../modulePageUtils";
+import type { FormField, EntryFormValue } from "../../components/forms/EntryForm";
 
 const unknown = "—";
 
@@ -54,6 +55,8 @@ export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) =
   id: row.id,
   serial_no: String(index + 1),
   circle: row.circle,
+  taxpayer_name: row.taxpayer_name,
+  tin: row.tin,
   taxpayer_identity: `${row.taxpayer_name} (${row.tin})`,
   folio_no: unknown,
   disposal_code: unknown,
@@ -65,4 +68,124 @@ export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) =
   penalty: unknown,
   revised_demand: unknown,
   remarks: unknown,
+  record_source: "Illustrative sample — not verified",
 }));
+
+export const REGISTER4_ASSESSMENT_DRAWER_COLUMNS: ColDef[] = [
+  fc("taxpayer_name", "Taxpayer Name", { headerKey: "headers.taxpayerName" }),
+  fc("tin", "TIN", { headerKey: "headers.tin" }),
+  ...REGISTER4_ASSESSMENT_COLUMNS.filter(col =>
+    !(col.type === "col" && col.col.key === "taxpayer_identity")
+  ),
+  fc("record_source", "Record source", { headerKey: "headers.register4RecordSource" }),
+];
+
+export function buildRegister4Kpis(rows: TableRow[]): KpiDef[] {
+  const drafts = rows.filter(row => row.record_source === "Local draft — not submitted").length;
+  const missing = rows.filter(row => !row.assessed_income || row.assessed_income === unknown).length;
+  return [
+    { label: "Records in view", labelKey: "register4.recordsInView", value: String(rows.length), tone: "primary" },
+    { label: "Verified assessments", labelKey: "register4.verifiedAssessments", value: "0", tone: "neutral" },
+    { label: "Local drafts", labelKey: "register4.localDrafts", value: String(drafts), tone: "warning" },
+    { label: "Income unavailable", labelKey: "register4.incomeUnavailable", value: String(missing), tone: "neutral" },
+  ];
+}
+
+export const REGISTER4_ASSESSMENT_FILTERS = [
+  {
+    key: "circle", label: "Circle", labelKey: "labels.circle", type: "select" as const,
+    options: ["All Circles", "Circle-1"],
+    optionKeys: { "All Circles": "options.allCircles" },
+  },
+  { key: "from", label: "From Date", labelKey: "labels.fromDate", type: "date" as const },
+  { key: "to", label: "To Date", labelKey: "labels.toDate", type: "date" as const },
+];
+
+type HeaderTranslate = (key: string, options?: { defaultValue?: string }) => string;
+
+export function buildRegister4EntryFields(
+  year: string,
+  th: HeaderTranslate,
+  tp: HeaderTranslate,
+): FormField[] {
+  const label = (key: string, fallback: string) => th(`headers.${key}`, { defaultValue: fallback });
+  return [
+    { key: "taxpayer_name", label: label("taxpayerName", "Taxpayer Name"), type: "text", required: true },
+    { key: "tin", label: label("tin", "TIN"), type: "text", required: true },
+    { key: "circle", label: label("circle", "Circle"), type: "text", required: true, defaultValue: "Circle-1" },
+    { key: "assessment_year", label: label("register4AssessmentYear", "Tax Year"), type: "select",
+      options: [year], required: true, defaultValue: year,
+      helper: tp("register4.yearHelp", { defaultValue: "Matches the selected assessment year" }) },
+    { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text" },
+    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"), type: "text" },
+    { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date" },
+    { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"), type: "number" },
+    { key: "arrear_year_demand", label: label("register4ArrearYearDemand", "Arrear Tax Year Demand (BDT)"), type: "number" },
+    { key: "current_year_demand", label: label("register4CurrentYearDemand", "Current Tax Year Demand (BDT)"), type: "number" },
+    { key: "penalty", label: label("register4Penalty", "Penalty (BDT)"), type: "number" },
+    { key: "revised_demand", label: label("register4RevisedDemand", "Revised Demand / Allocation (BDT)"), type: "number" },
+    { key: "remarks", label: label("register4Remarks", "Remarks"), type: "textarea", span: true },
+  ];
+}
+
+export function createRegister4LocalDraft(
+  values: Record<string, EntryFormValue>,
+  existingRows: TableRow[],
+): TableRow {
+  const get = (key: string): string =>
+    typeof values[key] === "string" ? String(values[key]).trim() : "";
+  const taxpayerName = get("taxpayer_name");
+  const tin = get("tin");
+  const optional = (key: string) => get(key) || unknown;
+  return {
+    id: `local-draft-${existingRows.length + 1}`,
+    serial_no: String(existingRows.length + 1),
+    taxpayer_name: taxpayerName,
+    tin,
+    taxpayer_identity: `${taxpayerName} (${tin})`,
+    circle: get("circle"),
+    assessment_year: get("assessment_year"),
+    folio_no: optional("folio_no"),
+    disposal_code: optional("disposal_code"),
+    assessment_date: optional("assessment_date"),
+    assessed_income: optional("assessed_income"),
+    arrear_year_demand: optional("arrear_year_demand"),
+    current_year_demand: optional("current_year_demand"),
+    penalty: optional("penalty"),
+    revised_demand: optional("revised_demand"),
+    remarks: optional("remarks"),
+    record_source: "Local draft — not submitted",
+  };
+}
+
+
+/** CSV data is explicitly sample/local-only and never a government assessment export. */
+export function buildRegister4SampleCsv(rows: TableRow[], translate?: HeaderTranslate): string {
+  const columns = REGISTER4_ASSESSMENT_COLUMNS.flatMap(col =>
+    col.type === "col" ? [col.col] : col.group.cols
+  );
+  const fields = [
+    ...columns.map(col => ({ key: col.key, label: translate?.(col.headerKey ?? "", { defaultValue: col.label }) ?? col.label })),
+    { key: "record_source", label: translate?.("headers.register4RecordSource", { defaultValue: "Record source" }) ?? "Record source" },
+  ];
+  const safe = (value: unknown): string => {
+    let text = value == null ? "" : String(value);
+    // Prevent spreadsheet formula execution if a user enters untrusted text.
+    if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  return "\uFEFF" + [fields.map(f => safe(f.label)).join(","),
+    ...rows.map(row => fields.map(f => safe(row[f.key])).join(","))].join("\r\n");
+}
+
+export function downloadRegister4SampleCsv(rows: TableRow[], translate?: HeaderTranslate): void {
+  const csv = buildRegister4SampleCsv(rows, translate);
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "register4-sample-or-local-draft.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

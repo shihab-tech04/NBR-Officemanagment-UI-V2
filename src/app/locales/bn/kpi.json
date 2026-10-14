@@ -45,5 +45,11 @@
   "totalRecords": "মোট রেকর্ড",
   "paid": "পরিশোধিত",
   "partiallyPaid": "আংশিক পরিশোধিত",
-  "unpaid": "অপরিশোধিত"
+  "unpaid": "অপরিশোধিত",
+  "register4": {
+    "recordsInView": "দৃশ্যমান নমুনা/খসড়া রেকর্ড",
+    "verifiedAssessments": "যাচাইকৃত কর নির্ধারণ",
+    "localDrafts": "স্থানীয় খসড়া",
+    "incomeUnavailable": "আয় অনুপলব্ধ"
+  }
 }

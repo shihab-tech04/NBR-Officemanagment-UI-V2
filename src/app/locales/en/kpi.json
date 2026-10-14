@@ -45,5 +45,11 @@
   "totalRecords": "Total Records",
   "paid": "Paid",
   "partiallyPaid": "Partially Paid",
-  "unpaid": "Unpaid"
+  "unpaid": "Unpaid",
+  "register4": {
+    "recordsInView": "Sample/draft records in view",
+    "verifiedAssessments": "Verified assessments",
+    "localDrafts": "Local drafts",
+    "incomeUnavailable": "Income unavailable"
+  }
 }
