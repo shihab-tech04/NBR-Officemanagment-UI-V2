@@ -95,7 +95,6 @@
     "sectionChoose": "Choose a section",
     "sectionAddNew": "Add a section",
     "sectionSelected": "Selected section history (in entry order)",
-    "sectionUndo": "Remove last",
     "sectionCustomLabel": "Section number",
     "sectionInvalid": "Use a section number such as 182 or 183(7).",
     "sectionCancel": "Cancel",
@@ -108,7 +107,10 @@
     "groupNotes": "Remarks",
     "shortcutFresh": "Fresh entry",
     "shortcutExample": "Sample section sequence: {{sections}}",
-    "serialAutomatic": "Serial No. assigned when added"
+    "serialAutomatic": "Serial No. assigned when added",
+    "transitionBlocked": "This section cannot follow the recorded sequence. Check the proceeding and its source order.",
+    "proceedingReference": "Latest proceeding / order reference",
+    "proceedingEventDate": "Latest proceeding event date"
   },
   "stockRegister": {
     "title": "Stock Register",

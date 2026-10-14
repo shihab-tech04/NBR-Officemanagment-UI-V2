@@ -8,7 +8,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { useSettings } from "../../hooks/useSettings";
 import { REGISTER4_ASSESSMENT_ROWS, buildRegister4EntryFields } from "./register4AssessmentTable";
-import { getRegister4DemoShortcutSection } from "./register4SectionCodes";
+import { getRegister4DemoShortcutSection, reviewRegister4History } from "./register4SectionCodes";
 import "../../../styles/register4-entry.css";
 
 type Taxpayer = { taxpayer_name: string; tin: string; circle: string; assessment_year: string };
@@ -94,7 +94,13 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
   };
   const submit = (values: Record<string, EntryFormValue>) => {
     if (!selected) return; // No draft without a resolved TIN.
-    onSubmit({ ...values, taxpayer_name: selected.taxpayer_name, tin: selected.tin });
+    const trail=typeof values.disposal_code==="string"?values.disposal_code:"";
+    const decision=reviewRegister4History(trail);
+    // The selected sections create review-only session drafts. The UI must
+    // never mark a case verified or execute a tax/ledger action.
+    if(decision.status==="BLOCKED") return;
+    onSubmit({...values,taxpayer_name:selected.taxpayer_name,tin:selected.tin,
+      section_review_status:"REVIEW_REQUIRED — not certified"});
   };
 
   return (

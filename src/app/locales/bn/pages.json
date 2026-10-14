@@ -95,7 +95,6 @@
     "sectionChoose": "ধারা নির্বাচন করুন",
     "sectionAddNew": "ধারা যুক্ত করুন",
     "sectionSelected": "নির্বাচিত ধারার ক্রম",
-    "sectionUndo": "শেষ ধারা সরান",
     "sectionCustomLabel": "ধারা নম্বর",
     "sectionInvalid": "১৮২ অথবা ১৮৩(৭)-এর মতো ধারা নম্বর লিখুন।",
     "sectionCancel": "বাতিল",
@@ -108,7 +107,10 @@
     "groupNotes": "মন্তব্য",
     "shortcutFresh": "নতুন এন্ট্রি",
     "shortcutExample": "নমুনা ধারার ক্রম: {{sections}}",
-    "serialAutomatic": "এন্ট্রি তৈরির সময় ক্রমিক নম্বর দেওয়া হবে"
+    "serialAutomatic": "এন্ট্রি তৈরির সময় ক্রমিক নম্বর দেওয়া হবে",
+    "transitionBlocked": "নথিভুক্ত ধারার ক্রমের পরে এই ধারা যুক্ত করা যাবে না। কার্যক্রম ও আদেশ যাচাই করুন।",
+    "proceedingReference": "সর্বশেষ কার্যক্রম / আদেশের রেফারেন্স",
+    "proceedingEventDate": "সর্বশেষ কার্যক্রমের তারিখ"
   },
   "stockRegister": {
     "title": "স্টক রেজিস্টার",
