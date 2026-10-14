@@ -224,3 +224,82 @@ test("Register-4 TIN lookup and footer labels resolve in Bangla without adding a
   await expect(dialog.getByRole("region", { name: "করদাতার তথ্য" })).toContainText("Rahman Enterprise");
   await expect(dialog.getByRole("button", { name: "স্থানীয় খসড়া যোগ করুন" })).toBeVisible();
 });
+
+test("Register-4 TIN suggestions sit below the search row and select a taxpayer", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  const search = dialog.getByRole("searchbox", { name: "Search TIN" });
+  const suggestions = dialog.getByRole("group", { name: "TIN suggestions" });
+  await expect(suggestions.getByRole("button")).toHaveCount(4);
+  await expect(suggestions.getByRole("button", { name: "TIN-10000" })).toBeVisible();
+  const rects = await dialog.evaluate((root) => {
+    const input = root.querySelector('input[type="search"]');
+    const button = [...root.querySelectorAll("button")].find(el => el.textContent?.trim() === "Search");
+    const chips = root.querySelector(".register4-entry__suggestions");
+    const inputR = input!.getBoundingClientRect();
+    const buttonR = button!.getBoundingClientRect();
+    const chipsR = chips!.getBoundingClientRect();
+    return { inputHeight: inputR.height, buttonHeight: buttonR.height,
+      inputRight: inputR.right, buttonLeft: buttonR.left,
+      inputBottom: inputR.bottom, suggestionTop: chipsR.top };
+  });
+  expect(Math.abs(rects.inputHeight - rects.buttonHeight)).toBeLessThanOrEqual(1);
+  expect(rects.buttonLeft).toBeGreaterThan(rects.inputRight);
+  expect(rects.suggestionTop).toBeGreaterThan(rects.inputBottom);
+
+  await search.fill("TIN-10002");
+  await expect(suggestions.getByRole("button")).toHaveCount(1);
+  await suggestions.getByRole("button", { name: "TIN-10002" }).click();
+  await expect(search).toHaveValue("TIN-10002");
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("TIN-10002");
+  await expect(suggestions).toHaveCount(0);
+
+  await search.fill("NO-MATCH");
+  await expect(suggestions).toHaveCount(0);
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeDisabled();
+});
+
+test("Register-4 mobile TIN search and button are equal-height touch targets with suggestions", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  const sizes = await dialog.evaluate((root) => {
+    const searchInput = root.querySelector('input[type="search"]')!;
+    const searchButton = [...root.querySelectorAll("button")].find(el => el.textContent?.trim() === "Search")!;
+    const field = searchInput.closest(".MuiInputBase-root")!;
+    const suggestion = root.querySelector(".register4-entry__suggestion")!;
+    return {
+      fieldHeight: field.getBoundingClientRect().height,
+      buttonHeight: searchButton.getBoundingClientRect().height,
+      suggestionHeight: suggestion.getBoundingClientRect().height,
+      buttonRight: searchButton.getBoundingClientRect().right,
+      dialogRight: root.getBoundingClientRect().right,
+    };
+  });
+  expect(sizes.fieldHeight).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(sizes.fieldHeight - sizes.buttonHeight)).toBeLessThanOrEqual(1);
+  expect(sizes.suggestionHeight).toBeGreaterThanOrEqual(44);
+  expect(sizes.buttonRight).toBeLessThanOrEqual(sizes.dialogRight + 1);
+  await dialog.getByRole("group", { name: "TIN suggestions" }).getByRole("button", { name: "TIN-10000" }).click();
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
+});
+
+test("Register-4 Bangla TIN suggestions use translation and preserve direct search", async ({ page }) => {
+  await page.goto("/register-stock/register-4");
+  await page.evaluate(() => {
+    const settings = JSON.parse(localStorage.getItem("gov_ui_settings") || "{}");
+    localStorage.setItem("gov_ui_settings", JSON.stringify({ ...settings, languageId: "bn" }));
+    localStorage.setItem("i18nextLng", "bn");
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /নতুন এন্ট্রি/ }).click();
+  const dialog = page.getByRole("dialog");
+  const suggestions = dialog.getByRole("group", { name: "টিআইএন পরামর্শ" });
+  await expect(suggestions.getByRole("button")).toHaveCount(4);
+  await suggestions.getByRole("button", { name: "TIN-10000" }).click();
+  await expect(dialog.getByRole("region", { name: "করদাতার তথ্য" })).toContainText("Rahman Enterprise");
+});
