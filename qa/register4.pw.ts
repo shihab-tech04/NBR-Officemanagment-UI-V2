@@ -350,7 +350,11 @@ test("Register-4 custom section rejects invalid code and English/Bangla form kee
   await page.locator("#disposal_code-custom").fill("180/182");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
-  await expect(dialog.locator("#disposal_code")).not.toContainText("180/182");
+  // The custom editor owns focus while open; inspect the underlying modal by DOM,
+  // then close the editor before asserting the parent dialog's accessibility.
+  await expect(page.locator(".app-modal-panel #disposal_code")).toContainText("Choose a section");
+  await page.locator(".register4-section-field__popover").getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
   await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
@@ -363,7 +367,9 @@ test("Register-4 custom section popover never stretches New Entry form grid", as
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
-  const date = dialog.locator("#assessment_date");
+  // Use a DOM-stable locator: while MUI Popover owns focus, its Modal
+  // accessibility layer temporarily hides the underlying dialog by design.
+  const date = page.locator(".app-modal-panel #assessment_date");
   const previousTop = await date.evaluate(e => e.getBoundingClientRect().top);
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /Add a section not listed/ }).click();
