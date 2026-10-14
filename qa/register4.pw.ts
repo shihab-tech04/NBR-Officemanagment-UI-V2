@@ -267,6 +267,10 @@ test("Register-4 mobile TIN search and button are equal-height touch targets wit
   await page.goto("/register-stock/register-4");
   await page.getByRole("button", { name: /New Entry/i }).click();
   const dialog = page.getByRole("dialog");
+  // Wait for the modal-enter scale animation to finish before measuring
+  // the required 44px touch targets (intermediate transforms shrink bounds).
+  await expect.poll(async () => dialog.locator(".register4-entry__search .MuiInputBase-root")
+    .evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
   const sizes = await dialog.evaluate((root) => {
     const searchInput = root.querySelector('input[type="search"]')!;
     const searchButton = [...root.querySelectorAll("button")].find(el => el.textContent?.trim() === "Search")!;
