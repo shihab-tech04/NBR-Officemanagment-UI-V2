@@ -65,12 +65,15 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
 
   const headerContent = (col: FlatCol) => {
     const text = translateHeader(col.headerKey, col.label);
-    if (!onSortColumn) return <span className="card-table__th-text" title={text}>{text}</span>;
+    const headingClass = col.multilineHeader && text.includes("\n")
+      ? "card-table__th-text card-table__th-text--multiline"
+      : "card-table__th-text";
+    if (!onSortColumn) return <span className={headingClass} title={text.replace(/\n/g, " ")}>{text}</span>;
     const active = sortKey === col.key;
     const SortIcon = active ? (sortDirection === "descending" ? ArrowDown : ArrowUp) : ArrowUpDown;
     return <button type="button" className={`card-table__sort-button${active ? " card-table__sort-button--active" : ""}`}
       aria-label={`Sort by ${text}`} onClick={() => onSortColumn(col.key)} title={`Sort by ${text}`}>
-      <span className="card-table__th-text">{text}</span><SortIcon className="card-table__sort-icon" size={13} aria-hidden="true"/>
+      <span className={headingClass}>{text}</span><SortIcon className="card-table__sort-icon" size={13} aria-hidden="true"/>
     </button>;
   };
 
