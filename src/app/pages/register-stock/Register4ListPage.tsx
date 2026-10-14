@@ -1,7 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { GenPage } from "../../components/pages/GeneratedTablePage";
 import type { PageCfg } from "../modulePageUtils";
-import { reg4Rows, CIRCLE_TIN_NAME, fc, BADGE, BASE_FILTERS } from "../modulePageUtils";
+import { reg4Rows, BASE_FILTERS } from "../modulePageUtils";
+import {
+  REGISTER4_ASSESSMENT_COLUMNS,
+  REGISTER4_ASSESSMENT_MOBILE_MAPPING,
+  REGISTER4_ASSESSMENT_ROWS,
+} from "./register4AssessmentTable";
 import { ROW_VIEW, VIEW } from "../../data/modulePageConfigs";
 import { buildPageKpis } from "../../utils/buildPageKpis";
 
@@ -23,12 +28,12 @@ export function Register4ListPage() {
     titleKey: "register4.title",
     desc: "Review Register-4 entries and related form records.",
     descKey: "register4.desc",
-    cols: [...CIRCLE_TIN_NAME, fc("book_no", "Book No.", { headerKey: "headers.bookNo" }), fc("from_serial", "From Serial", { headerKey: "headers.fromSerial" }), fc("to_serial", "To Serial", { headerKey: "headers.toSerial" }), fc("quantity", "Qty", { headerKey: "headers.quantity" }), fc("issue_date", "Issue Date", { headerKey: "headers.date" }), BADGE("status", "Status")],
-    mobileCardMapping: { primary: "name", identifier: "tin", meta: ["book_no", "quantity", "circle"], status: "status", date: "issue_date" },
+    cols: REGISTER4_ASSESSMENT_COLUMNS,
+    mobileCardMapping: REGISTER4_ASSESSMENT_MOBILE_MAPPING,
     filters: BASE_FILTERS,
     actions: ROW_VIEW,
     drawerActions: VIEW,
-    rows: reg4Rows,
+    rows: REGISTER4_ASSESSMENT_ROWS,
     entryBtn: translateActions("newEntry"),
     kpis,
   };
