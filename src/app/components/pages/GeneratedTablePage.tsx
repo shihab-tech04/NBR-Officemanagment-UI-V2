@@ -276,6 +276,11 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
   const [applied, setApplied] = useState<Record<string, string>>({});
   const [drawer, setDrawer] = useState<TableRow | null>(null);
   const [modal, setModal]   = useState<string | null>(null);
+  const [inlineOpen,setInlineOpen]=useState(false);
+  const [inlineValues,setInlineValues]=useState<Record<string,string>>({});
+  const updateInlineValues=useCallback((patch:Record<string,string>)=>setInlineValues(previous=>({...previous,...patch})),[]);
+  const cancelInlineEntry=useCallback(()=>{setInlineOpen(false);setInlineValues({});},[]);
+
   useEffect(() => {
     if (cfg.assessmentYearScope) setPage(1);
   }, [cfg.assessmentYearScope?.year]);
@@ -384,6 +389,10 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
       : translateActions("entryCreated", { defaultValue: "Entry created successfully" }));
   }, [rows, translateForms, translateActions, translatePages, cfg.createEntryRow]);
 
+  const saveInlineEntry=useCallback(()=>{
+    handleEntrySubmit(inlineValues);
+    setInlineValues({});setInlineOpen(false);
+  },[handleEntrySubmit,inlineValues]);
   const handleExtraBtnSubmit = useCallback((btn: NonNullable<PageCfg["extraBtns"]>[number], fields: FormField[]) =>
     (values: Record<string, EntryFormValue>) => {
       if (btn.formKind === "psr-bulk-entry") {
@@ -421,6 +430,12 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
             {cfg.entryBtn && (
               <button onClick={() => setModal("entry")} className="table-card__toolbar-btn table-card__toolbar-btn--primary">
                 <Plus size={13} aria-hidden="true" /> {cfg.entryBtn}
+              </button>
+            )}
+            {cfg.inlineEntryBtn && cfg.inlineEntryComponent && (
+              <button type="button" onClick={()=>{if(!inlineOpen){setInlineValues({});setPage(1);setInlineOpen(true);}}}
+                disabled={inlineOpen} className="table-card__toolbar-btn" aria-label={cfg.inlineEntryBtn}>
+                <Plus size={13} aria-hidden="true"/>{cfg.inlineEntryBtn}
               </button>
             )}
             {cfg.extraBtns?.map((b) => {
@@ -506,6 +521,16 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           sortKey={cfg.enableSort ? sortKey ?? undefined : undefined}
           sortDirection={cfg.enableSort ? sortDirection : undefined}
           onSortColumn={cfg.enableSort ? handleSortColumn : undefined}
+          inlineRow={inlineOpen && cfg.inlineEntryComponent ? (
+            <cfg.inlineEntryComponent mode="table" assessmentYear={cfg.assessmentYearScope?.year ?? ""}
+              values={inlineValues} onChange={updateInlineValues}
+              onSave={saveInlineEntry} onCancel={cancelInlineEntry}/>
+          ) : undefined}
+          inlineMobileRow={inlineOpen && cfg.inlineEntryComponent ? (
+            <cfg.inlineEntryComponent mode="mobile" assessmentYear={cfg.assessmentYearScope?.year ?? ""}
+              values={inlineValues} onChange={updateInlineValues}
+              onSave={saveInlineEntry} onCancel={cancelInlineEntry}/>
+          ) : undefined}
         />
 
         <div className="table-card__pagination">

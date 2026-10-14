@@ -44,6 +44,12 @@ export interface PageCfg {
   rows: TableRow[];
   kpis?: KpiDef[];
   entryBtn?: string;
+  /** Opt-in Register-4 inline draft editor; other pages are unchanged. */
+  inlineEntryBtn?: string;
+  inlineEntryComponent?: React.ComponentType<{
+    mode:"table"|"mobile"; assessmentYear:string; values:Record<string,string>;
+    onChange:(patch:Record<string,string>)=>void; onSave:()=>void; onCancel:()=>void;
+  }>;
   extraBtns?: { id: string; label: string; icon: IconComponent; color?: string; tone?: "primary" | "neutral" | "warning"; formKind?: "psr-entry" | "psr-bulk-entry" | "generic-upload" }[];
   /** Optional explicit mobile card field mapping. If absent, uses smart fallback logic. */
   mobileCardMapping?: MobileCardMapping;
