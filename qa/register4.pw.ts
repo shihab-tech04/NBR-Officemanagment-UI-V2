@@ -569,7 +569,7 @@ test("Register-4 inline TIN lookup and section guard require valid values before
   await draft.getByRole("button",{name:"Save row"}).click();
   await expect(draft).toHaveCount(0);
   await expect(page.locator(".card-table__table")).toContainText("Inline draft test");
-  await expect(page.getByText("9 records")).toBeVisible();
+  await expect(page.locator(".table-card__count")).toHaveText("9 records");
   await page.reload();
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(8);
 });
