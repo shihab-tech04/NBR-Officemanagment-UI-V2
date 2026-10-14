@@ -1,0 +1,19 @@
+/* Register-4 entry only. Uses existing AppModal, EntryForm and design tokens. */
+.register4-entry { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.register4-entry__lookup { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.register4-entry__search { min-width: 0; flex: 1 1 auto; }
+.register4-entry__lookup > .app-btn { width: auto; flex: 0 0 auto; }
+.register4-entry__identity { padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-background-subtle); min-width: 0; }
+.register4-entry__name { margin: 0 0 var(--space-2); color: var(--color-text-primary); font-size: var(--fs-body-md); font-weight: 600; overflow-wrap: anywhere; }
+.register4-entry__identity-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.register4-entry__identity-facts p { margin: 0; font-size: var(--fs-body-sm); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.register4-entry__feedback { margin: 0; font-size: var(--fs-body-sm); color: var(--color-text-secondary); }
+.register4-entry__fields .entry-form__grid { gap: var(--space-4); margin-bottom: 0; min-width: 0; }
+.register4-entry__fields .entry-form__field { min-width: 0; }
+@media (max-width: 640px) {
+  .register4-entry { gap: var(--space-4); }
+  .register4-entry__lookup { gap: var(--space-2); }
+  .register4-entry__lookup > .app-btn { flex-shrink: 0; }
+  .register4-entry__fields .entry-form__grid { grid-template-columns: minmax(0, 1fr); }
+  .register4-entry__identity-facts { flex-direction: column; gap: var(--space-1); }
+}
