@@ -1,6 +1,18 @@
 {
   "headers": {
     "serialNo": "ক্রমিক নং",
+    "register4TaxpayerTin": "করদাতার নাম ও টিআইএন",
+    "register4FolioNo": "ফলিও নং",
+    "register4DisposalCode": "কার্য সম্পাদন কোড (ধারা)",
+    "register4AssessmentYear": "কর বর্ষ",
+    "register4AssessmentDate": "নিরূপণ তারিখ",
+    "register4AssessedIncome": "নিরূপিত আয়",
+    "register4CreatedDemand": "সৃষ্ট দাবি/বিভক্তি",
+    "register4ArrearYearDemand": "বকেয়া কর বর্ষের",
+    "register4CurrentYearDemand": "চলতি কর বর্ষের",
+    "register4Penalty": "জরিমানা",
+    "register4RevisedDemand": "সংশোধিত দাবি/বিভক্তি",
+    "register4Remarks": "মন্তব্য (যদি থাকে)",
     "tin": "টিআইএন",
     "taxpayerName": "করদাতার নাম",
     "circle": "সার্কেল",
