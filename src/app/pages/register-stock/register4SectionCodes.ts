@@ -39,3 +39,23 @@ export function appendRegister4Section(trail: string, section: string): string |
 export function undoRegister4Section(trail: string): string {
   return register4SectionTrail(trail).slice(0, -1).join("/");
 }
+
+// Synthetic display examples only, based on the slash-separated Register-4
+// notation in the 2026-10-08 meeting reference and the available sections.
+// THESE ARE NOT VERIFIED CASE HISTORIES, LEGAL PRESCRIPTIONS, OR CALCULATIONS.
+// Never transfer these samples to an actual taxpayer or assessment record.
+export const REGISTER4_ILLUSTRATIVE_SECTION_TRAILS = [
+  "180/182(2)/182(4)/183(7)/289",
+  "180",
+  "180/180(2)",
+  "180/182/183(7)",
+  "180/182/184",
+  "180/212/183(7)",
+  "183(7)/289/292",
+  "183(7)/213",
+] as const;
+
+/** Fixture is laid out in four AY groups; this rotates visible examples by taxpayer. */
+export function illustrativeRegister4Trail(index: number): string {
+  return REGISTER4_ILLUSTRATIVE_SECTION_TRAILS[Math.floor(index / 4) % REGISTER4_ILLUSTRATIVE_SECTION_TRAILS.length];
+}
