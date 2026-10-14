@@ -1,74 +1,78 @@
-/* Register-4 entry only. Uses existing AppModal, EntryForm and design tokens. */
-.register4-entry { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
-.register4-entry__lookup-group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.register4-entry__lookup { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
-.register4-entry__search { min-width: 0; flex: 1 1 auto; }
-/* Shared medium buttons are auto-height/full-width; scope the lookup action
-   to the shared compact search field's 36px height without touching global buttons. */
-.register4-entry__lookup > .app-btn { width: auto; flex: 0 0 auto; height: 36px; min-height: 36px; padding: 0 var(--space-4); }
-.register4-entry__suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+/* Register-4 only: keep the existing app shell, modal, typography and form controls. */
+.register4-entry { display:flex; flex-direction:column; gap:var(--space-4); min-width:0; }
+.register4-entry__lookup-group { display:flex; flex-direction:column; gap:var(--space-2); min-width:0; }
+.register4-entry__lookup { display:flex; align-items:center; gap:var(--space-3); min-width:0; }
+.register4-entry__search { min-width:0; flex:1 1 auto; }
+.register4-entry__lookup > .app-btn { width:auto; flex:0 0 auto; height:36px; min-height:36px; padding:0 var(--space-4); }
+.register4-entry__suggestions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space-2); min-width:0; }
 .register4-entry__suggestion {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 32px; padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border); border-radius: var(--radius-md);
-  background: var(--color-surface); color: var(--color-text-secondary);
-  font: inherit; font-size: var(--fs-label-md); cursor: pointer;
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:3px;
+  min-width:0; min-height:49px; padding:7px 10px; border:1px solid var(--color-border);
+  border-radius:var(--radius-md); background:var(--color-surface);
+  color:var(--color-text-primary); cursor:pointer; text-align:left; font:inherit;
 }
-.register4-entry__suggestion:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-alpha-5); }
-.register4-entry__suggestion:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.register4-entry__identity { padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-background-subtle); min-width: 0; }
-.register4-entry__name { margin: 0 0 var(--space-2); color: var(--color-text-primary); font-size: var(--fs-body-md); font-weight: 600; overflow-wrap: anywhere; }
-.register4-entry__identity-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
-.register4-entry__identity-facts p { margin: 0; font-size: var(--fs-body-sm); color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.register4-entry__feedback { margin: 0; font-size: var(--fs-body-sm); color: var(--color-text-secondary); }
-.register4-entry__fields .entry-form__grid { gap: var(--space-4); margin-bottom: 0; min-width: 0; }
-.register4-entry__fields .entry-form__field { min-width: 0; }
-@media (max-width: 640px) {
-  .register4-entry { gap: var(--space-4); }
-  .register4-entry__lookup { gap: var(--space-2); }
-  /* Maintain 44px touch targets on both search controls. */
-  .register4-entry__search .MuiInputBase-root { height: 44px; }
-  .register4-entry__lookup > .app-btn { flex-shrink: 0; height: 44px; min-height: 44px; }
-  .register4-entry__suggestion { min-height: 44px; }
-  .register4-entry__fields .entry-form__grid { grid-template-columns: minmax(0, 1fr); }
-  .register4-entry__identity-facts { flex-direction: column; gap: var(--space-1); }
+.register4-entry__suggestion:hover { background:var(--color-primary-alpha-5); border-color:var(--color-primary); }
+.register4-entry__suggestion:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
+.register4-entry__suggestion-main { font-size:var(--fs-label-md); font-weight:600; }
+.register4-entry__suggestion-secondary {
+  display:flex; gap:4px; align-items:center; min-width:0; max-width:100%;
+  font-size:var(--fs-caption); color:var(--color-text-secondary); white-space:nowrap;
 }
-
-/* Keep Section within one standard outlined field; custom entry is a popover. */
-.register4-section-field { min-width: 0; }
+.register4-entry__suggestion-secondary svg { flex:none; color:var(--color-primary); }
+.register4-entry__identity { padding:var(--space-3) var(--space-4); border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-background-subtle); min-width:0; }
+.register4-entry__name { margin:0 0 var(--space-2); color:var(--color-text-primary); font-size:var(--fs-body-md); font-weight:600; overflow-wrap:anywhere; }
+.register4-entry__identity-facts { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-5); }
+.register4-entry__identity-facts p, .register4-entry__feedback { margin:0; font-size:var(--fs-body-sm); color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.register4-entry__fields .entry-form__grid { gap:var(--space-3) var(--space-4); margin-bottom:0; min-width:0; }
+.register4-entry__fields .entry-form__field { min-width:0; }
+.register4-entry__fields .entry-form__group-title {
+  grid-column:1/-1; margin:var(--space-2) 0 0; padding:0 0 7px; border-bottom:1px solid var(--color-border);
+  color:var(--color-text-primary); font-size:var(--fs-label-md); font-weight:600; line-height:1.4;
+}
+.register4-entry__fields .entry-form__group-title:first-child { margin-top:0; }
+.register4-entry__fields input[readonly] { background:var(--color-background-subtle); cursor:default; }
+/* The section selector is one grouped row with a visibly separate add action. */
+.register4-section-field { min-width:0; }
+.register4-section-field__row { display:flex; align-items:stretch; gap:var(--space-3); min-width:0; }
+.register4-section-field__select { flex:1 1 auto; min-width:0; }
+.register4-section-field__separator { width:1px; background:var(--color-border); margin:4px 0; }
+.register4-section-field__add {
+  flex:0 0 auto; display:inline-flex; justify-content:center; align-items:center; gap:6px;
+  min-width:131px; min-height:52px; align-self:flex-start; padding:0 12px;
+  border:1px solid var(--color-primary); border-radius:var(--radius-md);
+  color:var(--color-primary); background:var(--color-surface);
+  font:inherit; font-size:var(--fs-label-md); font-weight:600; cursor:pointer;
+}
+.register4-section-field__add:hover { background:var(--color-primary-alpha-5); }
+.register4-section-field__add:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
 .register4-section-field__popover.MuiPaper-root {
-  width: min(360px, calc(100vw - 32px));
-  max-width: calc(100vw - 32px);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg, 0 12px 34px rgba(19, 39, 72, .14));
+  width:min(308px, calc(100vw - 32px)); max-width:calc(100vw - 32px);
+  border:1px solid var(--color-border); border-radius:var(--radius-lg);
+  background:var(--color-surface);
+  box-shadow:var(--shadow-lg, 0 12px 34px rgba(19,39,72,.14));
 }
-.register4-section-field__popover-content { padding: var(--space-4); min-width: 0; }
+.register4-section-field__popover-content { padding:var(--space-3); min-width:0; }
 .register4-section-field__popover-title {
-  margin: 0 0 var(--space-3);
-  font-size: var(--fs-body-md);
-  font-weight: 600;
-  color: var(--color-text-primary);
+  margin:0 0 var(--space-3); font-size:var(--fs-body-sm); font-weight:600;
+  color:var(--color-text-primary);
 }
-.register4-section-field__popover-content form { display: flex; flex-direction: column; gap: var(--space-3); }
-.register4-section-field__note {
-  margin: 0;
-  font-size: var(--fs-label-sm);
-  line-height: 1.45;
-  color: var(--color-text-secondary);
-}
-.register4-section-field__actions {
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: var(--space-2);
-}
+.register4-section-field__popover-content form { display:flex; flex-direction:column; gap:var(--space-3); }
+.register4-section-field__actions { display:flex; justify-content:flex-end; align-items:center; gap:var(--space-2); }
 .register4-section-field__actions > .app-btn {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 90px;
-  min-height: 36px;
-  padding: var(--space-2) var(--space-4);
+  flex:0 0 auto; width:auto; min-width:84px; height:36px; min-height:36px;
+  padding:0 var(--space-3); font-size:var(--fs-label-md);
 }
-@media (max-width: 640px) {
-  .register4-section-field__actions > .app-btn { min-height: 44px; }
+@media (max-width:640px) {
+  .register4-entry__lookup { gap:var(--space-2); }
+  .register4-entry__search .MuiInputBase-root { height:44px; }
+  .register4-entry__lookup > .app-btn { height:44px; min-height:44px; }
+  .register4-entry__suggestions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .register4-entry__suggestion { min-height:52px; }
+  .register4-entry__fields .entry-form__grid { grid-template-columns:minmax(0,1fr); }
+  .register4-entry__identity-facts { gap:var(--space-1) var(--space-3); }
+  .register4-section-field__row { flex-wrap:wrap; gap:var(--space-2); }
+  .register4-section-field__select { flex-basis:100%; }
+  .register4-section-field__separator { display:none; }
+  .register4-section-field__add { min-height:44px; width:100%; }
+  .register4-section-field__actions > .app-btn { min-height:44px; }
 }

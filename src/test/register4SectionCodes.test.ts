@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { REGISTER4_SECTIONS, normalizeRegister4SectionCode, isRegister4SectionSyntax,
-  appendRegister4Section, undoRegister4Section, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-stock/register4SectionCodes";
+  appendRegister4Section, undoRegister4Section, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS, getRegister4DemoShortcutSection } from "../app/pages/register-stock/register4SectionCodes";
 import { buildRegister4EntryFields, createRegister4LocalDraft, REGISTER4_ASSESSMENT_ROWS } from "../app/pages/register-stock/register4AssessmentTable";
 
 describe("Register-4 statutory selection (draft-only)", () => {
+  it("uses fresh first TIN, three varied and editable example histories, and no other implicit defaults", () => {
+    expect(["TIN-10000","TIN-10001","TIN-10002","TIN-10003"].map(getRegister4DemoShortcutSection))
+      .toEqual(["","180","180/180(2)","180/182/183(7)"]);
+    expect(getRegister4DemoShortcutSection("tin-10000")).toBe("");
+    expect(getRegister4DemoShortcutSection("TIN-10004")).toBe("");
+  });
   it("uses screenshot-style multi-section values in synthetic rows only", () => {
     expect(REGISTER4_ILLUSTRATIVE_SECTION_TRAILS).toHaveLength(8);
     expect(illustrativeRegister4Trail(0)).toBe("180/182(2)/182(4)/183(7)/289");

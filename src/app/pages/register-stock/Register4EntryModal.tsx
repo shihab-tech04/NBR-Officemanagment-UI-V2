@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppModal } from "../../components/modals/AppModal";
 import { AppSearchField } from "../../components/forms/AppSearchField";
@@ -7,6 +8,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { useSettings } from "../../hooks/useSettings";
 import { REGISTER4_ASSESSMENT_ROWS, buildRegister4EntryFields } from "./register4AssessmentTable";
+import { getRegister4DemoShortcutSection } from "./register4SectionCodes";
 import "../../../styles/register4-entry.css";
 
 type Taxpayer = { taxpayer_name: string; tin: string; circle: string; assessment_year: string };
@@ -75,7 +77,9 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
   const formFields = useMemo(() => selected
     ? buildRegister4EntryFields(assessmentYear, th, tp)
         .filter(field => field.key !== "taxpayer_name" && field.key !== "tin")
-        .map(field => field.key === "circle" ? { ...field, defaultValue: selected.circle } : field)
+        .map(field => field.key === "circle" ? { ...field, defaultValue: selected.circle }
+          : field.key === "disposal_code" ? { ...field, defaultValue: getRegister4DemoShortcutSection(selected.tin) }
+          : field)
     : [], [selected, assessmentYear, th, tp]);
 
   const search = (event: FormEvent<HTMLFormElement>) => {
@@ -128,8 +132,16 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
                   type="button"
                   className="register4-entry__suggestion"
                   onClick={() => chooseSuggestion(tin)}
+                  aria-label={tin}
+                  title={getRegister4DemoShortcutSection(tin)
+                    ? tp("register4.shortcutExample", { sections: getRegister4DemoShortcutSection(tin) })
+                    : tp("register4.shortcutFresh")}
                 >
-                  {tin}
+                  <span className="register4-entry__suggestion-main">{tin}</span>
+                  <span className="register4-entry__suggestion-secondary">
+                    {getRegister4DemoShortcutSection(tin) || tp("register4.shortcutFresh")}
+                    <Info size={12} aria-hidden="true" />
+                  </span>
                 </button>
               ))}
             </div>
@@ -148,6 +160,7 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
                 <p>{th("headers.tin")}: {selected.tin}</p>
                 <p>{th("headers.circle")}: {selected.circle}</p>
                 <p>{th("headers.register4AssessmentYear")}: {selected.assessment_year}</p>
+                <p>{tp("register4.serialAutomatic")}</p>
               </div>
             </section>
             <div className="register4-entry__fields">

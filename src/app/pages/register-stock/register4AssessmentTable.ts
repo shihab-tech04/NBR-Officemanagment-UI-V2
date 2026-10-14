@@ -127,21 +127,32 @@ export function buildRegister4EntryFields(
   tp: HeaderTranslate,
 ): FormField[] {
   const label = (key: string, fallback: string) => th(`headers.${key}`, { defaultValue: fallback });
+  const record = tp("register4.groupRecord");
+  const proceedings = tp("register4.groupProceedings");
+  const assessment = tp("register4.groupAssessment");
+  const demands = tp("register4.groupDemands");
+  const notes = tp("register4.groupNotes");
   return [
-    { key: "taxpayer_name", label: label("taxpayerName", "Taxpayer Name"), type: "text", required: true },
-    { key: "tin", label: label("tin", "TIN"), type: "text", required: true },
-    { key: "circle", label: label("circle", "Circle"), type: "text", required: true, defaultValue: "Circle-1" },
+    { key: "taxpayer_name", label: label("taxpayerName", "Taxpayer Name"), type: "text", required: true, group: record },
+    { key: "tin", label: label("tin", "TIN"), type: "text", required: true, group: record },
+    { key: "circle", label: label("circle", "Circle"), type: "text", required: true, defaultValue: "Circle-1", group: record },
     { key: "assessment_year", label: label("register4AssessmentYear", "Tax Year"), type: "select",
-      options: [year], required: true, defaultValue: year },
-    { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text" },
-    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"), type: "sectionTrail", required: true },
-    { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date" },
-    { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"), type: "number" },
-    { key: "arrear_year_demand", label: label("register4ArrearYearDemand", "Arrear Tax Year Demand (BDT)"), type: "number" },
-    { key: "current_year_demand", label: label("register4CurrentYearDemand", "Current Tax Year Demand (BDT)"), type: "number" },
-    { key: "penalty", label: label("register4Penalty", "Penalty (BDT)"), type: "number" },
-    { key: "revised_demand", label: label("register4RevisedDemand", "Revised Demand / Allocation (BDT)"), type: "number" },
-    { key: "remarks", label: label("register4Remarks", "Remarks"), type: "textarea", span: true },
+      options: [year], required: true, defaultValue: year, group: record },
+    // The manual register treats folio as an assigned identifier, not a user-created number.
+    { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text", readOnly: true, group: record },
+    { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date", group: record },
+    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"),
+      type: "sectionTrail", span: true, required: true, group: proceedings },
+    { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"),
+      type: "number", group: assessment },
+    { key: "penalty", label: label("register4Penalty", "Penalty (BDT)"), type: "number", group: assessment },
+    { key: "arrear_year_demand", label: label("register4ArrearYearDemand", "Arrear Tax Year Demand (BDT)"),
+      type: "number", group: demands },
+    { key: "current_year_demand", label: label("register4CurrentYearDemand", "Current Tax Year Demand (BDT)"),
+      type: "number", group: demands },
+    { key: "revised_demand", label: label("register4RevisedDemand", "Revised Demand / Allocation (BDT)"),
+      type: "number", span: true, group: demands },
+    { key: "remarks", label: label("register4Remarks", "Remarks"), type: "textarea", span: true, group: notes },
   ];
 }
 

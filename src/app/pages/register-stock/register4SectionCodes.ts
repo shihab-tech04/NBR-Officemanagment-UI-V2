@@ -59,3 +59,14 @@ export const REGISTER4_ILLUSTRATIVE_SECTION_TRAILS = [
 export function illustrativeRegister4Trail(index: number): string {
   return REGISTER4_ILLUSTRATIVE_SECTION_TRAILS[Math.floor(index / 4) % REGISTER4_ILLUSTRATIVE_SECTION_TRAILS.length];
 }
+
+/** Test fixture shortcuts, not inferred taxpayer assessment histories. */
+const SHORTCUT_SECTIONS: Record<string, string> = {
+  "TIN-10000": "",
+  "TIN-10001": "180",
+  "TIN-10002": "180/180(2)",
+  "TIN-10003": "180/182/183(7)",
+};
+export function getRegister4DemoShortcutSection(tin: string): string {
+  return SHORTCUT_SECTIONS[tin.trim().toUpperCase()] ?? "";
+}
