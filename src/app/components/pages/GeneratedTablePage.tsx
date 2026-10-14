@@ -450,7 +450,6 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
       )}
 
       {visibleKpis && <CollapsibleKpiSection kpis={visibleKpis} open={kpiOpen} />}
-      {cfg.workspaceNote && <p className="table-page__desc" role="note">{cfg.workspaceNote}</p>}
 
       <MobileSearchFilter
         searchValue={q}
