@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { REGISTER4_SECTIONS, normalizeRegister4SectionCode, isRegister4SectionSyntax,
-  appendRegister4Section, undoRegister4Section } from "../app/pages/register-stock/register4SectionCodes";
+  appendRegister4Section, undoRegister4Section, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-stock/register4SectionCodes";
 import { buildRegister4EntryFields, createRegister4LocalDraft, REGISTER4_ASSESSMENT_ROWS } from "../app/pages/register-stock/register4AssessmentTable";
 
 describe("Register-4 statutory selection (draft-only)", () => {
+  it("uses screenshot-style multi-section values in synthetic rows only", () => {
+    expect(REGISTER4_ILLUSTRATIVE_SECTION_TRAILS).toHaveLength(8);
+    expect(illustrativeRegister4Trail(0)).toBe("180/182(2)/182(4)/183(7)/289");
+    expect(illustrativeRegister4Trail(4)).toBe("180");
+    expect(illustrativeRegister4Trail(28)).toBe("183(7)/213");
+    expect(REGISTER4_ILLUSTRATIVE_SECTION_TRAILS.every(s => s.split("/").every(part => isRegister4SectionSyntax(part)))).toBe(true);
+  });
   const tr = (_key: string, o?: { defaultValue?: string }) => o?.defaultValue ?? _key;
   it("offers all ten documented statutory references", () => {
     expect(REGISTER4_SECTIONS.map(v => v.code)).toEqual(["180","180(2)","182","183(7)","184","212","213","285","289","292"]);

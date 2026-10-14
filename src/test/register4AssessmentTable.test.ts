@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-stock/register4SectionCodes";
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
   REGISTER4_ASSESSMENT_ROWS,
@@ -55,6 +56,7 @@ describe("Register-4 assessment table metadata (isolated)", () => {
     ]);
     expect(REGISTER4_ASSESSMENT_ROWS).toHaveLength(32);
     expect(REGISTER4_ASSESSMENT_ROWS[0].folio_no).toBe("");
+    expect(REGISTER4_ASSESSMENT_ROWS[0].disposal_code).toBe("180/182(2)/182(4)/183(7)/289");
   });
 
   it("uses existing two-level grouped table header support", () => {
@@ -87,6 +89,7 @@ describe("Register-4 assessment table metadata (isolated)", () => {
         expect(row[key]).not.toBe("");
       }
       expect(row.record_source).toBe("Illustrative sample — not verified");
+      expect(String(row.disposal_code)).not.toMatch(/^DEMO-/);
     }
     expect(REGISTER4_ASSESSMENT_COLUMNS[0]).toMatchObject({
       type: "col", col: { headerKey: "headers.register4SerialNo" },

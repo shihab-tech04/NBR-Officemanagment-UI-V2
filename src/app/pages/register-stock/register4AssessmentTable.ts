@@ -9,6 +9,7 @@
  * Do not copy taxpayer data or financial amounts from screenshot references.
  */
 import { fc, reg4Rows } from "../modulePageUtils";
+import { illustrativeRegister4Trail } from "./register4SectionCodes";
 import type { ColDef, MobileCardMapping, TableRow, KpiDef } from "../modulePageUtils";
 import type { FormField, EntryFormValue } from "../../components/forms/EntryForm";
 
@@ -19,7 +20,7 @@ export const REGISTER4_ASSESSMENT_COLUMNS: ColDef[] = [
   fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact", align: "left" }),
   fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal", align: "left" }),
   fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo", align: "left" }),
-  fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode", align: "left" }),
+  fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode", align: "left", truncate: "none", mono: true }),
   fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact", align: "center" }),
   fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact", align: "center" }),
   fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome", align: "right" }),
@@ -75,7 +76,7 @@ export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) =
     tin: row.tin,
     taxpayer_identity: `${row.taxpayer_name} (${row.tin})`,
     folio_no: "",
-    disposal_code: `DEMO-${String(index + 1).padStart(3, "0")}`,
+    disposal_code: illustrativeRegister4Trail(index),
     assessment_year: row.ay ?? unknown,
     assessment_date: `2026-10-${String(index % 28 + 1).padStart(2, "0")}`,
     assessed_income: amount.income,

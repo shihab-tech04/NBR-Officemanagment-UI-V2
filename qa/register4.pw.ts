@@ -18,7 +18,7 @@ test("Register-4 desktop preserves shared table and scopes sample rows to select
   await expect(table).toBeVisible();
   await expect(table.locator("tbody tr")).toHaveCount(8);
   await expect(page.locator(".register4-workspace")).toHaveCount(0);
-  await expect(table.locator("tbody tr").first()).toContainText("DEMO-001");
+  await expect(table.locator("tbody tr").first()).toContainText("180/182(2)/182(4)/183(7)/289");
   await expect(table.locator("tbody tr").first()).toContainText("8,40,000");
   await expect(table.locator("tbody tr").first().locator("td").nth(3)).toBeEmpty();
 
@@ -323,17 +323,18 @@ test("Register-4 Section dropdown appends chronological selections and supports 
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /180.*Self-assessment return/ }).click();
-  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180");
+  await expect(dialog.locator("#disposal_code")).toHaveText("180");
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /182.*Audit selection/ }).click();
-  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182");
+  await expect(dialog.locator("#disposal_code")).toHaveText("180/182");
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /Add a section not listed/ }).click();
-  await dialog.locator("#disposal_code-custom").fill("১৮৩(৭)");
-  await dialog.getByRole("button", { name: "Add section", exact: true }).click();
-  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182/183(7)");
-  await dialog.getByRole("button", { name: "Remove last" }).click();
-  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182");
+  await page.locator("#disposal_code-custom").fill("১৮৩(৭)");
+  await page.getByRole("button", { name: "Add section", exact: true }).click();
+  await expect(dialog.locator("#disposal_code")).toHaveText("180/182/183(7)");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: "Remove last" }).click();
+  await expect(dialog.locator("#disposal_code")).toHaveText("180/182");
   await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(page.locator(".card-table__table")).toContainText("180/182");
 });
@@ -346,11 +347,61 @@ test("Register-4 custom section rejects invalid code and English/Bangla form kee
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /Add a section not listed/ }).click();
-  await dialog.locator("#disposal_code-custom").fill("180/182");
-  await dialog.getByRole("button", { name: "Add section", exact: true }).click();
-  await expect(dialog.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
-  await expect(dialog.locator(".register4-section-field__trail")).toHaveCount(0);
+  await page.locator("#disposal_code-custom").fill("180/182");
+  await page.getByRole("button", { name: "Add section", exact: true }).click();
+  await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
+  // The custom editor owns focus while open; inspect the underlying modal by DOM,
+  // then close the editor before asserting the parent dialog's accessibility.
+  await expect(page.locator(".app-modal-panel #disposal_code")).toContainText("Choose a section");
+  await page.locator(".register4-section-field__popover").getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
   await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
+});
+
+test("Register-4 custom section popover never stretches New Entry form grid", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  // Use a DOM-stable locator: while MUI Popover owns focus, its Modal
+  // accessibility layer temporarily hides the underlying dialog by design.
+  const date = page.locator(".app-modal-panel #assessment_date");
+  const previousTop = await date.evaluate(e => e.getBoundingClientRect().top);
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await expect(page.locator(".register4-section-field__popover")).toBeVisible();
+  const nextTop = await date.evaluate(e => e.getBoundingClientRect().top);
+  expect(Math.abs(previousTop-nextTop)).toBeLessThanOrEqual(2);
+  await expect(dialog.locator(".register4-section-field__custom")).toHaveCount(0);
+  // The underlying form remains laid out, but is aria-hidden while MUI Popover owns focus.
+  await expect(page.locator(".app-modal-panel .entry-form__grid")).toBeVisible();
+  await page.locator("#disposal_code-custom").fill("182(4)");
+  await page.getByRole("button", { name: "Add section", exact: true }).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
+  await expect(page.locator(".register4-section-field__popover")).toHaveCount(0);
+  await page.screenshot({ path:"test-results/register4-section-form-clean.png", animations:"disabled" });
+});
+
+test("Register-4 mobile custom section overlay is contained on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox", { name:"Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name:"Search", exact:true }).click();
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", {name:/Add a section not listed/}).click();
+  const popup=page.locator(".register4-section-field__popover");
+  await expect(popup).toBeVisible();
+  const r=await popup.evaluate(e=>{const r=e.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width};});
+  expect(r.left).toBeGreaterThanOrEqual(0);
+  expect(r.right).toBeLessThanOrEqual(390);
+  await page.locator("#disposal_code-custom").fill("१८२"); // unsupported script
+  await page.getByRole("button", {name:"Add section",exact:true}).click();
+  await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
+  await page.screenshot({ path:"test-results/register4-section-mobile.png", animations:"disabled" });
 });

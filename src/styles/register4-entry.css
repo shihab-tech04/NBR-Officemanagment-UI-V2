@@ -34,19 +34,41 @@
   .register4-entry__identity-facts { flex-direction: column; gap: var(--space-1); }
 }
 
-/* Register-4 Under Section selector only; reusable form layout is unchanged. */
-.register4-section-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.register4-section-field__selection { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); min-width: 0; }
-.register4-section-field__selection > div { min-width: 0; }
-.register4-section-field__caption { margin: 0 0 var(--space-1); color: var(--color-text-secondary); font-size: var(--fs-label-sm); }
-.register4-section-field__trail { display: block; font-size: var(--fs-body-sm); font-weight: 600; overflow-wrap: anywhere; }
-.register4-section-field__undo { flex-shrink: 0; border: 0; background: transparent; color: var(--color-primary); font: inherit; font-size: var(--fs-label-sm); cursor: pointer; text-decoration: underline; }
-.register4-section-field__undo:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.register4-section-field__custom { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.register4-section-field__actions { display: flex; gap: var(--space-2); }
-.register4-section-field__actions > .app-btn { width: auto; flex: 1 1 auto; }
-.register4-section-field__note { margin: 0; font-size: var(--fs-label-sm); color: var(--color-text-secondary); }
+/* Keep Section within one standard outlined field; custom entry is a popover. */
+.register4-section-field { min-width: 0; }
+.register4-section-field__popover.MuiPaper-root {
+  width: min(360px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg, 0 12px 34px rgba(19, 39, 72, .14));
+}
+.register4-section-field__popover-content { padding: var(--space-4); min-width: 0; }
+.register4-section-field__popover-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-body-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.register4-section-field__popover-content form { display: flex; flex-direction: column; gap: var(--space-3); }
+.register4-section-field__note {
+  margin: 0;
+  font-size: var(--fs-label-sm);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+.register4-section-field__actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--space-2);
+}
+.register4-section-field__actions > .app-btn {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 90px;
+  min-height: 36px;
+  padding: var(--space-2) var(--space-4);
+}
 @media (max-width: 640px) {
-  .register4-section-field__undo { min-height: 44px; }
   .register4-section-field__actions > .app-btn { min-height: 44px; }
 }
