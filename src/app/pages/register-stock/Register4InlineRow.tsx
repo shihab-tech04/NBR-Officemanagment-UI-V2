@@ -113,7 +113,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   if(mode==="mobile")return <section className="register4-inline__mobile" aria-label={t("register4.inlineDraft")} onKeyDown={keyDown}>
     <h3 className="register4-inline__mobile-title">{t("register4.inlineDraft")}</h3>
     <div className="register4-inline__mobile-grid">
-      {controls.map((item,index)=>index===0||index===3?null:<div key={index}>{item}</div>)}
+      {controls.map((item,index)=>index===0||index===3?null:<div key={index} className={[2,4,12].includes(index)?"register4-inline__mobile-span":undefined}>{item}</div>)}
     </div>
     <div className="register4-inline__mobile-footer">{actions}</div>
   </section>;
