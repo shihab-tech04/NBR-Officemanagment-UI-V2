@@ -8,7 +8,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import {
   REGISTER4_SECTIONS,
-  nextRegister4CandidateCodes, normalizeRegister4SectionCode,
+  nextRegister4CandidateCodes, normalizeRegister4SectionCode, isRegister4SectionSyntax,
   reviewRegister4Addition, appendReviewedRegister4Addition,
   getRegister4MoMPresetChoices, REGISTER4_MOM_PRESETS
 } from "./register4SectionCodes";
@@ -40,6 +40,8 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
   };
   const close=()=>{setOpen(false);setCustom("");setIssue("");};
   const addCustom=()=>{
+    // Custom Add accepts ONE section number; multi-section paths come from the MoM presets.
+    if(!isRegister4SectionSyntax(custom)){setIssue(t("register4.sectionInvalid"));return;}
     const decision=reviewRegister4Addition(value,custom);
     if(decision.status==="BLOCKED"){
       setIssue(decision.reason==="INVALID_CODE"?t("register4.sectionInvalid"):t("register4.transitionBlocked"));
