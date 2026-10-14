@@ -327,8 +327,7 @@ test("Register-4 Section dropdown appends chronological selections and supports 
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /182.*Audit selection/ }).click();
   await expect(dialog.locator("#disposal_code")).toHaveText("180/182");
-  await dialog.locator("#disposal_code").click();
-  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await dialog.getByRole("button", { name: "Add a section" }).click();
   await page.locator("#disposal_code-custom").fill("১৮৩(৭)");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(dialog.locator("#disposal_code")).toHaveText("180/182/183(7)");
@@ -345,8 +344,7 @@ test("Register-4 custom section rejects invalid code and English/Bangla form kee
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
-  await dialog.locator("#disposal_code").click();
-  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await dialog.getByRole("button", { name: "Add a section" }).click();
   await page.locator("#disposal_code-custom").fill("180/182");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
@@ -371,8 +369,7 @@ test("Register-4 custom section popover never stretches New Entry form grid", as
   // accessibility layer temporarily hides the underlying dialog by design.
   const date = page.locator(".app-modal-panel #assessment_date");
   const previousTop = await date.evaluate(e => e.getBoundingClientRect().top);
-  await dialog.locator("#disposal_code").click();
-  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await dialog.getByRole("button", { name: "Add a section" }).click();
   await expect(page.locator(".register4-section-field__popover")).toBeVisible();
   const nextTop = await date.evaluate(e => e.getBoundingClientRect().top);
   expect(Math.abs(previousTop-nextTop)).toBeLessThanOrEqual(2);
@@ -394,7 +391,7 @@ test("Register-4 mobile custom section overlay is contained on screen", async ({
   await dialog.getByRole("searchbox", { name:"Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name:"Search", exact:true }).click();
   await dialog.locator("#disposal_code").click();
-  await page.getByRole("option", {name:/Add a section not listed/}).click();
+  await dialog.getByRole("button", { name: "Add a section" }).click();
   const popup=page.locator(".register4-section-field__popover");
   await expect(popup).toBeVisible();
   const r=await popup.evaluate(e=>{const r=e.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width};});
@@ -404,4 +401,57 @@ test("Register-4 mobile custom section overlay is contained on screen", async ({
   await page.getByRole("button", {name:"Add section",exact:true}).click();
   await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
   await page.screenshot({ path:"test-results/register4-section-mobile.png", animations:"disabled" });
+});
+
+test("Register-4 has no View Details buttons or Actions column, rows remain inspectable", async ({page}) => {
+  await page.goto("/register-stock/register-4");
+  const table=page.locator(".card-table__table");
+  await expect(table.getByRole("columnheader",{name:"Actions"})).toHaveCount(0);
+  await expect(table.getByRole("button",{name:/View Details/i})).toHaveCount(0);
+  await table.locator("tbody tr").first().click();
+  await expect(page.locator(".dynamic-drawer")).toBeVisible();
+});
+test("Register-4 shortcuts prefill section codes except first fresh entry", async ({page}) => {
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:/New Entry/i}).click();
+  let dialog=page.getByRole("dialog");
+  const chips=dialog.getByRole("group",{name:"TIN suggestions"});
+  await expect(chips.getByRole("button")).toHaveCount(4);
+  await expect(chips.getByRole("button",{name:"TIN-10000"})).toContainText("Fresh entry");
+  await expect(chips.getByRole("button",{name:"TIN-10001"})).toContainText("180");
+  await expect(chips.getByRole("button",{name:"TIN-10002"})).toContainText("180/180(2)");
+  await expect(chips.getByRole("button",{name:"TIN-10003"})).toContainText("180/182/183(7)");
+  await chips.getByRole("button",{name:"TIN-10000"}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("Choose a section");
+  await expect(dialog.locator(".entry-form__group-title")).toHaveCount(5);
+  await expect(dialog.locator("#folio_no")).toHaveAttribute("readonly");
+  await dialog.getByRole("button",{name:"Cancel"}).click();
+  await page.getByRole("button",{name:/New Entry/i}).click();
+  dialog=page.getByRole("dialog");
+  await dialog.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10003"}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("180/182/183(7)");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option",{name:/289.*Appellate authority/}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("180/182/183(7)/289");
+});
+test("Register-4 custom section Add is visible outside dropdown, balanced popover has no warning paragraph", async ({page}) => {
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:/New Entry/i}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10000"}).click();
+  const add=dialog.getByRole("button",{name:"Add a section"});
+  await expect(add).toBeVisible();
+  await add.click();
+  const pop=page.locator(".register4-section-field__popover");
+  await expect(pop).toBeVisible();
+  await expect(pop).not.toContainText("draft-only");
+  await expect(pop.getByRole("textbox",{name:"Section number"})).toBeVisible();
+  const buttons=pop.locator(".register4-section-field__actions .app-btn");
+  await expect(buttons).toHaveCount(2);
+  const heights=await buttons.evaluateAll(els=>els.map(x=>x.getBoundingClientRect().height));
+  expect(Math.abs(heights[0]-heights[1])).toBeLessThanOrEqual(1);
+  await pop.getByRole("textbox",{name:"Section number"}).fill("১৮২(৪)");
+  await pop.getByRole("button",{name:"Add section",exact:true}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
 });

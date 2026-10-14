@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { GenPage } from "../../components/pages/GeneratedTablePage";
 import type { PageCfg } from "../modulePageUtils";
-import { ROW_VIEW, VIEW } from "../../data/modulePageConfigs";
+import { VIEW } from "../../data/modulePageConfigs";
 import { Register4EntryModal } from "./Register4EntryModal";
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
@@ -36,7 +36,6 @@ export function Register4ListPage() {
     applyTableFilters: true,
     enableSort: true,
     pageSizeOptions: [10, 25, 50],
-    actions: ROW_VIEW,
     drawerActions: VIEW,
     rows: REGISTER4_ASSESSMENT_ROWS,
     kpis: buildRegister4Kpis(REGISTER4_ASSESSMENT_ROWS),

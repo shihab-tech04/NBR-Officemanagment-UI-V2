@@ -133,6 +133,14 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     const year = fields.find(f => f.key === "assessment_year");
     expect(year).toMatchObject({ type: "select", required: true, defaultValue: "2024-25", options: ["2024-25"] });
     expect(fields.map(f => f.key)).toContain("assessed_income");
+    expect(fields.find(f=>f.key==="folio_no")).toMatchObject({readOnly:true});
+    const inputs = fields.filter(f=>f.key!=="taxpayer_name"&&f.key!=="tin").map(f=>f.key);
+    expect(inputs).toEqual([
+      "circle","assessment_year","folio_no","assessment_date","disposal_code",
+      "assessed_income","penalty","arrear_year_demand","current_year_demand",
+      "revised_demand","remarks",
+    ]);
+    expect(new Set(fields.map(f=>f.group)).size).toBeGreaterThanOrEqual(4);
     expect(fields.map(f => f.key)).not.toContain("book_no");
   });
 

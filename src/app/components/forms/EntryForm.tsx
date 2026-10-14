@@ -1,4 +1,4 @@
-import { useState, type Ref } from "react";
+import { Fragment, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "./AppTextField";
 import { AppSelectField } from "./AppSelectField";
@@ -27,6 +27,9 @@ export type FormField = {
   accept?: string[];
   multiple?: boolean;
   defaultValue?: string;
+  /** Optional visual subsection label; existing forms without groups are unchanged. */
+  group?: string;
+  readOnly?: boolean;
 };
 
 interface EntryFormProps {
@@ -99,7 +102,11 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
           const cls = f.span ? "entry-form__field entry-form__field--span" : "entry-form__field";
 
           return (
-            <div key={i} className={cls}>
+            <Fragment key={id}>
+              {f.group && (i === 0 || fields[i - 1]?.group !== f.group) && (
+                <h3 className="entry-form__group-title">{f.group}</h3>
+              )}
+            <div className={cls}>
               {f.type === "sectionTrail" ? (
                 <Register4SectionField
                   id={id}
@@ -183,11 +190,13 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
                   onChange={v => setStr(id, v)}
                   placeholder={f.placeholder}
                   required={f.required}
+                  readOnly={f.readOnly}
                   helper={f.helper}
                   error={errors[id]}
                 />
               )}
             </div>
+            </Fragment>
           );
         })}
       </div>
