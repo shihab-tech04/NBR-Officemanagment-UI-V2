@@ -1,5 +1,6 @@
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Check, Info, X } from "lucide-react";
+import { Popper } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "../../components/forms/AppTextField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
@@ -28,9 +29,13 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   const {t}=useTranslation("pages");
   const {t:th}=useTranslation("tables");
   const [error,setError]=useState<"TIN"|"SECTION"|"YEAR"|null>(null);
+  const tinAnchor=useRef<HTMLDivElement>(null);
+  const [tinOpen,setTinOpen]=useState(false);
   const set=(key:string,value:string)=>{onChange({[key]:value});setError(null);};
   const updateTin=(tin:string)=>{
     const taxpayer=findRegister4Taxpayer(tin);
+    // Suggestions are a floating lookup, never an in-flow table subrow.
+    if(taxpayer)setTinOpen(false);
     onChange({
       tin,
       taxpayer_name:taxpayer?.taxpayer_name ?? "",
@@ -47,7 +52,9 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   };
   const keyDown=(e:KeyboardEvent)=>{
     if(e.defaultPrevented || (e.target as HTMLElement).closest(".register4-section-field"))return;
-    if(e.key==="Escape"){e.preventDefault();onCancel();return;}
+    if(e.key==="Escape"){
+      e.preventDefault();onCancel();return;
+    }
     // Enter from TIN, amount, date or any intermediate field must NOT save
     // an incomplete row. Only the final Remarks field retains the eLedger
     // convenience shortcut; the explicit tick remains the primary Save.
@@ -73,10 +80,23 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   const suggestions=findRegister4Taxpayer(values.tin??"")
     ? [] : getRegister4TinSuggestions(values.tin??"");
   const tinControl=<div className="register4-inline__cell register4-inline__cell--identity">
-    <AppTextField compact id={"register4-inline-"+mode+"-tin"} label={t("register4.tinInput")}
-      value={values.tin??""} onChange={updateTin} required
-      error={error==="TIN"?t("register4.tinRequired"):undefined}/>
-    {suggestions.length>0 && (
+    <div ref={tinAnchor} className="register4-inline__tin-anchor"
+      onFocus={()=>{if(!findRegister4Taxpayer(values.tin??""))setTinOpen(true);}}
+      onBlur={event=>{
+        const destination=event.relatedTarget as HTMLElement|null;
+        if(!destination?.closest(".register4-inline__tin-popup"))setTinOpen(false);
+      }}>
+      <AppTextField compact id={"register4-inline-"+mode+"-tin"} label={t("register4.tinInput")}
+        value={values.tin??""} onChange={updateTin} required
+        error={error==="TIN"?t("register4.tinRequired"):undefined}/>
+    </div>
+    <Popper
+      open={tinOpen && suggestions.length>0}
+      anchorEl={tinAnchor.current}
+      placement="bottom-start"
+      className="register4-inline__tin-popup"
+      modifiers={[{name:"offset",options:{offset:[0,4]}},
+        {name:"preventOverflow",options:{padding:8}}]}>
       <div className="register4-inline__tin-suggestions" role="group"
         aria-label={t("register4.tinSuggestions")}>
         {suggestions.map(tin=>(
@@ -93,11 +113,14 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
           </button>
         ))}
       </div>
-    )}
-    <p className="register4-inline__readonly" aria-live="polite">
-      {values.taxpayer_name || ((values.tin||"").length>=8 ?
-        t("register4.inlineNotFound"):t("register4.inlineName"))}
-    </p>
+    </Popper>
+    {values.taxpayer_name && <p className="register4-inline__readonly register4-inline__taxpayer" aria-live="polite">
+      {values.taxpayer_name}
+    </p>}
+    {!values.taxpayer_name && (values.tin||"").length>=8 &&
+      <p className="register4-inline__readonly register4-inline__taxpayer" role="status">
+        {t("register4.inlineNotFound")}
+      </p>}
   </div>;
   const sectionControl=<div className="register4-inline__cell register4-inline__cell--section">
     <Register4SectionField id={"register4-inline-"+mode+"-disposal_code"}
