@@ -390,7 +390,6 @@ test("Register-4 mobile custom section overlay is contained on screen", async ({
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name:"Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name:"Search", exact:true }).click();
-  await dialog.locator("#disposal_code").click();
   await dialog.getByRole("button", { name: "Add a section" }).click();
   const popup=page.locator(".register4-section-field__popover");
   await expect(popup).toBeVisible();
