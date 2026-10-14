@@ -101,7 +101,7 @@ export function Register4SectionField({ id, label, value, onChange, helper, erro
       >
         <div className="register4-section-field__popover-content">
           <h3 className="register4-section-field__popover-title">{t("register4.sectionCustomLabel")}</h3>
-          <form onSubmit={event => { event.preventDefault(); addCustom(); }}>
+          <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); addCustom(); }}>
             <AppTextField
               id={id + "-custom"}
               label={t("register4.sectionCustomLabel")}
