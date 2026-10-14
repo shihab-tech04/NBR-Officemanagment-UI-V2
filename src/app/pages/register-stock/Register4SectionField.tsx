@@ -7,9 +7,10 @@ import { AppTextField } from "../../components/forms/AppTextField";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import {
-  REGISTER4_SECTIONS, appendReviewedRegister4Section,
+  REGISTER4_SECTIONS,
   nextRegister4CandidateCodes, normalizeRegister4SectionCode,
-  reviewRegister4Transition
+  reviewRegister4Addition, appendReviewedRegister4Addition,
+  getRegister4MoMPresetChoices, REGISTER4_MOM_PRESETS
 } from "./register4SectionCodes";
 
 type Props = { id:string; label:string; value:string; onChange:(value:string)=>void;
@@ -31,15 +32,15 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
     {code:"182(4)",en:"Audit inquiry stage",bn:"অডিট অনুসন্ধান কার্যক্রম"},
     {code:"182(11)",en:"Audit disposed after accepted revision",bn:"সংশোধিত রিটার্ন গ্রহণে অডিট নিষ্পত্তি"},
   ];
-  const pick=(nextCode:string)=>{
-    const decision=reviewRegister4Transition(value,nextCode);
+  const pick=(suffix:string)=>{
+    const decision=reviewRegister4Addition(value,suffix);
     if(decision.status==="BLOCKED"){setIssue(t("register4.transitionBlocked"));return;}
-    const next=appendReviewedRegister4Section(value,nextCode);
+    const next=appendReviewedRegister4Addition(value,suffix);
     if(next!==null){onChange(next);setIssue("");}
   };
   const close=()=>{setOpen(false);setCustom("");setIssue("");};
   const addCustom=()=>{
-    const decision=reviewRegister4Transition(value,custom);
+    const decision=reviewRegister4Addition(value,custom);
     if(decision.status==="BLOCKED"){
       setIssue(decision.reason==="INVALID_CODE"?t("register4.sectionInvalid"):t("register4.transitionBlocked"));
       return;
@@ -49,14 +50,23 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
     pick(code);
     close();
   };
+  // Show the ENTIRE documented MoM preset inventory, but disable sequences
+  // not compatible with this draft's previous section trail.
+  const moMPresets=getRegister4MoMPresetChoices(value);
+  const documentedCodes=new Set<string>(REGISTER4_MOM_PRESETS.map(item=>item.code));
   const options=[
     {value:"__current__",label:value || t("register4.sectionChoose")},
-    ...candidates.map(code=>{
+    ...candidates.filter(code=>!documentedCodes.has(code)).map(code=>{
       const x=known.find(row=>row.code===code);
       return {value:"__pick__:"+code,label:code+" — "+(x?(bn?x.bn:x.en):t("register4.sectionCustomLabel"))};
     }),
-    ...draftCodes.filter(code=>!candidates.includes(code))
-      .map(code=>({value:"__pick__:"+code,label:code+" — "+t("register4.sectionCustomLabel")})),
+    ...moMPresets.map(item=>({
+      value:"__pick__:"+item.code,
+      label:item.code+" — "+(bn?item.bn:item.en),
+      disabled:item.status==="BLOCKED",
+    })),
+    ...draftCodes.filter(code=>!candidates.includes(code)&&!documentedCodes.has(code))
+      .map(code=>({value:"__pick__:"+code,label:code+" — "+t("register4.sectionCustomLabel") })),
   ];
   return (
     <div className="register4-section-field">

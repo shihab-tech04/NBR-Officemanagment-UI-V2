@@ -136,3 +136,58 @@ export function appendReviewedRegister4Section(trail:string,section:string):stri
   if(reviewRegister4Transition(trail,section).status==="BLOCKED")return null;
   return appendRegister4Section(trail,section);
 }
+
+// SOURCE-BOUNDED PRESET INVENTORY — Register-4 MoM 2026-10-08, p.2.
+// Proposed office presets (subject to further detail), not universal lawful
+// transitions. Keep every documented item visible; disable those without
+// an admissible preceding recorded sequence in this review-only prototype.
+export const REGISTER4_MOM_PRESETS = [
+  { code:"182/183(7)", en:"Audit / assessment order", bn:"অডিট / কর নির্ধারণ আদেশ" },
+  { code:"183(7)", en:"Assessment order", bn:"কর নির্ধারণ আদেশ" },
+  { code:"184", en:"Best-judgment assessment", bn:"সর্বোত্তম বিবেচনায় কর নির্ধারণ" },
+  { code:"289/183(7)", en:"Appeal / subsequent assessment", bn:"আপিল / পরবর্তী কর নির্ধারণ" },
+  { code:"289/184", en:"Appeal / subsequent best-judgment assessment", bn:"আপিল / পরবর্তী সর্বোত্তম বিবেচনায় কর নির্ধারণ" },
+  { code:"292", en:"Tribunal disposal", bn:"ট্রাইব্যুনাল নিষ্পত্তি" },
+  { code:"292/183(7)", en:"Tribunal / subsequent assessment", bn:"ট্রাইব্যুনাল / পরবর্তী কর নির্ধারণ" },
+  { code:"292/184", en:"Tribunal / subsequent best-judgment assessment", bn:"ট্রাইব্যুনাল / পরবর্তী সর্বোত্তম বিবেচনায় কর নির্ধারণ" },
+  { code:"285", en:"Taxpayer revision", bn:"করদাতার আবেদনে পুনর্বিবেচনা" },
+  { code:"213", en:"Revenue-protection revision", bn:"রাজস্বস্বার্থহানিকর আদেশ পুনর্বিবেচনা" },
+] as const;
+
+/**
+ * Evaluate EVERY segment before appending a composite MoM preset. A multi-event
+ * suffix is atomic: no earlier history is overwritten and a blocked second
+ * step never leaves the first step half-applied.
+ * REVIEW_REQUIRED is deliberately NOT a legal-validity / approval result.
+ */
+export function reviewRegister4Addition(trail:string, addition:string):Register4Decision {
+  const normalized=normalizeRegister4SectionCode(addition);
+  const additions=normalized.split("/");
+  if(!normalized || additions.some(section=>!isRegister4SectionSyntax(section)))
+    return {status:"BLOCKED",reason:"INVALID_CODE",next:normalized};
+  if(trail && reviewRegister4History(trail).status==="BLOCKED")
+    return {status:"BLOCKED",reason:"INCOMPLETE_TRAIL",next:normalized};
+
+  let current=trail;
+  let custom=false;
+  for(const section of additions){
+    const decision=reviewRegister4Transition(current,section);
+    if(decision.status==="BLOCKED") return decision;
+    custom=custom || decision.reason==="CUSTOM_UNVERIFIED";
+    current=appendRegister4Section(current,section)!;
+  }
+  return {status:"REVIEW_REQUIRED",
+    reason:custom?"CUSTOM_UNVERIFIED":"EVIDENCE_AND_APPLICABILITY",next:normalized};
+}
+export function appendReviewedRegister4Addition(trail:string, addition:string):string|null {
+  if(reviewRegister4Addition(trail,addition).status==="BLOCKED") return null;
+  const additions=normalizeRegister4SectionCode(addition).split("/");
+  return [...register4SectionTrail(trail),...additions].join("/");
+}
+/** Exact MoM coverage, not an exhaustive enumeration of all statutory paths. */
+export function getRegister4MoMPresetChoices(trail:string) {
+  return REGISTER4_MOM_PRESETS.map(item=>({
+    ...item,
+    status:reviewRegister4Addition(trail,item.code).status
+  }));
+}
