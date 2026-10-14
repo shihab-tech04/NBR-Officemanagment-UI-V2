@@ -117,3 +117,35 @@ test("Register-4 and Stock Register retain identical page shell and four-column 
   await expect(page.locator(".table-page")).toBeVisible();
   await expect(page.locator(".register4-workspace")).toHaveCount(0);
 });
+
+test("Register-4 headers and cells use content alignment while Stock Register keeps locked defaults", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  const table = page.locator(".card-table__table");
+  await expect(table.locator("tbody tr")).toHaveCount(8);
+  const expected = [
+    "center", "left", "left", "left", "left", "center", "center",
+    "right", "right", "right", "right", "right", "left",
+  ];
+  const actual = await table.locator("tbody tr").first().locator("td.card-table__td").evaluateAll(cells =>
+    cells.map(cell => window.getComputedStyle(cell).textAlign)
+  );
+  expect(actual).toEqual(expected);
+
+  for (const [name, alignment] of [
+    ["S/N", "center"], ["Circle", "left"], ["Taxpayer Name & TIN", "left"],
+    ["Assessment Year", "center"], ["Assessment Date", "center"],
+    ["Assessed Income", "right"], ["Arrear Tax Year", "right"],
+    ["Current Tax Year", "right"], ["Remarks (if any)", "left"],
+  ]) {
+    const header = table.getByRole("columnheader", { name, exact: true });
+    await expect(header).toHaveCSS("text-align", alignment);
+  }
+  await expect(table.locator("tbody tr").first().locator("td").nth(3)).toBeEmpty();
+
+  await page.goto("/register-stock/stock-register");
+  const stockTable = page.locator(".card-table__table");
+  await expect(stockTable).toBeVisible();
+  await expect(stockTable.locator(".card-table__th--align-left, .card-table__th--align-center, .card-table__th--align-right")).toHaveCount(0);
+  await expect(stockTable.locator("tbody tr").first().locator("td.card-table__td").first()).toHaveCSS("text-align", "left");
+});
