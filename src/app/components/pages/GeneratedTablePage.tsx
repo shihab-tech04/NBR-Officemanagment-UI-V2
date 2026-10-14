@@ -276,6 +276,19 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
   const [applied, setApplied] = useState<Record<string, string>>({});
   const [drawer, setDrawer] = useState<TableRow | null>(null);
   const [modal, setModal]   = useState<string | null>(null);
+  useEffect(() => {
+    if (cfg.assessmentYearScope) setPage(1);
+  }, [cfg.assessmentYearScope?.year]);
+
+  // Only opted-in pages derive selectable circles from their own displayed
+  // records; unrelated page filters keep their previous definitions.
+  const effectiveFilters = useMemo(() => cfg.applyTableFilters
+    ? cfg.filters.map(filter => {
+        if (filter.key !== "circle" || filter.type !== "select") return filter;
+        const actual = rows.map(r => String(r.circle ?? "")).filter(v => v && v !== "—");
+        return { ...filter, options: [...new Set([...(filter.options ?? []), ...actual])] };
+      })
+    : cfg.filters, [cfg.filters, cfg.applyTableFilters, rows]);
 
   const sourceForDrawer = cfg.drawerCols ?? cfg.cols;
   const drawerColumns = useMemo(() => sourceForDrawer.flatMap(col => {
@@ -477,7 +490,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
 
         {isDesktop && showFilter && (
           <div className="table-card__filter-panel">
-            <FilterPanel filters={cfg.filters} values={fVals} onChange={handleFilterChange} onApply={handleFilterApply} onReset={handleFilterReset} />
+            <FilterPanel filters={effectiveFilters} values={fVals} onChange={handleFilterChange} onApply={handleFilterApply} onReset={handleFilterReset} />
           </div>
         )}
 
@@ -561,7 +574,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
       {!isDesktop && (
         <MobileFilterOverlay
           isOpen={showFilter}
-          filters={cfg.filters}
+          filters={effectiveFilters}
           values={fVals}
           onChange={handleFilterChange}
           onApply={handleFilterApply}
