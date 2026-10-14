@@ -53,17 +53,26 @@ describe("Register-4 assessment table metadata (isolated)", () => {
     });
   });
 
-  it("does not fabricate assessed income, demand, penalty or folio values", () => {
+  it("keeps Folio No. empty while populating complete synthetic assessment fields", () => {
     expect(REGISTER4_ASSESSMENT_ROWS).toHaveLength(32);
     for (const row of REGISTER4_ASSESSMENT_ROWS) {
+      expect(row.folio_no).toBe("");
       for (const key of [
-        "folio_no", "disposal_code", "assessment_date", "assessed_income",
+        "disposal_code", "assessment_date", "assessed_income",
         "arrear_year_demand", "current_year_demand", "penalty",
         "revised_demand", "remarks",
       ]) {
-        expect(row[key]).toBe("—");
+        expect(row[key]).not.toBe("—");
+        expect(row[key]).not.toBe("");
       }
+      expect(row.record_source).toBe("Illustrative sample — not verified");
     }
+    expect(REGISTER4_ASSESSMENT_COLUMNS[0]).toMatchObject({
+      type: "col", col: { headerKey: "headers.register4SerialNo" },
+    });
+    expect(REGISTER4_ASSESSMENT_COLUMNS[2]).toMatchObject({
+      type: "col", col: { headerKey: "headers.register4TaxpayerTin", multilineHeader: true },
+    });
   });
 
   it("keeps mobile card mappings aligned to the new columns", () => {
@@ -88,7 +97,7 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     const thisYear = REGISTER4_ASSESSMENT_ROWS.filter(r => r.assessment_year === "2024-25");
     const kpis = buildRegister4Kpis(thisYear);
     expect(thisYear).toHaveLength(8);
-    expect(kpis.map(k => k.value)).toEqual(["8", "0", "0", "8"]);
+    expect(kpis.map(k => k.value)).toEqual(["8", "0", "0", "0"]);
     expect(kpis.map(k => k.labelKey)).toEqual([
       "register4.recordsInView", "register4.verifiedAssessments",
       "register4.localDrafts", "register4.incomeUnavailable",

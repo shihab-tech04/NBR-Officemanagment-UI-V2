@@ -1,7 +1,7 @@
 {
   "headers": {
     "serialNo": "ক্রমিক নং",
-    "register4TaxpayerTin": "করদাতার নাম ও টিআইএন",
+    "register4TaxpayerTin": "করদাতার নাম\nও টিআইএন",
     "register4FolioNo": "ফলিও নং",
     "register4DisposalCode": "কার্য সম্পাদন কোড (ধারা)",
     "register4AssessmentYear": "কর বর্ষ",
@@ -203,7 +203,8 @@
     "savedEntry": "সংরক্ষিত এন্ট্রি",
     "entryComplete": "এন্ট্রি সম্পন্ন",
     "approvedEntry": "অনুমোদিত এন্ট্রি",
-    "register4RecordSource": "রেকর্ডের উৎস"
+    "register4RecordSource": "রেকর্ডের উৎস",
+    "register4SerialNo": "ক্রমিক"
   },
   "groups": {
     "entryToday": "আজকের এন্ট্রি",

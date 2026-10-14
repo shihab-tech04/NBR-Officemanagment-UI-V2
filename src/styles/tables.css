@@ -211,6 +211,13 @@
   max-width: inherit;
 }
 
+/* Explicit line break only when a column opts in; all other headers stay locked. */
+.card-table__th-text--multiline {
+  white-space: pre-line;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 /* Actions column — shrink to content, never overflow */
 .card-table__actions {
   width: 1%;
