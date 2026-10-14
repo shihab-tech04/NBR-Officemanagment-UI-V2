@@ -595,7 +595,7 @@ test("Register-4 mobile inline draft uses per-field controls and 44px save/disca
   await expect(card).toBeVisible();
   await card.locator("#register4-inline-mobile-tin").fill("TIN-10003");
   await expect(card.locator("#register4-inline-mobile-tin")).toHaveValue("TIN-10003");
-  await expect(card).toContainText("Haque Traders");
+  await expect(card).toContainText("Matin Corp.");
   await expect(card).toContainText("180/182/183(7)");
   const buttons=card.getByRole("button",{name:/Save row|Discard row/});
   await expect(buttons).toHaveCount(2);
