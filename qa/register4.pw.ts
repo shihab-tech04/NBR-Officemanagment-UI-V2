@@ -238,7 +238,7 @@ test("Register-4 TIN suggestions sit below the search row and select a taxpayer"
     const input = root.querySelector('input[type="search"]');
     const button = [...root.querySelectorAll("button")].find(el => el.textContent?.trim() === "Search");
     const chips = root.querySelector(".register4-entry__suggestions");
-    const inputR = input!.getBoundingClientRect();
+    const inputR = input!.closest(".MuiInputBase-root")!.getBoundingClientRect();
     const buttonR = button!.getBoundingClientRect();
     const chipsR = chips!.getBoundingClientRect();
     return { inputHeight: inputR.height, buttonHeight: buttonR.height,
