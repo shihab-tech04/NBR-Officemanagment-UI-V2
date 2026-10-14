@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "./AppTextField";
 import { AppSelectField } from "./AppSelectField";
@@ -33,13 +33,16 @@ interface EntryFormProps {
   onClose: () => void;
   onSubmit?: (values: Record<string, EntryFormValue>) => void;
   submitLabel?: string;
+  /** Optional external modal footer; default inline footer remains unchanged. */
+  formRef?: Ref<HTMLFormElement>;
+  hideFooter?: boolean;
 }
 
 function fieldId(f: FormField, i: number): string {
   return f.key ?? `entry-field-${i}`;
 }
 
-export function EntryForm({ fields, onClose, onSubmit, submitLabel }: EntryFormProps) {
+export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hideFooter = false }: EntryFormProps) {
   const { t: translate } = useTranslation("common");
   const { t: translateActions } = useTranslation("actions");
 
@@ -88,7 +91,7 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel }: EntryFormP
   };
 
   return (
-    <form noValidate onSubmit={handleSubmit}>
+    <form ref={formRef} noValidate onSubmit={handleSubmit}>
       <div className="entry-form__grid">
         {fields.map((f, i) => {
           const id = fieldId(f, i);
@@ -174,14 +177,14 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel }: EntryFormP
           );
         })}
       </div>
-      <div className="entry-form__footer">
+      {!hideFooter && <div className="entry-form__footer">
         <SecondaryButton type="button" onClick={onClose}>
           {translate("actions.cancel")}
         </SecondaryButton>
         <PrimaryButton type="submit">
           {submitLabel ?? translate("actions.submit")}
         </PrimaryButton>
-      </div>
+      </div>}
     </form>
   );
 }
