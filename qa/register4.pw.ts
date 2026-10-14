@@ -462,7 +462,7 @@ test("Register-4 blocks an unsupported transition and preserves the existing tra
   await d.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10001"}).click();
   await expect(d.locator("#disposal_code")).toContainText("180");
   await d.locator("#disposal_code").click();
-  await expect(page.getByRole("option",{name:/292.*Tribunal/})).toHaveCount(0);
+  await expect(page.getByRole("option",{name:/^292 — Tribunal/})).toBeDisabled();
   await page.keyboard.press("Escape");
   await d.getByRole("button",{name:"Add a section"}).click();
   await page.locator("#disposal_code-custom").fill("292");
