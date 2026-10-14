@@ -2,6 +2,7 @@ import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "./AppTextField";
 import { AppSelectField } from "./AppSelectField";
+import { Register4SectionField } from "../../pages/register-stock/Register4SectionField";
 import { AppDateField } from "./AppDateField";
 import { AppTextArea } from "./AppTextArea";
 import { AppFileUpload } from "./AppFileUpload";
@@ -9,7 +10,7 @@ import { AppNumberField } from "./AppNumberField";
 import { PrimaryButton } from "../buttons/PrimaryButton";
 import { SecondaryButton } from "../buttons/SecondaryButton";
 
-export type EntryFieldType = "text" | "select" | "textarea" | "date" | "number" | "file";
+export type EntryFieldType = "text" | "select" | "sectionTrail" | "textarea" | "date" | "number" | "file";
 export type EntryFormValue = string | File[];
 
 export type FormField = {
@@ -99,7 +100,20 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
 
           return (
             <div key={i} className={cls}>
-              {f.type === "select" ? (
+              {f.type === "sectionTrail" ? (
+                <Register4SectionField
+                  id={id}
+                  label={f.label}
+                  value={values[id] ?? ""}
+                  onChange={v => {
+                    setStr(id, v);
+                    if (errors[id]) setErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+                  }}
+                  required={f.required}
+                  helper={f.helper}
+                  error={errors[id]}
+                />
+              ) : f.type === "select" ? (
                 <AppSelectField
                   id={id}
                   label={f.label}

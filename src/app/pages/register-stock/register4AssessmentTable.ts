@@ -134,7 +134,7 @@ export function buildRegister4EntryFields(
       options: [year], required: true, defaultValue: year,
       helper: tp("register4.yearHelp", { defaultValue: "Matches the selected assessment year" }) },
     { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text" },
-    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"), type: "text" },
+    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"), type: "sectionTrail", required: true },
     { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date" },
     { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"), type: "number" },
     { key: "arrear_year_demand", label: label("register4ArrearYearDemand", "Arrear Tax Year Demand (BDT)"), type: "number" },

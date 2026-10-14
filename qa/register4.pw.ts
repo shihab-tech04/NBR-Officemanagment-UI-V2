@@ -55,6 +55,8 @@ test("Register-4 date filters actually change results, and local draft is sessio
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /180.*Self-assessment return/ }).click();
   await dialog.getByRole("button", { name: "Add local draft" }).click();
   await expect(table.locator("tbody tr")).toHaveCount(9);
   await page.reload();
@@ -177,6 +179,8 @@ test("Register-4 New Entry resolves TIN before showing the assessment form and u
   await expect(dialog.locator("#taxpayer_name")).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeEnabled();
   await dialog.locator("#remarks").fill("Lookup flow test");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /180.*Self-assessment return/ }).click();
   await dialog.getByRole("button", { name: "Add local draft" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".card-table__table")).toContainText("Rahman Enterprise (TIN-10000)");
@@ -306,4 +310,44 @@ test("Register-4 Bangla TIN suggestions use translation and preserve direct sear
   await expect(suggestions.getByRole("button")).toHaveCount(4);
   await suggestions.getByRole("button", { name: "TIN-10000" }).click();
   await expect(dialog.getByRole("region", { name: "করদাতার তথ্য" })).toContainText("Rahman Enterprise");
+});
+
+test("Register-4 Section dropdown appends chronological selections and supports custom section", async ({ page }) => {
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /180.*Self-assessment return/ }).click();
+  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /182.*Audit selection/ }).click();
+  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182");
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await dialog.locator("#disposal_code-custom").fill("১৮৩(৭)");
+  await dialog.getByRole("button", { name: "Add section", exact: true }).click();
+  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182/183(7)");
+  await dialog.getByRole("button", { name: "Remove last" }).click();
+  await expect(dialog.locator(".register4-section-field__trail")).toHaveText("180/182");
+  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await expect(page.locator(".card-table__table")).toContainText("180/182");
+});
+
+test("Register-4 custom section rejects invalid code and English/Bangla form keeps its footer", async ({ page }) => {
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await dialog.locator("#disposal_code").click();
+  await page.getByRole("option", { name: /Add a section not listed/ }).click();
+  await dialog.locator("#disposal_code-custom").fill("180/182");
+  await dialog.getByRole("button", { name: "Add section", exact: true }).click();
+  await expect(dialog.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
+  await expect(dialog.locator(".register4-section-field__trail")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await expect(dialog.locator(".entry-form__grid")).toBeVisible();
+  await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
 });

@@ -93,7 +93,16 @@
     "searchAction": "অনুসন্ধান",
     "taxpayerDetails": "করদাতার তথ্য",
     "tinNotFound": "এই টিআইএন-এর কোনো করদাতা পাওয়া যায়নি।",
-    "tinSuggestions": "টিআইএন পরামর্শ"
+    "tinSuggestions": "টিআইএন পরামর্শ",
+    "sectionChoose": "ধারা নির্বাচন করুন",
+    "sectionAddNew": "+ তালিকায় নেই এমন ধারা যুক্ত করুন",
+    "sectionSelected": "নির্বাচিত ধারার ক্রম",
+    "sectionUndo": "শেষ ধারা সরান",
+    "sectionCustomLabel": "ধারা নম্বর লিখুন",
+    "sectionInvalid": "১৮২ অথবা ১৮৩(৭)-এর মতো ধারা নম্বর লিখুন।",
+    "sectionCancel": "বাতিল",
+    "sectionAdd": "ধারা যুক্ত করুন",
+    "sectionUnverified": "নতুন যুক্ত করা ধারা শুধু খসড়া; আইনগত প্রযোজ্যতা যাচাইকৃত নয়।"
   },
   "stockRegister": {
     "title": "স্টক রেজিস্টার",
