@@ -1,6 +1,7 @@
 // ─── Shared Types and Utilities for Module Pages ────────────────────────────
 import type React from "react";
 import type { AttachmentItem } from "../components/attachments/attachmentTypes";
+import type { FormField, EntryFormValue } from "../components/forms/EntryForm";
 import { TAX_ZONE_FILTER_OPTIONS } from "../data/taxZones";
 
 export type TableCellValue = string | number | boolean | null | undefined | AttachmentItem[];
@@ -46,6 +47,18 @@ export interface PageCfg {
   extraBtns?: { id: string; label: string; icon: IconComponent; color?: string; tone?: "primary" | "neutral" | "warning"; formKind?: "psr-entry" | "psr-bulk-entry" | "generic-upload" }[];
   /** Optional explicit mobile card field mapping. If absent, uses smart fallback logic. */
   mobileCardMapping?: MobileCardMapping;
+  /** Opt-in per-page behaviors. All existing module pages keep their prior defaults. */
+  applyTableFilters?: boolean;
+  filterDateField?: string;
+  assessmentYearScope?: { field: string; year: string };
+  enableSort?: boolean;
+  pageSizeOptions?: number[];
+  buildVisibleKpis?: (visibleRows: TableRow[]) => KpiDef[];
+  entryFields?: FormField[];
+  createEntryRow?: (values: Record<string, EntryFormValue>, existingRows: TableRow[]) => TableRow;
+  entrySubmitLabel?: string;
+  onExportRows?: (visibleRows: TableRow[]) => void;
+  workspaceNote?: string;
 }
 
 // ─── Data Constants ──────────────────────────────────────────────────────────
