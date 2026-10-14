@@ -1,0 +1,28 @@
+name: UX screenshot information fidelity — Register-4
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/pages/register-stock/**'
+      - 'src/app/components/tables/**'
+      - 'src/styles/**'
+      - 'docs/ux/screenshot-fidelity/**'
+      - 'scripts/screenshot-fidelity-gate.mjs'
+      - '.github/workflows/ux-screenshot-fidelity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  screenshot-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate screenshot ledger checker
+        run: node scripts/screenshot-fidelity-gate.mjs --self-test
+      - name: Enumerate missing screenshot-to-UI evidence
+        run: node scripts/screenshot-fidelity-gate.mjs --audit docs/ux/screenshot-fidelity/register4-image-ledger.json
+      - name: Reject unaccepted screenshot content / visual parity
+        run: node scripts/screenshot-fidelity-gate.mjs --release docs/ux/screenshot-fidelity/register4-image-ledger.json
