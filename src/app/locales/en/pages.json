@@ -84,7 +84,12 @@
   },
   "register4": {
     "title": "Register-4",
-    "desc": "Track book issuance, serial numbers, and stock movements."
+    "desc": "Monthly tax-assessment register — illustrative data only.",
+    "sampleNotice": "Illustrative sample records; not verified tax assessments. Missing amounts are marked —. New entries are unsaved local drafts. Choose assessment year above; scroll horizontally to see financial columns and select any row for details.",
+    "addLocalDraft": "Add local draft",
+    "localDraftAdded": "Local draft added for this session only. Nothing was saved to the server.",
+    "invalidDateRange": "Start date must be on or before end date.",
+    "yearHelp": "Matches the selected assessment year."
   },
   "stockRegister": {
     "title": "Stock Register",
