@@ -7,7 +7,7 @@ import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { useSettings } from "../../hooks/useSettings";
 import { REGISTER4_ASSESSMENT_ROWS, buildRegister4EntryFields } from "./register4AssessmentTable";
-import "../../styles/register4-entry.css";
+import "../../../styles/register4-entry.css";
 
 type Taxpayer = { taxpayer_name: string; tin: string; circle: string; assessment_year: string };
 
