@@ -203,7 +203,8 @@
     "savedEntry": "Saved Entry",
     "entryComplete": "Entry Complete",
     "approvedEntry": "Approved Entry",
-    "register4RecordSource": "Record source"
+    "register4RecordSource": "Record source",
+    "register4SerialNo": "S/N"
   },
   "groups": {
     "entryToday": "Entry Today",
