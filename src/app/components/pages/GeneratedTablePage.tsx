@@ -526,7 +526,13 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
       />
 
       {/* Entry modal */}
-      {cfg.entryBtn && (
+      {cfg.entryBtn && (cfg.entryModalComponent ? (
+        <cfg.entryModalComponent
+          open={modal === "entry"}
+          onClose={() => setModal(null)}
+          onSubmit={handleEntrySubmit}
+        />
+      ) : (
         <AppModal open={modal === "entry"} title={cfg.entryBtn ?? resolvedTitle} onClose={() => setModal(null)}>
           <EntryForm
             onClose={() => setModal(null)}
@@ -544,7 +550,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
             ]}
           />
         </AppModal>
-      )}
+      ))}
 
       {/* Extra btn modals — each gets its own form fields based on formKind */}
       {cfg.extraBtns?.map(b => {

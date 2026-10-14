@@ -52,11 +52,11 @@ test("Register-4 date filters actually change results, and local draft is sessio
   await page.getByRole("button", { name: /New Entry/i }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Taxpayer Name" }).fill("E2E Synthetic Test");
-  await dialog.getByRole("textbox", { name: "TIN" }).fill("DEMO-123456");
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
   await dialog.getByRole("button", { name: "Add local draft" }).click();
   await expect(table.locator("tbody tr")).toHaveCount(9);
-  await expect(table.getByText("E2E Synthetic Test (DEMO-123456)")).toBeVisible();
   await page.reload();
   await expect(table.locator("tbody tr")).toHaveCount(8);
 });
@@ -148,4 +148,79 @@ test("Register-4 headers and cells use content alignment while Stock Register ke
   await expect(stockTable).toBeVisible();
   await expect(stockTable.locator(".card-table__th--align-left, .card-table__th--align-center, .card-table__th--align-right")).toHaveCount(0);
   await expect(stockTable.locator("tbody tr").first().locator("td.card-table__td").first()).toHaveCSS("text-align", "left");
+});
+
+test("Register-4 New Entry resolves TIN before showing the assessment form and uses modal footer", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("searchbox", { name: "Search TIN" })).toBeVisible();
+  await expect(dialog.locator(".entry-form__grid")).toHaveCount(0);
+  await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
+  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeDisabled();
+
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("NOT-A-TIN");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(dialog.getByRole("status")).toHaveText("No taxpayer found for this TIN.");
+  await expect(dialog.locator(".entry-form__grid")).toHaveCount(0);
+
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("tin-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("TIN-10000");
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Circle-1");
+  await expect(dialog.locator(".entry-form__grid")).toBeVisible();
+  await expect(dialog.locator("#circle")).toHaveValue("Circle-1");
+  await expect(dialog.locator("#assessment_year")).toContainText("2024-25");
+  await expect(dialog.locator("#taxpayer_name")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeEnabled();
+  await dialog.locator("#remarks").fill("Lookup flow test");
+  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".card-table__table")).toContainText("Rahman Enterprise (TIN-10000)");
+  await page.reload();
+  await expect(page.locator(".card-table__table tbody tr")).toHaveCount(8);
+});
+
+test("Register-4 New Entry stays usable in mobile bottom sheet with one-column form and footer buttons", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button", { name: /New Entry/i }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10001");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Karim & Sons");
+  await expect(dialog.locator(".entry-form__grid")).toHaveCSS("grid-template-columns", /^(3[0-9][0-9]|[2-9][0-9][0-9])px$/);
+  const footer = dialog.locator(".app-modal-footer");
+  await expect(footer).toBeVisible();
+  await expect(footer.locator(".app-btn")).toHaveCount(2);
+  const buttons = await footer.locator(".app-btn").evaluateAll(els => els.map(el => {
+    const r = el.getBoundingClientRect(); return { top:r.top, bottom:r.bottom, width:r.width };
+  }));
+  expect(buttons[0].top).toBeCloseTo(buttons[1].top, 0);
+  expect(buttons[0].width).toBeGreaterThan(80);
+  await page.screenshot({ path: "test-results/register4-entry-mobile.png", animations: "disabled" });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test("Register-4 TIN lookup and footer labels resolve in Bangla without adding a stepper", async ({ page }) => {
+  await page.goto("/register-stock/register-4");
+  await page.evaluate(() => {
+    const current = JSON.parse(localStorage.getItem("gov_ui_settings") || "{}");
+    localStorage.setItem("gov_ui_settings", JSON.stringify({ ...current, languageId: "bn" }));
+    localStorage.setItem("i18nextLng", "bn");
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /নতুন এন্ট্রি/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("searchbox", { name: "টিআইএন অনুসন্ধান" })).toBeVisible();
+  await expect(dialog.locator(".stepper, .app-stepper")).toHaveCount(0);
+  await dialog.getByRole("searchbox", { name: "টিআইএন অনুসন্ধান" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "অনুসন্ধান", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "করদাতার তথ্য" })).toContainText("Rahman Enterprise");
+  await expect(dialog.getByRole("button", { name: "স্থানীয় খসড়া যোগ করুন" })).toBeVisible();
 });
