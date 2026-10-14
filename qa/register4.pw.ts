@@ -55,7 +55,7 @@ test("Register-4 date filters actually change results, and local draft is sessio
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
-  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(table.locator("tbody tr")).toHaveCount(9);
   await page.reload();
   await expect(table.locator("tbody tr")).toHaveCount(8);
@@ -159,7 +159,9 @@ test("Register-4 New Entry resolves TIN before showing the assessment form and u
   await expect(dialog.getByRole("searchbox", { name: "Search TIN" })).toBeVisible();
   await expect(dialog.locator(".entry-form__grid")).toHaveCount(0);
   await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
-  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Create new Entry" })).toBeDisabled();
+  await expect(dialog.getByText("Matches the selected assessment year.")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Add local draft" })).toHaveCount(0);
 
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("NOT-A-TIN");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
@@ -175,9 +177,9 @@ test("Register-4 New Entry resolves TIN before showing the assessment form and u
   await expect(dialog.locator("#circle")).toHaveValue("Circle-1");
   await expect(dialog.locator("#assessment_year")).toContainText("2024-25");
   await expect(dialog.locator("#taxpayer_name")).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Create new Entry" })).toBeEnabled();
   await dialog.locator("#remarks").fill("Lookup flow test");
-  await dialog.getByRole("button", { name: "Add local draft" }).click();
+  await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".card-table__table")).toContainText("Rahman Enterprise (TIN-10000)");
   await page.reload();
@@ -222,7 +224,8 @@ test("Register-4 TIN lookup and footer labels resolve in Bangla without adding a
   await dialog.getByRole("searchbox", { name: "টিআইএন অনুসন্ধান" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "অনুসন্ধান", exact: true }).click();
   await expect(dialog.getByRole("region", { name: "করদাতার তথ্য" })).toContainText("Rahman Enterprise");
-  await expect(dialog.getByRole("button", { name: "স্থানীয় খসড়া যোগ করুন" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "নতুন এন্ট্রি তৈরি করুন" })).toBeVisible();
+  await expect(dialog.getByText("নির্বাচিত করবর্ষের সঙ্গে মিল থাকতে হবে।")).toHaveCount(0);
 });
 
 test("Register-4 TIN suggestions sit below the search row and select a taxpayer", async ({ page }) => {
@@ -259,7 +262,7 @@ test("Register-4 TIN suggestions sit below the search row and select a taxpayer"
   await search.fill("NO-MATCH");
   await expect(suggestions).toHaveCount(0);
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Create new Entry" })).toBeDisabled();
 });
 
 test("Register-4 mobile TIN search and button are equal-height touch targets with suggestions", async ({ page }) => {
