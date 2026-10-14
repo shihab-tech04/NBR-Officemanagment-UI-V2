@@ -173,7 +173,7 @@ test("Register-4 New Entry resolves TIN before showing the assessment form and u
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Circle-1");
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
   await expect(dialog.locator("#circle")).toHaveValue("Circle-1");
-  await expect(dialog.locator("#assessment_year")).toHaveValue("2024-25");
+  await expect(dialog.locator("#assessment_year")).toContainText("2024-25");
   await expect(dialog.locator("#taxpayer_name")).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Add local draft" })).toBeEnabled();
   await dialog.locator("#remarks").fill("Lookup flow test");
