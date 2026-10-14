@@ -15,7 +15,7 @@ export type TC = {
   success: string; warning: string; error: string;
 };
 
-export interface FlatCol { key: string; label: string; headerKey?: string; badge?: boolean; mono?: boolean; mobileCard?: boolean; truncate?: "compact" | "normal" | "long" | "none"; multilineHeader?: boolean; }
+export interface FlatCol { key: string; label: string; headerKey?: string; badge?: boolean; mono?: boolean; mobileCard?: boolean; truncate?: "compact" | "normal" | "long" | "none"; multilineHeader?: boolean; align?: "left" | "center" | "right"; }
 export interface ColGroup { label: string; groupKey?: string; cols: FlatCol[]; }
 export type ColDef = { type: "col"; col: FlatCol } | { type: "group"; group: ColGroup };
 
