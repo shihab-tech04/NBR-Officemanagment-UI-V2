@@ -93,7 +93,16 @@
     "searchAction": "Search",
     "taxpayerDetails": "Taxpayer details",
     "tinNotFound": "No taxpayer found for this TIN.",
-    "tinSuggestions": "TIN suggestions"
+    "tinSuggestions": "TIN suggestions",
+    "sectionChoose": "Choose a section",
+    "sectionAddNew": "+ Add a section not listed",
+    "sectionSelected": "Selected section history (in entry order)",
+    "sectionUndo": "Remove last",
+    "sectionCustomLabel": "Enter section number",
+    "sectionInvalid": "Use a section number such as 182 or 183(7).",
+    "sectionCancel": "Cancel",
+    "sectionAdd": "Add section",
+    "sectionUnverified": "Custom section entries are draft-only and do not establish legal applicability."
   },
   "stockRegister": {
     "title": "Stock Register",
