@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("gov_ui_auth", JSON.stringify({ isAuthenticated: true, userId: "admin" }));
-    localStorage.setItem("gov_ui_settings", JSON.stringify({
+    if (!localStorage.getItem("gov_ui_settings")) localStorage.setItem("gov_ui_settings", JSON.stringify({
       assessmentYear: "2024-25", themeId: "indigo-blue", fontId: "inter",
       fontSizeId: "standard", languageId: "en",
     }));
@@ -70,15 +70,14 @@ test("Register-4 mobile uses the existing readable card pattern", async ({ page 
 });
 
 test("Register-4 Bangla uses concise approved description with no added disclaimer section", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("gov_ui_settings", JSON.stringify({
-      assessmentYear: "2024-25", themeId: "indigo-blue", fontId: "inter",
-      fontSizeId: "standard", languageId: "bn",
-    }));
-    localStorage.setItem("i18nextLng", "bn");
-  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/register-stock/register-4");
+  await page.evaluate(() => {
+    const settings = JSON.parse(localStorage.getItem("gov_ui_settings") || "{}");
+    localStorage.setItem("gov_ui_settings", JSON.stringify({ ...settings, languageId: "bn" }));
+    localStorage.setItem("i18nextLng", "bn");
+  });
+  await page.reload();
   await expect(page.locator(".table-page__header .table-page__desc")).toHaveText("মাসিক কর নির্ধারণ বিবরণী");
   await expect(page.getByText(/শুধুমাত্র নমুনা তথ্য|এগুলো কেবল উদাহরণমূলক/)).toHaveCount(0);
   await expect(page.locator(".table-page > [role=note]")).toHaveCount(0);
