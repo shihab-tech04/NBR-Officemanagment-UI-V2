@@ -377,7 +377,8 @@ test("Register-4 custom section popover never stretches New Entry form grid", as
   const nextTop = await date.evaluate(e => e.getBoundingClientRect().top);
   expect(Math.abs(previousTop-nextTop)).toBeLessThanOrEqual(2);
   await expect(dialog.locator(".register4-section-field__custom")).toHaveCount(0);
-  await expect(dialog.locator(".entry-form__grid")).toBeVisible();
+  // The underlying form remains laid out, but is aria-hidden while MUI Popover owns focus.
+  await expect(page.locator(".app-modal-panel .entry-form__grid")).toBeVisible();
   await page.locator("#disposal_code-custom").fill("182(4)");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
