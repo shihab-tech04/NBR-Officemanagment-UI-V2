@@ -673,10 +673,13 @@ test("Register-4 inline row stays compact with TIN lookup as floating popper",as
   await suggestions.getByRole("button",{name:"TIN-10003"}).click();
   await expect(draft.locator("#register4-inline-table-tin")).toHaveValue("TIN-10003");
   await expect(suggestions).toHaveCount(0);
-  const section=draft.locator("#register4-inline-table-disposal_code");
+  // Measure actual outlined field edges, not the Select's inner text baseline
+  // (which MUI intentionally places ~8px below the outline's top edge).
+  const outline=draft.locator(".register4-inline__cell--section .register4-section-field__select .MuiOutlinedInput-root");
   const add=draft.getByRole("button",{name:"Add a section"});
-  const [sectionRect,addRect]=await Promise.all([section.boundingBox(),add.boundingBox()]);
-  expect(Math.abs(sectionRect!.y-addRect!.y)).toBeLessThan(8);
+  const [sectionRect,addRect]=await Promise.all([outline.boundingBox(),add.boundingBox()]);
+  expect(Math.abs(sectionRect!.y-addRect!.y)).toBeLessThan(2);
+  expect(Math.abs(sectionRect!.height-addRect!.height)).toBeLessThan(2);
   await page.screenshot({path:"test-results/register4-inline-compact-desktop.png",animations:"disabled"});
   await draft.getByRole("button",{name:"Discard row"}).click();
 });
