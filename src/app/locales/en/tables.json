@@ -202,7 +202,8 @@
     "draftEntry": "Draft Entry",
     "savedEntry": "Saved Entry",
     "entryComplete": "Entry Complete",
-    "approvedEntry": "Approved Entry"
+    "approvedEntry": "Approved Entry",
+    "register4RecordSource": "Record source"
   },
   "groups": {
     "entryToday": "Entry Today",
