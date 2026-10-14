@@ -88,7 +88,11 @@
     "addLocalDraft": "Add local draft",
     "localDraftAdded": "Local draft added for this session only. Nothing was saved to the server.",
     "invalidDateRange": "Start date must be on or before end date.",
-    "yearHelp": "Matches the selected assessment year."
+    "yearHelp": "Matches the selected assessment year.",
+    "searchTin": "Search TIN",
+    "searchAction": "Search",
+    "taxpayerDetails": "Taxpayer details",
+    "tinNotFound": "No taxpayer found for this TIN."
   },
   "stockRegister": {
     "title": "Stock Register",
