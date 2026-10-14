@@ -4,6 +4,9 @@ import { muiFieldSx, muiFilterSx } from "./muiFieldSx";
 interface SelectOption {
   value: string;
   label: string;
+  /** Per-option availability; optional so existing shared consumers are unchanged. */
+  disabled?: boolean;
+  title?: string;
 }
 
 interface AppSelectFieldProps {
@@ -55,6 +58,7 @@ export function AppSelectField({
         value={selectedOption}
         onChange={(_, option) => onChange(option?.value ?? "")}
         getOptionLabel={(option) => option.label}
+        getOptionDisabled={(option) => !!option.disabled}
         isOptionEqualToValue={(option, selected) => option.value === selected.value}
         disabled={disabled}
         fullWidth
@@ -108,7 +112,7 @@ export function AppSelectField({
       sx={compact ? muiFilterSx : muiFieldSx}
     >
       {normalized.map(o => (
-        <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+        <MenuItem key={o.value} value={o.value} disabled={o.disabled} title={o.title}>{o.label}</MenuItem>
       ))}
     </TextField>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { REGISTER4_SECTIONS, normalizeRegister4SectionCode, isRegister4SectionSyntax,
-  appendRegister4Section, appendReviewedRegister4Section, reviewRegister4Transition, reviewRegister4History, nextRegister4CandidateCodes, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS, getRegister4DemoShortcutSection } from "../app/pages/register-stock/register4SectionCodes";
+  appendRegister4Section, appendReviewedRegister4Section, reviewRegister4Transition, reviewRegister4History, nextRegister4CandidateCodes, reviewRegister4Addition,
+  appendReviewedRegister4Addition, getRegister4MoMPresetChoices, REGISTER4_MOM_PRESETS, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS, getRegister4DemoShortcutSection } from "../app/pages/register-stock/register4SectionCodes";
 import { buildRegister4EntryFields, createRegister4LocalDraft, REGISTER4_ASSESSMENT_ROWS } from "../app/pages/register-stock/register4AssessmentTable";
 
 describe("Register-4 statutory selection (draft-only)", () => {
@@ -59,6 +60,47 @@ describe("Register-4 statutory selection (draft-only)", () => {
     expect(reviewRegister4Transition("180","444")).toMatchObject({status:"REVIEW_REQUIRED",reason:"CUSTOM_UNVERIFIED"});
     expect(reviewRegister4History("180/292").status).toBe("BLOCKED");
     expect(reviewRegister4History("180/182/183(7)").status).toBe("REVIEW_REQUIRED");
+  });
+
+  it("includes all ten MoM proposed presets in original order without treating them as universally valid", () => {
+    expect(REGISTER4_MOM_PRESETS.map(x=>x.code)).toEqual([
+      "182/183(7)","183(7)","184","289/183(7)","289/184",
+      "292","292/183(7)","292/184","285","213"
+    ]);
+    expect(getRegister4MoMPresetChoices("180")).toHaveLength(10);
+    expect(getRegister4MoMPresetChoices("180").find(x=>x.code==="182/183(7)")?.status).toBe("REVIEW_REQUIRED");
+    expect(getRegister4MoMPresetChoices("180").find(x=>x.code==="292/184")?.status).toBe("BLOCKED");
+  });
+  it("applies each multi-section preset only when its preceding chain is available", () => {
+    const cases:[string,string,string][]=[
+      ["180","182/183(7)","180/182/183(7)"],
+      ["180","183(7)","180/183(7)"],
+      ["180","184","180/184"],
+      ["180/183(7)","289/183(7)","180/183(7)/289/183(7)"],
+      ["180/183(7)","289/184","180/183(7)/289/184"],
+      ["180/183(7)/289","292","180/183(7)/289/292"],
+      ["180/183(7)/289","292/183(7)","180/183(7)/289/292/183(7)"],
+      ["180/183(7)/289","292/184","180/183(7)/289/292/184"],
+      ["180/183(7)","285","180/183(7)/285"],
+      ["180/183(7)","213","180/183(7)/213"],
+    ];
+    for(const [prior,preset,expected] of cases){
+      expect(reviewRegister4Addition(prior,preset).status).toBe("REVIEW_REQUIRED");
+      expect(appendReviewedRegister4Addition(prior,preset)).toBe(expected);
+    }
+  });
+  it("blocks composite orphan stages atomically and preserves previous valid history", () => {
+    const rejected:[string,string][]=[
+      ["","182/183(7)"],["180","292"],["180","292/184"],
+      ["180","289/184"],["180/182","180(2)"],["180/183(7)","184"],
+      ["180/292","289/184"],["180","182//183(7)"],
+      ["180","182/183(7)/292"],
+    ];
+    for(const [prior,suffix] of rejected){
+      expect(reviewRegister4Addition(prior,suffix).status).toBe("BLOCKED");
+      expect(appendReviewedRegister4Addition(prior,suffix)).toBeNull();
+    }
+    expect(appendReviewedRegister4Addition("180","182/183(7)")).toBe("180/182/183(7)");
   });
   it("retains string history in the existing local-draft and export data contract", () => {
     const draft = createRegister4LocalDraft({
