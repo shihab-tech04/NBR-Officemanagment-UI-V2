@@ -88,7 +88,8 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
     <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-circle"}
       label={th("headers.circle")} value={values.circle??""} readOnly onChange={()=>{}}/></div>,
     tinControl,
-    <span className="register4-inline__readonly">—</span>,
+    <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-folio_no"}
+      label={th("headers.register4FolioNo")} value="" readOnly onChange={()=>{}}/></div>,
     sectionControl,
     field("assessment_year",th("headers.register4AssessmentYear"),"select"),
     field("assessment_date",th("headers.register4AssessmentDate"),"date","register4-inline__cell--date"),
