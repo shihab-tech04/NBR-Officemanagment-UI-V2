@@ -57,6 +57,12 @@ export interface PageCfg {
   entryFields?: FormField[];
   createEntryRow?: (values: Record<string, EntryFormValue>, existingRows: TableRow[]) => TableRow;
   entrySubmitLabel?: string;
+  /** Register-specific entry dialog. Default shared entry modal stays unchanged. */
+  entryModalComponent?: React.ComponentType<{
+    open: boolean;
+    onClose: () => void;
+    onSubmit: (values: Record<string, EntryFormValue>) => void;
+  }>;
   onExportRows?: (visibleRows: TableRow[]) => void;
 }
 
