@@ -110,7 +110,17 @@
     "serialAutomatic": "Serial No. assigned when added",
     "transitionBlocked": "This section cannot follow the recorded sequence. Check the proceeding and its source order.",
     "proceedingReference": "Latest proceeding / order reference",
-    "proceedingEventDate": "Latest proceeding event date"
+    "proceedingEventDate": "Latest proceeding event date",
+    "addRow": "Add row",
+    "saveRow": "Save row",
+    "discardRow": "Discard row",
+    "tinRequired": "Enter a matching TIN",
+    "sectionRequired": "Select an eligible section",
+    "yearRequired": "Select an assessment year",
+    "inlineDraft": "New row",
+    "tinInput": "Enter TIN",
+    "inlineName": "Taxpayer name",
+    "inlineNotFound": "TIN not found in demo records"
   },
   "stockRegister": {
     "title": "Stock Register",

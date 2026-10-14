@@ -61,3 +61,38 @@
   .register4-section-field__add.app-btn { min-height:44px; height:44px; }
   .register4-section-field__actions > .app-btn { min-height:44px; height:44px; }
 }
+
+/* Register-4 in-table Add row only; frozen New Entry modal and table styles remain intact. */
+.register4-inline__row { background:var(--color-primary-alpha-5); }
+.register4-inline__row > td { vertical-align:top; padding:10px 7px; border-bottom:1px solid var(--color-border); }
+.register4-inline__row .MuiFormControl-root { min-width:0; }
+.register4-inline__row .MuiInputBase-input { font-size:var(--fs-body-sm); }
+.register4-inline__cell { min-width:118px; }
+.register4-inline__cell--identity { min-width:185px; }
+.register4-inline__cell--section { min-width:300px; }
+.register4-inline__cell--date { min-width:160px; }
+.register4-inline__cell--money { min-width:130px; }
+.register4-inline__cell--remarks { min-width:170px; }
+.register4-inline__readonly { color:var(--color-text-secondary); margin:7px 0 0; font-size:var(--fs-label-sm); overflow-wrap:anywhere; }
+.register4-inline__actions { display:flex; gap:6px; align-items:flex-start; justify-content:center; min-width:85px; }
+.register4-inline__icon {
+  width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-primary);
+  border-radius:var(--radius-md); cursor:pointer;
+}
+.register4-inline__icon:hover { background:var(--color-primary-alpha-5); }
+.register4-inline__icon:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
+.register4-inline__icon--cancel { color:var(--color-error); }
+.register4-inline__subfields { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+.register4-inline__mobile { padding:var(--space-4); background:var(--color-background-subtle); border-bottom:1px solid var(--color-border); }
+.register4-inline__mobile-title { margin:0 0 var(--space-3); font-size:var(--fs-body-md); font-weight:600; }
+.register4-inline__mobile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
+.register4-inline__mobile-grid > * { min-width:0; }
+.register4-inline__mobile-grid .register4-inline__cell--section,
+.register4-inline__mobile-grid .register4-inline__cell--remarks,
+.register4-inline__mobile-grid .register4-inline__cell--identity { grid-column:1/-1; }
+.register4-inline__mobile-footer { display:flex; justify-content:flex-end; margin-top:var(--space-3); }
+.register4-inline__mobile-footer .register4-inline__icon { width:44px; height:44px; }
+@media(max-width:420px) {
+  .register4-inline__mobile-grid,.register4-inline__subfields { grid-template-columns:minmax(0,1fr); }
+}
