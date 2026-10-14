@@ -58,7 +58,6 @@ export interface PageCfg {
   createEntryRow?: (values: Record<string, EntryFormValue>, existingRows: TableRow[]) => TableRow;
   entrySubmitLabel?: string;
   onExportRows?: (visibleRows: TableRow[]) => void;
-  workspaceNote?: string;
 }
 
 // ─── Data Constants ──────────────────────────────────────────────────────────
