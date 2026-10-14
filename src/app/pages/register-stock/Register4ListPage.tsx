@@ -3,6 +3,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { GenPage } from "../../components/pages/GeneratedTablePage";
 import type { PageCfg } from "../modulePageUtils";
 import { ROW_VIEW, VIEW } from "../../data/modulePageConfigs";
+import { Register4EntryModal } from "./Register4EntryModal";
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
   REGISTER4_ASSESSMENT_DRAWER_COLUMNS,
@@ -41,6 +42,7 @@ export function Register4ListPage() {
     kpis: buildRegister4Kpis(REGISTER4_ASSESSMENT_ROWS),
     buildVisibleKpis: buildRegister4Kpis,
     entryBtn: translateActions("newEntry"),
+    entryModalComponent: Register4EntryModal,
     entrySubmitLabel: translatePages("register4.addLocalDraft"),
     entryFields: buildRegister4EntryFields(assessmentYear, translateTables, translatePages),
     createEntryRow: createRegister4LocalDraft,
