@@ -89,7 +89,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
               <tr className="card-table__header-group">
                 {cols.map((c, ci) =>
                   c.type === "col" ? (
-                    <th key={ci} rowSpan={2} scope="col" className="card-table__th card-table__th--secondary" aria-sort={onSortColumn ? (sortKey===c.col.key ? sortDirection : "none") : undefined}>
+                    <th key={ci} rowSpan={2} scope="col" className={`card-table__th card-table__th--secondary${c.col.align ? ` card-table__th--align-${c.col.align}` : ""}`} aria-sort={onSortColumn ? (sortKey===c.col.key ? sortDirection : "none") : undefined}>
                       {headerContent(c.col)}
                     </th>
                   ) : (
@@ -111,13 +111,13 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                     c.type === "col"
                       ? []
                       : c.group.cols.map((sc, sci) => (
-                          <th key={`${ci}-${sci}`} scope="col" className="card-table__th card-table__th--sub" aria-sort={onSortColumn ? (sortKey===sc.key ? sortDirection : "none") : undefined}>
+                          <th key={`${ci}-${sci}`} scope="col" className={`card-table__th card-table__th--sub${sc.align ? ` card-table__th--align-${sc.align}` : ""}`} aria-sort={onSortColumn ? (sortKey===sc.key ? sortDirection : "none") : undefined}>
                             {headerContent(sc)}
                           </th>
                         ))
                   )
                 : flat.map((col, ci) => (
-                    <th key={ci} scope="col" className="card-table__th card-table__th--secondary" aria-sort={onSortColumn ? (sortKey===col.key ? sortDirection : "none") : undefined}>
+                    <th key={ci} scope="col" className={`card-table__th card-table__th--secondary${col.align ? ` card-table__th--align-${col.align}` : ""}`} aria-sort={onSortColumn ? (sortKey===col.key ? sortDirection : "none") : undefined}>
                       {headerContent(col)}
                     </th>
                   ))}
@@ -170,7 +170,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                         key={ci}
                         className={[
                           "card-table__td",
-                          hasGroups && ci > 0 ? "card-table__td--right" : "card-table__td--left",
+                          col.align ? `card-table__td--${col.align}` : hasGroups && ci > 0 ? "card-table__td--right" : "card-table__td--left",
                           col.mono ? "card-table__td--mono" : "",
                           col.truncate === "none" ? "card-table__td--no-truncate" : "",
                         ].filter(Boolean).join(" ")}
