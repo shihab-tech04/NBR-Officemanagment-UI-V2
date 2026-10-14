@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { REGISTER4_SECTIONS, normalizeRegister4SectionCode, isRegister4SectionSyntax,
-  appendRegister4Section, undoRegister4Section, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS, getRegister4DemoShortcutSection } from "../app/pages/register-stock/register4SectionCodes";
+  appendRegister4Section, appendReviewedRegister4Section, reviewRegister4Transition, reviewRegister4History, nextRegister4CandidateCodes, illustrativeRegister4Trail, REGISTER4_ILLUSTRATIVE_SECTION_TRAILS, getRegister4DemoShortcutSection } from "../app/pages/register-stock/register4SectionCodes";
 import { buildRegister4EntryFields, createRegister4LocalDraft, REGISTER4_ASSESSMENT_ROWS } from "../app/pages/register-stock/register4AssessmentTable";
 
 describe("Register-4 statutory selection (draft-only)", () => {
@@ -28,7 +28,8 @@ describe("Register-4 statutory selection (draft-only)", () => {
   it("appends in selection order without silently deleting repeated real-world codes", () => {
     expect(appendRegister4Section("180/182", "183(7)")).toBe("180/182/183(7)");
     expect(appendRegister4Section("180/182", "182")).toBe("180/182/182");
-    expect(undoRegister4Section("180/182/183(7)")).toBe("180/182");
+    expect(reviewRegister4Transition("180/182","183(7)").status).toBe("REVIEW_REQUIRED");
+    expect(appendReviewedRegister4Section("180/182","183(7)")).toBe("180/182/183(7)");
   });
   it("accepts Bengali digits but rejects free text, slash injection, zero and invalid parentheses", () => {
     expect(normalizeRegister4SectionCode("১৮৩(৭)")).toBe("183(7)");
@@ -37,6 +38,27 @@ describe("Register-4 statutory selection (draft-only)", () => {
       expect(isRegister4SectionSyntax(bad)).toBe(false);
       expect(appendRegister4Section("180", bad)).toBeNull();
     }
+  });
+  it("blocks impossible first-step appeals and ordinary revisions after audit selection", () => {
+    for(const code of ["180(2)","182","289","292","213","285"]) {
+      expect(reviewRegister4Transition("",code).status).toBe("BLOCKED");
+    }
+    expect(reviewRegister4Transition("180/182","180(2)").status).toBe("BLOCKED");
+    expect(reviewRegister4Transition("180","292").status).toBe("BLOCKED");
+    expect(reviewRegister4Transition("180/183(7)","184").status).toBe("BLOCKED");
+    expect(appendReviewedRegister4Section("180","292")).toBeNull();
+  });
+  it("restricts candidate choices to context-specific pathways, never legal PASS", () => {
+    expect(nextRegister4CandidateCodes("180")).toContain("182");
+    expect(nextRegister4CandidateCodes("180")).not.toContain("292");
+    expect(nextRegister4CandidateCodes("180/182")).toContain("182(11)");
+    expect(nextRegister4CandidateCodes("180/182")).toContain("184");
+    expect(nextRegister4CandidateCodes("180/183(7)")).toContain("289");
+    expect(nextRegister4CandidateCodes("180/183(7)/289")).toContain("292");
+    expect(reviewRegister4Transition("180/183(7)/289","292")).toMatchObject({status:"REVIEW_REQUIRED"});
+    expect(reviewRegister4Transition("180","444")).toMatchObject({status:"REVIEW_REQUIRED",reason:"CUSTOM_UNVERIFIED"});
+    expect(reviewRegister4History("180/292").status).toBe("BLOCKED");
+    expect(reviewRegister4History("180/182/183(7)").status).toBe("REVIEW_REQUIRED");
   });
   it("retains string history in the existing local-draft and export data contract", () => {
     const draft = createRegister4LocalDraft({

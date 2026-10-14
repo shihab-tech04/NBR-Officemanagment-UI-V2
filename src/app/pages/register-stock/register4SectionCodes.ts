@@ -36,10 +36,6 @@ export function appendRegister4Section(trail: string, section: string): string |
   return [...register4SectionTrail(trail), code].join("/");
 }
 
-export function undoRegister4Section(trail: string): string {
-  return register4SectionTrail(trail).slice(0, -1).join("/");
-}
-
 // Synthetic display examples only, based on the slash-separated Register-4
 // notation in the 2026-10-08 meeting reference and the available sections.
 // THESE ARE NOT VERIFIED CASE HISTORIES, LEGAL PRESCRIPTIONS, OR CALCULATIONS.
@@ -69,4 +65,74 @@ const SHORTCUT_SECTIONS: Record<string, string> = {
 };
 export function getRegister4DemoShortcutSection(tin: string): string {
   return SHORTCUT_SECTIONS[tin.trim().toUpperCase()] ?? "";
+}
+
+// REGISTER-4 PROCEEDING GUARDRAILS v0.1 — REVIEW-ONLY.
+// Source basis: NBR-SRC-001, Income Tax Act 2023 authentic English text
+// (Gazette 16 Oct 2025), ss 180(2)-(3),182(1)-(13),183(7)-(8),
+// 184, 212(1)-(6), 213, 285, 286, 289, 291, 292;
+// Register-4 MoM 8 Oct 2026 pp 1-2.
+// These are conservative candidate filters, NOT certified 2026/current-law
+// or historical applicability. Every admitted transition remains review-required.
+// Separate audit selection, notices, order identity, appeal/revision outcome,
+// legal year/version, limitation and proof before ANY executable tax use.
+
+export type Register4Decision =
+  | { status:"BLOCKED"; reason:"INVALID_CODE"|"INCOMPATIBLE_SEQUENCE"|"INCOMPLETE_TRAIL"; next:string }
+  | { status:"REVIEW_REQUIRED"; reason:"EVIDENCE_AND_APPLICABILITY"|"CUSTOM_UNVERIFIED"; next:string };
+
+/** Partial UI candidate graph, deliberately excluding unknown legal transitions. */
+const NEXT_BY_LAST: Record<string, readonly string[]> = {
+  "": ["180","183(7)","184","212"],
+  "180": ["180(2)","182","182(2)","183(7)","184","212"],
+  "180(2)": ["182","182(2)","183(7)","212"],
+  "182": ["182(2)","182(4)","182(11)","183(7)","184"],
+  "182(2)": ["182(4)","182(11)","183(7)","184"],
+  "182(4)": ["182(11)","183(7)","184"],
+  "182(11)": ["212"],
+  "183(7)": ["213","285","289","212"],
+  "184": ["213","285","289","212"],
+  "212": ["183(7)","184"],
+  "213": ["183(7)","184","289","212"],
+  "285": ["183(7)","184","212"],
+  "289": ["292","183(7)","184","212"],
+  "292": ["183(7)","184","212"],
+};
+const CATALOG_CODES: readonly string[] = [
+  ...REGISTER4_SECTIONS.map(section => section.code),
+  "182(2)", "182(4)", "182(11)"
+];
+
+/** Visible suggestions are candidate paths, not lawful approvals. */
+export function nextRegister4CandidateCodes(trail:string): string[] {
+  const previous=register4SectionTrail(trail);
+  // Unknown historical/custom code cannot be mapped safely.
+  return [...(NEXT_BY_LAST[previous[previous.length-1] ?? ""] ?? [])];
+}
+export function reviewRegister4Transition(trail:string, proposed:string):Register4Decision {
+  const next=normalizeRegister4SectionCode(proposed);
+  if(!isRegister4SectionSyntax(next))
+    return {status:"BLOCKED", reason:"INVALID_CODE", next};
+  const parts=register4SectionTrail(trail);
+  if(parts.some(part=>!isRegister4SectionSyntax(part)))
+    return {status:"BLOCKED",reason:"INCOMPLETE_TRAIL",next};
+  if(CATALOG_CODES.includes(next) && !nextRegister4CandidateCodes(trail).includes(next))
+    return {status:"BLOCKED",reason:"INCOMPATIBLE_SEQUENCE",next};
+  // Other genuine provisions can be recorded only as unverified candidates.
+  return {status:"REVIEW_REQUIRED",reason:CATALOG_CODES.includes(next)
+    ? "EVIDENCE_AND_APPLICABILITY":"CUSTOM_UNVERIFIED",next};
+}
+export function reviewRegister4History(trail:string):Register4Decision {
+  let accumulated="";
+  let decision: Register4Decision={status:"BLOCKED",reason:"INCOMPLETE_TRAIL",next:""};
+  for(const part of register4SectionTrail(trail)){
+    decision=reviewRegister4Transition(accumulated,part);
+    if(decision.status==="BLOCKED")return decision;
+    accumulated=appendRegister4Section(accumulated,part) ?? accumulated;
+  }
+  return decision;
+}
+export function appendReviewedRegister4Section(trail:string,section:string):string|null {
+  if(reviewRegister4Transition(trail,section).status==="BLOCKED")return null;
+  return appendRegister4Section(trail,section);
 }

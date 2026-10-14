@@ -332,8 +332,8 @@ test("Register-4 Section dropdown appends chronological selections and supports 
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(dialog.locator("#disposal_code")).toHaveText("180/182/183(7)");
   await dialog.locator("#disposal_code").click();
-  await page.getByRole("option", { name: "Remove last" }).click();
-  await expect(dialog.locator("#disposal_code")).toHaveText("180/182");
+  await expect(page.getByRole("option", {name:"Remove last"})).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(page.locator(".card-table__table")).toContainText("180/182");
 });
@@ -453,4 +453,31 @@ test("Register-4 custom section Add is visible outside dropdown, balanced popove
   await pop.getByRole("textbox",{name:"Section number"}).fill("১৮২(৪)");
   await pop.getByRole("button",{name:"Add section",exact:true}).click();
   await expect(dialog.locator("#disposal_code")).toContainText("182(4)");
+});
+
+test("Register-4 blocks an unsupported transition and preserves the existing trail",async({page})=>{
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:/New Entry/i}).click();
+  const d=page.getByRole("dialog");
+  await d.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10001"}).click();
+  await expect(d.locator("#disposal_code")).toContainText("180");
+  await d.locator("#disposal_code").click();
+  await expect(page.getByRole("option",{name:/292.*Tribunal/})).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await d.getByRole("button",{name:"Add a section"}).click();
+  await page.locator("#disposal_code-custom").fill("292");
+  await page.getByRole("button",{name:"Add section",exact:true}).click();
+  await expect(page.getByText("This section cannot follow the recorded sequence.",{exact:false})).toBeVisible();
+  await page.locator(".register4-section-field__popover").getByRole("button",{name:"Cancel"}).click();
+  await expect(d.locator("#disposal_code")).toContainText("180");
+});
+test("Register-4 available next stages follow the selected path; no Remove last",async({page})=>{
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:/New Entry/i}).click();
+  const d=page.getByRole("dialog");
+  await d.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10003"}).click();
+  await d.locator("#disposal_code").click();
+  await expect(page.getByRole("option",{name:/289.*Appellate/})).toHaveCount(1);
+  await expect(page.getByRole("option",{name:/180\(2\)/})).toHaveCount(0);
+  await expect(page.getByRole("option",{name:"Remove last"})).toHaveCount(0);
 });
