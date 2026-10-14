@@ -493,7 +493,7 @@ test("Register-4 displays ALL ten documented MoM combinations and disables unsup
   await dialog.locator("#disposal_code").click();
   const all=["182/183(7)","183(7)","184","289/183(7)","289/184","292","292/183(7)","292/184","285","213"];
   for(const code of all){
-    const item=page.getByRole("option",{name:new RegExp("^"+code.replace(/[.*+?^\x24{}()|[\]\\]/g,"\\$&")+" — ")});
+    const item=page.getByRole("option",{name:new RegExp("^"+code.replaceAll("(", "\\(").replaceAll(")", "\\)")+" — ")});
     await expect(item).toHaveCount(1);
   }
   await expect(page.getByRole("option",{name:/^182\/183\(7\) — /})).toBeDisabled();
