@@ -17,6 +17,11 @@ test("Register-4 desktop preserves shared table and scopes sample rows to select
   const table = page.locator(".card-table__table");
   await expect(table).toBeVisible();
   await expect(table.locator("tbody tr")).toHaveCount(8);
+  await expect(page.locator(".register4-workspace")).toHaveCount(0);
+  await expect(table.locator("tbody tr").first()).toContainText("DEMO-001");
+  await expect(table.locator("tbody tr").first()).toContainText("8,40,000");
+  await expect(table.locator("tbody tr").first().locator("td").nth(3)).toBeEmpty();
+
   await expect(table.getByRole("columnheader", { name: "Created Demand / Allocation" })).toBeVisible();
   await expect(table.getByRole("columnheader", { name: "Arrear Tax Year" })).toBeVisible();
   await expect(table.getByRole("columnheader", { name: "Current Tax Year" })).toBeVisible();
@@ -37,7 +42,7 @@ test("Register-4 date filters actually change results, and local draft is sessio
   const table = page.locator(".card-table__table");
   await expect(table.locator("tbody tr")).toHaveCount(8);
   await page.locator(".table-card__toolbar").getByRole("button", { name: "Filter" }).click();
-  await page.locator("#filter-from").fill("2026-01-01");
+  await page.locator("#filter-from").fill("2027-01-01");
   await page.getByRole("button", { name: "Apply Filters" }).click();
   await expect(table.locator(".card-table__empty")).toBeVisible();
   // Clear the applied date range using the established chips control.
@@ -81,5 +86,34 @@ test("Register-4 Bangla uses concise approved description with no added disclaim
   await expect(page.locator(".table-page__header .table-page__desc")).toHaveText("মাসিক কর নির্ধারণ বিবরণী");
   await expect(page.getByText(/শুধুমাত্র নমুনা তথ্য|এগুলো কেবল উদাহরণমূলক/)).toHaveCount(0);
   await expect(page.locator(".table-page > [role=note]")).toHaveCount(0);
-  await expect(page.locator(".card-table__table")).toBeVisible();
+  const table = page.locator(".card-table__table");
+  await expect(table).toBeVisible();
+  await expect(table.locator("thead th").filter({ hasText: "করদাতার নাম" })).toHaveText("করদাতার নাম\nও টিআইএন");
+  await expect(table.locator("thead th").filter({ hasText: "ক্রমিক" })).toHaveText("ক্রমিক");
+  await expect(table.locator("thead th").filter({ hasText: "সৃষ্ট দাবি/বিভক্তি" })).toHaveText("সৃষ্ট দাবি/বিভক্তি");
+  await expect(table.locator("thead th").filter({ hasText: "বকেয়া কর বর্ষের" })).toHaveText("বকেয়া কর বর্ষের");
+  await expect(table.locator("thead th").filter({ hasText: "চলতি কর বর্ষের" })).toHaveText("চলতি কর বর্ষের");
+  await expect(table.locator("thead .card-table__th-text--multiline")).toHaveCount(1);
+  await page.screenshot({ path: "test-results/register4-bn-exact-heading.png", fullPage: true, animations: "disabled" });
+});
+
+test("Register-4 and Stock Register retain identical page shell and four-column KPI fit", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  const firstShell = await page.locator(".table-page").evaluate(el => {
+    const rect = el.getBoundingClientRect();
+    const parent = el.parentElement?.getBoundingClientRect();
+    return { width: rect.width, parentWidth: parent?.width ?? 0 };
+  });
+  expect(firstShell.width).toBeLessThanOrEqual(firstShell.parentWidth + 2);
+  await expect(page.locator(".table-page > .kpi-section__panel .stat-card")).toHaveCount(4);
+  const cards = await page.locator(".table-page > .kpi-section__panel .stat-card").evaluateAll(cards => cards.map(el => {
+    const rect=el.getBoundingClientRect();
+    return { left:rect.left, right:rect.right };
+  }));
+  const viewportWidth=page.viewportSize()!.width;
+  for(const card of cards){expect(card.left).toBeGreaterThanOrEqual(0);expect(card.right).toBeLessThanOrEqual(viewportWidth+2);}
+  await page.goto("/register-stock/stock-register");
+  await expect(page.locator(".table-page")).toBeVisible();
+  await expect(page.locator(".register4-workspace")).toHaveCount(0);
 });
