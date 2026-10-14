@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
-import "../../../styles/register4.css";
 import { GenPage } from "../../components/pages/GeneratedTablePage";
 import type { PageCfg } from "../modulePageUtils";
 import { ROW_VIEW, VIEW } from "../../data/modulePageConfigs";
@@ -47,5 +46,5 @@ export function Register4ListPage() {
     createEntryRow: createRegister4LocalDraft,
     onExportRows: rows => downloadRegister4SampleCsv(rows, translateTables),
   };
-  return <div className="register4-workspace"><GenPage cfg={cfg} /></div>;
+  return <GenPage cfg={cfg} />;
 }
