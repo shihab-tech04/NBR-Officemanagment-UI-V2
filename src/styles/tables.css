@@ -251,6 +251,21 @@
   text-align: right;
 }
 
+/* Opt-in column alignment: only applied when FlatCol.align is explicitly set.
+   The original unconfigured CardTable behavior stays byte-for-byte equivalent. */
+.card-table__td--center {
+  text-align: center;
+}
+.card-table__th.card-table__th--align-left { text-align: left; }
+.card-table__th.card-table__th--align-center { text-align: center; }
+.card-table__th.card-table__th--align-right { text-align: right; }
+.card-table__th--align-center .card-table__sort-button,
+.card-table__th--align-right .card-table__sort-button {
+  width: 100%;
+}
+.card-table__th--align-center .card-table__sort-button { justify-content: center; text-align: center; }
+.card-table__th--align-right .card-table__sort-button { justify-content: flex-end; text-align: right; }
+
 .card-table__td--mono {
   font-variant-numeric: tabular-nums;
 }

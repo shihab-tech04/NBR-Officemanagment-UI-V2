@@ -36,6 +36,27 @@ describe("Register-4 assessment table metadata (isolated)", () => {
     expect(flatten().map((col) => col.key)).not.toContain("status");
   });
 
+
+  it("aligns every Register-4 column by content without changing headings or values", () => {
+    expect(flatten().map((col) => [col.key, col.align])).toEqual([
+      ["serial_no", "center"],
+      ["circle", "left"],
+      ["taxpayer_identity", "left"],
+      ["folio_no", "left"],
+      ["disposal_code", "left"],
+      ["assessment_year", "center"],
+      ["assessment_date", "center"],
+      ["assessed_income", "right"],
+      ["arrear_year_demand", "right"],
+      ["current_year_demand", "right"],
+      ["penalty", "right"],
+      ["revised_demand", "right"],
+      ["remarks", "left"],
+    ]);
+    expect(REGISTER4_ASSESSMENT_ROWS).toHaveLength(32);
+    expect(REGISTER4_ASSESSMENT_ROWS[0].folio_no).toBe("");
+  });
+
   it("uses existing two-level grouped table header support", () => {
     const groups = REGISTER4_ASSESSMENT_COLUMNS.filter(
       (col) => col.type === "group"

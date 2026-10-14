@@ -15,28 +15,28 @@ import type { FormField, EntryFormValue } from "../../components/forms/EntryForm
 const unknown = "—";
 
 export const REGISTER4_ASSESSMENT_COLUMNS: ColDef[] = [
-  fc("serial_no", "S/N", { headerKey: "headers.register4SerialNo", truncate: "compact" }),
-  fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact" }),
-  fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal" }),
-  fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo" }),
-  fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode" }),
-  fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact" }),
-  fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact" }),
-  fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome" }),
+  fc("serial_no", "S/N", { headerKey: "headers.register4SerialNo", truncate: "compact", align: "center" }),
+  fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact", align: "left" }),
+  fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal", align: "left" }),
+  fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo", align: "left" }),
+  fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode", align: "left" }),
+  fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact", align: "center" }),
+  fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact", align: "center" }),
+  fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome", align: "right" }),
   {
     type: "group",
     group: {
       label: "Created Demand / Allocation",
       groupKey: "headers.register4CreatedDemand",
       cols: [
-        { key: "arrear_year_demand", label: "Arrear Tax Year", headerKey: "headers.register4ArrearYearDemand" },
-        { key: "current_year_demand", label: "Current Tax Year", headerKey: "headers.register4CurrentYearDemand" },
+        { key: "arrear_year_demand", label: "Arrear Tax Year", headerKey: "headers.register4ArrearYearDemand", align: "right" },
+        { key: "current_year_demand", label: "Current Tax Year", headerKey: "headers.register4CurrentYearDemand", align: "right" },
       ],
     },
   },
-  fc("penalty", "Penalty", { headerKey: "headers.register4Penalty" }),
-  fc("revised_demand", "Revised Demand / Allocation", { headerKey: "headers.register4RevisedDemand" }),
-  fc("remarks", "Remarks (if any)", { headerKey: "headers.register4Remarks", truncate: "normal" }),
+  fc("penalty", "Penalty", { headerKey: "headers.register4Penalty", align: "right" }),
+  fc("revised_demand", "Revised Demand / Allocation", { headerKey: "headers.register4RevisedDemand", align: "right" }),
+  fc("remarks", "Remarks (if any)", { headerKey: "headers.register4Remarks", truncate: "normal", align: "left" }),
 ];
 
 export const REGISTER4_ASSESSMENT_MOBILE_MAPPING: MobileCardMapping = {
