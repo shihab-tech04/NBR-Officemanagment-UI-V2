@@ -88,6 +88,7 @@
 .register4-inline__mobile-title { margin:0 0 var(--space-3); font-size:var(--fs-body-md); font-weight:600; }
 .register4-inline__mobile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
 .register4-inline__mobile-grid > * { min-width:0; }
+.register4-inline__mobile-grid > .register4-inline__mobile-span { grid-column:1/-1; }
 .register4-inline__mobile-grid .register4-inline__cell--section,
 .register4-inline__mobile-grid .register4-inline__cell--remarks,
 .register4-inline__mobile-grid .register4-inline__cell--identity { grid-column:1/-1; }
