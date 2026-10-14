@@ -63,7 +63,7 @@
 }
 
 /* Register-4 in-table Add row only; frozen New Entry modal and table styles remain intact. */
-.register4-inline__row { background:var(--color-primary-alpha-5); }
+.register4-inline__row { background:var(--color-background-subtle); }
 .register4-inline__row > td { vertical-align:top; padding:10px 7px; border-bottom:1px solid var(--color-border); }
 .register4-inline__row .MuiFormControl-root { min-width:0; }
 .register4-inline__row .MuiInputBase-input { font-size:var(--fs-body-sm); }
@@ -80,7 +80,7 @@
   border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-primary);
   border-radius:var(--radius-md); cursor:pointer;
 }
-.register4-inline__icon:hover { background:var(--color-primary-alpha-5); }
+.register4-inline__icon:hover { background:var(--color-background-subtle); }
 .register4-inline__icon:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
 .register4-inline__icon--cancel { color:var(--color-error); }
 .register4-inline__subfields { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
@@ -96,4 +96,35 @@
 .register4-inline__mobile-footer .register4-inline__icon { width:44px; height:44px; }
 @media(max-width:420px) {
   .register4-inline__mobile-grid,.register4-inline__subfields { grid-template-columns:minmax(0,1fr); }
+}
+
+/* Inline-only suggestion parity with the frozen New Entry modal. */
+.register4-inline__tin-suggestions {
+  display:flex; flex-direction:column; gap:4px;
+  margin-top:6px; min-width:0;
+}
+.register4-inline__tin-option {
+  display:flex; justify-content:space-between; align-items:center;
+  gap:8px; min-width:0; min-height:34px; padding:5px 8px;
+  background:var(--color-surface); border:1px solid var(--color-border);
+  border-radius:var(--radius-md); color:var(--color-text-primary);
+  font:inherit; text-align:left; cursor:pointer;
+}
+.register4-inline__tin-option:hover,
+.register4-inline__tin-option:focus-visible {
+  background:var(--color-background-subtle);
+  border-color:var(--color-primary);
+}
+.register4-inline__tin-option:focus-visible {
+  outline:2px solid var(--color-primary);
+  outline-offset:1px;
+}
+.register4-inline__tin-option-name { font-size:var(--fs-label-sm); font-weight:600; }
+.register4-inline__tin-option-history {
+  display:inline-flex; align-items:center; gap:3px; min-width:0;
+  color:var(--color-text-secondary); font-size:var(--fs-label-sm);
+  white-space:nowrap;
+}
+@media (max-width:640px) {
+  .register4-inline__tin-option { min-height:44px; }
 }
