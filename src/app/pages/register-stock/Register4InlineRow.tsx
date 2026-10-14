@@ -1,12 +1,12 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Info, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "../../components/forms/AppTextField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppDateField } from "../../components/forms/AppDateField";
 import { AppNumberField } from "../../components/forms/AppNumberField";
 import { Register4SectionField } from "./Register4SectionField";
-import { findRegister4Taxpayer } from "./Register4EntryModal";
+import { findRegister4Taxpayer, getRegister4TinSuggestions } from "./Register4EntryModal";
 import { getRegister4DemoShortcutSection, reviewRegister4History } from "./register4SectionCodes";
 import "../../../styles/register4-entry.css";
 
@@ -47,8 +47,12 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   };
   const keyDown=(e:KeyboardEvent)=>{
     if(e.defaultPrevented || (e.target as HTMLElement).closest(".register4-section-field"))return;
-    if(e.key==="Escape"){e.preventDefault();onCancel();}
-    else if(e.key==="Enter" && e.target instanceof HTMLInputElement){
+    if(e.key==="Escape"){e.preventDefault();onCancel();return;}
+    // Enter from TIN, amount, date or any intermediate field must NOT save
+    // an incomplete row. Only the final Remarks field retains the eLedger
+    // convenience shortcut; the explicit tick remains the primary Save.
+    if(e.key==="Enter" && e.target instanceof HTMLInputElement &&
+      (e.target as HTMLInputElement).id==="register4-inline-"+mode+"-remarks"){
       e.preventDefault();save();
     }
   };
@@ -64,10 +68,32 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
     else el=<AppTextField compact id={id} label={label} value={value} onChange={v=>set(key,v)}/>;
     return <div className={"register4-inline__cell "+extraClass}>{el}</div>;
   };
+  // Reuse exactly the modal's controlled fixture matching and shortcut labels.
+  // Suggestions assist selection only; they are not a live NBR TIN lookup.
+  const suggestions=findRegister4Taxpayer(values.tin??"")
+    ? [] : getRegister4TinSuggestions(values.tin??"");
   const tinControl=<div className="register4-inline__cell register4-inline__cell--identity">
     <AppTextField compact id={"register4-inline-"+mode+"-tin"} label={t("register4.tinInput")}
       value={values.tin??""} onChange={updateTin} required
       error={error==="TIN"?t("register4.tinRequired"):undefined}/>
+    {suggestions.length>0 && (
+      <div className="register4-inline__tin-suggestions" role="group"
+        aria-label={t("register4.tinSuggestions")}>
+        {suggestions.map(tin=>(
+          <button key={tin} type="button" className="register4-inline__tin-option"
+            aria-label={tin} onClick={()=>updateTin(tin)}
+            title={getRegister4DemoShortcutSection(tin)
+              ? t("register4.shortcutExample",{sections:getRegister4DemoShortcutSection(tin)})
+              : t("register4.shortcutFresh")}>
+            <span className="register4-inline__tin-option-name">{tin}</span>
+            <span className="register4-inline__tin-option-history">
+              {getRegister4DemoShortcutSection(tin)||t("register4.shortcutFresh")}
+              <Info size={12} aria-hidden="true"/>
+            </span>
+          </button>
+        ))}
+      </div>
+    )}
     <p className="register4-inline__readonly" aria-live="polite">
       {values.taxpayer_name || ((values.tin||"").length>=8 ?
         t("register4.inlineNotFound"):t("register4.inlineName"))}
@@ -113,7 +139,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   if(mode==="mobile")return <section className="register4-inline__mobile" aria-label={t("register4.inlineDraft")} onKeyDown={keyDown}>
     <h3 className="register4-inline__mobile-title">{t("register4.inlineDraft")}</h3>
     <div className="register4-inline__mobile-grid">
-      {controls.map((item,index)=>index===0||index===3?null:<div key={index} className={[2,4,12].includes(index)?"register4-inline__mobile-span":undefined}>{item}</div>)}
+      {controls.map((item,index)=>index===0?null:<div key={index} className={[2,4,12].includes(index)?"register4-inline__mobile-span":undefined}>{item}</div>)}
     </div>
     <div className="register4-inline__mobile-footer">{actions}</div>
   </section>;

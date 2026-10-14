@@ -604,3 +604,47 @@ test("Register-4 mobile inline draft uses per-field controls and 44px save/disca
   await card.getByRole("button",{name:"Discard row"}).click();
   await expect(card).toHaveCount(0);
 });
+
+test("Register-4 inline TIN suggestions match modal controlled fixture and do not save on Enter",async({page})=>{
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const draft=page.getByTestId("register4-inline-row");
+  const choices=draft.getByRole("group",{name:"TIN suggestions"});
+  await expect(choices.getByRole("button")).toHaveCount(4);
+  await expect(choices.getByRole("button",{name:"TIN-10000"})).toContainText("Fresh entry");
+  await expect(choices.getByRole("button",{name:"TIN-10003"})).toContainText("180/182/183(7)");
+  await draft.locator("#register4-inline-table-tin").fill("TIN-100");
+  await expect(choices.getByRole("button")).toHaveCount(4);
+  await choices.getByRole("button",{name:"TIN-10003"}).click();
+  await expect(draft).toContainText("Matin Corp.");
+  await expect(draft.locator("#register4-inline-table-disposal_code")).toContainText("180/182/183(7)");
+  await expect(choices).toHaveCount(0);
+  await draft.locator("#register4-inline-table-tin").press("Enter");
+  await expect(draft).toBeVisible();
+  await expect(page.locator(".table-card__count")).toHaveText("8 records");
+  await draft.locator("#register4-inline-table-assessed_income").fill("100");
+  await draft.locator("#register4-inline-table-assessed_income").press("Enter");
+  await expect(draft).toBeVisible();
+  await draft.getByRole("button",{name:"Save row"}).click();
+  await expect(draft).toHaveCount(0);
+  await expect(page.locator(".table-card__count")).toHaveText("9 records");
+});
+test("Register-4 mobile inline TIN suggestions and Folio No parity with New Entry",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const card=page.getByRole("region",{name:"New row"});
+  const folio=card.locator("#register4-inline-mobile-folio_no");
+  await expect(folio).toBeVisible();
+  await expect(folio).toHaveAttribute("readonly");
+  await expect(folio).toHaveValue("");
+  const options=card.getByRole("group",{name:"TIN suggestions"});
+  await expect(options.getByRole("button",{name:"TIN-10002"})).toContainText("180/180(2)");
+  await options.getByRole("button",{name:"TIN-10002"}).click();
+  await expect(card).toContainText("TIN-10002");
+  await expect(card.locator("#register4-inline-mobile-circle")).toHaveValue("Circle-1");
+  await expect(card.locator("#register4-inline-mobile-disposal_code")).toContainText("180/180(2)");
+  await expect(folio).toHaveValue("");
+  await card.getByRole("button",{name:"Discard row"}).click();
+  await expect(card).toHaveCount(0);
+});
