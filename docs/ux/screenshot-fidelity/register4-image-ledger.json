@@ -448,3 +448,66 @@
         "visual_evidence": null
       }
     },
+    {
+      "id": "R4-023",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "scroll_state",
+      "observed": "Left TIN field and right save controls cannot be seen together at captured desktop viewport",
+      "intent": "CORRECT_DEFECT",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4-entry.css"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-024",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "data_presentation",
+      "observed": "Eight displayed rows, horizontal scroll; number/date and grouped financial column alignment require typed schema",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    }
+  ],
+  "unrequested_ui_changes": [
+    {
+      "id": "NO-REMOVE-LAST",
+      "forbidden": "Remove last option without authorization",
+      "present": "NOT_VERIFIED"
+    },
+    {
+      "id": "NO-ARBITRARY-FORM",
+      "forbidden": "Unapproved full-record 14-cell form repeated as target design",
+      "present": "NOT_VERIFIED"
+    }
+  ],
+  "approved_visual_comparison": {
+    "status": "NOT_VERIFIED",
+    "baseline_ref": null,
+    "actual_ref": null,
+    "reviewer": null
+  },
+  "acceptance": {
+    "status": "NOT_VERIFIED",
+    "reviewer": null,
+    "evidence": null
+  }
+}
