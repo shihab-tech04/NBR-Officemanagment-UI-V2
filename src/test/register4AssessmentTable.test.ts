@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { validateRegister4InlineRow } from "../app/pages/register-stock/Register4InlineRow";
 import { REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-stock/register4SectionCodes";
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
@@ -176,5 +177,28 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     expect(keys).toContain("taxpayer_name");
     expect(keys).toContain("tin");
     expect(keys).toContain("record_source");
+  });
+});
+
+describe("Register-4 inline Add row rules", () => {
+  const year="2024-25";
+  it("blocks unresolved or mismatched TIN identity",()=>{
+    expect(validateRegister4InlineRow({},year)).toBe("TIN");
+    expect(validateRegister4InlineRow({tin:"TIN-10000",taxpayer_name:"Wrong",circle:"Circle-1",assessment_year:year,disposal_code:"180"},year)).toBe("TIN");
+  });
+  it("requires matching current year and a supported section trail",()=>{
+    const row={tin:"TIN-10000",taxpayer_name:"Rahman Enterprise",circle:"Circle-1",assessment_year:year,disposal_code:"180"};
+    expect(validateRegister4InlineRow({...row,assessment_year:"2023-24"},year)).toBe("YEAR");
+    expect(validateRegister4InlineRow({...row,disposal_code:""},year)).toBe("SECTION");
+    expect(validateRegister4InlineRow({...row,disposal_code:"180/292"},year)).toBe("SECTION");
+    expect(validateRegister4InlineRow(row,year)).toBeNull();
+  });
+  it("uses the unchanged local-draft creator after validation, never a verified assessment",()=>{
+    const values={tin:"TIN-10000",taxpayer_name:"Rahman Enterprise",circle:"Circle-1",assessment_year:year,disposal_code:"180",assessed_income:"12345"};
+    expect(validateRegister4InlineRow(values,year)).toBeNull();
+    const draft=createRegister4LocalDraft(values,REGISTER4_ASSESSMENT_ROWS);
+    expect(draft.record_source).toBe("Local draft — not submitted");
+    expect(draft.section_review_status).toBe("REVIEW_REQUIRED — not certified");
+    expect(draft.folio_no).toBe("—");
   });
 });

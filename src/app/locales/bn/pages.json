@@ -110,7 +110,17 @@
     "serialAutomatic": "এন্ট্রি তৈরির সময় ক্রমিক নম্বর দেওয়া হবে",
     "transitionBlocked": "নথিভুক্ত ধারার ক্রমের পরে এই ধারা যুক্ত করা যাবে না। কার্যক্রম ও আদেশ যাচাই করুন।",
     "proceedingReference": "সর্বশেষ কার্যক্রম / আদেশের রেফারেন্স",
-    "proceedingEventDate": "সর্বশেষ কার্যক্রমের তারিখ"
+    "proceedingEventDate": "সর্বশেষ কার্যক্রমের তারিখ",
+    "addRow": "সারি যোগ করুন",
+    "saveRow": "সারি সংরক্ষণ",
+    "discardRow": "সারি বাতিল",
+    "tinRequired": "সঠিক টিআইএন লিখুন",
+    "sectionRequired": "প্রযোজ্য ধারা নির্বাচন করুন",
+    "yearRequired": "করবর্ষ নির্বাচন করুন",
+    "inlineDraft": "নতুন সারি",
+    "tinInput": "টিআইএন লিখুন",
+    "inlineName": "করদাতার নাম",
+    "inlineNotFound": "ডেমো রেকর্ডে টিআইএন পাওয়া যায়নি"
   },
   "stockRegister": {
     "title": "স্টক রেজিস্টার",

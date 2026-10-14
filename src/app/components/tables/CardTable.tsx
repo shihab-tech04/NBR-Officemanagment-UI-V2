@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "../badges/StatusBadge";
@@ -15,6 +15,7 @@ interface CardTableProps {
   clickableKeys?: string[];
   onCellClick?: (key: string, value: string, row: TableRow) => void;
   "aria-label"?: string;
+  inlineRow?: ReactNode;
   /** Optional header sorting; no effect on existing unsorted registers. */
   sortKey?: string;
   sortDirection?: "ascending" | "descending";
@@ -46,7 +47,7 @@ function cellTextClass(col: FlatCol): string {
   return "card-table__cell-text card-table__cell-text--normal";
 }
 
-export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, "aria-label": ariaLabel }: CardTableProps) {
+export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, inlineRow, "aria-label": ariaLabel }: CardTableProps) {
   const { t: translateTables } = useTranslation("tables");
   const { t: translateEmptyStates } = useTranslation("emptyStates");
   const { t: translateUser } = useTranslation("user");
@@ -98,7 +99,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                     </th>
                   )
                 )}
-                {actions && (
+                {(actions || inlineRow) && (
                   <th rowSpan={2} scope="col" className="card-table__th card-table__th--secondary" style={{ textAlign: "center" }}>
                     {translateTables("headers.actions")}
                   </th>
@@ -121,7 +122,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                       {headerContent(col)}
                     </th>
                   ))}
-              {!hasGroups && actions && (
+              {!hasGroups && (actions || inlineRow) && (
                 <th scope="col" className="card-table__th card-table__th--secondary" style={{ textAlign: "center" }}>
                   {translateTables("headers.actions")}
                 </th>
@@ -130,9 +131,10 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
           </thead>
 
           <tbody>
-            {rows.length === 0 ? (
+            {inlineRow}
+            {rows.length === 0 && !inlineRow ? (
               <tr>
-                <td colSpan={flat.length + (actions ? 1 : 0)} className="card-table__empty">
+                <td colSpan={flat.length + ((actions || inlineRow) ? 1 : 0)} className="card-table__empty">
                   {translateEmptyStates("noRecordsDescription")}
                 </td>
               </tr>
@@ -225,6 +227,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                       </div>
                     </td>
                   )}
+                  {inlineRow && (!actions || actions.length===0) && <td className="card-table__td" aria-hidden="true"/>}
                 </tr>
               ))
             )}

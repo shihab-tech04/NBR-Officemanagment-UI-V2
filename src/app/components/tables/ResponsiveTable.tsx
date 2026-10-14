@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { CardTable } from "./CardTable";
 import { UnifiedMobileCard } from "./UnifiedMobileCard";
@@ -15,6 +15,8 @@ interface ResponsiveTableProps {
   clickableKeys?: string[];
   onCellClick?: (key: string, value: string, row: TableRow) => void;
   "aria-label"?: string;
+  inlineRow?: ReactNode;
+  inlineMobileRow?: ReactNode;
   sortKey?: string;
   sortDirection?: "ascending" | "descending";
   onSortColumn?: (key: string) => void;
@@ -31,6 +33,8 @@ export const ResponsiveTable = memo(function ResponsiveTable({
   clickableKeys,
   onCellClick,
   "aria-label": ariaLabel,
+  inlineRow,
+  inlineMobileRow,
   sortKey,
   sortDirection,
   onSortColumn,
@@ -70,6 +74,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         sortKey={sortKey}
         sortDirection={sortDirection}
         onSortColumn={onSortColumn}
+        inlineRow={inlineRow}
       />
 
       {/* Mobile card view */}
@@ -78,7 +83,8 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         role="list"
         aria-label={ariaLabel}
       >
-        {rows.length === 0 ? (
+        {inlineMobileRow}
+        {rows.length === 0 && !inlineMobileRow ? (
           <p className="mobile-table-card-list__empty" role="status">
             {translateCommon("common.noRecordsFound")}
           </p>
