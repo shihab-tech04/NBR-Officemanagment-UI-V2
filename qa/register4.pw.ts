@@ -134,7 +134,7 @@ test("Register-4 headers and cells use content alignment while Stock Register ke
 
   for (const [name, alignment] of [
     ["S/N", "center"], ["Circle", "left"], ["Taxpayer Name & TIN", "left"],
-    ["Assessment Year", "center"], ["Assessment Date", "center"],
+    ["Tax Year", "center"], ["Assessment Date", "center"],
     ["Assessed Income", "right"], ["Arrear Tax Year", "right"],
     ["Current Tax Year", "right"], ["Remarks (if any)", "left"],
   ]) {
