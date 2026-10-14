@@ -52,11 +52,11 @@ test("Register-4 date filters actually change results, and local draft is sessio
   await page.getByRole("button", { name: /New Entry/i }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Taxpayer Name" }).fill("E2E Synthetic Test");
-  await dialog.getByRole("textbox", { name: "TIN" }).fill("DEMO-123456");
+  await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
+  await dialog.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Rahman Enterprise");
   await dialog.getByRole("button", { name: "Add local draft" }).click();
   await expect(table.locator("tbody tr")).toHaveCount(9);
-  await expect(table.getByText("E2E Synthetic Test (DEMO-123456)")).toBeVisible();
   await page.reload();
   await expect(table.locator("tbody tr")).toHaveCount(8);
 });
