@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("gov_ui_auth", JSON.stringify({ isAuthenticated: true, userId: "admin" }));
-    localStorage.setItem("gov_ui_settings", JSON.stringify({
+    if (!localStorage.getItem("gov_ui_settings")) localStorage.setItem("gov_ui_settings", JSON.stringify({
       assessmentYear: "2024-25", themeId: "indigo-blue", fontId: "inter",
       fontSizeId: "standard", languageId: "en",
     }));
@@ -21,7 +21,9 @@ test("Register-4 desktop preserves shared table and scopes sample rows to select
   await expect(table.getByRole("columnheader", { name: "Arrear Tax Year" })).toBeVisible();
   await expect(table.getByRole("columnheader", { name: "Current Tax Year" })).toBeVisible();
   await expect(table.getByRole("columnheader", { name: "Book No." })).toHaveCount(0);
-  await expect(page.getByText("Illustrative sample records; not verified tax assessments.", { exact: false })).toBeVisible();
+  await expect(page.locator(".table-page__header .table-page__desc")).toHaveText("Monthly tax assessment register.");
+  await expect(page.getByText("Illustrative sample records; not verified tax assessments.", { exact: false })).toHaveCount(0);
+  await expect(page.locator(".table-page > [role=note]")).toHaveCount(0);
   await expect(page.getByText("Issued", { exact: true })).toHaveCount(0);
   const sorter = table.getByRole("button", { name: "Sort by Taxpayer Name & TIN" });
   await sorter.click();
@@ -65,4 +67,19 @@ test("Register-4 mobile uses the existing readable card pattern", async ({ page 
   await cards.first().click();
   await expect(page.locator(".dynamic-drawer")).toBeVisible();
   await page.screenshot({ path: "test-results/register4-verified-mobile.png", fullPage: true, animations: "disabled" });
+});
+
+test("Register-4 Bangla uses concise approved description with no added disclaimer section", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/register-stock/register-4");
+  await page.evaluate(() => {
+    const settings = JSON.parse(localStorage.getItem("gov_ui_settings") || "{}");
+    localStorage.setItem("gov_ui_settings", JSON.stringify({ ...settings, languageId: "bn" }));
+    localStorage.setItem("i18nextLng", "bn");
+  });
+  await page.reload();
+  await expect(page.locator(".table-page__header .table-page__desc")).toHaveText("মাসিক কর নির্ধারণ বিবরণী");
+  await expect(page.getByText(/শুধুমাত্র নমুনা তথ্য|এগুলো কেবল উদাহরণমূলক/)).toHaveCount(0);
+  await expect(page.locator(".table-page > [role=note]")).toHaveCount(0);
+  await expect(page.locator(".card-table__table")).toBeVisible();
 });

@@ -25,7 +25,7 @@ export function Register4ListPage() {
   const cfg: PageCfg = {
     title: "Register-4",
     titleKey: "register4.title",
-    desc: "Monthly tax-assessment register (illustrative records only).",
+    desc: "Monthly tax assessment register.",
     descKey: "register4.desc",
     cols: REGISTER4_ASSESSMENT_COLUMNS,
     drawerCols: REGISTER4_ASSESSMENT_DRAWER_COLUMNS,
@@ -41,7 +41,6 @@ export function Register4ListPage() {
     rows: REGISTER4_ASSESSMENT_ROWS,
     kpis: buildRegister4Kpis(REGISTER4_ASSESSMENT_ROWS),
     buildVisibleKpis: buildRegister4Kpis,
-    workspaceNote: translatePages("register4.sampleNotice"),
     entryBtn: translateActions("newEntry"),
     entrySubmitLabel: translatePages("register4.addLocalDraft"),
     entryFields: buildRegister4EntryFields(assessmentYear, translateTables, translatePages),
