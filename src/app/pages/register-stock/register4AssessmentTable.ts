@@ -15,9 +15,9 @@ import type { FormField, EntryFormValue } from "../../components/forms/EntryForm
 const unknown = "—";
 
 export const REGISTER4_ASSESSMENT_COLUMNS: ColDef[] = [
-  fc("serial_no", "S/N", { headerKey: "headers.serialNo", truncate: "compact" }),
+  fc("serial_no", "S/N", { headerKey: "headers.register4SerialNo", truncate: "compact" }),
   fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact" }),
-  fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", truncate: "none" }),
+  fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal" }),
   fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo" }),
   fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode" }),
   fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact" }),
@@ -51,25 +51,42 @@ export const REGISTER4_ASSESSMENT_MOBILE_MAPPING: MobileCardMapping = {
  * Keep the existing public demo identity fixture without turning unrelated
  * book-issuance, dates or statuses into tax-assessment facts.
  */
-export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) => ({
-  id: row.id,
-  serial_no: String(index + 1),
-  circle: row.circle,
-  taxpayer_name: row.taxpayer_name,
-  tin: row.tin,
-  taxpayer_identity: `${row.taxpayer_name} (${row.tin})`,
-  folio_no: unknown,
-  disposal_code: unknown,
-  assessment_year: row.ay ?? unknown,
-  assessment_date: unknown,
-  assessed_income: unknown,
-  arrear_year_demand: unknown,
-  current_year_demand: unknown,
-  penalty: unknown,
-  revised_demand: unknown,
-  remarks: unknown,
-  record_source: "Illustrative sample — not verified",
-}));
+/** Entirely synthetic demonstration figures. These values are NOT tax-law
+ * calculations, statutory assessments, taxpayer liabilities, or NBR records.
+ * Never persist or export them as verified fiscal facts. */
+const demoAmounts = (index: number) => {
+  const income = 840000 + index * 93650;
+  const arrears = index % 4 === 0 ? 0 : 8500 + (index % 8) * 1900;
+  const current = 37500 + index * 2330;
+  const penalty = index % 5 === 0 ? 0 : (index % 4) * 850;
+  const revised = 34000 + index * 3150;
+  const format = (value: number): string => value.toLocaleString("en-IN");
+  return { income: format(income), arrears: format(arrears), current: format(current),
+    penalty: format(penalty), revised: format(revised) };
+};
+
+export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) => {
+  const amount = demoAmounts(index);
+  return {
+    id: row.id,
+    serial_no: String(index + 1),
+    circle: row.circle,
+    taxpayer_name: row.taxpayer_name,
+    tin: row.tin,
+    taxpayer_identity: `${row.taxpayer_name} (${row.tin})`,
+    folio_no: "",
+    disposal_code: `DEMO-${String(index + 1).padStart(3, "0")}`,
+    assessment_year: row.ay ?? unknown,
+    assessment_date: `2026-10-${String(index % 28 + 1).padStart(2, "0")}`,
+    assessed_income: amount.income,
+    arrear_year_demand: amount.arrears,
+    current_year_demand: amount.current,
+    penalty: amount.penalty,
+    revised_demand: amount.revised,
+    remarks: ["Record entered", "Assessment reviewed", "Adjustment noted", "Entry updated"][index % 4],
+    record_source: "Illustrative sample — not verified",
+  };
+});
 
 export const REGISTER4_ASSESSMENT_DRAWER_COLUMNS: ColDef[] = [
   fc("taxpayer_name", "Taxpayer Name", { headerKey: "headers.taxpayerName" }),
