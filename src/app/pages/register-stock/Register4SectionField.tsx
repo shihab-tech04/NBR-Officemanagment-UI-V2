@@ -87,18 +87,23 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
       {issue&&!open&&<p role="alert" className="register4-section-field__error">{issue}</p>}
       {editor==="inline" && open && (
         <div className="register4-section-field__inline-editor"
-          role="group" aria-label={t("register4.sectionAddNew")}>
-          <form onSubmit={event=>{event.preventDefault();event.stopPropagation();addCustom();}}>
-            <div className="register4-section-field__inline-input">
-              <AppTextField id={id+"-custom"} label={t("register4.sectionCustomLabel")}
-                value={custom} onChange={next=>{setCustom(next);setIssue("");}}
-                error={issue||undefined} placeholder="182(4)" maxLength={24} compact/>
-            </div>
-            <div className="register4-section-field__actions">
-              <SecondaryButton type="button" size="sm" onClick={close}>{t("register4.sectionCancel")}</SecondaryButton>
-              <PrimaryButton type="submit" size="sm">{t("register4.sectionAdd")}</PrimaryButton>
-            </div>
-          </form>
+          role="group" aria-label={t("register4.sectionAddNew")}
+          onKeyDown={event=>{
+            // New Entry is already a <form>; never nest a second form here.
+            // Enter commits ONLY the section, not the entire return draft.
+            if(event.key==="Enter" && event.target instanceof HTMLInputElement){
+              event.preventDefault();event.stopPropagation();addCustom();
+            }
+          }}>
+          <div className="register4-section-field__inline-input">
+            <AppTextField id={id+"-custom"} label={t("register4.sectionCustomLabel")}
+              value={custom} onChange={next=>{setCustom(next);setIssue("");}}
+              error={issue||undefined} placeholder="182(4)" maxLength={24} compact/>
+          </div>
+          <div className="register4-section-field__actions">
+            <SecondaryButton type="button" size="sm" onClick={close}>{t("register4.sectionCancel")}</SecondaryButton>
+            <PrimaryButton type="button" size="sm" onClick={addCustom}>{t("register4.sectionAdd")}</PrimaryButton>
+          </div>
         </div>
       )}
       {editor==="popover" && (
