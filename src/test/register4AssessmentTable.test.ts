@@ -52,6 +52,7 @@ describe("Register-4 assessment table metadata (isolated)", () => {
     expect(nextRegister4SerialNo([{ serial_no: "1" }, { serial_no: "5" }] as never)).toBe("6");
     const draft = createRegister4LocalDraft({ taxpayer_name: "Fixture", tin: "TIN-X", circle: "Circle-1" }, REGISTER4_ASSESSMENT_ROWS);
     expect(draft.serial_no).toBe("33");
+    expect(draft.folio_no).toBe("");
   });
 
   it("uses existing two-level grouped table header support", () => {
