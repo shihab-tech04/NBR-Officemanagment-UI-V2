@@ -36,9 +36,6 @@ jobs:
           fi
           node scripts/ui-regression-guard.mjs --self-test
           node scripts/ui-regression-guard.mjs --check --base "$BASE"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - run: npm install --no-audit --no-fund
       - name: Compile Office Management with scoped TaxPay review-only inbox
         run: npm run build
