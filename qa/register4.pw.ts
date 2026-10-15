@@ -855,7 +855,7 @@ test("Register-4 inline row stays compact with TIN lookup as floating popper",as
   await page.screenshot({path:"test-results/register4-inline-compact-desktop.png",animations:"disabled"});
   await draft.getByRole("button",{name:"Discard row"}).click();
 });
-test("Register-4 desktop Add row inputs are about 20 percent shorter without resizing columns or modal",async({page})=>{
+test("Register-4 desktop Add row keeps compact heights, narrower Dhara and intact modal",async({page})=>{
   await page.setViewportSize({width:1736,height:900});
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"Add row"}).click();
@@ -879,7 +879,10 @@ test("Register-4 desktop Add row inputs are about 20 percent shorter without res
   await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
   await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
   const cells=await row.locator("td.card-table__td").evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
-  expect(cells[4]).toBeGreaterThanOrEqual(330);
+  // The user requested a narrower Dhara input; assert the NEW tighter
+  // column range, not the former oversized 330px minimum.
+  expect(cells[4]).toBeGreaterThanOrEqual(304);
+  expect(cells[4]).toBeLessThanOrEqual(330);
   await page.screenshot({path:"test-results/register4-desktop-fields-30px.png",animations:"disabled"});
   await row.getByRole("button",{name:"Discard row"}).click();
   await page.getByRole("button",{name:"New Entry"}).click();
