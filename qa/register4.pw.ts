@@ -827,3 +827,102 @@ test("Register-4 New Entry modal preserves one-column alignment and all inputs o
   await expect(editor).toHaveCount(0);
   await page.screenshot({path:"test-results/register4-modal-materially-aligned-phone.png",animations:"disabled"});
 });
+
+
+test("Register-4 New Entry uses shared modal spacing and locked Add a section placement",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  const body=dialog.locator(".app-modal-body");
+  const geometry=await body.evaluate(el=>{
+    const css=getComputedStyle(el);
+    return {top:css.paddingTop,right:css.paddingRight,bottom:css.paddingBottom,left:css.paddingLeft};
+  });
+  expect(geometry).toEqual({top:"20px",right:"20px",bottom:"20px",left:"20px"});
+  const gaps=await dialog.locator(".entry-form__grid").evaluate(el=>({
+    row:getComputedStyle(el).rowGap,col:getComputedStyle(el).columnGap
+  }));
+  expect(gaps).toEqual({row:"12px",col:"16px"});
+  const btn=dialog.getByRole("button",{name:"Add a section"});
+  const select=dialog.locator(".register4-section-field__select .MuiOutlinedInput-root");
+  const [beforeButton,beforeSelect]=await Promise.all([btn.boundingBox(),select.boundingBox()]);
+  expect(Math.abs(beforeButton!.y-beforeSelect!.y)).toBeLessThanOrEqual(2);
+  await btn.click();
+  const [afterButton,afterSelect]=await Promise.all([btn.boundingBox(),select.boundingBox()]);
+  for(const k of ["x","y","width","height"] as const) {
+    expect(Math.abs(afterButton![k]-beforeButton![k])).toBeLessThanOrEqual(2);
+    expect(Math.abs(afterSelect![k]-beforeSelect![k])).toBeLessThanOrEqual(2);
+  }
+  await page.screenshot({path:"test-results/register4-custom-section-icon-desktop.png",animations:"disabled"});
+});
+test("Register-4 custom section editor uses full width input and only X / check icon actions",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  await dialog.getByRole("button",{name:"Add a section"}).click();
+  const editor=dialog.locator(".register4-section-field__inline-editor");
+  const input=editor.locator("#disposal_code-custom");
+  const cancel=editor.getByRole("button",{name:"Cancel",exact:true});
+  const confirm=editor.getByRole("button",{name:"Add section",exact:true});
+  await expect(editor).toBeVisible();
+  await expect(editor.locator(".register4-section-field__actions button")).toHaveCount(2);
+  for(const button of [cancel,confirm]){
+    await expect(button.locator("svg")).toHaveCount(1);
+    expect((await button.textContent())?.trim()).toBe("");
+    await expect(button).toHaveAttribute("title");
+  }
+  const [i,x,check,e]=await Promise.all([input.boundingBox(),cancel.boundingBox(),confirm.boundingBox(),editor.boundingBox()]);
+  expect(i!.width).toBeGreaterThan(x!.width*3);
+  expect(Math.abs(i!.y-x!.y)).toBeLessThanOrEqual(3);
+  expect(Math.abs(x!.y-check!.y)).toBeLessThanOrEqual(2);
+  expect(x!.x).toBeGreaterThan(i!.x+i!.width);
+  expect(check!.x).toBeGreaterThan(x!.x+x!.width);
+  expect(x!.width).toBe(40);
+  expect(check!.width).toBe(40);
+  expect(i!.x).toBeGreaterThanOrEqual(e!.x);
+  expect(check!.x+check!.width).toBeLessThanOrEqual(e!.x+e!.width);
+  await input.fill("292");
+  await confirm.click();
+  await expect(editor).toBeVisible();
+  await expect(editor.getByRole("alert")).toContainText("cannot follow");
+  await cancel.click();
+  await expect(editor).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+});
+test("Register-4 custom icon actions fit inside the mobile modal without changing Dhara selection",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  await dialog.getByRole("button",{name:"Add a section"}).click();
+  const editor=dialog.locator(".register4-section-field__inline-editor");
+  const rects=await Promise.all([
+    editor.boundingBox(),editor.locator("#disposal_code-custom").boundingBox(),
+    editor.getByRole("button",{name:"Cancel",exact:true}).boundingBox(),
+    editor.getByRole("button",{name:"Add section",exact:true}).boundingBox()
+  ]);
+  const [e,i,x,tick]=rects;
+  expect(Math.abs(i!.y-x!.y)).toBeLessThanOrEqual(3);
+  expect(Math.abs(x!.y-tick!.y)).toBeLessThanOrEqual(2);
+  expect(x!.width).toBe(44);
+  expect(tick!.width).toBe(44);
+  expect(i!.width).toBeGreaterThan(110);
+  for(const r of rects){
+    expect(r!.x).toBeGreaterThanOrEqual(0);
+    expect(r!.x+r!.width).toBeLessThanOrEqual(391);
+  }
+  await page.screenshot({path:"test-results/register4-custom-section-icon-mobile.png",animations:"disabled"});
+  await editor.locator("#disposal_code-custom").fill("183(7)");
+  await editor.getByRole("button",{name:"Add section",exact:true}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("180/183(7)");
+  await expect(editor).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+});
