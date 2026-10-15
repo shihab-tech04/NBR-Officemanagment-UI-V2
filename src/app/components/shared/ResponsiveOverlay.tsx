@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useUIState } from "../../hooks/useUI";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 interface ResponsiveOverlayProps {
   open: boolean;
@@ -45,19 +46,7 @@ export function ResponsiveOverlay({
   useFocusTrap(panelRef, open);
   useReturnFocus(open);
 
-  // Body scroll lock
-  useEffect(() => {
-    if (!open) return;
-    const originalOverflow = document.body.style.overflow;
-    const originalPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.paddingRight = originalPaddingRight;
-    };
-  }, [open]);
+  useOverlayScrollLock(open);
 
   // Auto-focus close button on open
   useEffect(() => {
