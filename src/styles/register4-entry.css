@@ -181,3 +181,63 @@
   .register4-inline__mobile .register4-inline__cell--section { width:100%; }
   .register4-inline__mobile .register4-inline__tin-anchor { min-width:0; }
 }
+
+/* Register-4 New Entry ONLY: compact the already-approved groups and fields.
+   Keep every input, subsection and field order; do not modify the shared modal. */
+.app-modal-panel:has(.register4-entry) .app-modal-body {
+  padding:14px 20px 16px;
+}
+.register4-entry { gap:12px; }
+.register4-entry__identity { padding:10px 14px; }
+.register4-entry__name { margin-bottom:4px; }
+.register4-entry__identity-facts { column-gap:16px; row-gap:3px; }
+.register4-entry__fields .entry-form__grid {
+  column-gap:16px; row-gap:11px; margin-bottom:0;
+}
+.register4-entry__fields .entry-form__group-title {
+  margin:3px 0 0; padding:0 0 5px; line-height:1.25;
+  font-size:var(--fs-label-md);
+}
+.register4-entry__fields .entry-form__group-title:first-child { margin-top:0; }
+.register4-entry__fields .entry-form__field { min-width:0; }
+.register4-entry__fields .MuiInputBase-root { min-height:40px; }
+.register4-entry__fields .register4-section-field { gap:7px; }
+.register4-entry__fields .register4-section-field__addition { gap:10px; }
+.register4-entry__fields .register4-section-field__add.app-btn {
+  height:34px; min-height:34px; padding:0 12px;
+}
+.register4-entry__fields textarea { resize:vertical; }
+.register4-entry__fields .MuiOutlinedInput-root:has(textarea) { min-height:84px; }
+/* When Add a section is opened inside New Entry, its editor occupies its own
+   row. It no longer covers the event date or subsequent assessment fields. */
+.register4-entry .register4-section-field__inline-editor {
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
+  background:var(--color-background-subtle);
+  padding:10px 12px;
+  min-width:0;
+}
+.register4-entry .register4-section-field__inline-editor {
+  display:flex; gap:10px; align-items:flex-start; justify-content:flex-end;
+  flex-wrap:wrap; min-width:0;
+}
+.register4-entry .register4-section-field__inline-input {
+  flex:1 1 190px; min-width:170px; max-width:290px;
+}
+.register4-entry .register4-section-field__inline-editor .register4-section-field__actions {
+  display:flex; gap:8px; align-items:center; min-height:40px;
+}
+.register4-entry .register4-section-field__inline-editor .register4-section-field__actions > .app-btn {
+  flex:0 0 auto; width:auto; min-width:82px;
+  height:40px; min-height:40px; padding:0 12px;
+}
+@media(max-width:640px) {
+  .app-modal-panel:has(.register4-entry) .app-modal-body { padding:14px 16px; }
+  .register4-entry__fields .entry-form__grid {
+    grid-template-columns:minmax(0,1fr); row-gap:12px;
+  }
+  .register4-entry .register4-section-field__inline-editor { display:grid; gap:10px; }
+  .register4-entry .register4-section-field__inline-input { width:100%; max-width:none; min-width:0; }
+  .register4-entry .register4-section-field__inline-editor .register4-section-field__actions { justify-content:flex-end; }
+  .register4-entry .register4-section-field__inline-editor .register4-section-field__actions > .app-btn { min-height:44px; height:44px; }
+}
