@@ -645,9 +645,11 @@ for (const width of [320,390,640]) {
 test("Register-4 mobile Save and Discard show Bangla text instead of check/cross icons",async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto("/register-stock/register-4");
-  await page.evaluate(()=>localStorage.setItem("gov_ui_settings",JSON.stringify({
-    assessmentYear:"2024-25",themeId:"indigo-blue",fontId:"inter",fontSizeId:"standard",languageId:"bn",
-  })));
+  await page.evaluate(()=>{
+    const settings=JSON.parse(localStorage.getItem("gov_ui_settings") || "{}");
+    localStorage.setItem("gov_ui_settings",JSON.stringify({...settings,languageId:"bn"}));
+    localStorage.setItem("i18nextLng","bn");
+  });
   await page.reload();
   await page.getByRole("button",{name:"সারি যোগ করুন"}).click();
   const card=page.locator(".register4-inline__mobile");
