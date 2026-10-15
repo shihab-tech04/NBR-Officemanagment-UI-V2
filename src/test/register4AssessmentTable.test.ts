@@ -9,6 +9,7 @@ import {
   buildRegister4Kpis,
   buildRegister4EntryFields,
   createRegister4LocalDraft,
+  nextRegister4SerialNo,
   buildRegister4SampleCsv,
 } from "../app/pages/register-stock/register4AssessmentTable";
 
@@ -39,25 +40,19 @@ describe("Register-4 assessment table metadata (isolated)", () => {
   });
 
 
-  it("aligns every Register-4 column by content without changing headings or values", () => {
-    expect(flatten().map((col) => [col.key, col.align])).toEqual([
-      ["serial_no", "center"],
-      ["circle", "left"],
-      ["taxpayer_identity", "left"],
-      ["folio_no", "left"],
-      ["disposal_code", "left"],
-      ["assessment_year", "center"],
-      ["assessment_date", "center"],
-      ["assessed_income", "right"],
-      ["arrear_year_demand", "right"],
-      ["current_year_demand", "right"],
-      ["penalty", "right"],
-      ["revised_demand", "right"],
-      ["remarks", "left"],
-    ]);
+  it("uses one left-alignment across all 13 Register-4 headers and cells", () => {
+    expect(flatten().map((col) => col.align)).toEqual(Array(13).fill("left"));
     expect(REGISTER4_ASSESSMENT_ROWS).toHaveLength(32);
     expect(REGISTER4_ASSESSMENT_ROWS[0].folio_no).toBe("");
     expect(REGISTER4_ASSESSMENT_ROWS[0].disposal_code).toBe("180/182(2)/182(4)/183(7)/289");
+  });
+
+  it("previews an automatic serial using the complete register, independent of filters", () => {
+    expect(nextRegister4SerialNo(REGISTER4_ASSESSMENT_ROWS)).toBe("33");
+    expect(nextRegister4SerialNo([{ serial_no: "1" }, { serial_no: "5" }] as never)).toBe("6");
+    const draft = createRegister4LocalDraft({ taxpayer_name: "Fixture", tin: "TIN-X", circle: "Circle-1" }, REGISTER4_ASSESSMENT_ROWS);
+    expect(draft.serial_no).toBe("33");
+    expect(draft.folio_no).toBe("");
   });
 
   it("uses existing two-level grouped table header support", () => {
@@ -158,7 +153,7 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     expect(draft).toMatchObject({
       taxpayer_identity: "Sample Test (DEMO-0001)",
       assessed_income: "125000", assessment_date: "2026-01-01",
-      record_source: "Local draft — not submitted", folio_no: "—",
+      record_source: "Local draft — not submitted", folio_no: "",
     });
     expect(buildRegister4Kpis([draft]).map(k => k.value)).toEqual(["1", "0", "1", "0"]);
     expect(draft).not.toHaveProperty("proceeding_reference");
@@ -205,6 +200,6 @@ describe("Register-4 inline Add row rules", () => {
     const draft=createRegister4LocalDraft(values,REGISTER4_ASSESSMENT_ROWS);
     expect(draft.record_source).toBe("Local draft — not submitted");
     expect(draft.section_review_status).toBe("REVIEW_REQUIRED — not certified");
-    expect(draft.folio_no).toBe("—");
+    expect(draft.folio_no).toBe("");
   });
 });

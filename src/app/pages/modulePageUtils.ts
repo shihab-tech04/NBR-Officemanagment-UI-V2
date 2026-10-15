@@ -46,6 +46,8 @@ export interface PageCfg {
   entryBtn?: string;
   /** Opt-in Register-4 inline draft editor; other pages are unchanged. */
   inlineEntryBtn?: string;
+  /** Optional initial values for a draft row, computed from complete source rows. */
+  inlineInitialValues?: (rows: TableRow[]) => Record<string, string>;
   inlineEntryComponent?: React.ComponentType<{
     mode:"table"|"mobile"; assessmentYear:string; values:Record<string,string>;
     onChange:(patch:Record<string,string>)=>void; onSave:()=>void; onCancel:()=>void;

@@ -16,27 +16,27 @@ import type { FormField, EntryFormValue } from "../../components/forms/EntryForm
 const unknown = "—";
 
 export const REGISTER4_ASSESSMENT_COLUMNS: ColDef[] = [
-  fc("serial_no", "S/N", { headerKey: "headers.register4SerialNo", truncate: "compact", align: "center" }),
+  fc("serial_no", "S/N", { headerKey: "headers.register4SerialNo", truncate: "compact", align: "left" }),
   fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact", align: "left" }),
   fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal", align: "left" }),
   fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo", align: "left" }),
   fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode", align: "left", truncate: "none", mono: true }),
-  fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact", align: "center" }),
-  fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact", align: "center" }),
-  fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome", align: "right" }),
+  fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact", align: "left" }),
+  fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact", align: "left" }),
+  fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome", align: "left" }),
   {
     type: "group",
     group: {
       label: "Created Demand / Allocation",
       groupKey: "headers.register4CreatedDemand",
       cols: [
-        { key: "arrear_year_demand", label: "Arrear Tax Year", headerKey: "headers.register4ArrearYearDemand", align: "right" },
-        { key: "current_year_demand", label: "Current Tax Year", headerKey: "headers.register4CurrentYearDemand", align: "right" },
+        { key: "arrear_year_demand", label: "Arrear Tax Year", headerKey: "headers.register4ArrearYearDemand", align: "left" },
+        { key: "current_year_demand", label: "Current Tax Year", headerKey: "headers.register4CurrentYearDemand", align: "left" },
       ],
     },
   },
-  fc("penalty", "Penalty", { headerKey: "headers.register4Penalty", align: "right" }),
-  fc("revised_demand", "Revised Demand / Allocation", { headerKey: "headers.register4RevisedDemand", align: "right" }),
+  fc("penalty", "Penalty", { headerKey: "headers.register4Penalty", align: "left" }),
+  fc("revised_demand", "Revised Demand / Allocation", { headerKey: "headers.register4RevisedDemand", align: "left" }),
   fc("remarks", "Remarks (if any)", { headerKey: "headers.register4Remarks", truncate: "normal", align: "left" }),
 ];
 
@@ -156,6 +156,17 @@ export function buildRegister4EntryFields(
   ];
 }
 
+/** One controlled serial for modal/inline drafts across the entire register,
+ * not the currently filtered page. Displaying it never makes it editable. */
+export function nextRegister4SerialNo(existingRows: TableRow[]): string {
+  const maxSerial = existingRows.reduce((max, row) => {
+    const raw = String(row.serial_no ?? "").trim();
+    const value = /^[1-9]\d*$/.test(raw) ? Number(raw) : 0;
+    return Number.isSafeInteger(value) ? Math.max(max, value) : max;
+  }, 0);
+  return String(Math.max(maxSerial, existingRows.length) + 1);
+}
+
 export function createRegister4LocalDraft(
   values: Record<string, EntryFormValue>,
   existingRows: TableRow[],
@@ -167,13 +178,13 @@ export function createRegister4LocalDraft(
   const optional = (key: string) => get(key) || unknown;
   return {
     id: `local-draft-${existingRows.length + 1}`,
-    serial_no: String(existingRows.length + 1),
+    serial_no: nextRegister4SerialNo(existingRows),
     taxpayer_name: taxpayerName,
     tin,
     taxpayer_identity: `${taxpayerName} (${tin})`,
     circle: get("circle"),
     assessment_year: get("assessment_year"),
-    folio_no: optional("folio_no"),
+    folio_no: "", // assigned separately; remains blank and read-only
     disposal_code: optional("disposal_code"),
     section_review_status: "REVIEW_REQUIRED — not certified",
     assessment_date: optional("assessment_date"),

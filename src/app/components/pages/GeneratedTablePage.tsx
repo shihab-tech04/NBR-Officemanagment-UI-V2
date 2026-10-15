@@ -433,7 +433,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
               </button>
             )}
             {cfg.inlineEntryBtn && cfg.inlineEntryComponent && (
-              <button type="button" onClick={()=>{if(!inlineOpen){setInlineValues({});setPage(1);setInlineOpen(true);}}}
+              <button type="button" onClick={()=>{if(!inlineOpen){setInlineValues(cfg.inlineInitialValues?.(rows) ?? {});setPage(1);setInlineOpen(true);}}}
                 disabled={inlineOpen} className="table-card__toolbar-btn" aria-label={cfg.inlineEntryBtn}>
                 <Plus size={13} aria-hidden="true"/>{cfg.inlineEntryBtn}
               </button>
