@@ -14,6 +14,7 @@ import {
   buildRegister4Kpis,
   buildRegister4EntryFields,
   createRegister4LocalDraft,
+  nextRegister4SerialNo,
   downloadRegister4SampleCsv,
 } from "./register4AssessmentTable";
 
@@ -44,6 +45,7 @@ export function Register4ListPage() {
     entryBtn: translateActions("newEntry"),
     inlineEntryBtn: translatePages("register4.addRow"),
     inlineEntryComponent: Register4InlineRow,
+    inlineInitialValues: rows => ({ serial_no: nextRegister4SerialNo(rows) }),
     entryModalComponent: Register4EntryModal,
     entrySubmitLabel: translatePages("register4.createNewEntry"),
     entryFields: buildRegister4EntryFields(assessmentYear, translateTables, translatePages),
