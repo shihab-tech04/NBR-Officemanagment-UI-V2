@@ -4,6 +4,8 @@ import { Popper } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { AppTextField } from "../../components/forms/AppTextField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { AppDateField } from "../../components/forms/AppDateField";
 import { AppNumberField } from "../../components/forms/AppNumberField";
 import { Register4SectionField } from "./Register4SectionField";
@@ -169,7 +171,12 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
     <div className="register4-inline__mobile-grid">
       {controls.map((item,index)=><div key={index} className="register4-inline__mobile-field">{item}</div>)}
     </div>
-    <div className="register4-inline__mobile-footer">{actions}</div>
+    <div className="register4-inline__mobile-footer">
+      <div className="register4-inline__mobile-text-actions">
+        <PrimaryButton type="button" size="sm" onClick={save}>{t("register4.saveRow")}</PrimaryButton>
+        <SecondaryButton type="button" size="sm" onClick={onCancel}>{t("register4.discardRow")}</SecondaryButton>
+      </div>
+    </div>
   </section>;
   return <tr className="register4-inline__row" data-testid="register4-inline-row" onKeyDown={keyDown}>
     {controls.map((item,index)=><td key={index} className="card-table__td">{item}</td>)}
