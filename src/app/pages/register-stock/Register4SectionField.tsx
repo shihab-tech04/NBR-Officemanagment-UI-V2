@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Popover } from "@mui/material";
-import { Plus } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppTextField } from "../../components/forms/AppTextField";
@@ -101,8 +101,24 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
               error={issue||undefined} placeholder="182(4)" maxLength={24} compact/>
           </div>
           <div className="register4-section-field__actions">
-            <SecondaryButton type="button" size="sm" onClick={close}>{t("register4.sectionCancel")}</SecondaryButton>
-            <PrimaryButton type="button" size="sm" onClick={addCustom}>{t("register4.sectionAdd")}</PrimaryButton>
+            <button
+              type="button"
+              className="app-btn app-btn--secondary app-btn--sm register4-section-field__icon-action"
+              onClick={close}
+              aria-label={t("register4.sectionCancel")}
+              title={t("register4.sectionCancel")}
+            >
+              <X size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="app-btn app-btn--primary app-btn--sm register4-section-field__icon-action"
+              onClick={addCustom}
+              aria-label={t("register4.sectionAdd")}
+              title={t("register4.sectionAdd")}
+            >
+              <Check size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
           </div>
         </div>
       )}
