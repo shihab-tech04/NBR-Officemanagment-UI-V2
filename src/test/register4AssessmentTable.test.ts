@@ -4,6 +4,7 @@ import { REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-sto
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
   REGISTER4_ASSESSMENT_ROWS,
+  REGISTER4_CIRCLE_OPTIONS,
   REGISTER4_ASSESSMENT_MOBILE_MAPPING,
   REGISTER4_ASSESSMENT_DRAWER_COLUMNS,
   buildRegister4Kpis,
@@ -126,6 +127,12 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
 
   it("preselects the active tax year and uses the matching assessment field schema", () => {
     const fields = buildRegister4EntryFields("2024-25", tr, tr);
+    const circle = fields.find(f => f.key === "circle");
+    expect(circle).toMatchObject({ type:"select", required:true, defaultValue:"Circle-1", options:REGISTER4_CIRCLE_OPTIONS });
+    expect(REGISTER4_CIRCLE_OPTIONS[0]).toBe("Circle-1");
+    expect(REGISTER4_CIRCLE_OPTIONS).toContain("Circle-375");
+    expect(REGISTER4_CIRCLE_OPTIONS).toContain("Circle-393");
+    expect(REGISTER4_CIRCLE_OPTIONS).not.toContain("All Circle");
     const year = fields.find(f => f.key === "assessment_year");
     expect(year).toMatchObject({ type: "select", required: true, defaultValue: "2024-25", options: ["2024-25"] });
     expect(fields.map(f => f.key)).toContain("assessed_income");
