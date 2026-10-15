@@ -890,7 +890,7 @@ test("Register-4 custom section editor uses full width input and only X / check 
   await input.fill("292");
   await confirm.click();
   await expect(editor).toBeVisible();
-  await expect(editor.getByRole("alert")).toContainText("cannot follow");
+  await expect(editor.locator("#disposal_code-custom-helper")).toContainText("cannot follow");
   await cancel.click();
   await expect(editor).toHaveCount(0);
   await expect(dialog).toBeVisible();
