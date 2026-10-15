@@ -22,15 +22,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: Check shared component compatibility
-        run: npm test -- --run src/app/components/buttons/__tests__/buttonCompatibility.test.tsx src/app/hooks/__tests__/useOverlayScrollLock.test.tsx
+        run: npm test -- src/app/components/buttons/__tests__/buttonCompatibility.test.tsx src/app/hooks/__tests__/useOverlayScrollLock.test.tsx
       - name: Run repository unit tests
         run: npm test
       - name: Verify production build
         run: npm run build
       - name: Verify forbidden application areas unchanged in this PR
+        if: github.event_name == 'pull_request'
         shell: bash
         run: |
           git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1 || true
