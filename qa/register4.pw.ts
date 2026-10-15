@@ -855,6 +855,42 @@ test("Register-4 inline row stays compact with TIN lookup as floating popper",as
   await page.screenshot({path:"test-results/register4-inline-compact-desktop.png",animations:"disabled"});
   await draft.getByRole("button",{name:"Discard row"}).click();
 });
+test("Register-4 desktop Add row inputs are about 20 percent shorter without resizing columns or modal",async({page})=>{
+  await page.setViewportSize({width:1736,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const outlines=row.locator(".MuiInputBase-root");
+  await expect(outlines).toHaveCount(13);
+  const heights=await outlines.evaluateAll(els=>els.map(el=>el.getBoundingClientRect().height));
+  for(const height of heights){
+    expect(height).toBeGreaterThanOrEqual(29);
+    expect(height).toBeLessThanOrEqual(31);
+  }
+  const select=row.locator(".register4-inline__cell--section .MuiInputBase-root");
+  const dharaButton=row.getByRole("button",{name:"Add a section"});
+  const [selectBox,dharaBox]=await Promise.all([select.boundingBox(),dharaButton.boundingBox()]);
+  expect(Math.abs(selectBox!.y-dharaBox!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(selectBox!.height-dharaBox!.height)).toBeLessThanOrEqual(2);
+  const actions=row.locator(".register4-inline__icon");
+  await expect(actions).toHaveCount(2);
+  const actionHeights=await actions.evaluateAll(els=>els.map(el=>el.getBoundingClientRect().height));
+  expect(actionHeights).toEqual([30,30]);
+  await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
+  await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
+  const cells=await row.locator("td.card-table__td").evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
+  expect(cells[4]).toBeGreaterThanOrEqual(330);
+  await page.screenshot({path:"test-results/register4-desktop-fields-30px.png",animations:"disabled"});
+  await row.getByRole("button",{name:"Discard row"}).click();
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10000");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  const modalCircle=dialog.locator("#circle");
+  const modalSize=await modalCircle.locator("..").boundingBox();
+  expect(modalSize!.height).toBeGreaterThanOrEqual(36);
+});
+
 test("Register-4 inline compact design remains usable and unclipped on mobile",async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto("/register-stock/register-4");
