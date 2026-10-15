@@ -21,6 +21,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Stop publishing unverified changes to approved UI
+        env:
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          BASE="$PUSH_BASE"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE="$(git rev-parse HEAD^)"
+          fi
+          node scripts/ui-regression-guard.mjs --self-test
+          node scripts/ui-regression-guard.mjs --check --base "$BASE"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
