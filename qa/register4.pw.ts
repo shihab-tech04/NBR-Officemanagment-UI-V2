@@ -607,6 +607,38 @@ test("Register-4 mobile inline draft uses per-field controls and 44px save/disca
   await expect(card).toHaveCount(0);
 });
 
+// Screenshot regression: on a narrow phone the section selector and its
+// approved Add action must share a row without a decorative divider.
+for (const width of [320, 360, 390]) {
+  test(`Register-4 mobile Dhara control stays inline at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await page.goto("/register-stock/register-4");
+    await page.getByRole("button",{name:"Add row"}).click();
+    const card=page.getByRole("region",{name:"New row"});
+    const field=card.locator(".register4-inline__cell--section");
+    const select=field.locator(".register4-section-field__select .MuiOutlinedInput-root");
+    const add=field.locator(".register4-section-field__add");
+    await expect(select).toBeVisible();
+    await expect(add).toBeVisible();
+    await expect(field.locator(".register4-section-field__rule")).toBeHidden();
+    const [parentRect,selectRect,addRect]=await Promise.all([
+      field.boundingBox(),select.boundingBox(),add.boundingBox(),
+    ]);
+    expect(parentRect&&selectRect&&addRect).toBeTruthy();
+    expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
+    expect(selectRect!.height).toBeGreaterThanOrEqual(44);
+    expect(addRect!.x).toBeGreaterThanOrEqual(selectRect!.x+selectRect!.width);
+    expect(addRect!.x+addRect!.width).toBeLessThanOrEqual(parentRect!.x+parentRect!.width+1);
+    expect(selectRect!.x).toBeGreaterThanOrEqual(parentRect!.x-1);
+    await page.screenshot({path:`test-results/register4-mobile-dhara-inline-${width}.png`,animations:"disabled"});
+    await add.click();
+    await expect(page.locator(".register4-section-field__popover")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await card.getByRole("button",{name:"Discard row"}).click();
+  });
+}
+
 test("Register-4 inline TIN suggestions match modal controlled fixture and do not save on Enter",async({page})=>{
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"Add row"}).click();
