@@ -891,6 +891,31 @@ test("Register-4 desktop Add row inputs are about 20 percent shorter without res
   expect(modalSize!.height).toBeGreaterThanOrEqual(36);
 });
 
+test("Register-4 desktop table preserves natural column sizing and single-line headers",async({page})=>{
+  await page.setViewportSize({width:1736,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const table=page.locator(".card-table__table");
+  const sizing=await table.evaluate(el=>{
+    const header=el.querySelector(".card-table__th--secondary") as HTMLElement;
+    const wrapper=el.closest(".card-table__wrapper") as HTMLElement;
+    const style=getComputedStyle(el);
+    return {layout:style.tableLayout, tableWidth:el.getBoundingClientRect().width,
+      wrapperWidth:wrapper.getBoundingClientRect().width,
+      headerWhitespace:getComputedStyle(header).whiteSpace,
+      tableHasOverflow:el.getBoundingClientRect().width> wrapper.getBoundingClientRect().width};
+  });
+  expect(sizing.layout).toBe("auto");
+  expect(sizing.headerWhitespace).toBe("nowrap");
+  expect(sizing.tableWidth).toBeGreaterThanOrEqual(sizing.wrapperWidth);
+  await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
+  await expect(row.locator("#register4-inline-table-circle")).toHaveAttribute("role","combobox");
+  await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
+  await page.screenshot({path:"test-results/register4-restored-natural-table-desktop.png",animations:"disabled"});
+  await row.getByRole("button",{name:"Discard row"}).click();
+});
+
 test("Register-4 inline compact design remains usable and unclipped on mobile",async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto("/register-stock/register-4");
