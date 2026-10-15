@@ -89,6 +89,16 @@ export const REGISTER4_ASSESSMENT_ROWS: TableRow[] = reg4Rows.map((row, index) =
   };
 });
 
+/** Circle menu values already present in the controlled demo plus the exact
+ * Zone-18 dropdown items visibly supplied in the UI reference screenshot.
+ * Reference choices do not establish verified taxpayer jurisdiction. */
+export const REGISTER4_CIRCLE_OPTIONS: string[] = [
+  ...new Set([
+    ...REGISTER4_ASSESSMENT_ROWS.map(row => String(row.circle ?? "")).filter(Boolean),
+    ...Array.from({ length: 19 }, (_, index) => `Circle-${375 + index}`),
+  ]),
+];
+
 export const REGISTER4_ASSESSMENT_DRAWER_COLUMNS: ColDef[] = [
   fc("taxpayer_name", "Taxpayer Name", { headerKey: "headers.taxpayerName" }),
   fc("tin", "TIN", { headerKey: "headers.tin" }),
@@ -135,7 +145,7 @@ export function buildRegister4EntryFields(
   return [
     { key: "taxpayer_name", label: label("taxpayerName", "Taxpayer Name"), type: "text", required: true, group: record },
     { key: "tin", label: label("tin", "TIN"), type: "text", required: true, group: record },
-    { key: "circle", label: label("circle", "Circle"), type: "text", required: true, defaultValue: "Circle-1", group: record },
+    { key: "circle", label: label("circle", "Circle"), type: "select", options: REGISTER4_CIRCLE_OPTIONS, required: true, defaultValue: "Circle-1", group: record },
     { key: "assessment_year", label: label("register4AssessmentYear", "Tax Year"), type: "select",
       options: [year], required: true, defaultValue: year, group: record },
     // The manual register treats folio as an assigned identifier, not a user-created number.

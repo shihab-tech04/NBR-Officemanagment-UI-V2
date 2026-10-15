@@ -7,6 +7,7 @@ import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppDateField } from "../../components/forms/AppDateField";
 import { AppNumberField } from "../../components/forms/AppNumberField";
 import { Register4SectionField } from "./Register4SectionField";
+import { REGISTER4_CIRCLE_OPTIONS } from "./register4AssessmentTable";
 import { findRegister4Taxpayer, getRegister4TinSuggestions } from "./Register4EntryModal";
 import { getRegister4DemoShortcutSection, reviewRegister4History } from "./register4SectionCodes";
 import "../../../styles/register4-entry.css";
@@ -135,9 +136,10 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
     <div className="register4-inline__cell register4-inline__cell--serial"><AppTextField compact id={"register4-inline-"+mode+"-serial_no"}
       label={th("headers.register4SerialNo")} value={values.serial_no??""}
       placeholder={mode==="table"?th("headers.register4SerialNo"):undefined} readOnly onChange={()=>{}}/></div>,
-    <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-circle"}
+    <div className="register4-inline__cell register4-inline__cell--circle"><AppSelectField compact id={"register4-inline-"+mode+"-circle"}
       label={th("headers.circle")} value={values.circle??""}
-      placeholder={mode==="table"?th("headers.circle"):undefined} readOnly onChange={()=>{}}/></div>,
+      options={[{value:"",label:th("headers.circle")},...REGISTER4_CIRCLE_OPTIONS.map(circle=>({value:circle,label:circle}))]}
+      onChange={v=>set("circle",v)} required/></div>,
     tinControl,
     <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-folio_no"}
       label={th("headers.register4FolioNo")} value=""
@@ -165,7 +167,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
   if(mode==="mobile")return <section className="register4-inline__mobile" aria-label={t("register4.inlineDraft")} onKeyDown={keyDown}>
     <h3 className="register4-inline__mobile-title">{t("register4.inlineDraft")}</h3>
     <div className="register4-inline__mobile-grid">
-      {controls.map((item,index)=><div key={index} className={[2,4,12].includes(index)?"register4-inline__mobile-span":undefined}>{item}</div>)}
+      {controls.map((item,index)=><div key={index} className="register4-inline__mobile-field">{item}</div>)}
     </div>
     <div className="register4-inline__mobile-footer">{actions}</div>
   </section>;
