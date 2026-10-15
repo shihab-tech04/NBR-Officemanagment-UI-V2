@@ -241,3 +241,98 @@
   .register4-entry .register4-section-field__inline-editor .register4-section-field__actions { justify-content:flex-end; }
   .register4-entry .register4-section-field__inline-editor .register4-section-field__actions > .app-btn { min-height:44px; height:44px; }
 }
+
+/* Register-4 New Entry visual correction (2026-10-15).
+   The previous compact-only pass was barely discernible. Align the modal's
+   EXISTING controls meaningfully, without changing shared forms or legal rules. */
+@media (min-width: 641px) {
+  .register4-entry__identity {
+    display:flex; flex-direction:row; align-items:center;
+    gap:14px; min-height:0; padding:10px 14px;
+  }
+  .register4-entry__identity .register4-entry__name {
+    flex:0 1 160px; min-width:115px; margin:0;
+    font-size:var(--fs-body-md); line-height:1.35;
+  }
+  .register4-entry__identity-facts {
+    flex:1 1 auto; min-width:0; display:flex; align-items:center;
+    flex-wrap:wrap; column-gap:12px; row-gap:4px;
+  }
+  .register4-entry__fields .entry-form__grid {
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    column-gap:14px; row-gap:10px;
+  }
+  .register4-entry__fields .entry-form__grid > .entry-form__field {
+    grid-column:span 3;
+  }
+  .register4-entry__fields .entry-form__grid > .entry-form__group-title,
+  .register4-entry__fields .entry-form__grid > .entry-form__field--span {
+    grid-column:1/-1;
+  }
+  /* Three peer amount fields fit on one well-balanced row; no field is removed. */
+  .register4-entry__fields .entry-form__grid > .entry-form__field:has(#arrear_year_demand),
+  .register4-entry__fields .entry-form__grid > .entry-form__field:has(#current_year_demand),
+  .register4-entry__fields .entry-form__grid > .entry-form__field:has(#revised_demand) {
+    grid-column:span 2;
+  }
+}
+/* Keep the statutory section selection and its associated Add action together.
+   The in-flow section-number editor expands below, never over proceeding fields. */
+.register4-entry__fields .register4-section-field {
+  display:grid; grid-template-columns:minmax(0,1fr) auto;
+  align-items:start; gap:8px 10px;
+}
+.register4-entry__fields .register4-section-field__select {
+  grid-column:1; grid-row:1; min-width:0;
+}
+.register4-entry__fields .register4-section-field__addition {
+  grid-column:2; grid-row:1; align-self:start;
+  justify-content:flex-end; min-width:0; gap:0;
+}
+.register4-entry__fields .register4-section-field__rule { display:none; }
+.register4-entry__fields .register4-section-field__add.app-btn {
+  height:40px; min-height:40px; width:auto;
+  padding:0 12px; font-size:var(--fs-label-md);
+  font-weight:500; white-space:nowrap;
+}
+.register4-entry__fields .register4-section-field__inline-editor,
+.register4-entry__fields .register4-section-field__error {
+  grid-column:1/-1;
+}
+.register4-entry__fields .entry-form__group-title {
+  margin:2px 0 0; padding:0 0 4px;
+  font-weight:600; line-height:1.25;
+}
+.register4-entry__fields .entry-form__grid { row-gap:10px; }
+.register4-entry__fields .MuiInputBase-root { min-height:40px; }
+@media(max-width:640px) {
+  .register4-entry__identity {
+    display:flex; flex-direction:column; align-items:stretch;
+    gap:6px; padding:10px 12px;
+  }
+  .register4-entry__identity .register4-entry__name {margin:0;}
+  .register4-entry__fields .entry-form__grid {
+    grid-template-columns:minmax(0,1fr); row-gap:12px;
+  }
+  .register4-entry__fields .entry-form__grid > .entry-form__field,
+  .register4-entry__fields .entry-form__grid > .entry-form__field--span {
+    grid-column:1/-1;
+  }
+  .register4-entry__fields .register4-section-field {
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:8px;
+  }
+  .register4-entry__fields .register4-section-field__add.app-btn {
+    height:44px; min-height:44px; padding:0 10px;
+  }
+}
+/* Below 420px, prevent an overly narrow section selector on phone screens. */
+@media(max-width:420px) {
+  .register4-entry__fields .register4-section-field {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .register4-entry__fields .register4-section-field__select { grid-column:1; grid-row:1; }
+  .register4-entry__fields .register4-section-field__addition {
+    grid-column:1; grid-row:2; justify-content:flex-end;
+  }
+}
