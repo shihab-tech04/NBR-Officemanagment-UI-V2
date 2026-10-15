@@ -607,6 +607,75 @@ test("Register-4 mobile inline draft uses per-field controls and 44px save/disca
   await expect(card).toHaveCount(0);
 });
 
+// Mobile-only request: existing Save/Discard actions use translated text labels,
+// while the previously approved desktop icons and action semantics remain intact.
+for (const width of [320,390,640]) {
+  test(`Register-4 mobile text Save and Discard fit at ${width}px without desktop icons`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await page.goto("/register-stock/register-4");
+    await page.getByRole("button",{name:"Add row"}).click();
+    const card=page.getByRole("region",{name:"New row"});
+    const actionRow=card.locator(".register4-inline__mobile-text-actions");
+    const save=actionRow.getByRole("button",{name:"Save row"});
+    const discard=actionRow.getByRole("button",{name:"Discard row"});
+    await expect(actionRow.getByRole("button")).toHaveCount(2);
+    await expect(save).toHaveText("Save row");
+    await expect(discard).toHaveText("Discard row");
+    await expect(save).toHaveClass(/app-btn--primary/);
+    await expect(discard).toHaveClass(/app-btn--secondary/);
+    await expect(actionRow.locator("svg")).toHaveCount(0);
+    const [cardRect,saveRect,discardRect]=await Promise.all([
+      card.boundingBox(),save.boundingBox(),discard.boundingBox(),
+    ]);
+    expect(cardRect&&saveRect&&discardRect).toBeTruthy();
+    for (const rect of [saveRect!,discardRect!]) {
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+      expect(rect.x).toBeGreaterThanOrEqual(cardRect!.x);
+      expect(rect.x+rect.width).toBeLessThanOrEqual(cardRect!.x+cardRect!.width+1);
+    }
+    await save.click();
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("Enter a matching TIN");
+    await page.screenshot({path:`test-results/register4-mobile-text-actions-${width}.png`,animations:"disabled"});
+    await discard.click();
+    await expect(card).toHaveCount(0);
+  });
+}
+
+test("Register-4 mobile Save and Discard show Bangla text instead of check/cross icons",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/register-stock/register-4");
+  await page.evaluate(()=>localStorage.setItem("gov_ui_settings",JSON.stringify({
+    assessmentYear:"2024-25",themeId:"indigo-blue",fontId:"inter",fontSizeId:"standard",languageId:"bn",
+  })));
+  await page.reload();
+  await page.getByRole("button",{name:"সারি যোগ করুন"}).click();
+  const card=page.locator(".register4-inline__mobile");
+  const row=card.locator(".register4-inline__mobile-text-actions");
+  await expect(row.getByRole("button")).toHaveCount(2);
+  await expect(row.getByRole("button",{name:"সারি সংরক্ষণ"})).toHaveText("সারি সংরক্ষণ");
+  await expect(row.getByRole("button",{name:"সারি বাতিল"})).toHaveText("সারি বাতিল");
+  await expect(row.locator("svg")).toHaveCount(0);
+  await row.getByRole("button",{name:"সারি বাতিল"}).click();
+  await expect(card).toHaveCount(0);
+});
+
+test("Register-4 desktop Add row retains its approved icon-only actions",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const save=row.getByRole("button",{name:"Save row"});
+  const discard=row.getByRole("button",{name:"Discard row"});
+  await expect(row.locator(".register4-inline__mobile-text-actions")).toHaveCount(0);
+  await expect(save).toHaveClass(/register4-inline__icon/);
+  await expect(discard).toHaveClass(/register4-inline__icon--cancel/);
+  await expect(save.locator("svg")).toHaveCount(1);
+  await expect(discard.locator("svg")).toHaveCount(1);
+  await expect(save).toBeVisible();
+  await discard.click();
+});
+
 // Screenshot regression: on a narrow phone the section selector and its
 // approved Add action must share a row without a decorative divider.
 for (const width of [320, 360, 390]) {
