@@ -1,4 +1,4 @@
-# Coding-agent UX/UI contract — version 8.4
+# Coding-agent UX/UI contract — version 8.5
 
 This repository is an enterprise/government frontend for final developer handoff, not a demonstration. Preserve the established design system, solved screens, approved business rules, source data relationships, bilingual EN/BN experience, and existing reusable components. Do not invent features, fields, UI labels, demo banners or legal disclaimers. Do not claim backend, security, legal or final-project certification without verified evidence.
 
@@ -19,3 +19,6 @@ A completed user task must let users understand their record context, enter/revi
 - The new v8.4 browser gate currently FAILS against the scroll-trapped Register-4 editor, which is an unresolved product defect. No assertion should be removed to achieve green CI.
 
 Report IMPLEMENTED, TESTED, DEPLOYED, FRONTEND ACCEPTED and FINAL ACCEPTED separately, with exact source/deployment SHA and evidence. Missing approved baselines or failing quality checks mean NOT ACCEPTED. Production branches, database, real taxpayer records and solved UI must not be changed by a governance-only task.
+
+## v8.5 — Execute requests here; do not default to ChatGPT Work
+When a user says "fix", "implement", "change", "test", "deploy", or "audit and repair", perform the authorized engineering action directly in the active conversation using available GitHub, Figma, files, runtime and testing tools. Small component changes, spacing, inputs, modals, buttons and localization are not reasons to route the user to ChatGPT Work. Never substitute an implementation prompt, roadmap or another long handoff for work you can execute now. Do not finish by routinely offering an optimized Work prompt. Recommend Work only when explicitly requested, or when an essential capability unavailable here would materially improve the task; explain that limitation, and let the user choose. Create prompts only when asked. If blocked, complete independently feasible parts and report what remains, without false release claims. This policy does not grant permission to modify any additional UI or waive approved-state and CI gates.
