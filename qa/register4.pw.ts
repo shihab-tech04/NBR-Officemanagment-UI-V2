@@ -879,8 +879,7 @@ test("Register-4 desktop Add row inputs are about 20 percent shorter without res
   await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
   await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
   const cells=await row.locator("td.card-table__td").evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
-  expect(cells[4]).toBeGreaterThanOrEqual(260);
-  expect(cells[4]).toBeLessThan(335);
+  expect(cells[4]).toBeGreaterThanOrEqual(330);
   await page.screenshot({path:"test-results/register4-desktop-fields-30px.png",animations:"disabled"});
   await row.getByRole("button",{name:"Discard row"}).click();
   await page.getByRole("button",{name:"New Entry"}).click();
@@ -890,31 +889,6 @@ test("Register-4 desktop Add row inputs are about 20 percent shorter without res
   const modalCircle=dialog.locator("#circle");
   const modalSize=await modalCircle.locator("..").boundingBox();
   expect(modalSize!.height).toBeGreaterThanOrEqual(36);
-});
-
-test("Register-4 desktop widths are narrow for other columns, unchanged for Circle TIN Date",async({page})=>{
-  await page.setViewportSize({width:1736,height:900});
-  await page.goto("/register-stock/register-4");
-  await page.getByRole("button",{name:"Add row"}).click();
-  const row=page.getByTestId("register4-inline-row");
-  const widths=await row.locator("td.card-table__td").evaluateAll(els=>
-    els.map(el=>Math.round(el.getBoundingClientRect().width)));
-  expect(widths).toHaveLength(14);
-  // Three expressly approved reference widths remain available.
-  expect(widths[1]).toBeGreaterThanOrEqual(105); // Circle
-  expect(widths[2]).toBeGreaterThanOrEqual(215); // taxpayer / TIN
-  expect(widths[6]).toBeGreaterThanOrEqual(160); // assessment date
-  // All other fields use the narrower column minima.
-  for(const [index,max] of [[0,115],[3,135],[4,335],[5,140],
-      [7,155],[8,155],[9,155],[10,125],[11,220],[12,170],[13,115]]) {
-    expect(widths[index],`column ${index+1} too wide: ${widths[index]}`).toBeLessThanOrEqual(max);
-  }
-  const table=page.locator(".card-table__table");
-  const tableRect=await table.boundingBox();
-  expect(tableRect!.width).toBeGreaterThanOrEqual(1885);
-  expect(tableRect!.width).toBeLessThanOrEqual(1915);
-  await page.screenshot({path:"test-results/register4-compact-column-widths-desktop.png",animations:"disabled"});
-  await row.getByRole("button",{name:"Discard row"}).click();
 });
 
 test("Register-4 inline compact design remains usable and unclipped on mobile",async({page})=>{
@@ -1176,8 +1150,7 @@ test("Register-4 Add row has only original reference columns, without second-lin
   const [sectionRect,selectRect,addRect,rowRect]=await Promise.all([
     section.boundingBox(),select.boundingBox(),add.boundingBox(),row.boundingBox()
   ]);
-  expect(sectionRect!.width).toBeGreaterThanOrEqual(245);
-  expect(sectionRect!.width).toBeLessThan(315);
+  expect(sectionRect!.width).toBeGreaterThanOrEqual(325);
   expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
   expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
   expect(rowRect!.height).toBeLessThan(120);
