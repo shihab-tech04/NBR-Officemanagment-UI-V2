@@ -101,7 +101,22 @@
 .register4-inline__mobile-grid .register4-inline__cell--remarks,
 .register4-inline__mobile-grid .register4-inline__cell--identity { grid-column:1/-1; }
 .register4-inline__mobile-footer { display:flex; justify-content:flex-end; margin-top:var(--space-4); }
-.register4-inline__mobile-footer .register4-inline__icon { width:44px; height:44px; }
+/* Mobile-only: approved primary/secondary text buttons, not desktop icon actions. */
+.register4-inline__mobile-text-actions {
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:var(--space-2);
+  min-width:0;
+}
+.register4-inline__mobile-text-actions > .app-btn {
+  min-height:44px;
+  height:44px;
+  width:auto;
+  padding:0 var(--space-3);
+  white-space:nowrap;
+}
 
 /* Inline-only suggestion parity with the frozen New Entry modal. */
 /* Portal popup prevents the TIN lookup from stretching or being clipped by
