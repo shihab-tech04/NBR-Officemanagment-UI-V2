@@ -173,7 +173,7 @@ test("Register-4 New Entry resolves TIN before showing the assessment form and u
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("TIN-10000");
   await expect(dialog.getByRole("region", { name: "Taxpayer details" })).toContainText("Circle-1");
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
-  await expect(dialog.locator("#circle")).toHaveValue("Circle-1");
+  await expect(dialog.locator("#circle")).toContainText("Circle-1");
   await expect(dialog.locator("#assessment_year")).toContainText("2024-25");
   await expect(dialog.locator("#taxpayer_name")).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Create new Entry" })).toBeEnabled();
@@ -559,7 +559,7 @@ test("Register-4 inline TIN lookup and section guard require valid values before
   await expect(draft).toBeVisible();
   await draft.locator("#register4-inline-table-tin").fill("TIN-10000");
   await expect(draft).toContainText("Rahman Enterprise");
-  await expect(draft.locator("#register4-inline-table-circle")).toHaveValue("Circle-1");
+  await expect(draft.locator("#register4-inline-table-circle")).toContainText("Circle-1");
   await expect(draft.locator("#register4-inline-table-assessment_year")).toContainText("2024-25");
   await draft.getByRole("button",{name:"Save row"}).click();
   await expect(draft).toContainText("Select an eligible section");
@@ -639,6 +639,73 @@ for (const width of [320, 360, 390]) {
   });
 }
 
+// Actual field-width checks at phone sizes and at the previously broken
+// 430px threshold: the inner Dhara pair is the sole approved split control.
+for (const width of [320, 360, 390, 430, 640]) {
+  test(`Register-4 mobile inputs are full width with stable spacing at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await page.goto("/register-stock/register-4");
+    await page.getByRole("button",{name:"Add row"}).click();
+    const card=page.getByRole("region",{name:"New row"});
+    const fields=card.locator(".register4-inline__mobile-grid > .register4-inline__mobile-field");
+    await expect(fields).toHaveCount(13);
+    const measures=await fields.evaluateAll(nodes=>nodes.map(el=>{
+      const rect=el.getBoundingClientRect();
+      const control=el.querySelector(".MuiFormControl-root")?.getBoundingClientRect();
+      return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,
+        controlLeft:control?.left,controlRight:control?.right};
+    }));
+    const gridRect=await card.locator(".register4-inline__mobile-grid").boundingBox();
+    expect(gridRect).not.toBeNull();
+    for(let i=0;i<measures.length;i++){
+      const field=measures[i];
+      expect(Math.abs(field.left-gridRect!.x)).toBeLessThanOrEqual(2);
+      expect(Math.abs(field.right-(gridRect!.x+gridRect!.width))).toBeLessThanOrEqual(2);
+      if(field.controlLeft!==undefined && i!==4){
+        expect(Math.abs(field.controlLeft-field.left)).toBeLessThanOrEqual(2);
+        expect(Math.abs(field.controlRight!-field.right)).toBeLessThanOrEqual(2);
+      }
+      if(i>0)expect(field.top-measures[i-1].bottom).toBeGreaterThanOrEqual(10);
+    }
+    const circle=card.locator("#register4-inline-mobile-circle");
+    await expect(circle).toHaveAttribute("role","combobox");
+    await circle.click();
+    await expect(page.getByRole("option",{name:"Circle-375"})).toBeVisible();
+    await page.getByRole("option",{name:"Circle-375"}).click();
+    await expect(circle).toContainText("Circle-375");
+    await card.locator("#register4-inline-mobile-tin").fill("TIN-10000");
+    await expect(circle).toContainText("Circle-1");
+    await expect(card.locator("#register4-inline-mobile-serial_no")).toHaveValue("33");
+    await expect(card.locator("#register4-inline-mobile-folio_no")).toHaveValue("");
+    await page.screenshot({path:`test-results/register4-fullwidth-mobile-${width}.png`,animations:"disabled"});
+    await card.getByRole("button",{name:"Discard row"}).click();
+  });
+}
+
+test("Register-4 desktop Circle dropdown and New Entry Circle select preserve approved form contracts",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const circle=row.locator("#register4-inline-table-circle");
+  await expect(circle).toHaveAttribute("role","combobox");
+  await circle.click();
+  await expect(page.getByRole("option",{name:"Circle-393"})).toBeVisible();
+  await page.keyboard.press("Escape");
+  await row.getByRole("button",{name:"Discard row"}).click();
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10000");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  const modalCircle=dialog.locator("#circle");
+  await expect(modalCircle).toHaveAttribute("role","combobox");
+  await expect(modalCircle).toContainText("Circle-1");
+  await modalCircle.click();
+  await expect(page.getByRole("option",{name:"Circle-375"})).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog.locator(".entry-form__field")).toHaveCount(11);
+});
+
 test("Register-4 inline TIN suggestions match modal controlled fixture and do not save on Enter",async({page})=>{
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"Add row"}).click();
@@ -680,7 +747,7 @@ test("Register-4 mobile inline TIN suggestions and Folio No parity with New Entr
   await expect(options.getByRole("button",{name:"TIN-10002"})).toContainText("180/180(2)");
   await options.getByRole("button",{name:"TIN-10002"}).click();
   await expect(card.locator("#register4-inline-mobile-tin")).toHaveValue("TIN-10002");
-  await expect(card.locator("#register4-inline-mobile-circle")).toHaveValue("Circle-1");
+  await expect(card.locator("#register4-inline-mobile-circle")).toContainText("Circle-1");
   await expect(card.locator("#register4-inline-mobile-disposal_code")).toContainText("180/180(2)");
   await expect(folio).toHaveValue("");
   await card.getByRole("button",{name:"Discard row"}).click();
