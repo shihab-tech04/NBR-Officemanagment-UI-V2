@@ -65,7 +65,7 @@
 /* Register-4 in-table Add row only; frozen New Entry modal and table styles remain intact. */
 .register4-inline__row { background:var(--color-background-subtle); }
 .register4-inline__row > td {
-  vertical-align:top; padding:9px 6px 10px;
+  vertical-align:top; padding:var(--space-2) var(--space-2) var(--space-3);
   border-bottom:1px solid var(--color-border);
 }
 .register4-inline__row .MuiFormControl-root { min-width:0; }
@@ -78,8 +78,8 @@
 .register4-inline__cell--remarks { min-width:170px; }
 .register4-inline__readonly { color:var(--color-text-secondary); margin:7px 0 0; font-size:var(--fs-label-sm); overflow-wrap:anywhere; }
 .register4-inline__actions {
-  display:flex; gap:6px; align-items:center; justify-content:center;
-  min-width:85px; padding-top:2px;
+  display:flex; gap:var(--space-2); align-items:center; justify-content:center;
+  min-width:85px; padding-top:0;
 }
 .register4-inline__icon {
   width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center;
@@ -196,7 +196,7 @@
 }
 /* Register-4 New Entry modal — project spacing rhythm, single scoped authority.
    Preserve the approved placement of the primary "Add a section" action. */
-.app-modal-panel:has(.register4-entry) .app-modal-body { padding:20px; }
+.app-modal-panel:has(.register4-entry) .app-modal-body { padding:var(--space-5); }
 .register4-entry { gap:var(--space-4); }
 .register4-entry__identity { padding:var(--space-2) var(--space-4); }
 .register4-entry__name { margin-bottom:var(--space-2); }
@@ -207,7 +207,7 @@
 }
 .register4-entry__fields .entry-form__field { min-width:0; }
 .register4-entry__fields .entry-form__group-title {
-  margin:var(--space-2) 0 0; padding:0 0 var(--space-2);
+  margin:var(--space-3) 0 0; padding:0 0 var(--space-2);
   font-size:var(--fs-label-md); font-weight:600; line-height:1.4;
 }
 .register4-entry__fields .entry-form__group-title:first-child { margin-top:0; }
@@ -272,7 +272,7 @@
 @media (min-width:641px) {
   .register4-entry__identity {
     display:flex; flex-direction:row; align-items:center;
-    gap:14px; min-height:0;
+    gap:var(--space-4); min-height:0;
   }
   .register4-entry__identity .register4-entry__name {
     flex:0 1 160px; min-width:115px; margin:0;
@@ -297,12 +297,12 @@
   }
 }
 @media (max-width:640px) {
-  .app-modal-panel:has(.register4-entry) .app-modal-body { padding:16px; }
+  .app-modal-panel:has(.register4-entry) .app-modal-body { padding:var(--space-4); }
   .register4-entry__identity { display:flex; flex-direction:column; align-items:stretch; gap:6px; }
   .register4-entry__identity .register4-entry__name { margin:0; }
   .register4-entry__fields .entry-form__grid {
     grid-template-columns:minmax(0,1fr);
-    row-gap:var(--space-3);
+    row-gap:var(--space-4);
   }
   .register4-entry__fields .entry-form__grid > .entry-form__field,
   .register4-entry__fields .entry-form__grid > .entry-form__field--span {
@@ -327,3 +327,16 @@
     grid-column:1; grid-row:2; justify-content:flex-end;
   }
 }
+
+/* Register-4 inline edit: keep controls on one shared baseline and use the
+   same left-aligned text rhythm as the surrounding table. */
+.register4-inline__row > td { text-align:left; }
+.register4-inline__row .register4-inline__cell { text-align:left; }
+.register4-inline__row .MuiInputBase-root { width:100%; }
+.register4-inline__row .MuiInputBase-input,
+.register4-inline__row .MuiSelect-select { text-align:left; }
+.register4-inline__row .register4-inline__actions { justify-content:flex-start; }
+.register4-inline__cell--serial { min-width:78px; }
+.register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
+.register4-inline__mobile .MuiInputBase-input,
+.register4-inline__mobile .MuiSelect-select { text-align:left; }
