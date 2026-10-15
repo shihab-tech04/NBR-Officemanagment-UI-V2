@@ -351,39 +351,42 @@ test("Register-4 custom section rejects invalid code and English/Bangla form kee
   // The custom editor owns focus while open; inspect the underlying modal by DOM,
   // then close the editor before asserting the parent dialog's accessibility.
   await expect(page.locator(".app-modal-panel #disposal_code")).toContainText("Choose a section");
-  await page.locator(".register4-section-field__popover").getByRole("button", { name: "Cancel" }).click();
+  await page.locator(".register4-section-field__inline-editor").getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Create new Entry" }).click();
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
   await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
 });
 
-test("Register-4 custom section popover never stretches New Entry form grid", async ({ page }) => {
+test("Register-4 inline custom-section editor does not cover other form inputs", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/register-stock/register-4");
   await page.getByRole("button", { name: /New Entry/i }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
-  // Use a DOM-stable locator: while MUI Popover owns focus, its Modal
-  // accessibility layer temporarily hides the underlying dialog by design.
-  const date = page.locator(".app-modal-panel #assessment_date");
-  const previousTop = await date.evaluate(e => e.getBoundingClientRect().top);
+  const assessmentDate=dialog.locator("#assessment_date");
+  const eventDate=dialog.locator("#proceeding_event_date");
+  const preceding=await eventDate.evaluate(e=>e.getBoundingClientRect().top);
+  const unchanged=await assessmentDate.evaluate(e=>e.getBoundingClientRect().top);
   await dialog.getByRole("button", { name: "Add a section" }).click();
-  await expect(page.locator(".register4-section-field__popover")).toBeVisible();
-  const nextTop = await date.evaluate(e => e.getBoundingClientRect().top);
-  expect(Math.abs(previousTop-nextTop)).toBeLessThanOrEqual(2);
-  await expect(dialog.locator(".register4-section-field__custom")).toHaveCount(0);
-  // The underlying form remains laid out, but is aria-hidden while MUI Popover owns focus.
-  await expect(page.locator(".app-modal-panel .entry-form__grid")).toBeVisible();
+  const editor=dialog.locator(".register4-section-field__inline-editor");
+  await expect(editor).toBeVisible();
+  expect(Math.abs((await assessmentDate.evaluate(e=>e.getBoundingClientRect().top))-unchanged)).toBeLessThanOrEqual(2);
+  const rect=await editor.boundingBox();
+  const next=await eventDate.boundingBox();
+  expect(next!.y).toBeGreaterThan(preceding);
+  expect(rect!.y+rect!.height).toBeLessThanOrEqual(next!.y+2);
+  await expect(dialog.locator(".entry-form__grid")).toBeVisible();
+  await expect(dialog.locator(".app-modal-footer .app-btn")).toHaveCount(2);
   await page.locator("#disposal_code-custom").fill("183(7)");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(dialog.locator("#disposal_code")).toContainText("183(7)");
-  await expect(page.locator(".register4-section-field__popover")).toHaveCount(0);
+  await expect(dialog.locator(".register4-section-field__inline-editor")).toHaveCount(0);
   await page.screenshot({ path:"test-results/register4-section-form-clean.png", animations:"disabled" });
 });
 
-test("Register-4 mobile custom section overlay is contained on screen", async ({ page }) => {
+test("Register-4 mobile in-flow section editor is contained on screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/register-stock/register-4");
   await page.getByRole("button", { name: /New Entry/i }).click();
@@ -391,7 +394,7 @@ test("Register-4 mobile custom section overlay is contained on screen", async ({
   await dialog.getByRole("searchbox", { name:"Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name:"Search", exact:true }).click();
   await dialog.getByRole("button", { name: "Add a section" }).click();
-  const popup=page.locator(".register4-section-field__popover");
+  const popup=dialog.locator(".register4-section-field__inline-editor");
   await expect(popup).toBeVisible();
   const r=await popup.evaluate(e=>{const r=e.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width};});
   expect(r.left).toBeGreaterThanOrEqual(0);
@@ -442,7 +445,7 @@ test("Register-4 custom section Add is visible outside dropdown, balanced popove
   const add=dialog.getByRole("button",{name:"Add a section"});
   await expect(add).toBeVisible();
   await add.click();
-  const pop=page.locator(".register4-section-field__popover");
+  const pop=page.locator(".register4-section-field__inline-editor");
   await expect(pop).toBeVisible();
   await expect(pop).not.toContainText("draft-only");
   await expect(pop.getByRole("textbox",{name:"Section number"})).toBeVisible();
@@ -468,7 +471,7 @@ test("Register-4 blocks an unsupported transition and preserves the existing tra
   await page.locator("#disposal_code-custom").fill("292");
   await page.getByRole("button",{name:"Add section",exact:true}).click();
   await expect(page.getByText("This section cannot follow the recorded sequence.",{exact:false})).toBeVisible();
-  await page.locator(".register4-section-field__popover").getByRole("button",{name:"Cancel"}).click();
+  await page.locator(".register4-section-field__inline-editor").getByRole("button",{name:"Cancel"}).click();
   await expect(d.locator("#disposal_code")).toContainText("180");
 });
 test("Register-4 available next stages follow the selected path; no Remove last",async({page})=>{
@@ -699,4 +702,44 @@ test("Register-4 inline compact design remains usable and unclipped on mobile",a
   await expect(card.getByRole("button",{name:"Add a section"})).toBeVisible();
   await page.screenshot({path:"test-results/register4-inline-compact-mobile.png",animations:"disabled"});
   await card.getByRole("button",{name:"Discard row"}).click();
+});
+
+test("Register-4 New Entry modal preserves all fields in a compact grouped layout",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  await expect(dialog.locator(".entry-form__group-title")).toHaveCount(5);
+  for(const id of ["circle","assessment_year","folio_no","assessment_date","disposal_code",
+    "proceeding_reference","proceeding_event_date","assessed_income","penalty",
+    "arrear_year_demand","current_year_demand","revised_demand","remarks"]){
+    await expect(dialog.locator("#"+id)).toBeAttached();
+  }
+  await expect(dialog.locator("#folio_no")).toHaveAttribute("readonly");
+  const circle=await dialog.locator("#circle").boundingBox();
+  const date=await dialog.locator("#assessment_date").boundingBox();
+  expect(circle!.height).toBeLessThanOrEqual(46);
+  expect(Math.abs(circle!.height-date!.height)).toBeLessThanOrEqual(3);
+  await expect(dialog.getByRole("button",{name:"Create new Entry"})).toBeVisible();
+  await page.screenshot({path:"test-results/register4-new-entry-compact.png",animations:"disabled"});
+});
+test("Register-4 custom section editor expands inline and preserves Add/Cancel and section validity",async({page})=>{
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const d=page.getByRole("dialog");
+  await d.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await d.getByRole("button",{name:"Search",exact:true}).click();
+  await d.getByRole("button",{name:"Add a section"}).click();
+  const e=d.locator(".register4-section-field__inline-editor");
+  await expect(e).toBeVisible();
+  await expect(page.locator(".register4-section-field__popover")).toHaveCount(0);
+  await e.getByRole("button",{name:"Cancel"}).click();
+  await expect(e).toHaveCount(0);
+  await d.getByRole("button",{name:"Add a section"}).click();
+  await d.locator("#disposal_code-custom").fill("183(7)");
+  await e.getByRole("button",{name:"Add section",exact:true}).click();
+  await expect(d.locator("#disposal_code")).toContainText("180/183(7)");
+  await expect(e).toHaveCount(0);
 });
