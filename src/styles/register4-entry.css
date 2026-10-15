@@ -327,3 +327,16 @@
     grid-column:1; grid-row:2; justify-content:flex-end;
   }
 }
+
+/* Register-4 inline edit: keep controls on one shared baseline and use the
+   same left-aligned text rhythm as the surrounding table. */
+.register4-inline__row > td { text-align:left; }
+.register4-inline__row .register4-inline__cell { text-align:left; }
+.register4-inline__row .MuiInputBase-root { width:100%; }
+.register4-inline__row .MuiInputBase-input,
+.register4-inline__row .MuiSelect-select { text-align:left; }
+.register4-inline__row .register4-inline__actions { justify-content:flex-start; }
+.register4-inline__cell--serial { min-width:78px; }
+.register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
+.register4-inline__mobile .MuiInputBase-input,
+.register4-inline__mobile .MuiSelect-select { text-align:left; }
