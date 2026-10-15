@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { canNavigateStepper, resolveStepState } from "../../utils/stepState";
 
 export interface AppStepperStep {
   id: string;
@@ -24,9 +25,12 @@ export function AppStepper({
     <nav className="app-stepper" aria-label={ariaLabel}>
       <ol className="app-stepper__list">
         {steps.map((step, index) => {
-          const completed = index < currentStep;
-          const current = index === currentStep;
-          const canNavigate = !!onStepChange && (current || (allowCompletedNavigation && completed));
+          const { completed, current } = resolveStepState(index, currentStep);
+          const canNavigate = canNavigateStepper(
+            { completed, current, future: index > currentStep },
+            !!onStepChange,
+            allowCompletedNavigation,
+          );
           return (
             <li
               key={step.id}
