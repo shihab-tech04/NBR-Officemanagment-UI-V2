@@ -95,8 +95,8 @@
   --space-xl:  20px;
   --space-2xl: 24px;
   --space-3xl: 32px;
-  /* Numeric --space-* tokens are owned by tokens.css, loaded after
-     typography.css; keep only semantic aliases in this stylesheet. */
+  /* Numeric --space-* tokens are owned by tokens.css, imported before
+     typography.css. No numeric overrides are needed in this stylesheet. */
 
   /* ── Component dimension tokens ── */
   --card-padding:         20px;
