@@ -926,3 +926,64 @@ test("Register-4 custom icon actions fit inside the mobile modal without changin
   await expect(editor).toHaveCount(0);
   await expect(dialog).toBeVisible();
 });
+
+
+test("Register-4 table Add row Dhara cell separates captions from compact inputs",async({page})=>{
+  await page.setViewportSize({width:1736,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const section=row.locator(".register4-inline__cell--section");
+  const select=section.locator(".register4-section-field__select .MuiOutlinedInput-root");
+  const button=section.getByRole("button",{name:"Add a section"});
+  const captions=section.locator(".register4-inline__subfield-title");
+  await expect(captions).toHaveCount(2);
+  const refField=row.locator("#register4-inline-table-proceeding_reference");
+  const dateField=row.locator("#register4-inline-table-proceeding_event_date");
+  const [cellRect,selectRect,buttonRect,refRect,dateRect]=await Promise.all([
+    section.boundingBox(),select.boundingBox(),button.boundingBox(),
+    refField.boundingBox(),dateField.boundingBox()
+  ]);
+  expect(cellRect!.width).toBeGreaterThanOrEqual(445);
+  expect(Math.abs(selectRect!.y-buttonRect!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(selectRect!.height-buttonRect!.height)).toBeLessThanOrEqual(2);
+  expect(refRect!.y).toBeGreaterThan(selectRect!.y+selectRect!.height);
+  expect(Math.abs(refRect!.y-dateRect!.y)).toBeLessThanOrEqual(2);
+  for(let i=0;i<2;i++){
+    const caption=await captions.nth(i).boundingBox();
+    const field=i===0?refRect:dateRect;
+    expect(caption!.y+caption!.height).toBeLessThanOrEqual(field!.y-4);
+    expect(caption!.x).toBeGreaterThanOrEqual(cellRect!.x);
+    expect(caption!.x+caption!.width).toBeLessThanOrEqual(cellRect!.x+cellRect!.width);
+  }
+  const sectionLabel=section.locator(".register4-section-field__select .MuiInputLabel-root");
+  await expect(sectionLabel).toHaveCount(1);
+  expect(await sectionLabel.evaluate(el=>getComputedStyle(el).opacity)).toBe("0");
+  await expect(row.getByRole("button",{name:"Save row"})).toBeVisible();
+  await expect(row.getByRole("button",{name:"Discard row"})).toBeVisible();
+  await page.screenshot({path:"test-results/register4-inline-dhara-readable-desktop.png",animations:"disabled"});
+  await row.getByRole("button",{name:"Discard row"}).click();
+});
+test("Register-4 table cleanup does not remove accessible labels or alter mobile Dhara editing",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const card=page.getByRole("region",{name:"New row"});
+  const select=card.locator(".register4-section-field__select");
+  const label=select.locator(".MuiInputLabel-root");
+  await expect(label).toHaveCount(1);
+  expect(await label.evaluate(el=>getComputedStyle(el).opacity)).not.toBe("0");
+  const date=card.locator("#register4-inline-mobile-proceeding_event_date");
+  const ref=card.locator("#register4-inline-mobile-proceeding_reference");
+  await expect(date).toBeAttached();
+  await expect(ref).toBeAttached();
+  await expect(card.locator(".register4-inline__subfield-title")).toHaveCount(0);
+  await expect(card.getByRole("button",{name:"Add a section"})).toBeVisible();
+  await card.getByRole("button",{name:"Discard row"}).click();
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  await expect(dialog.locator("#disposal_code")).toBeAttached();
+  await expect(dialog.locator(".register4-section-field__add")).toBeVisible();
+});
