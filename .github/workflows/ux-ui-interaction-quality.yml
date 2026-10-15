@@ -1,0 +1,30 @@
+name: UX/UI Interaction Quality v8.4
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  register4-interaction-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Verify Register-4 task-level layout in EN/BN across desktop viewports
+        run: npx playwright test --config playwright.config.ts qa/register4-interaction-quality.pw.ts
+      - name: Preserve real failure screenshots and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register4-v84-interaction-evidence
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
