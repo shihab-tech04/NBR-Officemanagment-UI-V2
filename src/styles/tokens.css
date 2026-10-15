@@ -18,6 +18,15 @@
   --space-14: 56px;
   --space-16: 64px;
 
+  /* MUI legacy-compatible text sizes. No computed geometry or visible value changes.
+     Used by both MuiProvider and compact form/filter field overrides. */
+  --mui-menu-item-font-size: 13px;
+  --mui-input-font-size: 14px;
+  --mui-label-font-size: 14px;
+  --mui-helper-font-size: 12px;
+  --mui-filter-label-font-size: 13px;
+  --mui-filter-helper-font-size: 11px;
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
