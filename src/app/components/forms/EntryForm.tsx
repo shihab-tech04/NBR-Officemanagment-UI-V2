@@ -40,13 +40,18 @@ interface EntryFormProps {
   /** Optional external modal footer; default inline footer remains unchanged. */
   formRef?: Ref<HTMLFormElement>;
   hideFooter?: boolean;
+  /** Opt-in to existing small MUI field variant; other forms remain unchanged. */
+  compactFields?: boolean;
+  /** In-flow custom section editor only for the Register-4 New Entry modal. */
+  sectionEditor?: "popover" | "inline";
 }
 
 function fieldId(f: FormField, i: number): string {
   return f.key ?? `entry-field-${i}`;
 }
 
-export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hideFooter = false }: EntryFormProps) {
+export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hideFooter = false,
+  compactFields = false, sectionEditor = "popover" }: EntryFormProps) {
   const { t: translate } = useTranslation("common");
   const { t: translateActions } = useTranslation("actions");
 
@@ -116,6 +121,8 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
                     setStr(id, v);
                     if (errors[id]) setErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
                   }}
+                  compact={compactFields}
+                  editor={sectionEditor}
                   required={f.required}
                   helper={f.helper}
                   error={errors[id]}
@@ -127,6 +134,7 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
                   value={values[id] ?? ""}
                   onChange={v => setStr(id, v)}
                   options={f.options ?? []}
+                  compact={compactFields}
                   required={f.required}
                   helper={f.helper}
                   error={errors[id]}
@@ -144,11 +152,12 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
                   required={f.required}
                   helper={f.helper}
                   error={errors[id]}
-                  rows={4}
+                  rows={compactFields ? 3 : 4}
                 />
               ) : f.type === "date" ? (
                 <AppDateField
                   id={id}
+                  compact={compactFields}
                   label={f.label}
                   value={values[id] ?? ""}
                   onChange={v => setStr(id, v)}
@@ -159,6 +168,7 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
               ) : f.type === "number" ? (
                 <AppNumberField
                   id={id}
+                  compact={compactFields}
                   label={f.label}
                   value={values[id] ?? ""}
                   onChange={v => setStr(id, v)}
@@ -185,6 +195,7 @@ export function EntryForm({ fields, onClose, onSubmit, submitLabel, formRef, hid
               ) : (
                 <AppTextField
                   id={id}
+                  compact={compactFields}
                   label={f.label}
                   value={values[id] ?? ""}
                   onChange={v => setStr(id, v)}

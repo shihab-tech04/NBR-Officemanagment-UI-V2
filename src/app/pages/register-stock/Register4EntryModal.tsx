@@ -176,6 +176,8 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
                 onClose={onClose}
                 onSubmit={submit}
                 formRef={formRef}
+                compactFields
+                sectionEditor="inline"
                 hideFooter
               />
             </div>
