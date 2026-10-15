@@ -406,3 +406,34 @@
 .register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
 .register4-inline__mobile .MuiInputBase-input,
 .register4-inline__mobile .MuiSelect-select { text-align:left; }
+
+/* Register-4 ONLY, desktop editing table. The shared table uses auto layout,
+   so shorter inputs alone did not reduce the actual column widths. Keep
+   Circle, TIN and Assessment Date at their approved sizes; allow other
+   headers to wrap and tighten only those columns' minimum widths. */
+@media (min-width:641px) {
+  .card-table__table:has(> tbody > .register4-inline__row) {
+    min-width:0;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__th {
+    padding-inline:var(--space-2);
+    white-space:normal;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__th-text {
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__td {
+    padding-inline:var(--space-2);
+  }
+  .register4-inline__row .register4-inline__cell { min-width:0; }
+  .register4-inline__row .register4-inline__cell--serial { min-width:70px; }
+  .register4-inline__row .register4-inline__cell--circle { min-width:105px; }
+  .register4-inline__row .register4-inline__cell--identity { min-width:215px; }
+  .register4-inline__row .register4-inline__cell--section { min-width:270px; }
+  .register4-inline__row .register4-inline__cell--date { min-width:160px; }
+  .register4-inline__row .register4-inline__cell--money { min-width:100px; }
+  .register4-inline__row .register4-inline__cell--remarks { min-width:118px; }
+  .register4-inline__row .register4-inline__actions { min-width:68px; }
+}
