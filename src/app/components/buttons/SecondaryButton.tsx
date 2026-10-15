@@ -1,51 +1,8 @@
-import { Loader2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { AppButton, type AppButtonProps } from "./AppButton";
 
-type LucideIcon = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+// Public compatibility adapter: retain the existing props and approved styling.
+type SecondaryButtonProps = Omit<AppButtonProps, "variant">;
 
-interface SecondaryButtonProps {
-  children: ReactNode;
-  onClick?: () => void;
-  type?: "button" | "submit" | "reset";
-  icon?: LucideIcon;
-  size?: "sm" | "md" | "lg";
-  fullWidth?: boolean;
-  disabled?: boolean;
-  loading?: boolean;
-  className?: string;
-}
-
-export function SecondaryButton({
-  children,
-  onClick,
-  type = "button",
-  icon: Icon,
-  size = "md",
-  fullWidth = false,
-  disabled = false,
-  loading = false,
-  className = "",
-}: SecondaryButtonProps) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled || loading}
-      className={[
-        "app-btn",
-        "app-btn--secondary",
-        `app-btn--${size}`,
-        fullWidth ? "app-btn--full" : "",
-        loading ? "app-btn--loading" : "",
-        className,
-      ].filter(Boolean).join(" ")}
-    >
-      {loading ? (
-        <Loader2 size={14} strokeWidth={2} className="app-btn__spinner" aria-hidden="true" />
-      ) : Icon ? (
-        <Icon size={14} strokeWidth={2} aria-hidden="true" />
-      ) : null}
-      {children}
-    </button>
-  );
+export function SecondaryButton(props: SecondaryButtonProps) {
+  return <AppButton {...props} variant="secondary" />;
 }
