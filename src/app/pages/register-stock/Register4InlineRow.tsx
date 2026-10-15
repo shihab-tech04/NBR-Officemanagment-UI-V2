@@ -73,7 +73,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
       onChange={v=>set(key,v)} required error={error==="YEAR"?t("register4.yearRequired"):undefined}
       options={[{value:"",label:"—"},{value:assessmentYear,label:assessmentYear}]}/>;
     else el=<AppTextField compact id={id} label={label} value={value} onChange={v=>set(key,v)}
-      placeholder={mode==="table" && key!=="proceeding_reference" ? label : undefined}/>;
+      placeholder={mode==="table" ? label : undefined}/>;
     return <div className={"register4-inline__cell "+extraClass}>{el}</div>;
   };
   // Reuse exactly the modal's controlled fixture matching and shortcut labels.
@@ -129,18 +129,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
       label={th("headers.register4DisposalCode")} value={values.disposal_code??""}
       onChange={v=>set("disposal_code",v)} required
       error={error==="SECTION"?t("register4.sectionRequired"):undefined}/>
-    <div className="register4-inline__subfields">
-      <div className="register4-inline__subfield">
-        {mode==="table" && <p className="register4-inline__subfield-title"
-          title={t("register4.proceedingReference")}>{t("register4.proceedingReference")}</p>}
-        {field("proceeding_reference",t("register4.proceedingReference"),"text")}
-      </div>
-      <div className="register4-inline__subfield">
-        {mode==="table" && <p className="register4-inline__subfield-title"
-          title={t("register4.proceedingEventDate")}>{t("register4.proceedingEventDate")}</p>}
-        {field("proceeding_event_date",t("register4.proceedingEventDate"),"date")}
-      </div>
-    </div>
+
   </div>;
   const controls:ReactNode[]=[
     <span className="register4-inline__readonly">—</span>,

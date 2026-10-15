@@ -72,7 +72,7 @@
 .register4-inline__row .MuiInputBase-input { font-size:var(--fs-body-sm); }
 .register4-inline__cell { min-width:118px; }
 .register4-inline__cell--identity { min-width:215px; }
-.register4-inline__cell--section { min-width:405px; }
+.register4-inline__cell--section { min-width:330px; }
 .register4-inline__cell--date { min-width:160px; }
 .register4-inline__cell--money { min-width:130px; }
 .register4-inline__cell--remarks { min-width:170px; }
@@ -89,10 +89,6 @@
 .register4-inline__icon:hover { background:var(--color-background-subtle); }
 .register4-inline__icon:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
 .register4-inline__icon--cancel { color:var(--color-error); }
-.register4-inline__subfields {
-  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  gap:8px; margin-top:8px;
-}
 .register4-inline__mobile { padding:var(--space-4); background:var(--color-background-subtle); border-bottom:1px solid var(--color-border); }
 .register4-inline__mobile-title { margin:0 0 var(--space-3); font-size:var(--fs-body-md); font-weight:600; }
 .register4-inline__mobile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
@@ -104,7 +100,7 @@
 .register4-inline__mobile-footer { display:flex; justify-content:flex-end; margin-top:var(--space-3); }
 .register4-inline__mobile-footer .register4-inline__icon { width:44px; height:44px; }
 @media(max-width:420px) {
-  .register4-inline__mobile-grid,.register4-inline__subfields { grid-template-columns:minmax(0,1fr); }
+  .register4-inline__mobile-grid { grid-template-columns:minmax(0,1fr); }
 }
 
 /* Inline-only suggestion parity with the frozen New Entry modal. */
@@ -172,9 +168,6 @@
 .register4-inline__row .register4-section-field__error {
   grid-column:1/-1; font-size:var(--fs-caption);
 }
-.register4-inline__row .register4-inline__subfields .MuiInputBase-root {
-  height:34px; min-height:34px;
-}
 @media (max-width:640px) {
   .register4-inline__mobile .register4-inline__cell { min-width:0; }
   .register4-inline__mobile .register4-inline__cell--identity,
@@ -182,12 +175,10 @@
   .register4-inline__mobile .register4-inline__tin-anchor { min-width:0; }
 }
 
-/* Register-4 desktop table Add row: column headers identify the primary
-   fields, so floating MUI labels must not collide with the compact inputs.
-   Labels stay in the DOM and remain associated with their accessible inputs.
-   Mobile cards retain their standard floating labels. */
+/* Table Add row: the Dhara cell now contains only the reference column's
+   selector and the already-approved add-section action. */
 .register4-inline__row .register4-inline__cell--section {
-  min-width:450px;
+  min-width:330px;
 }
 .register4-inline__row .MuiInputLabel-root {
   opacity:0; pointer-events:none;
@@ -203,27 +194,6 @@
 .register4-inline__row .register4-section-field__addition {
   min-width:0;
 }
-.register4-inline__row .register4-inline__subfields {
-  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px; margin-top:10px; align-items:start;
-}
-.register4-inline__row .register4-inline__subfield,
-.register4-inline__row .register4-inline__subfield .register4-inline__cell {
-  min-width:0; width:100%;
-}
-.register4-inline__row .register4-inline__subfield-title {
-  display:block; margin:0 0 6px;
-  color:var(--color-text-secondary);
-  font-size:var(--fs-label-sm); font-weight:500; line-height:1.3;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.register4-inline__row .register4-inline__subfield .MuiFormControl-root {
-  width:100%; min-width:0;
-}
-.register4-inline__row .register4-inline__cell--section .MuiInputBase-root {
-  height:36px; min-height:36px;
-}
-
 /* Register-4 New Entry modal — project spacing rhythm, single scoped authority.
    Preserve the approved placement of the primary "Add a section" action. */
 .app-modal-panel:has(.register4-entry) .app-modal-body { padding:20px; }
@@ -237,7 +207,7 @@
 }
 .register4-entry__fields .entry-form__field { min-width:0; }
 .register4-entry__fields .entry-form__group-title {
-  margin:var(--space-3) 0 0; padding:0 0 var(--space-2);
+  margin:var(--space-2) 0 0; padding:0 0 var(--space-2);
   font-size:var(--fs-label-md); font-weight:600; line-height:1.4;
 }
 .register4-entry__fields .entry-form__group-title:first-child { margin-top:0; }

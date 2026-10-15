@@ -138,18 +138,22 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     const inputs = fields.filter(f=>f.key!=="taxpayer_name"&&f.key!=="tin").map(f=>f.key);
     expect(inputs).toEqual([
       "circle","assessment_year","folio_no","assessment_date","disposal_code",
-      "proceeding_reference","proceeding_event_date","assessed_income","penalty","arrear_year_demand","current_year_demand",
+      "assessed_income","penalty","arrear_year_demand","current_year_demand",
       "revised_demand","remarks",
     ]);
     expect(new Set(fields.map(f=>f.group)).size).toBeGreaterThanOrEqual(4);
     expect(fields.map(f => f.key)).not.toContain("book_no");
+    expect(fields.map(f => f.key)).not.toContain("proceeding_reference");
+    expect(fields.map(f => f.key)).not.toContain("proceeding_event_date");
+    expect(fields.filter(f=>!["tin","taxpayer_name"].includes(f.key??""))).toHaveLength(11);
   });
 
-  it("creates only a session-local, source-tagged draft with the right display fields", () => {
+  it("creates only reference field values and internal audit metadata in a local draft", () => {
     const draft = createRegister4LocalDraft({
       taxpayer_name: "Sample Test", tin: "DEMO-0001", circle: "Circle-2",
       assessment_year: "2024-25", assessed_income: "125000",
       assessment_date: "2026-01-01", remarks: "Synthetic test",
+      proceeding_reference: "MUST_NOT_COPY", proceeding_event_date: "2026-01-05",
     }, REGISTER4_ASSESSMENT_ROWS);
     expect(draft).toMatchObject({
       taxpayer_identity: "Sample Test (DEMO-0001)",
@@ -157,6 +161,8 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
       record_source: "Local draft — not submitted", folio_no: "—",
     });
     expect(buildRegister4Kpis([draft]).map(k => k.value)).toEqual(["1", "0", "1", "0"]);
+    expect(draft).not.toHaveProperty("proceeding_reference");
+    expect(draft).not.toHaveProperty("proceeding_event_date");
   });
 
   it("uses a source-visible, BOM UTF-8 CSV and blocks spreadsheet formula injection", () => {

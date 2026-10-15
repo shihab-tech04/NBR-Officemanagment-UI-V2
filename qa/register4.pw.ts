@@ -366,15 +366,15 @@ test("Register-4 inline custom-section editor does not cover other form inputs",
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
   const assessmentDate=dialog.locator("#assessment_date");
-  const eventDate=dialog.locator("#proceeding_event_date");
-  const preceding=await eventDate.evaluate(e=>e.getBoundingClientRect().top);
+  const nextApprovedField=dialog.locator("#assessed_income");
+  const preceding=await nextApprovedField.evaluate(e=>e.getBoundingClientRect().top);
   const unchanged=await assessmentDate.evaluate(e=>e.getBoundingClientRect().top);
   await dialog.getByRole("button", { name: "Add a section" }).click();
   const editor=dialog.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   expect(Math.abs((await assessmentDate.evaluate(e=>e.getBoundingClientRect().top))-unchanged)).toBeLessThanOrEqual(2);
   const rect=await editor.boundingBox();
-  const next=await eventDate.boundingBox();
+  const next=await nextApprovedField.boundingBox();
   expect(next!.y).toBeGreaterThan(preceding);
   expect(rect!.y+rect!.height).toBeLessThanOrEqual(next!.y+2);
   await expect(dialog.locator(".entry-form__grid")).toBeVisible();
@@ -713,11 +713,14 @@ test("Register-4 New Entry modal preserves all fields in a compact grouped layou
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
   await expect(dialog.locator(".entry-form__group-title")).toHaveCount(5);
   for(const id of ["circle","assessment_year","folio_no","assessment_date","disposal_code",
-    "proceeding_reference","proceeding_event_date","assessed_income","penalty",
-    "arrear_year_demand","current_year_demand","revised_demand","remarks"]){
+    "assessed_income","penalty","arrear_year_demand",
+    "current_year_demand","revised_demand","remarks"]){
     await expect(dialog.locator("#"+id)).toBeAttached();
   }
   await expect(dialog.locator("#folio_no")).toHaveAttribute("readonly");
+  await expect(dialog.locator("#proceeding_reference")).toHaveCount(0);
+  await expect(dialog.locator("#proceeding_event_date")).toHaveCount(0);
+  await expect(dialog.locator(".entry-form__field")).toHaveCount(11);
   const circle=await dialog.locator("#circle").boundingBox();
   const date=await dialog.locator("#assessment_date").boundingBox();
   expect(circle!.height).toBeLessThanOrEqual(46);
@@ -798,8 +801,8 @@ test("Register-4 New Entry shows a materially different, aligned desktop layout"
   const editor=d.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   const editorRect=await editor.boundingBox();
-  const eventDate=await d.locator("#proceeding_event_date").boundingBox();
-  expect(editorRect!.y+editorRect!.height).toBeLessThanOrEqual(eventDate!.y+3);
+  const assessedIncome=await d.locator("#assessed_income").boundingBox();
+  expect(editorRect!.y+editorRect!.height).toBeLessThanOrEqual(assessedIncome!.y+3);
 });
 test("Register-4 New Entry modal preserves one-column alignment and all inputs on phone",async({page})=>{
   await page.setViewportSize({width:390,height:844});
@@ -928,43 +931,33 @@ test("Register-4 custom icon actions fit inside the mobile modal without changin
 });
 
 
-test("Register-4 table Add row Dhara cell separates captions from compact inputs",async({page})=>{
+test("Register-4 Add row has only original reference columns, without second-line proceeding inputs",async({page})=>{
   await page.setViewportSize({width:1736,height:900});
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"Add row"}).click();
   const row=page.getByTestId("register4-inline-row");
   const section=row.locator(".register4-inline__cell--section");
   const select=section.locator(".register4-section-field__select .MuiOutlinedInput-root");
-  const button=section.getByRole("button",{name:"Add a section"});
-  const captions=section.locator(".register4-inline__subfield-title");
-  await expect(captions).toHaveCount(2);
-  const refField=row.locator("#register4-inline-table-proceeding_reference");
-  const dateField=row.locator("#register4-inline-table-proceeding_event_date");
-  const [cellRect,selectRect,buttonRect,refRect,dateRect]=await Promise.all([
-    section.boundingBox(),select.boundingBox(),button.boundingBox(),
-    refField.boundingBox(),dateField.boundingBox()
+  const add=section.getByRole("button",{name:"Add a section"});
+  await expect(row.locator("td")).toHaveCount(14); // 13 reference columns + save/discard actions
+  await expect(section.locator(".register4-inline__subfields")).toHaveCount(0);
+  await expect(page.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
+  const [sectionRect,selectRect,addRect,rowRect]=await Promise.all([
+    section.boundingBox(),select.boundingBox(),add.boundingBox(),row.boundingBox()
   ]);
-  expect(cellRect!.width).toBeGreaterThanOrEqual(445);
-  expect(Math.abs(selectRect!.y-buttonRect!.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(selectRect!.height-buttonRect!.height)).toBeLessThanOrEqual(2);
-  expect(refRect!.y).toBeGreaterThan(selectRect!.y+selectRect!.height);
-  expect(Math.abs(refRect!.y-dateRect!.y)).toBeLessThanOrEqual(2);
-  for(let i=0;i<2;i++){
-    const caption=await captions.nth(i).boundingBox();
-    const field=i===0?refRect:dateRect;
-    expect(caption!.y+caption!.height).toBeLessThanOrEqual(field!.y-4);
-    expect(caption!.x).toBeGreaterThanOrEqual(cellRect!.x);
-    expect(caption!.x+caption!.width).toBeLessThanOrEqual(cellRect!.x+cellRect!.width);
-  }
-  const sectionLabel=section.locator(".register4-section-field__select .MuiInputLabel-root");
-  await expect(sectionLabel).toHaveCount(1);
-  expect(await sectionLabel.evaluate(el=>getComputedStyle(el).opacity)).toBe("0");
+  expect(sectionRect!.width).toBeGreaterThanOrEqual(325);
+  expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
+  expect(rowRect!.height).toBeLessThan(120);
+  const label=section.locator(".register4-section-field__select .MuiInputLabel-root");
+  await expect(label).toHaveCount(1);
+  expect(await label.evaluate(el=>getComputedStyle(el).opacity)).toBe("0");
   await expect(row.getByRole("button",{name:"Save row"})).toBeVisible();
   await expect(row.getByRole("button",{name:"Discard row"})).toBeVisible();
-  await page.screenshot({path:"test-results/register4-inline-dhara-readable-desktop.png",animations:"disabled"});
+  await page.screenshot({path:"test-results/register4-reference-only-inline-table.png",animations:"disabled"});
   await row.getByRole("button",{name:"Discard row"}).click();
 });
-test("Register-4 table cleanup does not remove accessible labels or alter mobile Dhara editing",async({page})=>{
+test("Register-4 mobile Add row and New Entry contain no unauthorized fields and retain Dhara controls",async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"Add row"}).click();
@@ -973,12 +966,10 @@ test("Register-4 table cleanup does not remove accessible labels or alter mobile
   const label=select.locator(".MuiInputLabel-root");
   await expect(label).toHaveCount(1);
   expect(await label.evaluate(el=>getComputedStyle(el).opacity)).not.toBe("0");
-  const date=card.locator("#register4-inline-mobile-proceeding_event_date");
-  const ref=card.locator("#register4-inline-mobile-proceeding_reference");
-  await expect(date).toBeAttached();
-  await expect(ref).toBeAttached();
-  await expect(card.locator(".register4-inline__subfield-title")).toHaveCount(0);
+  await expect(card.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
+  await expect(card.locator(".register4-inline__subfields")).toHaveCount(0);
   await expect(card.getByRole("button",{name:"Add a section"})).toBeVisible();
+  await expect(card.locator("#register4-inline-mobile-folio_no")).toHaveAttribute("readonly");
   await card.getByRole("button",{name:"Discard row"}).click();
   await page.getByRole("button",{name:"New Entry"}).click();
   const dialog=page.getByRole("dialog");
@@ -986,4 +977,7 @@ test("Register-4 table cleanup does not remove accessible labels or alter mobile
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
   await expect(dialog.locator("#disposal_code")).toBeAttached();
   await expect(dialog.locator(".register4-section-field__add")).toBeVisible();
+  await expect(dialog.locator(".entry-form__field")).toHaveCount(11);
+  await expect(dialog.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
+  await page.screenshot({path:"test-results/register4-reference-only-new-entry-mobile.png",animations:"disabled"});
 });
