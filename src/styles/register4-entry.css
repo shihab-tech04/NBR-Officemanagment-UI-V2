@@ -406,3 +406,52 @@
 .register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
 .register4-inline__mobile .MuiInputBase-input,
 .register4-inline__mobile .MuiSelect-select { text-align:left; }
+
+/* Register-4 ONLY, desktop editing table. The shared table uses auto layout,
+   so shorter inputs alone did not reduce the actual column widths. Keep
+   Circle, TIN and Assessment Date at their approved sizes; allow other
+   headers to wrap and tighten only those columns' minimum widths. */
+@media (min-width:641px) {
+  /* Fixed column track widths prevent intrinsic MUI input sizes from
+     expanding the whole row. Order matches the original 13 data columns
+     and the existing Actions column; no shared table component changes. */
+  .card-table__table:has(> tbody > .register4-inline__row) {
+    table-layout:fixed;
+    width:1898px;
+    min-width:1898px;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(1) { width:86px; } /* Serial */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(2) { width:121px; } /* Circle unchanged */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(3) { width:231px; } /* TIN unchanged */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(4) { width:96px; } /* Folio */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(5) { width:266px; } /* Dhara */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(6) { width:106px; } /* Tax Year */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(7) { width:176px; } /* Date unchanged */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(8) { width:112px; } /* Income */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(9) { width:232px; } /* Both demand columns */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(10) { width:86px; } /* Penalty */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(11) { width:166px; } /* Revised */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(12) { width:136px; } /* Remarks */
+  .card-table__table:has(> tbody > .register4-inline__row) thead .card-table__header-group > th:nth-child(13) { width:84px; } /* Actions */
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__th {
+    padding-inline:var(--space-2);
+    white-space:normal;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__th-text {
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  .card-table__table:has(> tbody > .register4-inline__row) .card-table__td {
+    padding-inline:var(--space-2);
+  }
+  .register4-inline__row .register4-inline__cell { min-width:0; }
+  .register4-inline__row .register4-inline__cell--serial { min-width:70px; }
+  .register4-inline__row .register4-inline__cell--circle { min-width:105px; }
+  .register4-inline__row .register4-inline__cell--identity { min-width:215px; }
+  .register4-inline__row .register4-inline__cell--section { min-width:250px; }
+  .register4-inline__row .register4-inline__cell--date { min-width:160px; }
+  .register4-inline__row .register4-inline__cell--money { min-width:100px; }
+  .register4-inline__row .register4-inline__cell--remarks { min-width:118px; }
+  .register4-inline__row .register4-inline__actions { min-width:68px; }
+}
