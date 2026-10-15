@@ -9,6 +9,7 @@ import {
   buildRegister4Kpis,
   buildRegister4EntryFields,
   createRegister4LocalDraft,
+  nextRegister4SerialNo,
   buildRegister4SampleCsv,
 } from "../app/pages/register-stock/register4AssessmentTable";
 
@@ -39,25 +40,18 @@ describe("Register-4 assessment table metadata (isolated)", () => {
   });
 
 
-  it("aligns every Register-4 column by content without changing headings or values", () => {
-    expect(flatten().map((col) => [col.key, col.align])).toEqual([
-      ["serial_no", "center"],
-      ["circle", "left"],
-      ["taxpayer_identity", "left"],
-      ["folio_no", "left"],
-      ["disposal_code", "left"],
-      ["assessment_year", "center"],
-      ["assessment_date", "center"],
-      ["assessed_income", "right"],
-      ["arrear_year_demand", "right"],
-      ["current_year_demand", "right"],
-      ["penalty", "right"],
-      ["revised_demand", "right"],
-      ["remarks", "left"],
-    ]);
+  it("uses one left-alignment across all 13 Register-4 headers and cells", () => {
+    expect(flatten().map((col) => col.align)).toEqual(Array(13).fill("left"));
     expect(REGISTER4_ASSESSMENT_ROWS).toHaveLength(32);
     expect(REGISTER4_ASSESSMENT_ROWS[0].folio_no).toBe("");
     expect(REGISTER4_ASSESSMENT_ROWS[0].disposal_code).toBe("180/182(2)/182(4)/183(7)/289");
+  });
+
+  it("previews an automatic serial using the complete register, independent of filters", () => {
+    expect(nextRegister4SerialNo(REGISTER4_ASSESSMENT_ROWS)).toBe("33");
+    expect(nextRegister4SerialNo([{ serial_no: "1" }, { serial_no: "5" }] as never)).toBe("6");
+    const draft = createRegister4LocalDraft({ taxpayer_name: "Fixture", tin: "TIN-X", circle: "Circle-1" }, REGISTER4_ASSESSMENT_ROWS);
+    expect(draft.serial_no).toBe("33");
   });
 
   it("uses existing two-level grouped table header support", () => {
