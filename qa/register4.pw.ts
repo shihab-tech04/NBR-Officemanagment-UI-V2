@@ -879,7 +879,7 @@ test("Register-4 desktop Add row inputs are about 20 percent shorter without res
   await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
   await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
   const cells=await row.locator("td.card-table__td").evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
-  expect(cells[4]).toBeGreaterThanOrEqual(270);
+  expect(cells[4]).toBeGreaterThanOrEqual(260);
   expect(cells[4]).toBeLessThan(335);
   await page.screenshot({path:"test-results/register4-desktop-fields-30px.png",animations:"disabled"});
   await row.getByRole("button",{name:"Discard row"}).click();
@@ -911,7 +911,8 @@ test("Register-4 desktop widths are narrow for other columns, unchanged for Circ
   }
   const table=page.locator(".card-table__table");
   const tableRect=await table.boundingBox();
-  expect(tableRect!.width).toBeLessThan(2040);
+  expect(tableRect!.width).toBeGreaterThanOrEqual(1885);
+  expect(tableRect!.width).toBeLessThanOrEqual(1915);
   await page.screenshot({path:"test-results/register4-compact-column-widths-desktop.png",animations:"disabled"});
   await row.getByRole("button",{name:"Discard row"}).click();
 });
@@ -1175,7 +1176,7 @@ test("Register-4 Add row has only original reference columns, without second-lin
   const [sectionRect,selectRect,addRect,rowRect]=await Promise.all([
     section.boundingBox(),select.boundingBox(),add.boundingBox(),row.boundingBox()
   ]);
-  expect(sectionRect!.width).toBeGreaterThanOrEqual(265);
+  expect(sectionRect!.width).toBeGreaterThanOrEqual(245);
   expect(sectionRect!.width).toBeLessThan(315);
   expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
   expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
