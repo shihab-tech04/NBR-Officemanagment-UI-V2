@@ -406,3 +406,37 @@
 .register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
 .register4-inline__mobile .MuiInputBase-input,
 .register4-inline__mobile .MuiSelect-select { text-align:left; }
+
+/* Register-4 desktop Add row ONLY: narrower editable field surfaces, not table
+   tracks. The table retains its natural auto layout and single-line headings.
+   Circle (2), taxpayer/TIN (3) and assessment date (7) are intentionally
+   omitted: their approved widths remain unchanged. Mobile and modal are not
+   descendants of .register4-inline__row, so keep their existing sizing. */
+@media (min-width:641px) {
+  .register4-inline__row > td:nth-child(1) .register4-inline__cell {
+    min-width:78px; max-width:88px;
+  }
+  .register4-inline__row > td:nth-child(4) .register4-inline__cell {
+    min-width:88px; max-width:98px;
+  }
+  .register4-inline__row > td:nth-child(5) .register4-inline__cell {
+    min-width:294px; max-width:306px;
+  }
+  .register4-inline__row > td:nth-child(6) .register4-inline__cell {
+    min-width:95px; max-width:105px;
+  }
+  .register4-inline__row > td:nth-child(8) .register4-inline__cell,
+  .register4-inline__row > td:nth-child(9) .register4-inline__cell,
+  .register4-inline__row > td:nth-child(10) .register4-inline__cell {
+    min-width:108px; max-width:118px;
+  }
+  .register4-inline__row > td:nth-child(11) .register4-inline__cell {
+    min-width:88px; max-width:98px;
+  }
+  .register4-inline__row > td:nth-child(12) .register4-inline__cell {
+    min-width:112px; max-width:126px;
+  }
+  .register4-inline__row > td:nth-child(13) .register4-inline__cell {
+    min-width:125px; max-width:140px;
+  }
+}
