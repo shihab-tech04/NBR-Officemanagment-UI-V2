@@ -153,7 +153,7 @@ describe("Register-4 coherent tax-assessment display (audit closure)", () => {
     expect(draft).toMatchObject({
       taxpayer_identity: "Sample Test (DEMO-0001)",
       assessed_income: "125000", assessment_date: "2026-01-01",
-      record_source: "Local draft — not submitted", folio_no: "—",
+      record_source: "Local draft — not submitted", folio_no: "",
     });
     expect(buildRegister4Kpis([draft]).map(k => k.value)).toEqual(["1", "0", "1", "0"]);
     expect(draft).not.toHaveProperty("proceeding_reference");
@@ -200,6 +200,6 @@ describe("Register-4 inline Add row rules", () => {
     const draft=createRegister4LocalDraft(values,REGISTER4_ASSESSMENT_ROWS);
     expect(draft.record_source).toBe("Local draft — not submitted");
     expect(draft.section_review_status).toBe("REVIEW_REQUIRED — not certified");
-    expect(draft.folio_no).toBe("—");
+    expect(draft.folio_no).toBe("");
   });
 });
