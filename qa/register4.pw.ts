@@ -120,25 +120,22 @@ test("Register-4 and Stock Register retain identical page shell and four-column 
   await expect(page.locator(".register4-workspace")).toHaveCount(0);
 });
 
-test("Register-4 headers and cells use content alignment while Stock Register keeps locked defaults", async ({ page }) => {
+test("Register-4 headers and cells use one left alignment while Stock Register keeps locked defaults", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/register-stock/register-4");
   const table = page.locator(".card-table__table");
   await expect(table.locator("tbody tr")).toHaveCount(8);
-  const expected = [
-    "center", "left", "left", "left", "left", "center", "center",
-    "right", "right", "right", "right", "right", "left",
-  ];
+  const expected = Array(13).fill("left");
   const actual = await table.locator("tbody tr").first().locator("td.card-table__td").evaluateAll(cells =>
     cells.map(cell => window.getComputedStyle(cell).textAlign)
   );
   expect(actual).toEqual(expected);
 
   for (const [name, alignment] of [
-    ["S/N", "center"], ["Circle", "left"], ["Taxpayer Name & TIN", "left"],
-    ["Tax Year", "center"], ["Assessment Date", "center"],
-    ["Assessed Income", "right"], ["Arrear Tax Year", "right"],
-    ["Current Tax Year", "right"], ["Remarks (if any)", "left"],
+    ["S/N", "left"], ["Circle", "left"], ["Taxpayer Name & TIN", "left"],
+    ["Tax Year", "left"], ["Assessment Date", "left"],
+    ["Assessed Income", "left"], ["Arrear Tax Year", "left"],
+    ["Current Tax Year", "left"], ["Remarks (if any)", "left"],
   ]) {
     const header = table.getByRole("button", { name: `Sort by ${name}`, exact: true }).locator("..");
     await expect(header).toHaveCSS("text-align", alignment);
@@ -536,6 +533,8 @@ test("Register-4 Add row inserts a single blank editable row and X discards with
   const draft=table.getByTestId("register4-inline-row");
   await expect(draft).toBeVisible();
   await expect(draft.locator("td")).toHaveCount(14);
+  await expect(draft.locator("#register4-inline-table-serial_no")).toHaveValue("33");
+  await expect(draft.locator("#register4-inline-table-serial_no")).toHaveAttribute("readonly", "");
   await expect(draft.locator("#register4-inline-table-tin")).toHaveValue("");
   await expect(draft.locator("#register4-inline-table-assessed_income")).toHaveValue("");
   await expect(draft.getByRole("button",{name:"Save row"})).toBeVisible();
