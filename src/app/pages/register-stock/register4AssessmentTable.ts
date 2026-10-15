@@ -184,7 +184,7 @@ export function createRegister4LocalDraft(
     taxpayer_identity: `${taxpayerName} (${tin})`,
     circle: get("circle"),
     assessment_year: get("assessment_year"),
-    folio_no: optional("folio_no"),
+    folio_no: "", // assigned separately; remains blank and read-only
     disposal_code: optional("disposal_code"),
     section_review_status: "REVIEW_REQUIRED — not certified",
     assessment_date: optional("assessment_date"),
