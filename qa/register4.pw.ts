@@ -764,3 +764,66 @@ test("Register-4 inline custom section Enter updates Dhara without submitting Ne
   await expect(page.locator(".table-card__count")).toHaveText("8 records");
   await expect(dialog.getByRole("button",{name:"Create new Entry"})).toBeEnabled();
 });
+
+
+test("Register-4 New Entry shows a materially different, aligned desktop layout",async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const d=page.getByRole("dialog");
+  await d.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await d.getByRole("button",{name:"Search",exact:true}).click();
+  await expect(d.getByRole("region",{name:"Taxpayer details"})).toBeVisible();
+  const summary=d.locator(".register4-entry__identity");
+  const name=await summary.locator(".register4-entry__name").boundingBox();
+  const facts=await summary.locator(".register4-entry__identity-facts").boundingBox();
+  const summaryRect=await summary.boundingBox();
+  expect(name!.x+name!.width).toBeLessThanOrEqual(facts!.x+3);
+  expect(summaryRect!.height).toBeLessThan(76);
+  const select=await d.locator(".register4-section-field__select .MuiOutlinedInput-root").boundingBox();
+  const add=await d.getByRole("button",{name:"Add a section"}).boundingBox();
+  expect(Math.abs(select!.y-add!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(select!.height-add!.height)).toBeLessThanOrEqual(3);
+  for(const id of ["arrear_year_demand","current_year_demand","revised_demand"]){
+    await expect(d.locator("#"+id)).toBeVisible();
+  }
+  const demands=await Promise.all(["arrear_year_demand","current_year_demand","revised_demand"]
+    .map(id=>d.locator("#"+id).boundingBox()));
+  expect(Math.max(...demands.map(x=>x!.y))-Math.min(...demands.map(x=>x!.y))).toBeLessThanOrEqual(2);
+  expect(demands[0]!.x).toBeLessThan(demands[1]!.x);
+  expect(demands[1]!.x).toBeLessThan(demands[2]!.x);
+  await expect(d.locator(".entry-form__group-title")).toHaveCount(5);
+  await page.screenshot({path:"test-results/register4-modal-materially-aligned-desktop.png",animations:"disabled"});
+  await d.getByRole("button",{name:"Add a section"}).click();
+  const editor=d.locator(".register4-section-field__inline-editor");
+  await expect(editor).toBeVisible();
+  const editorRect=await editor.boundingBox();
+  const eventDate=await d.locator("#proceeding_event_date").boundingBox();
+  expect(editorRect!.y+editorRect!.height).toBeLessThanOrEqual(eventDate!.y+3);
+});
+test("Register-4 New Entry modal preserves one-column alignment and all inputs on phone",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const d=page.getByRole("dialog");
+  await d.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await d.getByRole("button",{name:"Search",exact:true}).click();
+  const arrear=await d.locator("#arrear_year_demand").boundingBox();
+  const current=await d.locator("#current_year_demand").boundingBox();
+  const revised=await d.locator("#revised_demand").boundingBox();
+  expect(current!.y).toBeGreaterThan(arrear!.y);
+  expect(revised!.y).toBeGreaterThan(current!.y);
+  for(const r of [arrear,current,revised]){
+    expect(r!.x).toBeGreaterThanOrEqual(0);
+    expect(r!.x+r!.width).toBeLessThanOrEqual(391);
+  }
+  await d.getByRole("button",{name:"Add a section"}).click();
+  const editor=d.locator(".register4-section-field__inline-editor");
+  await expect(editor).toBeVisible();
+  const rect=await editor.boundingBox();
+  expect(rect!.x).toBeGreaterThanOrEqual(0);
+  expect(rect!.x+rect!.width).toBeLessThanOrEqual(391);
+  await editor.getByRole("button",{name:"Cancel"}).click();
+  await expect(editor).toHaveCount(0);
+  await page.screenshot({path:"test-results/register4-modal-materially-aligned-phone.png",animations:"disabled"});
+});
