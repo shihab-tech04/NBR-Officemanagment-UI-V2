@@ -72,7 +72,8 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
     else if(type==="select")el=<AppSelectField compact id={id} label={label} value={value}
       onChange={v=>set(key,v)} required error={error==="YEAR"?t("register4.yearRequired"):undefined}
       options={[{value:"",label:"—"},{value:assessmentYear,label:assessmentYear}]}/>;
-    else el=<AppTextField compact id={id} label={label} value={value} onChange={v=>set(key,v)}/>;
+    else el=<AppTextField compact id={id} label={label} value={value} onChange={v=>set(key,v)}
+      placeholder={mode==="table" && key!=="proceeding_reference" ? label : undefined}/>;
     return <div className={"register4-inline__cell "+extraClass}>{el}</div>;
   };
   // Reuse exactly the modal's controlled fixture matching and shortcut labels.
@@ -87,6 +88,7 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
         if(!destination?.closest(".register4-inline__tin-popup"))setTinOpen(false);
       }}>
       <AppTextField compact id={"register4-inline-"+mode+"-tin"} label={t("register4.tinInput")}
+        placeholder={mode==="table" ? t("register4.tinInput") : undefined}
         value={values.tin??""} onChange={updateTin} required
         error={error==="TIN"?t("register4.tinRequired"):undefined}/>
     </div>
@@ -128,17 +130,27 @@ export function Register4InlineRow({mode,assessmentYear,values,onChange,onSave,o
       onChange={v=>set("disposal_code",v)} required
       error={error==="SECTION"?t("register4.sectionRequired"):undefined}/>
     <div className="register4-inline__subfields">
-      {field("proceeding_reference",t("register4.proceedingReference"),"text")}
-      {field("proceeding_event_date",t("register4.proceedingEventDate"),"date")}
+      <div className="register4-inline__subfield">
+        {mode==="table" && <p className="register4-inline__subfield-title"
+          title={t("register4.proceedingReference")}>{t("register4.proceedingReference")}</p>}
+        {field("proceeding_reference",t("register4.proceedingReference"),"text")}
+      </div>
+      <div className="register4-inline__subfield">
+        {mode==="table" && <p className="register4-inline__subfield-title"
+          title={t("register4.proceedingEventDate")}>{t("register4.proceedingEventDate")}</p>}
+        {field("proceeding_event_date",t("register4.proceedingEventDate"),"date")}
+      </div>
     </div>
   </div>;
   const controls:ReactNode[]=[
     <span className="register4-inline__readonly">—</span>,
     <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-circle"}
-      label={th("headers.circle")} value={values.circle??""} readOnly onChange={()=>{}}/></div>,
+      label={th("headers.circle")} value={values.circle??""}
+      placeholder={mode==="table"?th("headers.circle"):undefined} readOnly onChange={()=>{}}/></div>,
     tinControl,
     <div className="register4-inline__cell"><AppTextField compact id={"register4-inline-"+mode+"-folio_no"}
-      label={th("headers.register4FolioNo")} value="" readOnly onChange={()=>{}}/></div>,
+      label={th("headers.register4FolioNo")} value=""
+      placeholder={mode==="table"?th("headers.register4FolioNo"):undefined} readOnly onChange={()=>{}}/></div>,
     sectionControl,
     field("assessment_year",th("headers.register4AssessmentYear"),"select"),
     field("assessment_date",th("headers.register4AssessmentDate"),"date","register4-inline__cell--date"),

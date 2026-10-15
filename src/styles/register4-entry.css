@@ -182,6 +182,48 @@
   .register4-inline__mobile .register4-inline__tin-anchor { min-width:0; }
 }
 
+/* Register-4 desktop table Add row: column headers identify the primary
+   fields, so floating MUI labels must not collide with the compact inputs.
+   Labels stay in the DOM and remain associated with their accessible inputs.
+   Mobile cards retain their standard floating labels. */
+.register4-inline__row .register4-inline__cell--section {
+  min-width:450px;
+}
+.register4-inline__row .MuiInputLabel-root {
+  opacity:0; pointer-events:none;
+}
+.register4-inline__row .MuiOutlinedInput-notchedOutline legend {
+  max-width:0 !important;
+}
+.register4-inline__row .register4-section-field {
+  grid-template-columns:minmax(0,1fr) auto;
+  column-gap:8px; align-items:start;
+}
+.register4-inline__row .register4-section-field__select,
+.register4-inline__row .register4-section-field__addition {
+  min-width:0;
+}
+.register4-inline__row .register4-inline__subfields {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px; margin-top:10px; align-items:start;
+}
+.register4-inline__row .register4-inline__subfield,
+.register4-inline__row .register4-inline__subfield .register4-inline__cell {
+  min-width:0; width:100%;
+}
+.register4-inline__row .register4-inline__subfield-title {
+  display:block; margin:0 0 6px;
+  color:var(--color-text-secondary);
+  font-size:var(--fs-label-sm); font-weight:500; line-height:1.3;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.register4-inline__row .register4-inline__subfield .MuiFormControl-root {
+  width:100%; min-width:0;
+}
+.register4-inline__row .register4-inline__cell--section .MuiInputBase-root {
+  height:36px; min-height:36px;
+}
+
 /* Register-4 New Entry modal — project spacing rhythm, single scoped authority.
    Preserve the approved placement of the primary "Add a section" action. */
 .app-modal-panel:has(.register4-entry) .app-modal-body { padding:20px; }
