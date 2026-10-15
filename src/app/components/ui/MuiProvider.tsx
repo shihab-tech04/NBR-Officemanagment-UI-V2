@@ -29,7 +29,7 @@ const muiTheme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          fontSize: "13px",
+          fontSize: "var(--mui-menu-item-font-size)",
           color: "var(--color-text-primary)",
           borderRadius: "var(--radius-sm)",
           minHeight: "36px",
@@ -53,7 +53,7 @@ const muiTheme = createTheme({
           borderRadius: "var(--radius-md)",
           backgroundColor: "var(--color-surface)",
           color: "var(--color-text-primary)",
-          fontSize: "14px",
+          fontSize: "var(--mui-input-font-size)",
         },
         notchedOutline: {
           borderColor: "var(--color-border)",
@@ -64,7 +64,7 @@ const muiTheme = createTheme({
       styleOverrides: {
         root: {
           color: "var(--color-text-secondary)",
-          fontSize: "14px",
+          fontSize: "var(--mui-label-font-size)",
           "&.Mui-focused": { color: "var(--color-primary)" },
           "&.Mui-error": { color: "var(--color-error)" },
         },
@@ -73,7 +73,7 @@ const muiTheme = createTheme({
     MuiFormHelperText: {
       styleOverrides: {
         root: {
-          fontSize: "12px",
+          fontSize: "var(--mui-helper-font-size)",
           marginLeft: 0,
           color: "var(--color-text-secondary)",
           "&.Mui-error": { color: "var(--color-error)" },
