@@ -743,3 +743,24 @@ test("Register-4 custom section editor expands inline and preserves Add/Cancel a
   await expect(d.locator("#disposal_code")).toContainText("180/183(7)");
   await expect(e).toHaveCount(0);
 });
+
+
+test("Register-4 inline custom section Enter updates Dhara without submitting New Entry",async({page})=>{
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"New Entry"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
+  await dialog.getByRole("button",{name:"Search",exact:true}).click();
+  await expect(dialog.locator("#disposal_code")).toContainText("180");
+  await dialog.getByRole("button",{name:"Add a section"}).click();
+  const editor=dialog.locator(".register4-section-field__inline-editor");
+  await expect(editor).toBeVisible();
+  await expect(editor.locator("form")).toHaveCount(0);
+  await editor.locator("#disposal_code-custom").fill("183(7)");
+  await editor.locator("#disposal_code-custom").press("Enter");
+  await expect(dialog).toBeVisible();
+  await expect(editor).toHaveCount(0);
+  await expect(dialog.locator("#disposal_code")).toContainText("180/183(7)");
+  await expect(page.locator(".table-card__count")).toHaveText("8 records");
+  await expect(dialog.getByRole("button",{name:"Create new Entry"})).toBeEnabled();
+});
