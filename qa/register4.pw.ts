@@ -916,6 +916,53 @@ test("Register-4 desktop table preserves natural column sizing and single-line h
   await row.getByRole("button",{name:"Discard row"}).click();
 });
 
+test("Register-4 desktop short fields are narrower; Circle, TIN and Date remain approved size",async({page})=>{
+  await page.setViewportSize({width:1736,height:900});
+  await page.goto("/register-stock/register-4");
+  await page.getByRole("button",{name:"Add row"}).click();
+  const row=page.getByTestId("register4-inline-row");
+  const fields=await row.locator("td.card-table__td").evaluateAll(cells=>cells.map(cell=>{
+    const root=cell.querySelector(".MuiInputBase-root") as HTMLElement|null;
+    const control=cell.querySelector(".register4-inline__cell") as HTMLElement|null;
+    const rect=root?.getBoundingClientRect();
+    return {inputWidth:rect?.width??null, inputHeight:rect?.height??null,
+      controlWidth:control?.getBoundingClientRect().width??null};
+  }));
+  expect(fields).toHaveLength(14);
+  for(const [index,lower,upper] of [
+    [0,78,90],[3,88,100],[4,130,250],[5,95,107],
+    [7,108,120],[8,108,120],[9,108,120],[10,88,100],
+    [11,112,128],[12,125,142],
+  ] as const){
+    expect(fields[index].inputWidth,`input ${index+1} too narrow`).toBeGreaterThanOrEqual(lower-1);
+    expect(fields[index].inputWidth,`input ${index+1} too wide`).toBeLessThanOrEqual(upper+1);
+  }
+  // Do not shrink these three explicitly protected fields.
+  expect(fields[1].inputWidth).toBeGreaterThanOrEqual(117);
+  expect(fields[2].inputWidth).toBeGreaterThanOrEqual(214);
+  expect(fields[6].inputWidth).toBeGreaterThanOrEqual(159);
+  const table=page.locator(".card-table__table");
+  const structure=await table.evaluate(el=>({
+    mode:getComputedStyle(el).tableLayout,
+    heading:getComputedStyle(el.querySelector(".card-table__th--secondary")!).whiteSpace,
+    width:el.getBoundingClientRect().width,
+    wrapper:el.parentElement!.getBoundingClientRect().width,
+  }));
+  expect(structure.mode).toBe("auto");
+  expect(structure.heading).toBe("nowrap");
+  expect(structure.width).toBeGreaterThanOrEqual(structure.wrapper);
+  const section=row.locator(".register4-inline__cell--section");
+  const sectionSelect=section.locator(".register4-section-field__select .MuiInputBase-root");
+  const sectionAdd=section.getByRole("button",{name:"Add a section"});
+  const [selectBox,addBox]=await Promise.all([sectionSelect.boundingBox(),sectionAdd.boundingBox()]);
+  expect(Math.abs(selectBox!.y-addBox!.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(selectBox!.height-addBox!.height)).toBeLessThanOrEqual(2);
+  await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
+  await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
+  await page.screenshot({path:"test-results/register4-desktop-narrow-fields-natural-table.png",animations:"disabled"});
+  await row.getByRole("button",{name:"Discard row"}).click();
+});
+
 test("Register-4 inline compact design remains usable and unclipped on mobile",async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto("/register-stock/register-4");
@@ -1175,7 +1222,10 @@ test("Register-4 Add row has only original reference columns, without second-lin
   const [sectionRect,selectRect,addRect,rowRect]=await Promise.all([
     section.boundingBox(),select.boundingBox(),add.boundingBox(),row.boundingBox()
   ]);
-  expect(sectionRect!.width).toBeGreaterThanOrEqual(325);
+  // The user's new request reduces the Dhara control's width; keep the
+  // selector and approved Add action side by side at the narrower size.
+  expect(sectionRect!.width).toBeGreaterThanOrEqual(293);
+  expect(sectionRect!.width).toBeLessThanOrEqual(307);
   expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
   expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
   expect(rowRect!.height).toBeLessThan(120);
