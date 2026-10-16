@@ -112,7 +112,7 @@
     }
   },
   "visualCheckFiles": [
-    "qa/register4-approved-visuals.pw.ts"
+    "qa/register4-visual-review.pw.ts"
   ],
   "acceptanceStatus": "OWNER_APPROVED_VISUAL_APPEARANCE at c168edb2, 2026-10-16, for 14 recorded captures; immutable main-branch reference approved by owner, but source-image observation review, actual matched-state diffs, CI and deployment remain independently gated.",
   "reviewerRule": "Approved baselines must be separately approved in target branch; PR-generated snapshots cannot be their own approval."
