@@ -31,14 +31,10 @@ jobs:
         run: npm test
       - name: Verify production build
         run: npm run build
-      - name: Reject unrelated application, data, SQL and visible-design edits
+      - name: Verify exact integrated UX change scope (not visual acceptance)
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1 || true
-          git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD > /tmp/ds-diff
-          if grep -v -E '^(src/styles/typography\.css|src/app/utils/stepState(\.test)?\.ts|src/test/spacingSourceOfTruth\.test\.ts|src/app/components/shared/AppStepper\.tsx|src/app/components/roles/CreateEditRoleModal\.tsx|src/app/pages/rules-calculation/TaxYearDraftStepper\.tsx|\.github/workflows/design-system-foundation-qa\.yml)$' /tmp/ds-diff; then
-            echo 'FAIL: unrelated path changed in design-system foundation PR'
-            exit 1
-          fi
-          echo 'PASS: only approved foundation paths changed'
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1
+          node scripts/ux-pr-scope-check.mjs --self-test
+          node scripts/ux-pr-scope-check.mjs --check --base "${{ github.event.pull_request.base.sha }}"
