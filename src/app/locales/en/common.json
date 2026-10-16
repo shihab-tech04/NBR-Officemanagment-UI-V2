@@ -72,7 +72,9 @@
     "ayAbbrev": "AY",
     "selectPlaceholder": "Select…",
     "searchPlaceholder": "Search…",
-    "searchReportsCasesTaxpayers": "Search reports, cases, taxpayers…"
+    "searchReportsCasesTaxpayers": "Search reports, cases, taxpayers…",
+    "navigationSearchResults": "Matching pages",
+    "noMatchingPages": "No matching pages"
   },
   "accessibility": {
     "close": "Close",

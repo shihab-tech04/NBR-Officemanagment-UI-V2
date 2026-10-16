@@ -9,6 +9,18 @@ const destinations = NAVIGATION.map(group => ({
     : [`/${group.id}/${child.id}`]),
 }));
 
+test('header search accepts input and navigates to the matching Office module', async ({ page }) => {
+  await page.goto('/dashboard/dashboard-main');
+  await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await page.locator('.topbar__search-container input').fill('Taxpayer Ledger');
+  await expect(page.locator('.topbar__search-results')).toBeVisible();
+  await page.locator('.topbar__search-results button').filter({ hasText: 'Taxpayer Ledger' }).click();
+  await expect(page).toHaveURL(/\/case-financial\/demand-payment\/taxpayer-ledger$/);
+  await expect(page.getByRole('heading', { name: 'Taxpayer Ledger' })).toBeVisible();
+});
+
 test.describe('Office navigation route completeness', () => {
   for (const { group, paths } of destinations) {
     test(`${group}: every advertised page renders without an uncaught error`, async ({ page }) => {

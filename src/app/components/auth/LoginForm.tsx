@@ -10,6 +10,8 @@ import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
 import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
+import { getOfficeReviewClient } from "../../pages/payments/OfficeReviewQueue";
+import { OFFICE_AUTH_CALLBACK_URL } from "../../utils/officeAuthRedirect";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -24,11 +26,13 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
 
   const [userId, setUserId] = useState("");
   const [authFeedback,setAuthFeedback]=useState<{error:boolean;text:string}|null>(null);
+  const [sendingLink, setSendingLink] = useState(false);
 
   const demoUrl = getTaxPayDemoLoginUrl(userId);
   const normalizedId = userId.trim().toLowerCase();
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    if (sendingLink) return;
     if (demoUrl) {
       window.location.assign(demoUrl);
       return;
@@ -37,6 +41,31 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
       // This is a UI preview only. All connected officer RPCs remain server-gated.
       dispatch(login({userId:'admin'}));
       navigate('/dashboard/dashboard-main');
+      return;
+    }
+    // The same approved single-field login also supports existing, authorized
+    // officer accounts. The formerly sole email sign-in was inside AppShell,
+    // making it unreachable until after successful authentication.
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedId)) {
+      const client = getOfficeReviewClient();
+      if (!client) {
+        setAuthFeedback({error:true,text:translate('login.officerUnavailable', 'Officer sign-in is not configured.')});
+        return;
+      }
+      setSendingLink(true);
+      setAuthFeedback(null);
+      try {
+        const { error } = await client.auth.signInWithOtp({
+          email: normalizedId,
+          options: { shouldCreateUser: false, emailRedirectTo: OFFICE_AUTH_CALLBACK_URL },
+        });
+        if (error) throw error;
+        setAuthFeedback({error:false,text:translate('login.officerLinkSent', 'Check your email for the sign-in link. Access requires an active authorized Office role.')});
+      } catch (error) {
+        setAuthFeedback({error:true,text:error instanceof Error ? error.message : translate('login.officerFailed', 'Could not send a sign-in link.')});
+      } finally {
+        setSendingLink(false);
+      }
       return;
     }
     setAuthFeedback({error:true,text:'Enter admin or user1–user10.'});
@@ -92,15 +121,16 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
               autoComplete="off"
             />
 
-            <p className="text-[13px] text-[var(--color-text-secondary)]">Admin: admin · Taxpayer demo: user1–user10</p>
+            <p className="text-[13px] text-[var(--color-text-secondary)]">{translate('login.identityOptions', 'Admin: admin · Taxpayer: user1–user10 · Officer: registered email')}</p>
 
             {authFeedback&&<p role={authFeedback.error?'alert':'status'}>{authFeedback.text}</p>}
             <button
               type="button"
               onClick={()=>void handleSignIn()}
+              disabled={sendingLink}
               className="login-form-submit"
             >
-              <span>{translate("login.signIn")}</span>
+              <span>{sendingLink ? translate('login.signingIn') : translate("login.signIn")}</span>
             </button>
 
             <p className="text-[13px] text-center text-[var(--color-text-secondary)]">

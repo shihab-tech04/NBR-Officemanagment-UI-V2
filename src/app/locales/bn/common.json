@@ -72,7 +72,9 @@
     "ayAbbrev": "আ.ব.",
     "selectPlaceholder": "নির্বাচন করুন…",
     "searchPlaceholder": "অনুসন্ধান…",
-    "searchReportsCasesTaxpayers": "রিপোর্ট, মামলা, করদাতা অনুসন্ধান করুন…"
+    "searchReportsCasesTaxpayers": "রিপোর্ট, মামলা, করদাতা অনুসন্ধান করুন…",
+    "navigationSearchResults": "মিল থাকা পৃষ্ঠা",
+    "noMatchingPages": "কোনো মিল থাকা পৃষ্ঠা নেই"
   },
   "accessibility": {
     "close": "বন্ধ করুন",
