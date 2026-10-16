@@ -74,8 +74,8 @@ for (const locale of ["en", "bn"] as const) {
     await expect(page.getByRole("option").first()).toBeVisible();
     const [menu, panel, footer] = await Promise.all([
       page.getByRole("listbox").boundingBox(),
-      dialog.boundingBox(),
-      dialog.locator(".app-modal-footer").boundingBox(),
+      page.locator(".app-modal-panel").boundingBox(),
+      page.locator(".app-modal-panel .app-modal-footer").boundingBox(),
     ]);
     expect(menu, "The section menu must have measurable bounds").not.toBeNull();
     expect(panel, "The modal must have measurable bounds").not.toBeNull();
