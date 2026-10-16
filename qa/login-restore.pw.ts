@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('single User ID login shows no password, email link or OTP', async ({page}) => {
+test('single-field login keeps the approved layout and advertises the authorized officer path', async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/payments/transactions');
   await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
@@ -9,7 +9,7 @@ test('single User ID login shows no password, email link or OTP', async ({page})
   await expect(page.getByText('Remember me')).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Forgot password?'})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
-  await expect(page.getByText('Admin: admin · Taxpayer demo: user1–user10')).toBeVisible();
+  await expect(page.getByText('Admin: admin · Taxpayer: user1–user10 · Officer: registered email')).toBeVisible();
   await page.screenshot({path:'test-results/office-simple-id-login-desktop.png',fullPage:true,animations:'disabled'});
 });
 
