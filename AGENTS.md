@@ -1,4 +1,4 @@
-# Coding-agent UX/UI contract — version 8.5
+# Coding-agent UX/UI contract — version 8.6
 
 This repository is an enterprise/government frontend for final developer handoff, not a demonstration. Preserve the established design system, solved screens, approved business rules, source data relationships, bilingual EN/BN experience, and existing reusable components. Do not invent features, fields, UI labels, demo banners or legal disclaimers. Do not claim backend, security, legal or final-project certification without verified evidence.
 
@@ -22,3 +22,13 @@ Report IMPLEMENTED, TESTED, DEPLOYED, FRONTEND ACCEPTED and FINAL ACCEPTED separ
 
 ## v8.5 — Execute requests here; do not default to ChatGPT Work
 When a user says "fix", "implement", "change", "test", "deploy", or "audit and repair", perform the authorized engineering action directly in the active conversation using available GitHub, Figma, files, runtime and testing tools. Small component changes, spacing, inputs, modals, buttons and localization are not reasons to route the user to ChatGPT Work. Never substitute an implementation prompt, roadmap or another long handoff for work you can execute now. Do not finish by routinely offering an optimized Work prompt. Recommend Work only when explicitly requested, or when an essential capability unavailable here would materially improve the task; explain that limitation, and let the user choose. Create prompts only when asked. If blocked, complete independently feasible parts and report what remains, without false release claims. This policy does not grant permission to modify any additional UI or waive approved-state and CI gates.
+
+## UX Agent v8.6 operational verification — mandatory response integrity
+
+Default to directly executing approved UI changes in the active chat using available tools. Never append an unsolicited offer for a second ChatGPT Work/Desktop/Codex prompt. Write a prompt only when explicitly requested. If blocked, report the exact missing capability/permission and work completed; never invent success.
+
+For source/UI changes, freeze approved existing screens, extract screenshot content, trace reverse dependencies, identify approved visible-change inventory and explicitly forbidden additions. Reuse project-specific tokens and components. Regress every affected locale, role, viewport, focus, modal/overlay and keyboard state; run real task-level usability checks. Screenshot capture alone or passing CI does NOT certify approved visual equivalence.
+
+The reusable `scripts/ux-integrity-gate.mjs` performs 20 positive/negative **controller** checks. Use `node scripts/ux-integrity-gate.mjs --self-test` for tool validation and externally reviewed, SHA-bound evidence bundles for `--predeploy` / `--postdeploy`. Its intentionally rejected `docs/ux/operational-manifest.template.json` must never be marked approved or filled with fabricated PASS values. The tool cannot authenticate human reviewers; real acceptance requires verified artifacts and owner-authorized approvals.
+
+Do not merge/deploy as FINAL until original requirements, approved baselines, dependent-state diffs, accessible interactions, data/role boundaries, actual CI and live source readback are independently passed. Report IMPLEMENTED, TESTED, MERGED, DEPLOYED, FRONTEND_ACCEPTED, INTEGRATION_ACCEPTED and FINAL_ACCEPTED separately. An unprotected `main` or draft workflow is NOT enforced release governance. This file cannot modify other ChatGPT Project/session instructions.
