@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient, type User } from '@supabase/supabase-js';
 import { useTranslation } from 'react-i18next';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
@@ -9,6 +9,7 @@ import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
 import { OFFICE_AUTH_CALLBACK_URL } from '../../utils/officeAuthRedirect';
 import { isOfficeAdminDemo } from '../../utils/officeAdminDemo';
+import { canOfferReviewAction, expectedReviewStatus, prepareReviewAttempt, type OfficerReviewAction, type ReviewAttempt } from './reviewActionIntegrity';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
@@ -44,6 +45,7 @@ export function OfficeReviewQueue() {
   const [status,setStatus]=useState('');
   const [busy,setBusy]=useState(false);
   const [revision,setRevision]=useState(0);
+  const retryAttempt=useRef<ReviewAttempt|null>(null);
   const label=(s:string)=>descriptions[s]?.[bn?1:0]||s;
   const ids=rows.map(r=>r.id);
   const selectedRequest=rows.find(r=>r.id===selected);
@@ -53,19 +55,19 @@ export function OfficeReviewQueue() {
     let active=true;
     const {data:sub}=client.auth.onAuthStateChange((_event,session)=>{
       if(!active)return;
-      setUser(session?.user??null);setRole(null);setRows([]);setNotices([]);setSelected(null);
+      retryAttempt.current=null;setUser(session?.user??null);setRole(null);setRows([]);setNotices([]);setSelected(null);
     });
     void client.auth.getUser().then(({data})=>{if(active)setUser(data.user);});
     return()=>{active=false;sub.subscription.unsubscribe();};
   },[client]);
 
   const refresh=useCallback(async()=>{
-    if(!client||!user)return;
+    if(!client||!user)return [] as ReviewRequest[];
     const {data:identity,error:authError}=await client.auth.getUser();
     if(authError||identity.user?.id!==user.id)throw Error('Officer session changed');
     const access=await client.from('taxpay_officer_roles').select('role,active').eq('user_uid',user.id).maybeSingle();
     if(access.error)throw access.error;
-    if(!access.data?.active){setRole(null);setRows([]);setNotices([]);return;}
+    if(!access.data?.active){setRole(null);setRows([]);setNotices([]);return [] as ReviewRequest[];}
     setRole(access.data.role as OfficerRole);
     const [r,n]=await Promise.all([
       client.from('taxpay_payment_requests').select('id,owner_uid,purpose,category,assessment_year,amount_minor,request_status,financial_receipt_status,tax_credit_status,submitted_at').order('submitted_at',{ascending:false}).limit(100),
@@ -74,7 +76,9 @@ export function OfficeReviewQueue() {
     if(r.error||n.error)throw Error(r.error?.message||n.error?.message||'Read back failed');
     const {data:current}=await client.auth.getUser();
     if(current.user?.id!==user.id)throw Error('Officer session changed');
-    setRows((r.data||[]) as ReviewRequest[]);setNotices((n.data||[]) as InboxNotice[]);setStatus('');
+    const loaded=(r.data||[]) as ReviewRequest[];
+    setRows(loaded);setNotices((n.data||[]) as InboxNotice[]);setStatus('');
+    return loaded;
   },[user]);
 
   useEffect(()=>{
@@ -92,15 +96,29 @@ export function OfficeReviewQueue() {
       setStatus(t('Sign-in link sent. Access requires an assigned officer role.','সাইন-ইন লিংক পাঠানো হয়েছে। নির্ধারিত কর্মকর্তা ভূমিকা প্রয়োজন।'));
     }catch(e){setStatus(e instanceof Error?e.message:'Could not sign in');}finally{setBusy(false);}
   };
-  const act=async(action:'ACKNOWLEDGE'|'REQUEST_INFORMATION'|'CLOSE_REVIEW')=>{
-    if(!client||!user||!selectedRequest||busy||reason.trim().length<10)return;
+  const act=async(action:OfficerReviewAction)=>{
+    const normalizedReason=reason.trim();
+    if(!client||!user||!selectedRequest||busy||normalizedReason.length<10||normalizedReason.length>1000||
+       !canOfferReviewAction(role,selectedRequest.request_status,action))return;
+    const attempt=prepareReviewAttempt(retryAttempt.current,{
+      officerId:user.id,requestId:selectedRequest.id,action,reason:normalizedReason
+    },()=>crypto.randomUUID());
+    retryAttempt.current=attempt;
     setBusy(true);setStatus('');
-    const nonce=crypto.randomUUID();
     try{
-      const {data:identity}=await client.auth.getUser();if(identity.user?.id!==user.id)throw Error('Officer session changed');
-      const {error}=await client.rpc('taxpay_record_officer_review',{p_request_id:selectedRequest.id,p_action:action,p_reason:reason.trim(),p_idempotency_key:nonce});
+      const {data:identity,error:authError}=await client.auth.getUser();
+      if(authError||identity.user?.id!==user.id)throw Error('Officer session changed');
+      const {data,error}=await client.rpc('taxpay_record_officer_review',{
+        p_request_id:attempt.requestId,p_action:attempt.action,p_reason:attempt.reason,p_idempotency_key:attempt.key
+      });
       if(error)throw error;
-      await refresh();setReason('');setStatus(t('Action recorded in SQL.','কার্যক্রম SQL-এ সংরক্ষিত হয়েছে।'));
+      const expected=expectedReviewStatus(action);
+      if(data!==expected)throw Error('SQL did not confirm the expected review state');
+      const persisted=await refresh();
+      if(persisted.find(r=>r.id===attempt.requestId)?.request_status!==expected)
+        throw Error('Independent SQL request-state read-back did not match');
+      retryAttempt.current=null;
+      setReason('');setStatus(t('Action recorded in SQL.','কার্যক্রম SQL-এ সংরক্ষিত হয়েছে।'));
     }catch(e){setStatus(e instanceof Error?e.message:'Action failed');}finally{setBusy(false);}
   };
   const markRead=async(n:InboxNotice)=>{
@@ -115,7 +133,7 @@ export function OfficeReviewQueue() {
     if(!client||busy)return;
     setBusy(true);setStatus('');
     try {const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;
-      setUser(null);setRole(null);setRows([]);setNotices([]);setSelected(null);setReason('');
+      retryAttempt.current=null;setUser(null);setRole(null);setRows([]);setNotices([]);setSelected(null);setReason('');
     }catch(e){setStatus(e instanceof Error?e.message:'Sign-out failed');}finally{setBusy(false);}
   };
 
@@ -134,13 +152,13 @@ export function OfficeReviewQueue() {
       <SecondaryButton size="sm" disabled={busy} onClick={()=>void signOut()}>{t('Sign out','সাইন আউট')}</SecondaryButton>
       <SecondaryButton size="sm" onClick={()=>setRevision(v=>v+1)}>{t('Refresh inbox','ইনবক্স হালনাগাদ')}</SecondaryButton>
       {notices.some(n=>!n.is_read)&&<section><h3>{t('New notices','নতুন বিজ্ঞপ্তি')}</h3><ul>{notices.filter(n=>!n.is_read).map(n=><li key={n.id}><p>{label(n.message_code)} · {n.request_id}</p><SecondaryButton size="sm" onClick={()=>void markRead(n)}>{t('Mark read','পড়া হয়েছে')}</SecondaryButton></li>)}</ul></section>}
-      <div><h3>{t('Review requests','পর্যালোচনার অনুরোধ')}</h3>{rows.length===0?<p>{t('No requests assigned to this review inbox.','এই ইনবক্সে কোনো অনুরোধ নেই।')}</p>:<ul>{rows.map(r=><li key={r.id}><button type="button" className="table-card__toolbar-btn" onClick={()=>{setSelected(r.id);setReason('');}} aria-pressed={selected===r.id}>{r.id} · {r.category} · {r.assessment_year} · {label(r.request_status)}</button></li>)}</ul>}</div>
+      <div><h3>{t('Review requests','পর্যালোচনার অনুরোধ')}</h3>{rows.length===0?<p>{t('No requests assigned to this review inbox.','এই ইনবক্সে কোনো অনুরোধ নেই।')}</p>:<ul>{rows.map(r=><li key={r.id}><button type="button" className="table-card__toolbar-btn" onClick={()=>{retryAttempt.current=null;setSelected(r.id);setReason('');}} aria-pressed={selected===r.id}>{r.id} · {r.category} · {r.assessment_year} · {label(r.request_status)}</button></li>)}</ul>}</div>
       {selectedRequest&&<div><h3>{t('Selected request','নির্বাচিত অনুরোধ')}</h3><p>{selectedRequest.id}</p><p>{t('Financial receipt','আর্থিক রসিদ')}: {selectedRequest.financial_receipt_status} · {t('Tax credit','কর ক্রেডিট')}: {selectedRequest.tax_credit_status}</p>
-        <AppTextArea id="office-review-reason" label={t('Reason (minimum 10 characters)','কারণ (কমপক্ষে ১০ অক্ষর)')} value={reason} onChange={setReason}/>
+        <AppTextArea id="office-review-reason" label={t('Reason (minimum 10 characters)','কারণ (কমপক্ষে ১০ অক্ষর)')} value={reason} onChange={value=>{setReason(value);retryAttempt.current=null;}}/>
         <div className="table-page__actions">
-          {selectedRequest.request_status==='SUBMITTED_FOR_REVIEW'&&<PrimaryButton size="sm" disabled={busy||reason.trim().length<10} onClick={()=>void act('ACKNOWLEDGE')}>{t('Acknowledge','গ্রহণ করুন')}</PrimaryButton>}
-          {selectedRequest.request_status!=='REVIEW_CLOSED'&&<SecondaryButton size="sm" disabled={busy||reason.trim().length<10} onClick={()=>void act('REQUEST_INFORMATION')}>{t('Request information','তথ্য চান')}</SecondaryButton>}
-          {['ACKNOWLEDGED','INFO_REQUESTED'].includes(selectedRequest.request_status)&&role!=='MAKER'&&<PrimaryButton size="sm" disabled={busy||reason.trim().length<10} onClick={()=>void act('CLOSE_REVIEW')}>{t('Close review','পর্যালোচনা শেষ')}</PrimaryButton>}
+          {canOfferReviewAction(role,selectedRequest.request_status,'ACKNOWLEDGE')&&<PrimaryButton size="sm" disabled={busy||reason.trim().length<10||reason.trim().length>1000} onClick={()=>void act('ACKNOWLEDGE')}>{t('Acknowledge','গ্রহণ করুন')}</PrimaryButton>}
+          {canOfferReviewAction(role,selectedRequest.request_status,'REQUEST_INFORMATION')&&<SecondaryButton size="sm" disabled={busy||reason.trim().length<10||reason.trim().length>1000} onClick={()=>void act('REQUEST_INFORMATION')}>{t('Request information','তথ্য চান')}</SecondaryButton>}
+          {canOfferReviewAction(role,selectedRequest.request_status,'CLOSE_REVIEW')&&<PrimaryButton size="sm" disabled={busy||reason.trim().length<10||reason.trim().length>1000} onClick={()=>void act('CLOSE_REVIEW')}>{t('Close review','পর্যালোচনা শেষ')}</PrimaryButton>}
         </div>
       </div>}
       <p>{t('Visible request IDs','দৃশ্যমান অনুরোধ আইডি')}: {ids.length}</p>
