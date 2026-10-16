@@ -23,6 +23,13 @@ async function openRegister(page: Page, locale: "en" | "bn", viewport = desktop)
 }
 
 async function capture(page: Page, state: string) {
+  // Mobile inline scrolling can put the pointer over the TIN input after the
+  // Add-row click. The resulting transient :hover border appears only in the
+  // delayed matcher capture, not the approved screenshot state. Park the
+  // pointer away from the form before either screenshot, preserving the UI.
+  if (state.startsWith("inline.mobile.")) {
+    await page.mouse.move(1, 1);
+  }
   await page.screenshot({
     path: `test-results/register4-visual-review/${state}.png`,
     animations: "disabled",
