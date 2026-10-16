@@ -18,7 +18,7 @@ test('header search accepts input and navigates to the matching Office module', 
   await expect(page.locator('.topbar__search-results')).toBeVisible();
   await page.locator('.topbar__search-results button').filter({ hasText: 'Taxpayer Ledger' }).click();
   await expect(page).toHaveURL(/\/case-financial\/demand-payment\/taxpayer-ledger$/);
-  await expect(page.getByRole('heading', { name: 'Taxpayer Ledger' })).toBeVisible();
+  await expect(page.locator('#main-content').getByRole('heading', { name: 'Taxpayer Ledger', exact: true })).toBeVisible();
 });
 
 test.describe('Office navigation route completeness', () => {
