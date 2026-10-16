@@ -40,3 +40,7 @@ These hashes were computed from the extracted artifact bytes; the artifact is no
 1. Register-4 original left/right screenshots: two full-image second passes, source-intent reconciliation and all R4-001–R4-024 observation evidence in `docs/ux/screenshot-fidelity/register4-image-ledger.json`.
 2. Independently reviewed baseline-vs-actual visual comparisons and fourteen locked, immutable approved-golden references under `main`; assertions must actually compare pixels/images.
 3. Green release checks, merge, GitHub Pages deployment and live-site verification. Until then, deployment remains blocked.
+
+## Baseline promotion checkpoint — 2026-10-16
+
+The independently owner-approved 14 screenshot PNGs were transferred byte-identically into a separate reference-only PR #72, together with stable npm dependency installation. PR #72 passed all four actual GitHub checks and was merged into `main` at `b797d731d61dbd53bb0b44750e3a429c79a8b4a6`. Local `node scripts/ui-regression-guard.mjs --check --base FETCH_HEAD` against the actual post-merge `main` policy now passes its fourteen baseline-hash and visual-test-shape requirements. This is not proof that the 14 `toHaveScreenshot` runtime comparisons pass; they must execute in hosted CI. The four additional right-scroll captures in `qa/register4-visual-review.pw.ts` are supplemental and were **not** part of the owner's fourteen-frame approval.
