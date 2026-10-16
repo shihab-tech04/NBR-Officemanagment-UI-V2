@@ -44,6 +44,8 @@
     "src/app/components/shared/AppStepper.tsx",
     "src/app/components/ui/MuiProvider.tsx",
     "src/app/pages/register-stock/Register4SectionField.tsx",
+    "src/app/pages/register-stock/Register4EntryModal.tsx",
+    "src/test/register4AssessmentTable.test.ts",
     "src/app/pages/rules-calculation/TaxYearDraftStepper.tsx",
     "src/app/utils/stepState.test.ts",
     "src/app/utils/stepState.ts",
