@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "8.3",
+  "purpose": "Fourteen owner-approved, SHA-bound visual reference states; this policy is evidence, not final release acceptance.",
+  "protectedScreens": [
+    {
+      "id": "register4-new-entry",
+      "component": "src/app/pages/register-stock/Register4EntryModal.tsx",
+      "states": [
+        "modal.en.lookup",
+        "modal.en.filled",
+        "modal.en.section-open",
+        "modal.bn.lookup",
+        "modal.bn.filled",
+        "modal.bn.section-open",
+        "modal.mobile.en",
+        "modal.mobile.bn"
+      ]
+    },
+    {
+      "id": "register4-inline-entry",
+      "component": "src/app/pages/register-stock/Register4InlineRow.tsx",
+      "states": [
+        "inline.en.open",
+        "inline.bn.open",
+        "inline.mobile.en",
+        "inline.mobile.bn"
+      ]
+    },
+    {
+      "id": "register4-register",
+      "component": "src/app/pages/register-stock/Register4ListPage.tsx",
+      "states": [
+        "table.en.closed",
+        "table.bn.closed"
+      ]
+    }
+  ],
+  "globalStylePatterns": [
+    "^src/styles/(?:tables|fonts|globals|global|index)\\.css$",
+    "^src/app/components/(?:forms|tables|modals|buttons)/"
+  ],
+  "approvedVisuals": {
+    "inline.bn.open": {
+      "path": "qa/approved-visuals/register4/inline.bn.open.png",
+      "sha256": "7efc36b1718ea5187627b90954ee08fe68ab690ec6425c5df4a660177cabb8d9",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "inline.en.open": {
+      "path": "qa/approved-visuals/register4/inline.en.open.png",
+      "sha256": "6b773bb3874731933a14bc936ebdc6f79374d42d6915ff38001f72d304f4ff3c",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "inline.mobile.bn": {
+      "path": "qa/approved-visuals/register4/inline.mobile.bn.png",
+      "sha256": "4ee12524e3c80c786a21324afbd21a9d28f98b58f812927844bc7d98f5c744f6",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "inline.mobile.en": {
+      "path": "qa/approved-visuals/register4/inline.mobile.en.png",
+      "sha256": "ba4ed30f3f130ed24ce4fe9219aa5506cb535695848b9e50ce3ed8a5226e8685",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.bn.filled": {
+      "path": "qa/approved-visuals/register4/modal.bn.filled.png",
+      "sha256": "1bb9fa034c35768aaf426da63b3fe19d16dee2f54a427600789a0bdcba933165",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.bn.lookup": {
+      "path": "qa/approved-visuals/register4/modal.bn.lookup.png",
+      "sha256": "5d3e3210d95ce797fef9b74bb9b5eb6cebc5aef3f75d4a9e01e50f100a259d3f",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.bn.section-open": {
+      "path": "qa/approved-visuals/register4/modal.bn.section-open.png",
+      "sha256": "ecaa8641f48546818dc089c04bfaa204d2390313cf837c027af5ff1bd0735cb0",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.en.filled": {
+      "path": "qa/approved-visuals/register4/modal.en.filled.png",
+      "sha256": "9df626e8e0e839c963891e7effe853b81ed1c6b031917c1a533b6e9812833c2a",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.en.lookup": {
+      "path": "qa/approved-visuals/register4/modal.en.lookup.png",
+      "sha256": "917c0809855be1f37bb1071db2c81dc0edd8cd04aa14f5a232ff83588ee280ff",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.en.section-open": {
+      "path": "qa/approved-visuals/register4/modal.en.section-open.png",
+      "sha256": "d20ec44d7efc5bdf70be516cee8ce152da3795c6260ccd01dbdac7e80cf11fc2",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.mobile.bn": {
+      "path": "qa/approved-visuals/register4/modal.mobile.bn.png",
+      "sha256": "7995f33d50de750775633a1de681808057f35ca8dc42400bab4d5b617e003b39",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "modal.mobile.en": {
+      "path": "qa/approved-visuals/register4/modal.mobile.en.png",
+      "sha256": "652f4e8cfc82ab4b8178735fa0f4d6539a52e9b860d8d376ca332f2496bf9944",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "table.bn.closed": {
+      "path": "qa/approved-visuals/register4/table.bn.closed.png",
+      "sha256": "a8f8d3c88c7737f7da238999473ec7812459c01ac2c357f2ba23cef5540ce38b",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    },
+    "table.en.closed": {
+      "path": "qa/approved-visuals/register4/table.en.closed.png",
+      "sha256": "06eb71a7dc4f3266b20ce808812e01c8bba3ea8233e71750bea91c3623358089",
+      "approvedSourceSha": "c168edb28d4627b970e130309ba074bf192530be"
+    }
+  },
+  "visualCheckFiles": [
+    "qa/register4-approved-visuals.pw.ts"
+  ],
+  "acceptanceStatus": "OWNER_APPROVED_VISUAL_APPEARANCE at c168edb2, 2026-10-16, for 14 recorded captures; immutable main-branch reference approved by owner, but source-image observation review, actual matched-state diffs, CI and deployment remain independently gated.",
+  "reviewerRule": "Approved baselines must be separately approved in target branch; PR-generated snapshots cannot be their own approval."
+}
