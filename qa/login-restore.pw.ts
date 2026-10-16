@@ -29,7 +29,7 @@ test('Office mobile navigation works without login state', async ({page}) => {
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('#login-officer-email')).toHaveCount(0);
   await page.getByRole('button',{name:/navigation/i}).first().click();
-  await expect(page.locator('.app-sidebar')).toBeVisible();
+  await expect(page.locator('.app-sidebar-shell--mobile.app-sidebar-shell--open')).toBeVisible();
 });
 
 test('profile menu does not offer an obsolete Sign Out action', async ({page}) => {
