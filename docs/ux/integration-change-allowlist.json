@@ -25,6 +25,7 @@
     "docs/ux/screenshot-fidelity/register4-image-ledger.json",
     "package-lock.json",
     "qa/register4-interaction-quality.pw.ts",
+    "qa/register4-visual-review.pw.ts",
     "qa/ui-regression-contract.json",
     "scripts/screenshot-fidelity-gate.mjs",
     "scripts/ui-regression-guard.mjs",
