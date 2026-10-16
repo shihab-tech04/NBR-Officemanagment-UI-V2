@@ -36,7 +36,7 @@ jobs:
           fi
           node scripts/ui-regression-guard.mjs --self-test
           node scripts/ui-regression-guard.mjs --check --base "$BASE"
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --no-audit --no-fund @playwright/test
       - run: npx playwright install --with-deps chromium
       - name: Run mandatory Register-4 task-usability gate before publishing
