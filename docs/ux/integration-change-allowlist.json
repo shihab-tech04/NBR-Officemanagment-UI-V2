@@ -41,6 +41,7 @@
     "src/app/pages/rules-calculation/TaxYearDraftStepper.tsx",
     "src/app/utils/stepState.test.ts",
     "src/app/utils/stepState.ts",
+    "src/styles/register4-entry.css",
     "src/styles/tokens.css",
     "src/styles/typography.css",
     "src/test/muiTokenCompatibility.test.ts",
