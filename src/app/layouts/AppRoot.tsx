@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../store/store";
 import { setIsDesktop } from "../store/uiSlice";
 import { useAppearance } from "../hooks/useAppearance";
 import { AppShell } from "./AppShell";
+import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 
@@ -13,7 +14,24 @@ import { HelpDrawer } from "../components/help/HelpDrawer";
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
+  // Initial Office access remains open. Only an explicit user sign-out shows
+  // the existing entry screen; this browser flag is not an authorization gate.
+  const [signedOut, setSignedOut] = useState(() => {
+    try { return window.sessionStorage.getItem("office_ui_signed_out") === "true"; }
+    catch { return false; }
+  });
   useAppearance();
+
+  const handleSignOut = () => {
+    try { window.sessionStorage.setItem("office_ui_signed_out", "true"); }
+    catch { /* Private browsing may prevent storage. */ }
+    setSignedOut(true);
+  };
+  const handleEnterOffice = () => {
+    try { window.sessionStorage.removeItem("office_ui_signed_out"); }
+    catch { /* The current tab still transitions into the office. */ }
+    setSignedOut(false);
+  };
 
   useEffect(()=>{
     const sync=()=>dispatch(setIsDesktop(window.innerWidth>=1024));
@@ -22,7 +40,7 @@ export function AppRoot() {
   },[dispatch]);
 
   return <HelpProvider>
-    <AppShell/>
+    {signedOut ? <LoginPage onOfficeEnter={handleEnterOffice}/> : <AppShell onSignedOut={handleSignOut}/>}
     <HelpDrawer/>
   </HelpProvider>;
 }
