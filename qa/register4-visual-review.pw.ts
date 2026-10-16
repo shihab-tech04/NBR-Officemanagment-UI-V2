@@ -120,6 +120,10 @@ for (const locale of ["en", "bn"] as const) {
     await expect(lastChoice).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);
+    // The popover can outlive its listbox during MUI's closing transition.
+    // Wait for the actual overlay to leave the hit-test stack before testing
+    // the underlying modal footer, as a user would after the menu disappears.
+    await expect(page.locator(".MuiPopover-root")).toHaveCount(0);
     const footerHitTargets = await dialog.locator(".app-modal-footer button").evaluateAll(buttons =>
       buttons.map(button => {
         const rect = button.getBoundingClientRect();
