@@ -72,6 +72,18 @@ for (const locale of ["en", "bn"] as const) {
     const dialog = await populateLookup(page, locale);
     await dialog.locator("#disposal_code").click();
     await expect(page.getByRole("option").first()).toBeVisible();
+    const [menu, panel, footer] = await Promise.all([
+      page.getByRole("listbox").boundingBox(),
+      dialog.boundingBox(),
+      dialog.locator(".app-modal-footer").boundingBox(),
+    ]);
+    expect(menu, "The section menu must have measurable bounds").not.toBeNull();
+    expect(panel, "The modal must have measurable bounds").not.toBeNull();
+    expect(footer, "The modal footer must have measurable bounds").not.toBeNull();
+    if (menu && panel && footer) {
+      expect(menu.y, "Section menu must not extend above its modal").toBeGreaterThanOrEqual(panel.y);
+      expect(menu.y + menu.height, "Section menu must not obscure Save/Cancel").toBeLessThanOrEqual(footer.y);
+    }
     await capture(page, `modal.${locale}.section-open`);
   });
 

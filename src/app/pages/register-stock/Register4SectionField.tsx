@@ -77,7 +77,8 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
       <div className="register4-section-field__select">
         <AppSelectField id={id} label={label} value="__current__"
           onChange={option=>option.startsWith("__pick__:")&&pick(option.slice(9))}
-          options={options} helper={error||helper} error={error} required={required} compact={compact}/>
+          options={options} helper={error||helper} error={error} required={required} compact={compact}
+          menuMaxHeight="min(300px, calc(100dvh - 190px))"/>
       </div>
       <div className="register4-section-field__addition" ref={addAnchor}>
         <span className="register4-section-field__rule" aria-hidden="true" />

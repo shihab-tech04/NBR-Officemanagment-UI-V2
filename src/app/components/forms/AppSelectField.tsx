@@ -26,11 +26,14 @@ interface AppSelectFieldProps {
   sortOptions?: boolean;
   /** Switch to a searchable autocomplete when non-empty options exceed this count. */
   searchableAfter?: number;
+  /** Optional maximum menu height for constrained overlays; other selects retain their default. */
+  menuMaxHeight?: string;
 }
 
 export function AppSelectField({
   id, label, value, onChange, options, helper, error,
   required, disabled, compact, ariaLabel, sortOptions = false, searchableAfter,
+  menuMaxHeight,
 }: AppSelectFieldProps) {
   const normalizedRaw: SelectOption[] = options.map(o =>
     typeof o === "string" ? { value: o, label: o } : o
@@ -110,6 +113,9 @@ export function AppSelectField({
       }}
       FormHelperTextProps={{ id: `${id}-helper` }}
       sx={compact ? muiFilterSx : muiFieldSx}
+      SelectProps={menuMaxHeight ? {
+        MenuProps: { PaperProps: { sx: { maxHeight: menuMaxHeight } } },
+      } : undefined}
     >
       {normalized.map(o => (
         <MenuItem key={o.value} value={o.value} disabled={o.disabled} title={o.title}>{o.label}</MenuItem>
