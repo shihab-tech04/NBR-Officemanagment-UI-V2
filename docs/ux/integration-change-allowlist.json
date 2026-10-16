@@ -25,6 +25,7 @@
     "docs/ux/screenshot-fidelity/README.md",
     "docs/ux/screenshot-fidelity/register4-image-ledger.json",
     "package-lock.json",
+    "playwright.config.ts",
     "qa/register4-interaction-quality.pw.ts",
     "qa/register4-visual-review.pw.ts",
     "qa/ui-regression-contract.json",
