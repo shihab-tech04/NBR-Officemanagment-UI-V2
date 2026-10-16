@@ -64,6 +64,14 @@ async function assertSectionMenuClearOfModalFooter(page: Page) {
     expect(paper.x, "Visible section menu must not be cut off at the left edge").toBeGreaterThanOrEqual(-1);
     expect(paper.x + paper.width, "Visible section menu must not be cut off at the right edge").toBeLessThanOrEqual(viewport.width + 1);
   }
+  const scrollState = await page.locator(".MuiMenu-paper").evaluate(element => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    overflowY: window.getComputedStyle(element).overflowY,
+  }));
+  if (scrollState.scrollHeight > scrollState.clientHeight + 1) {
+    expect(["auto", "scroll"], "Long menus must scroll within the visible paper").toContain(scrollState.overflowY);
+  }
 }
 
 for (const locale of ["en", "bn"] as const) {
@@ -97,7 +105,7 @@ for (const locale of ["en", "bn"] as const) {
     await capture(page, `modal.${locale}.section-open`);
   });
 
-  test(`mobile section menu.${locale} stays clear of modal footer (geometry only)`, async ({page}) => {
+  test(`mobile section menu.${locale} fits screen and preserves footer hit targets`, async ({page}) => {
     await openRegister(page, locale, mobile);
     await openModal(page, locale);
     const dialog = await populateLookup(page, locale);
@@ -105,6 +113,21 @@ for (const locale of ["en", "bn"] as const) {
     await dialog.locator("#disposal_code").click();
     await expect(page.getByRole("option").first()).toBeVisible();
     await assertSectionMenuClearOfModalFooter(page);
+    // A scroll-clipped dropdown is only usable when its last option is
+    // reachable and the original modal actions become clickable after close.
+    const lastChoice = page.getByRole("option").last();
+    await lastChoice.scrollIntoViewIfNeeded();
+    await expect(lastChoice).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox")).toHaveCount(0);
+    const footerHitTargets = await dialog.locator(".app-modal-footer button").evaluateAll(buttons =>
+      buttons.map(button => {
+        const rect = button.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return hit === button || button.contains(hit);
+      })
+    );
+    expect(footerHitTargets, "Save and Cancel must be usable after the section menu closes").toEqual([true, true]);
   });
 
   test(`visual-review inline.${locale}.open (unapproved capture)`, async ({page}) => {
