@@ -45,6 +45,21 @@ async function populateLookup(page: Page, locale: "en" | "bn") {
   return dialog;
 }
 
+async function assertSectionMenuClearOfModalFooter(page: Page) {
+  const [menu, panel, footer] = await Promise.all([
+    page.getByRole("listbox").boundingBox(),
+    page.locator(".app-modal-panel").boundingBox(),
+    page.locator(".app-modal-panel .app-modal-footer").boundingBox(),
+  ]);
+  expect(menu, "The section menu must have measurable bounds").not.toBeNull();
+  expect(panel, "The modal must have measurable bounds").not.toBeNull();
+  expect(footer, "The modal footer must have measurable bounds").not.toBeNull();
+  if (menu && panel && footer) {
+    expect(menu.y, "Section menu must not extend above its modal").toBeGreaterThanOrEqual(panel.y);
+    expect(menu.y + menu.height, "Section menu must not obscure Save/Cancel").toBeLessThanOrEqual(footer.y);
+  }
+}
+
 for (const locale of ["en", "bn"] as const) {
   test(`visual-review table.${locale}.closed (unapproved capture)`, async ({page}) => {
     await openRegister(page, locale);
@@ -72,19 +87,18 @@ for (const locale of ["en", "bn"] as const) {
     const dialog = await populateLookup(page, locale);
     await dialog.locator("#disposal_code").click();
     await expect(page.getByRole("option").first()).toBeVisible();
-    const [menu, panel, footer] = await Promise.all([
-      page.getByRole("listbox").boundingBox(),
-      page.locator(".app-modal-panel").boundingBox(),
-      page.locator(".app-modal-panel .app-modal-footer").boundingBox(),
-    ]);
-    expect(menu, "The section menu must have measurable bounds").not.toBeNull();
-    expect(panel, "The modal must have measurable bounds").not.toBeNull();
-    expect(footer, "The modal footer must have measurable bounds").not.toBeNull();
-    if (menu && panel && footer) {
-      expect(menu.y, "Section menu must not extend above its modal").toBeGreaterThanOrEqual(panel.y);
-      expect(menu.y + menu.height, "Section menu must not obscure Save/Cancel").toBeLessThanOrEqual(footer.y);
-    }
+    await assertSectionMenuClearOfModalFooter(page);
     await capture(page, `modal.${locale}.section-open`);
+  });
+
+  test(`mobile section menu.${locale} stays clear of modal footer (geometry only)`, async ({page}) => {
+    await openRegister(page, locale, mobile);
+    await openModal(page, locale);
+    const dialog = await populateLookup(page, locale);
+    await dialog.locator("#disposal_code").scrollIntoViewIfNeeded();
+    await dialog.locator("#disposal_code").click();
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await assertSectionMenuClearOfModalFooter(page);
   });
 
   test(`visual-review inline.${locale}.open (unapproved capture)`, async ({page}) => {
