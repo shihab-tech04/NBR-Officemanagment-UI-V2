@@ -24,6 +24,7 @@
     "docs/ux/operational-manifest.template.json",
     "docs/ux/screenshot-fidelity/README.md",
     "docs/ux/screenshot-fidelity/register4-image-ledger.json",
+    "docs/ux/screenshot-fidelity/register4-technical-crosswalk-20261016.md",
     "package-lock.json",
     "playwright.config.ts",
     "qa/register4-interaction-quality.pw.ts",

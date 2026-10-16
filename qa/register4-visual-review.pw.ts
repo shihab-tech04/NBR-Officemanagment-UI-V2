@@ -90,6 +90,22 @@ for (const locale of ["en", "bn"] as const) {
     await capture(page, `table.${locale}.closed`);
   });
 
+  test(`supplemental information review table.${locale}.right-scroll (not an owner-approved golden)`, async ({page}) => {
+    await openRegister(page, locale);
+    const wrapper = page.locator(".card-table__wrapper");
+    const {range, position} = await wrapper.evaluate(el => {
+      el.scrollLeft = el.scrollWidth;
+      return {range: el.scrollWidth - el.clientWidth, position: el.scrollLeft};
+    });
+    expect(range, "Wide Register-4 read-only columns should support horizontal review").toBeGreaterThan(0);
+    expect(position, "The supplemental capture must actually show the rightmost columns").toBeGreaterThan(0);
+    await page.screenshot({
+      path: `test-results/register4-visual-review/table.${locale}.right-scroll.png`,
+      animations: "disabled",
+      caret: "hide",
+    });
+  });
+
   test(`visual-review modal.${locale}.lookup (unapproved capture)`, async ({page}) => {
     await openRegister(page, locale);
     const dialog = await openModal(page, locale);
@@ -148,6 +164,24 @@ for (const locale of ["en", "bn"] as const) {
     await page.getByRole("button", {name: locale === "bn" ? /সারি যোগ করুন/ : /Add row/i}).click();
     await expect(page.getByTestId("register4-inline-row")).toBeVisible();
     await capture(page, `inline.${locale}.open`);
+  });
+
+  test(`supplemental information review inline.${locale}.right-scroll (not an owner-approved golden)`, async ({page}) => {
+    await openRegister(page, locale);
+    await page.getByRole("button", {name: locale === "bn" ? /সারি যোগ করুন/ : /Add row/i}).click();
+    const wrapper = page.locator(".card-table__wrapper");
+    const right = await wrapper.evaluate(el => {
+      el.scrollLeft = el.scrollWidth;
+      return el.scrollLeft;
+    });
+    expect(right).toBeGreaterThan(0);
+    const save = page.getByTestId("register4-inline-row").locator(".register4-inline__actions .register4-inline__icon").first();
+    await expect(save).toBeVisible();
+    await page.screenshot({
+      path: `test-results/register4-visual-review/inline.${locale}.right-scroll.png`,
+      animations: "disabled",
+      caret: "hide",
+    });
   });
 
   test(`visual-review modal.mobile.${locale} (unapproved capture)`, async ({page}) => {
