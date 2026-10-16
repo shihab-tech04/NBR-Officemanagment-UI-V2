@@ -32,14 +32,10 @@ jobs:
         run: npm test
       - name: Verify production build
         run: npm run build
-      - name: Verify forbidden application areas unchanged in this PR
+      - name: Verify exact integrated UX change scope (not visual acceptance)
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1 || true
-          git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD > /tmp/changed-paths.txt
-          if grep -E '^(src/app/data/|src/app/store/|src/styles/|src/locales/|supabase/|sql/)' /tmp/changed-paths.txt; then
-            echo 'FAIL: an appearance, data, store, locale or SQL path changed in a structural-only PR'
-            exit 1
-          fi
-          echo 'PASS: no forbidden application paths changed'
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1
+          node scripts/ux-pr-scope-check.mjs --self-test
+          node scripts/ux-pr-scope-check.mjs --check --base "${{ github.event.pull_request.base.sha }}"
