@@ -23,6 +23,8 @@ jobs:
         run: npx playwright test --config playwright.config.ts qa/register4.pw.ts
       - name: Verify every advertised Office navigation destination renders
         run: npx playwright test --config playwright.config.ts qa/navigation-full-smoke.pw.ts
+      - name: Verify Office table filters and record details through real browser interactions
+        run: npx playwright test --config playwright.config.ts qa/office-table-interactions.pw.ts
       - name: Capture fourteen protected Register-4 states for independent visual review
         if: always()
         run: npx playwright test --config playwright.config.ts qa/register4-visual-review.pw.ts
