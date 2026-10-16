@@ -1,24 +1,16 @@
-import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect } from "react";
 import { preloadAllRoutes } from "../routes";
 import { useTranslation } from "react-i18next";
-import type { AppDispatch } from "../store/store";
-import { logout } from "../store/authSlice";
-import { getOfficeReviewClient } from "../pages/payments/OfficeReviewQueue";
 import { useSettings } from "../hooks/useSettings";
 import { FONTS } from "../data/fonts";
 import { useNavigation } from "../hooks/useNavigation";
 import { useUIState, useUIDispatch } from "../hooks/useUI";
-import { SignOutModal } from "../components/modals/SignOutModal";
 import { MuiProvider } from "../components/ui/MuiProvider";
 import { SidebarShell } from "./SidebarShell";
 import { MainShell } from "./MainShell";
 import { MobileBackdrop } from "./MobileBackdrop";
 export function AppShell() {
-  const [signOutOpen, setSignOutOpen] = useState(false);
-  const [signOutError,setSignOutError]=useState("");
   const { t: translate } = useTranslation("common");
-  const dispatch = useDispatch<AppDispatch>();
 
   const { fontId } = useSettings();
   const fontFamily = FONTS[fontId].family;
@@ -36,20 +28,6 @@ export function AppShell() {
   // Warm all route chunks in the background so first-click navigation is instant
   useEffect(() => { preloadAllRoutes(); }, []);
 
-  const handleConfirmSignOut = async () => {
-    setSignOutError("");
-    const client=getOfficeReviewClient();
-    if(client){
-      const {error}=await client.auth.signOut({scope:"local"});
-      if(error){
-        setSignOutError("Sign-out failed. Your protected officer session may still be active.");
-        return;
-      }
-    }
-    setSignOutOpen(false);
-    dispatch(logout());
-  };
-
   return (
     <MuiProvider>
     <div className="app-shell" style={{ fontFamily }}>
@@ -57,7 +35,6 @@ export function AppShell() {
         {translate("accessibility.skipToMainContent")}
       </a>
 
-      {signOutError&&<p role="alert">{signOutError}</p>}
       <MobileBackdrop
         isOpen={mobileDrawerOpen}
         onClose={() => setMobileDrawerOpen(false)}
@@ -72,15 +49,7 @@ export function AppShell() {
 
       <MainShell
         onMenuToggle={handleMenuToggle}
-        onSignOut={() => setSignOutOpen(true)}
       />
-
-      {signOutOpen && (
-        <SignOutModal
-          onConfirm={handleConfirmSignOut}
-          onCancel={() => setSignOutOpen(false)}
-        />
-      )}
     </div>
     </MuiProvider>
   );

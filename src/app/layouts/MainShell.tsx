@@ -6,7 +6,6 @@ import { useUIState } from "../hooks/useUI";
 
 interface MainShellProps {
   onMenuToggle: () => void;
-  onSignOut: () => void;
 }
 
 /**
@@ -14,15 +13,15 @@ interface MainShellProps {
  * Renders MobileTopbar on mobile (<1024px) and full Topbar on desktop.
  * All state is read from Redux — no prop drilling.
  */
-export function MainShell({ onMenuToggle, onSignOut }: MainShellProps) {
+export function MainShell({ onMenuToggle }: MainShellProps) {
   const { isDesktop } = useUIState();
 
   return (
     <div className="app-main-shell">
       {isDesktop ? (
-        <Topbar onMenuToggle={onMenuToggle} onSignOut={onSignOut} />
+        <Topbar onMenuToggle={onMenuToggle} />
       ) : (
-        <MobileTopbar onMenuToggle={onMenuToggle} onSignOut={onSignOut} />
+        <MobileTopbar onMenuToggle={onMenuToggle} />
       )}
       <Breadcrumbs />
       <MainContentArea />

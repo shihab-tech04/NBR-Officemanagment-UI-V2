@@ -25,23 +25,19 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-      - name: Compile Office Management with scoped TaxPay review-only inbox
+      - name: Compile open Office Management UI without connected officer access
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_REVIEW_DISABLED: 'false'
-          VITE_TAXPAY_REVIEW_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
-          # Publishable API key only. No privileged token can be used in a browser build.
-          VITE_TAXPAY_REVIEW_PUBLIC_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
+          VITE_TAXPAY_REVIEW_DISABLED: 'true'
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
-      - name: Verify review build contains approved public endpoint only
+      - name: Verify open UI build contains no connected review endpoint or privileged key
         shell: bash
         run: |
-          grep -RFq 'https://eyqhoavnitkrajvyqvxn.supabase.co' dist/assets
-          ! grep -REq 'sb_secret_|service_role' dist/assets
-          echo 'PASS: segregated review inbox connected with a publishable-only key; no financial processing API'
+          ! grep -REq 'eyqhoavnitkrajvyqvxn|sb_publishable_|sb_secret_|service_role' dist/assets
+          echo 'PASS: open Office UI has no compiled-in Supabase project endpoint or key'
 
       - name: Verify built asset paths and files
         run: |
