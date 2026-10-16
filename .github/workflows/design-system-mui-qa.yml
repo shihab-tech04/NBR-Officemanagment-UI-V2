@@ -28,14 +28,10 @@ jobs:
         run: npm test
       - name: Verify production build
         run: npm run build
-      - name: Enforce approved scope
+      - name: Verify exact integrated UX change scope (not visual acceptance)
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1 || true
-          git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD > /tmp/changed
-          if grep -v -E '^(src/styles/tokens\.css|src/app/components/ui/MuiProvider\.tsx|src/app/components/forms/muiFieldSx\.ts|src/test/muiTokenCompatibility\.test\.ts|\.github/workflows/design-system-mui-qa\.yml)$' /tmp/changed; then
-            echo 'FAIL: non-MUI unrelated changes'
-            exit 1
-          fi
-          echo 'PASS: only approved MUI compatibility scope'
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1
+          node scripts/ux-pr-scope-check.mjs --self-test
+          node scripts/ux-pr-scope-check.mjs --check --base "${{ github.event.pull_request.base.sha }}"
