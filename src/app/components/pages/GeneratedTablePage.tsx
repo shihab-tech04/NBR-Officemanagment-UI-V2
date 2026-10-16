@@ -18,6 +18,7 @@ import type { PageCfg, TableRow } from "../../pages/modulePageUtils";
 import { type AttachmentItem, getAttachmentPreviewKind, formatFileSize } from "../attachments/attachmentTypes";
 import { ZONES, CIRCLES, AY_OPTS } from "../../pages/modulePageUtils";
 import { useUIState } from "../../hooks/useUI";
+import { deriveTableFilterBindings, matchesTableFilters } from "./tableFilters";
 
 const PER = 10;
 
@@ -287,13 +288,15 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
 
   // Only opted-in pages derive selectable circles from their own displayed
   // records; unrelated page filters keep their previous definitions.
+  const filterBindings = useMemo(() => deriveTableFilterBindings(cfg, rows),
+    [cfg.filters, cfg.cols, cfg.applyTableFilters, cfg.filterDateField, cfg.mobileCardMapping?.date, rows]);
   const effectiveFilters = useMemo(() => cfg.applyTableFilters
-    ? cfg.filters.map(filter => {
+    ? filterBindings.filters.map(filter => {
         if (filter.key !== "circle" || filter.type !== "select") return filter;
         const actual = rows.map(r => String(r.circle ?? "")).filter(v => v && v !== "—");
         return { ...filter, options: [...new Set([...(filter.options ?? []), ...actual])] };
       })
-    : cfg.filters, [cfg.filters, cfg.applyTableFilters, rows]);
+    : filterBindings.filters, [cfg.applyTableFilters, filterBindings.filters, rows]);
 
   const sourceForDrawer = cfg.drawerCols ?? cfg.cols;
   const drawerColumns = useMemo(() => sourceForDrawer.flatMap(col => {
@@ -314,20 +317,8 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
     if (q && !Object.values(row).some(v => String(v ?? "").toLocaleLowerCase().includes(q.toLocaleLowerCase()))) {
       return false;
     }
-    if (!cfg.applyTableFilters) return true;
-    for (const [key, value] of Object.entries(applied)) {
-      if (!value || value.startsWith("All ")) continue;
-      if (key === "from" || key === "to") {
-        const rowDate = String(row[cfg.filterDateField ?? "date"] ?? "");
-        if (!rowDate || rowDate === "—" || (key === "from" && rowDate < value) || (key === "to" && rowDate > value)) {
-          return false;
-        }
-      } else if (String(row[key] ?? "") !== value) {
-        return false;
-      }
-    }
-    return true;
-  }), [rows, q, applied, cfg.assessmentYearScope?.field, cfg.assessmentYearScope?.year, cfg.applyTableFilters, cfg.filterDateField]);
+    return matchesTableFilters(row, applied, filterBindings);
+  }), [rows, q, applied, cfg.assessmentYearScope?.field, cfg.assessmentYearScope?.year, filterBindings]);
 
   const sortedRows = useMemo(() => {
     if (!cfg.enableSort || !sortKey) return filtered;
@@ -354,13 +345,13 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
   const handleFilterToggle = useCallback(() => setShowFilter(s => !s), []);
   const handleFilterChange = useCallback((k: string, v: string) => setFVals(p => ({ ...p, [k]: v })), []);
   const handleFilterApply  = useCallback(() => {
-    if (cfg.applyTableFilters && fVals.from && fVals.to && fVals.from > fVals.to) {
+    if (fVals.from && fVals.to && fVals.from > fVals.to) {
       toast.error(translatePages("register4.invalidDateRange", { defaultValue: "Start date must be on or before end date" }));
       return;
     }
     setApplied(fVals); setShowFilter(false); setPage(1);
-  }, [fVals, cfg.applyTableFilters, translatePages]);
-  const handleFilterReset  = useCallback(() => { setFVals({}); setApplied({}); }, []);
+  }, [fVals, translatePages]);
+  const handleFilterReset  = useCallback(() => { setFVals({}); setApplied({}); setPage(1); }, []);
   const handleRowClick     = useCallback((row: TableRow) => setDrawer(row), []);
   const handleDrawerClose  = useCallback(() => setDrawer(null), []);
 
@@ -508,7 +499,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           </div>
         )}
 
-        <AppliedFilterChips values={applied} onClear={() => setApplied({})} inCard />
+        <AppliedFilterChips values={applied} onClear={handleFilterReset} filters={effectiveFilters} inCard />
 
         <ResponsiveTable
           cols={cfg.cols}

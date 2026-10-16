@@ -1,42 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
 import { MOCK_ROLES, type SystemRole } from "../data/mockData";
+import {
+  deleteRegistryRecord, loadRegistrySnapshot, mergeRegistry, upsertRegistryRecord,
+  type RegistrySnapshot,
+} from "./registryPersistence";
 
 export const ROLE_STORAGE_KEY = "nbr.roleRegistry.customRoles";
 export const ROLE_EVENT = "nbr:roles-updated";
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
-function loadCustom(): SystemRole[] {
-  try {
-    const raw = localStorage.getItem(ROLE_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SystemRole[]) : [];
-  } catch {
-    return [];
-  }
+function loadCustom(): RegistrySnapshot<SystemRole> {
+  return loadRegistrySnapshot<SystemRole>(ROLE_STORAGE_KEY);
 }
 
-function saveCustom(roles: SystemRole[]): void {
+function saveCustom(snapshot: RegistrySnapshot<SystemRole>): void {
   try {
-    localStorage.setItem(ROLE_STORAGE_KEY, JSON.stringify(roles));
+    localStorage.setItem(ROLE_STORAGE_KEY, JSON.stringify(snapshot));
     window.dispatchEvent(new CustomEvent(ROLE_EVENT));
   } catch { /* ignore */ }
 }
 
-/** Merge MOCK_ROLES with custom overrides/additions.
- *  Custom entries override base entries with the same id.
- *  New custom entries are prepended (newest first among customs). */
-function mergeRoles(custom: SystemRole[]): SystemRole[] {
-  const customById = new Map(custom.map((r) => [r.id, r]));
-  // Apply overrides to base roles (preserving base order)
-  const merged = MOCK_ROLES.map((r) => customById.get(r.id) ?? r);
-  // Prepend pure-new custom roles (not in MOCK_ROLES)
-  const baseIds = new Set(MOCK_ROLES.map((r) => r.id));
-  const newRoles = custom.filter((r) => !baseIds.has(r.id));
-  return [...newRoles, ...merged];
-}
-
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useRoleRegistry() {
-  const [custom, setCustom] = useState<SystemRole[]>(loadCustom);
+  const [custom, setCustom] = useState<RegistrySnapshot<SystemRole>>(loadCustom);
 
   useEffect(() => {
     const sync = () => setCustom(loadCustom());
@@ -47,25 +33,24 @@ export function useRoleRegistry() {
     const onPermDeleted = (e: Event) => {
       const id = (e as CustomEvent<{ id: string }>).detail?.id;
       if (!id) return;
-      const existing = loadCustom();
-      const updated = existing.map((r) => ({
-        ...r,
-        permissions: r.permissions.filter((pid) => pid !== id),
-      }));
-      // Also need to strip from base-roles-in-local-state — save them all
-      const allMerged = mergeRoles(loadCustom());
+      const snapshot = loadCustom();
+      // Also need to strip from base-roles-in-local-state — save them all.
+      const allMerged = mergeRegistry(MOCK_ROLES, snapshot);
       const patchedAll = allMerged.map((r) => ({
         ...r,
         permissions: r.permissions.filter((pid) => pid !== id),
       }));
-      // Only persist roles that differ from MOCK_ROLES or are custom
+      // Preserve every modified field (name/status/level as well as permissions)
+      // when a permission is removed; otherwise a permissions event can silently
+      // reset edits to seeded roles.
       const toSave = patchedAll.filter((r) => {
         const base = MOCK_ROLES.find((m) => m.id === r.id);
         if (!base) return true; // new custom
-        return JSON.stringify(r.permissions) !== JSON.stringify(base.permissions);
+        return JSON.stringify(r) !== JSON.stringify(base);
       });
-      setCustom(toSave);
-      saveCustom(toSave);
+      const updated = { ...snapshot, records: toSave };
+      setCustom(updated);
+      saveCustom(updated);
     };
     window.addEventListener("nbr:permission-deleted", onPermDeleted);
     return () => {
@@ -75,28 +60,23 @@ export function useRoleRegistry() {
     };
   }, []);
 
-  const roles: SystemRole[] = mergeRoles(custom);
+  const roles: SystemRole[] = mergeRegistry(MOCK_ROLES, custom);
   const activeRoles: SystemRole[] = roles.filter((r) => r.status === "Active");
 
   const addRole = useCallback((role: SystemRole) => {
-    const existing = loadCustom();
-    const updated = [...existing, role];
+    const updated = upsertRegistryRecord(loadCustom(), role);
     setCustom(updated);
     saveCustom(updated);
   }, []);
 
   const updateRole = useCallback((role: SystemRole) => {
-    const existing = loadCustom();
-    const idx = existing.findIndex((r) => r.id === role.id);
-    const updated = idx >= 0
-      ? existing.map((r) => (r.id === role.id ? role : r))
-      : [...existing, role];
+    const updated = upsertRegistryRecord(loadCustom(), role);
     setCustom(updated);
     saveCustom(updated);
   }, []);
 
   const deleteRole = useCallback((id: string) => {
-    const updated = loadCustom().filter((r) => r.id !== id);
+    const updated = deleteRegistryRecord(loadCustom(), id, MOCK_ROLES);
     setCustom(updated);
     saveCustom(updated);
   }, []);
@@ -108,24 +88,25 @@ export function useRoleRegistry() {
       name: `${source.name} (Copy)`,
       usersCount: 0,
     };
-    const existing = loadCustom();
-    const updated = [...existing, clone];
+    const updated = upsertRegistryRecord(loadCustom(), clone);
     setCustom(updated);
     saveCustom(updated);
     return clone;
   }, []);
 
   const removePermissionFromRoles = useCallback((permissionId: string) => {
-    const allMerged = mergeRoles(loadCustom());
+    const snapshot = loadCustom();
+    const allMerged = mergeRegistry(MOCK_ROLES, snapshot);
     const toSave = allMerged
       .map((r) => ({ ...r, permissions: r.permissions.filter((pid) => pid !== permissionId) }))
       .filter((r) => {
         const base = MOCK_ROLES.find((m) => m.id === r.id);
         if (!base) return true;
-        return JSON.stringify(r.permissions) !== JSON.stringify(base.permissions);
+        return JSON.stringify(r) !== JSON.stringify(base);
       });
-    setCustom(toSave);
-    saveCustom(toSave);
+    const updated = { ...snapshot, records: toSave };
+    setCustom(updated);
+    saveCustom(updated);
   }, []);
 
   return {

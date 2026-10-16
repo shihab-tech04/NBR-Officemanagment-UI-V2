@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateRegister4InlineRow } from "../app/pages/register-stock/Register4InlineRow";
+import { bindRegister4DraftToTaxpayer, findRegister4Taxpayer } from "../app/pages/register-stock/Register4EntryModal";
 import { REGISTER4_ILLUSTRATIVE_SECTION_TRAILS } from "../app/pages/register-stock/register4SectionCodes";
 import {
   REGISTER4_ASSESSMENT_COLUMNS,
@@ -19,6 +20,25 @@ const flatten = () => REGISTER4_ASSESSMENT_COLUMNS.flatMap((col) =>
 );
 
 describe("Register-4 assessment table metadata (isolated)", () => {
+  it("does not let an editable Circle select override the TIN lookup identity on New Entry", () => {
+    const taxpayer = findRegister4Taxpayer("TIN-10000");
+    expect(taxpayer).not.toBeNull();
+    const values = {
+      tin: "TIN-FORGED",
+      taxpayer_name: "Different taxpayer",
+      circle: "Circle-375",
+      disposal_code: "180",
+    };
+    const submission = bindRegister4DraftToTaxpayer(values, taxpayer!);
+    expect(submission).toMatchObject({
+      tin: taxpayer!.tin,
+      taxpayer_name: taxpayer!.taxpayer_name,
+      circle: taxpayer!.circle,
+      disposal_code: "180",
+      section_review_status: "REVIEW_REQUIRED — not certified",
+    });
+    expect(values.circle).toBe("Circle-375");
+  });
   it("uses the reference column order without legacy book-issuance fields", () => {
     expect(flatten().map((col) => col.key)).toEqual([
       "serial_no",

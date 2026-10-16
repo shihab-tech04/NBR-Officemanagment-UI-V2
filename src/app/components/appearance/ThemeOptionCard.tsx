@@ -1,18 +1,7 @@
 import { ColorSwatchGroup } from "./ColorSwatchGroup";
 import { SelectedCheckmark } from "./SelectedCheckmark";
 
-type ThemeId = "indigo-blue" | "gov-blue" | "slate-purple" | "plum-executive" | "fresh-teal" | "dark-mode";
-
-interface ThemeConfig {
-  id: ThemeId;
-  name: string;
-  primary: string;
-  secondary: string;
-  accent: string;
-  surface: string;
-  border: string;
-  textPrimary: string;
-}
+import type { ThemeId, ThemeConfig } from "../../data/themes";
 
 interface ThemeOptionCardProps {
   theme: ThemeConfig;

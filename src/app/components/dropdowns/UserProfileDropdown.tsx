@@ -1,19 +1,15 @@
 import { User, Settings, History, Lock, Smartphone, ShieldCheck as ShieldCheckIcon, LogOut, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useDispatch } from "react-redux";
-import type { AppDispatch } from "../../store/store";
-import { logout } from "../../store/authSlice";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useUIState } from "../../hooks/useUI";
 
 interface UserProfileDropdownProps {
   onClose: () => void;
-  onSignOut?: () => void;
+  onSignOut: () => void;
 }
 
-export function UserProfileDropdown({ onClose: _onClose }: UserProfileDropdownProps) {
-  const dispatch = useDispatch<AppDispatch>();
+export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfileDropdownProps) {
   const currentUser = useCurrentUser();
   const { t: translate } = useTranslation("user");
   const { t: translateActions } = useTranslation("actions");
@@ -129,7 +125,9 @@ export function UserProfileDropdown({ onClose: _onClose }: UserProfileDropdownPr
         <button
           onClick={() => {
             _onClose();
-            dispatch(logout());
+            // Use the shell's confirmed sign-out. Directly clearing Redux leaves
+            // the server-backed Supabase officer session authenticated.
+            onSignOut();
           }}
           className="account-dropdown__signout-button"
         >

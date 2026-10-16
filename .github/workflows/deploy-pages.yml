@@ -21,10 +21,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Stop publishing unverified changes to approved UI
+        env:
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          BASE="$PUSH_BASE"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE="$(git rev-parse HEAD^)"
+          fi
+          node scripts/ui-regression-guard.mjs --self-test
+          node scripts/ui-regression-guard.mjs --check --base "$BASE"
       - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Run mandatory Register-4 task-usability gate before publishing
+        run: npx playwright test --config playwright.config.ts qa/register4-interaction-quality.pw.ts
+      - name: Preserve UI interaction failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register4-v84-release-interaction-evidence
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
       - name: Compile Office Management with scoped TaxPay review-only inbox
         run: npm run build
         env:
