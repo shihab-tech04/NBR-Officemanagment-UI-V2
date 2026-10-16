@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "src/app/components/buttons/**"
+      - "src/app/components/appearance/**"
       - "src/app/components/modals/AppModal.tsx"
       - "src/app/components/shared/ResponsiveOverlay.tsx"
       - "src/app/hooks/useOverlayScrollLock.ts"
@@ -25,6 +26,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Check shared component compatibility
         run: npm test -- src/app/components/buttons/__tests__/buttonCompatibility.test.tsx src/app/hooks/__tests__/useOverlayScrollLock.test.tsx
+      - name: Check all six themes, four fonts, and three size choices
+        run: npm test -- src/app/components/appearance/__tests__/appearanceRegistryCompatibility.test.tsx
       - name: Run repository unit tests
         run: npm test
       - name: Verify production build
