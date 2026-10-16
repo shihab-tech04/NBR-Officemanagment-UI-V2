@@ -9,11 +9,12 @@ import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
 import { OFFICE_AUTH_CALLBACK_URL } from '../../utils/officeAuthRedirect';
 import { isOfficeAdminDemo } from '../../utils/officeAdminDemo';
+import { OFFICE_PUBLIC_UI_ONLY } from '../../utils/officeAccessMode';
 
 const url = String(import.meta.env.VITE_TAXPAY_REVIEW_URL || '');
 const key = String(import.meta.env.VITE_TAXPAY_REVIEW_PUBLIC_KEY || '');
 const approvedOrigin = url.startsWith('https://') || (import.meta.env.DEV && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]+)?\/?$/.test(url));
-const connectedClient = approvedOrigin && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
+const connectedClient = !OFFICE_PUBLIC_UI_ONLY && approvedOrigin && key && import.meta.env.VITE_TAXPAY_REVIEW_DISABLED !== 'true'
   ? createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 /** Reuse the authenticated officer session for protected simulation reads. */
 export const getOfficeReviewClient = () => isOfficeAdminDemo() ? null : connectedClient;
