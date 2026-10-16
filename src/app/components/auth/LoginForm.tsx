@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Globe } from "lucide-react";
 import type { AppDispatch } from "../../store/store";
-import { login } from "../../store/authSlice";
+import { login, logout } from "../../store/authSlice";
 import svgPaths from "../../../imports/CompanyAdminLogin/svg-mhvw7bsa5p";
 import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
-import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
 import { getOfficeReviewClient } from "../../pages/payments/OfficeReviewQueue";
 import { OFFICE_AUTH_CALLBACK_URL } from "../../utils/officeAuthRedirect";
+import { getTaxPayDemoLoginUrl } from "../../utils/demoTaxpayGateway";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -26,49 +26,57 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
 
   const [userId, setUserId] = useState("");
   const [authFeedback,setAuthFeedback]=useState<{error:boolean;text:string}|null>(null);
-  const [sendingLink, setSendingLink] = useState(false);
+  const [busy,setBusy]=useState(false);
 
-  const demoUrl = getTaxPayDemoLoginUrl(userId);
   const normalizedId = userId.trim().toLowerCase();
 
   const handleSignIn = async () => {
-    if (sendingLink) return;
-    if (demoUrl) {
-      window.location.assign(demoUrl);
-      return;
-    }
-    if (normalizedId === 'admin') {
-      // This is a UI preview only. All connected officer RPCs remain server-gated.
-      dispatch(login({userId:'admin'}));
-      navigate('/dashboard/dashboard-main');
-      return;
-    }
-    // The same approved single-field login also supports existing, authorized
-    // officer accounts. The formerly sole email sign-in was inside AppShell,
-    // making it unreachable until after successful authentication.
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedId)) {
-      const client = getOfficeReviewClient();
-      if (!client) {
-        setAuthFeedback({error:true,text:translate('login.officerUnavailable', 'Officer sign-in is not configured.')});
+    if (busy) return;
+    if (import.meta.env.DEV) {
+      const demoUrl = getTaxPayDemoLoginUrl(userId);
+      if (demoUrl) {
+        window.location.assign(demoUrl);
         return;
       }
-      setSendingLink(true);
-      setAuthFeedback(null);
-      try {
-        const { error } = await client.auth.signInWithOtp({
-          email: normalizedId,
-          options: { shouldCreateUser: false, emailRedirectTo: OFFICE_AUTH_CALLBACK_URL },
-        });
-        if (error) throw error;
-        setAuthFeedback({error:false,text:translate('login.officerLinkSent', 'Check your email for the sign-in link. Access requires an active authorized Office role.')});
-      } catch (error) {
-        setAuthFeedback({error:true,text:error instanceof Error ? error.message : translate('login.officerFailed', 'Could not send a sign-in link.')});
-      } finally {
-        setSendingLink(false);
+      if (normalizedId === 'admin') {
+        // Local preview only. Connected officer access still requires Supabase Auth.
+        dispatch(login({userId:'admin'}));
+        navigate('/dashboard/dashboard-main');
+        return;
       }
+    }
+
+    const email = userId.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthFeedback({error:true,text:translate('login.officerEmailInvalid')});
       return;
     }
-    setAuthFeedback({error:true,text:'Enter admin or user1–user10.'});
+
+    // Clear a persisted local preview identity before asking the connected client
+    // for a real session. The server still rejects accounts without an active role.
+    dispatch(logout());
+    const client = getOfficeReviewClient();
+    if (!client) {
+      setAuthFeedback({error:true,text:translate('login.officerSignInUnavailable')});
+      return;
+    }
+
+    setBusy(true);
+    setAuthFeedback(null);
+    try {
+      const {error} = await client.auth.signInWithOtp({
+        email,
+        options:{emailRedirectTo:OFFICE_AUTH_CALLBACK_URL,shouldCreateUser:false}
+      });
+      if (error) throw error;
+      setAuthFeedback({error:false,text:translate('login.officerSignInLinkSent')});
+    } catch {
+      // Keep the response generic so the login screen does not disclose whether
+      // an officer email is registered or currently active.
+      setAuthFeedback({error:true,text:translate('login.officerSignInUnavailable')});
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -112,25 +120,26 @@ export function LoginForm({ isDesktop }: LoginFormProps) {
           {/* Fields */}
           <div className="flex flex-col gap-5">
             <AppTextField
-              id="login-user-id"
-              label={translate("login.userId")}
+              id="login-officer-email"
+              label={translate("login.officerEmail")}
               value={userId}
               onChange={value => { setUserId(value); setAuthFeedback(null); }}
               onKeyDown={handleKeyDown}
-              placeholder={translate("login.userIdPlaceholder")}
-              autoComplete="off"
+              placeholder={translate("login.officerEmailPlaceholder")}
+              autoComplete="email"
+              inputMode="email"
             />
 
-            <p className="text-[13px] text-[var(--color-text-secondary)]">{translate('login.identityOptions', 'Admin: admin · Taxpayer: user1–user10 · Officer: registered email')}</p>
+            <p className="text-[13px] text-[var(--color-text-secondary)]">{import.meta.env.DEV ? translate("login.localPreviewHint") : translate("login.officerEmailHint")}</p>
 
             {authFeedback&&<p role={authFeedback.error?'alert':'status'}>{authFeedback.text}</p>}
             <button
               type="button"
+              disabled={busy}
               onClick={()=>void handleSignIn()}
-              disabled={sendingLink}
               className="login-form-submit"
             >
-              <span>{sendingLink ? translate('login.signingIn') : translate("login.signIn")}</span>
+              <span>{busy ? translate("login.sendingSignInLink") : translate("login.signIn")}</span>
             </button>
 
             <p className="text-[13px] text-center text-[var(--color-text-secondary)]">

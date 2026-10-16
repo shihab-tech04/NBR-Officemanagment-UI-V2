@@ -34,23 +34,26 @@ describe('Office entry and exit reach authenticated boundaries', () => {
 
   it('allows an existing officer to request a magic link from the public login, without creating users', async () => {
     render(<LoginForm isDesktop onForgotPassword={() => {}} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'login.userId' }), { target: { value: 'OFFICER@EXAMPLE.COM' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'login.officerEmail' }), { target: { value: 'OFFICER@EXAMPLE.COM' } });
     fireEvent.click(screen.getByRole('button', { name: 'login.signIn' }));
     await waitFor(() => expect(auth.signInWithOtp).toHaveBeenCalledWith({
       email: 'officer@example.com',
       options: { shouldCreateUser: false, emailRedirectTo: OFFICE_AUTH_CALLBACK_URL },
     }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('login.officerLinkSent'));
-    expect(auth.dispatch).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('login.officerSignInLinkSent'));
+    expect(auth.dispatch).toHaveBeenCalledOnce();
+    expect(auth.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth/logout' }));
+    expect(auth.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'auth/login' }));
     expect(auth.navigate).not.toHaveBeenCalled();
   });
 
-  it('shows the actual provider error and does not claim to have signed in', async () => {
+  it('shows a generic provider error and does not claim to have signed in', async () => {
     auth.signInWithOtp.mockResolvedValue({ error: new Error('Email delivery unavailable') });
     render(<LoginForm isDesktop onForgotPassword={() => {}} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'login.userId' }), { target: { value: 'officer@example.com' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'login.officerEmail' }), { target: { value: 'officer@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'login.signIn' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email delivery unavailable'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('login.officerSignInUnavailable'));
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Email delivery unavailable');
     expect(auth.navigate).not.toHaveBeenCalled();
   });
 
