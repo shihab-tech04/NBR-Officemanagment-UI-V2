@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "8.3",
+  "purpose": "Protected screenshot/interaction state inventory. Proposed baseline list; NOT an approval.",
+  "protectedScreens": [
+    {
+      "id": "register4-new-entry",
+      "component": "src/app/pages/register-stock/Register4EntryModal.tsx",
+      "states": [
+        "modal.en.lookup",
+        "modal.en.filled",
+        "modal.en.section-open",
+        "modal.bn.lookup",
+        "modal.bn.filled",
+        "modal.bn.section-open",
+        "modal.mobile.en",
+        "modal.mobile.bn"
+      ]
+    },
+    {
+      "id": "register4-inline-entry",
+      "component": "src/app/pages/register-stock/Register4InlineRow.tsx",
+      "states": [
+        "inline.en.open",
+        "inline.bn.open",
+        "inline.mobile.en",
+        "inline.mobile.bn"
+      ]
+    },
+    {
+      "id": "register4-register",
+      "component": "src/app/pages/register-stock/Register4ListPage.tsx",
+      "states": [
+        "table.en.closed",
+        "table.bn.closed"
+      ]
+    }
+  ],
+  "globalStylePatterns": [
+    "^src/styles/(?:tables|fonts|globals|global|index)\\.css$",
+    "^src/app/components/(?:forms|tables|modals|buttons)/"
+  ],
+  "approvedVisuals": {},
+  "visualCheckFiles": [
+    "qa/register4.pw.ts"
+  ],
+  "acceptanceStatus": "NOT_VERIFIED: approved immutable goldens are not present on protected main. Affected UI changes intentionally block until approved evidence and real comparison tests are established.",
+  "reviewerRule": "Approved baselines must be separately approved in target branch; PR-generated snapshots cannot be their own approval."
+}
