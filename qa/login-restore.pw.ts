@@ -32,10 +32,36 @@ test('Office mobile navigation works without login state', async ({page}) => {
   await expect(page.locator('.app-sidebar-shell--mobile.app-sidebar-shell--open')).toBeVisible();
 });
 
-test('profile menu does not offer an obsolete Sign Out action', async ({page}) => {
+test('profile Sign Out confirms, clears the UI session, and returns to the Office entry screen', async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/dashboard/dashboard-main');
   await page.locator('.topbar__profile-button').click();
   await expect(page.locator('.account-dropdown')).toBeVisible();
-  await expect(page.locator('.account-dropdown__signout-button')).toHaveCount(0);
+  await page.locator('.account-dropdown__signout-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button',{name:'Cancel'}).click();
+  await expect(page.locator('.app-shell')).toBeVisible();
+
+  await page.locator('.topbar__profile-button').click();
+  await page.locator('.account-dropdown__signout-button').click();
+  await page.getByRole('dialog').getByRole('button',{name:'Sign Out'}).click();
+  await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
+  await expect(page.locator('#login-user-id')).toBeVisible();
+  await expect(page.locator('#login-officer-email')).toHaveCount(0);
+  await expect(page.locator('.app-shell')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator('#login-user-id')).toBeVisible();
+  await page.getByRole('button',{name:'Sign in'}).click();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard\/dashboard-main$/);
+});
+
+test('mobile profile keeps Sign Out accessible', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/dashboard/dashboard-main');
+  await page.locator('.mobile-topbar__profile-button').click();
+  await expect(page.locator('.account-dropdown__signout-button')).toBeVisible();
+  await page.locator('.account-dropdown__signout-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });

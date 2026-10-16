@@ -15,9 +15,10 @@ import { AppSelectField } from "../forms/AppSelectField";
 
 interface MobileTopbarProps {
   onMenuToggle: () => void;
+  onSignOut: () => void;
 }
 
-export function MobileTopbar({ onMenuToggle }: MobileTopbarProps) {
+export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
   const { t: translate } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
@@ -128,6 +129,7 @@ export function MobileTopbar({ onMenuToggle }: MobileTopbarProps) {
         {profileDropdownOpen && (
           <UserProfileDropdown
             onClose={() => setProfileDropdownOpen(false)}
+            onSignOut={onSignOut}
           />
         )}
       </div>

@@ -20,9 +20,10 @@ import { useHelp } from "../../context/HelpContext";
 
 interface TopbarProps {
   onMenuToggle: () => void;
+  onSignOut: () => void;
 }
 
-export function Topbar({ onMenuToggle }: TopbarProps) {
+export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
   const { t: translate } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
@@ -178,6 +179,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           {profileDropdownOpen && (
             <UserProfileDropdown
               onClose={() => setProfileDropdownOpen(false)}
+              onSignOut={onSignOut}
             />
           )}
         </div>

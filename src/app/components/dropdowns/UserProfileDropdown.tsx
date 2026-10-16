@@ -1,4 +1,4 @@
-import { User, Settings, History, Lock, Smartphone, ShieldCheck as ShieldCheckIcon, X } from "lucide-react";
+import { User, Settings, History, Lock, Smartphone, ShieldCheck as ShieldCheckIcon, LogOut, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -6,11 +6,13 @@ import { useUIState } from "../../hooks/useUI";
 
 interface UserProfileDropdownProps {
   onClose: () => void;
+  onSignOut: () => void;
 }
 
-export function UserProfileDropdown({ onClose: _onClose }: UserProfileDropdownProps) {
+export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfileDropdownProps) {
   const currentUser = useCurrentUser();
   const { t: translate } = useTranslation("user");
+  const { t: translateActions } = useTranslation("actions");
   const { isDesktop } = useUIState();
 
   const menuItems = [
@@ -116,6 +118,17 @@ export function UserProfileDropdown({ onClose: _onClose }: UserProfileDropdownPr
             );
           })}
         </div>
+      </div>
+
+      {/* Original profile footer — Sign Out */}
+      <div className="account-dropdown__footer">
+        <button
+          onClick={() => { _onClose(); onSignOut(); }}
+          className="account-dropdown__signout-button"
+        >
+          <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
+          <span>{translateActions("signOut")}</span>
+        </button>
       </div>
 
     </div>
