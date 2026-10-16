@@ -16,7 +16,7 @@ A completed user task must let users understand their record context, enter/revi
 - Run `npx playwright test --config playwright.config.ts qa/register4-interaction-quality.pw.ts` when Register-4 or its dependencies change; release pipeline also runs this check.
 - A test that merely clicks Save or captures a screenshot cannot establish UX acceptance. Compare actual DOM, geometry and approved matched-state screenshots independently; never auto-update golden images.
 - In particular, if TIN/section information and Save/Cancel cannot be used in one working viewport at 1280/1440px (EN/BN), **FAIL the release** and repair the interaction. Never weaken or skip tests to force a pass.
-- The new v8.4 browser gate currently FAILS against the scroll-trapped Register-4 editor, which is an unresolved product defect. No assertion should be removed to achieve green CI.
+- The v8.4 browser gate previously failed on the scroll-trapped Register-4 editor. A scoped CSS candidate later passed EN/BN interaction checks at 1280px and 1440px; recheck CI for the exact current source SHA before claiming continued success. Visual baseline acceptance remains a separate blocked gate. No assertion may be removed to achieve green CI.
 
 Report IMPLEMENTED, TESTED, DEPLOYED, FRONTEND ACCEPTED and FINAL ACCEPTED separately, with exact source/deployment SHA and evidence. Missing approved baselines or failing quality checks mean NOT ACCEPTED. Production branches, database, real taxpayer records and solved UI must not be changed by a governance-only task.
 
