@@ -1,0 +1,39 @@
+name: UX/UI Interaction Quality v8.4
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  register4-interaction-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Verify Register-4 task-level layout in EN/BN across desktop viewports
+        run: npx playwright test --config playwright.config.ts qa/register4-interaction-quality.pw.ts
+      - name: Verify Register-4 form, table, TIN, section and negative-space behavior
+        run: npx playwright test --config playwright.config.ts qa/register4.pw.ts
+      - name: Verify every advertised Office navigation destination renders
+        run: npx playwright test --config playwright.config.ts qa/navigation-full-smoke.pw.ts
+      - name: Verify Office table filters and record details through real browser interactions
+        run: npx playwright test --config playwright.config.ts qa/office-table-interactions.pw.ts
+      - name: Capture fourteen protected Register-4 states for independent visual review
+        if: always()
+        run: npx playwright test --config playwright.config.ts qa/register4-visual-review.pw.ts
+      - name: Preserve real failure screenshots and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: register4-v84-interaction-and-unapproved-visual-review
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30

@@ -402,6 +402,42 @@
 .register4-inline__row .register4-inline__actions { justify-content:flex-start; }
 /* Desktop icon-only actions match input height; mobile remains at 44px. */
 .register4-inline__row .register4-inline__icon { width:30px; height:30px; }
+/* While the desktop Add row editor is open, keep its EXISTING Action column
+   inside the horizontal table viewport. The original column order, header,
+   input widths and read-only table layout remain unchanged. Scope this to
+   Register-4's active editor so other tables and the mobile card are frozen. */
+@media (min-width:641px) {
+  .card-table:has(.register4-inline__row) .card-table__header-group > th:last-child,
+  .card-table:has(.register4-inline__row) .card-table__table > tbody > tr > td:last-child {
+    position:sticky;
+    right:0;
+    z-index:2;
+    background:var(--color-surface);
+    box-shadow:-1px 0 0 var(--color-border);
+  }
+  .card-table:has(.register4-inline__row) .register4-inline__row > td:last-child {
+    z-index:3;
+    background:var(--color-background-subtle);
+  }
+}
+/* On the narrower desktop, the pinned Action column shares the section cell's
+   horizontal range. Give the existing section dropdown and Add action separate
+   lines so neither is obscured; no table columns or controls are added. */
+@media (min-width:641px) and (max-width:1320px) {
+  .register4-inline__row .register4-section-field {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .register4-inline__row .register4-section-field__select {
+    grid-column:1;
+    max-width:calc(100% - 112px);
+  }
+  .register4-inline__row .register4-section-field__addition {
+    grid-column:1;
+    grid-row:2;
+    justify-content:flex-start;
+    margin-top:var(--space-1);
+  }
+}
 .register4-inline__cell--serial { min-width:78px; }
 .register4-inline__row .register4-inline__cell--serial .MuiInputBase-input { text-align:left; }
 .register4-inline__mobile .MuiInputBase-input,

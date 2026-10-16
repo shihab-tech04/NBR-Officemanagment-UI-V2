@@ -1,0 +1,40 @@
+name: Design system foundation equivalence QA
+
+on:
+  pull_request:
+    paths:
+      - "src/styles/typography.css"
+      - "src/app/utils/stepState.ts"
+      - "src/app/utils/stepState.test.ts"
+      - "src/test/spacingSourceOfTruth.test.ts"
+      - "src/app/components/shared/AppStepper.tsx"
+      - "src/app/components/roles/CreateEditRoleModal.tsx"
+      - "src/app/pages/rules-calculation/TaxYearDraftStepper.tsx"
+      - ".github/workflows/design-system-foundation-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Verify exact step and spacing contracts
+        run: npm test -- src/app/utils/stepState.test.ts src/test/spacingSourceOfTruth.test.ts
+      - name: Run all existing unit tests
+        run: npm test
+      - name: Verify production build
+        run: npm run build
+      - name: Verify exact integrated UX change scope (not visual acceptance)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1
+          node scripts/ux-pr-scope-check.mjs --self-test
+          node scripts/ux-pr-scope-check.mjs --check --base "${{ github.event.pull_request.base.sha }}"

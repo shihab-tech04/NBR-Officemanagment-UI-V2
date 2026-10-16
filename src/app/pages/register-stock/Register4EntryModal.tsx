@@ -13,6 +13,22 @@ import "../../../styles/register4-entry.css";
 
 type Taxpayer = { taxpayer_name: string; tin: string; circle: string; assessment_year: string };
 
+/** The demo lookup, not editable form controls, owns the identity fields.
+ * A Circle selection that differs from the looked-up TIN must never be
+ * persisted as if it belonged to that taxpayer. No server write occurs here.
+ */
+export function bindRegister4DraftToTaxpayer(
+  values: Record<string, EntryFormValue>, taxpayer: Taxpayer
+): Record<string, EntryFormValue> {
+  return {
+    ...values,
+    taxpayer_name: taxpayer.taxpayer_name,
+    tin: taxpayer.tin,
+    circle: taxpayer.circle,
+    section_review_status: "REVIEW_REQUIRED — not certified",
+  };
+}
+
 /** Current controlled prototype: TIN lookup is local and exact-match only.
  * This must not be connected to an unverified identity or production NBR endpoint. */
 export function findRegister4Taxpayer(tin: string): Taxpayer | null {
@@ -99,8 +115,7 @@ export function Register4EntryModal({ open, onClose, onSubmit }: Register4EntryM
     // The selected sections create review-only session drafts. The UI must
     // never mark a case verified or execute a tax/ledger action.
     if(decision.status==="BLOCKED") return;
-    onSubmit({...values,taxpayer_name:selected.taxpayer_name,tin:selected.tin,
-      section_review_status:"REVIEW_REQUIRED — not certified"});
+    onSubmit(bindRegister4DraftToTaxpayer(values, selected));
   };
 
   return (

@@ -1,0 +1,37 @@
+name: Design system MUI compatibility QA
+
+on:
+  pull_request:
+    paths:
+      - "src/styles/tokens.css"
+      - "src/app/components/ui/MuiProvider.tsx"
+      - "src/app/components/forms/muiFieldSx.ts"
+      - "src/test/muiTokenCompatibility.test.ts"
+      - ".github/workflows/design-system-mui-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mui-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Compare existing computed-size token values and usages
+        run: npm test -- src/test/muiTokenCompatibility.test.ts
+      - name: Run unit regression
+        run: npm test
+      - name: Verify production build
+        run: npm run build
+      - name: Verify exact integrated UX change scope (not visual acceptance)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" --depth=1
+          node scripts/ux-pr-scope-check.mjs --self-test
+          node scripts/ux-pr-scope-check.mjs --check --base "${{ github.event.pull_request.base.sha }}"
