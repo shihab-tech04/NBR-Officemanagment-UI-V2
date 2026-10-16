@@ -119,9 +119,6 @@ export function AppSelectField({
           // its choices cannot cover the persistent Save/Cancel footer.
           anchorOrigin: { vertical: "top", horizontal: "left" },
           transformOrigin: { vertical: "bottom", horizontal: "left" },
-          // MUI's viewport constraint must reserve space for the sticky modal
-          // action footer, including when mobile scrolling moves the anchor.
-          marginThreshold: 120,
           PaperProps: { sx: { maxHeight: menuMaxHeight } },
         },
       } : undefined}

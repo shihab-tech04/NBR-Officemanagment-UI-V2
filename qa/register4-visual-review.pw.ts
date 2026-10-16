@@ -46,20 +46,23 @@ async function populateLookup(page: Page, locale: "en" | "bn") {
 }
 
 async function assertSectionMenuClearOfModalFooter(page: Page) {
-  const [menu, panel, footer, paper, anchor] = await Promise.all([
-    page.getByRole("listbox").boundingBox(),
+  // The listbox includes scroll-clipped options; its logical bounds are not
+  // the visible dropdown. Check the actual Popover paper on both axes.
+  const [paper, panel, footer] = await Promise.all([
+    page.locator(".MuiMenu-paper").boundingBox(),
     page.locator(".app-modal-panel").boundingBox(),
     page.locator(".app-modal-panel .app-modal-footer").boundingBox(),
-    page.locator(".MuiMenu-paper").boundingBox(),
-    page.locator("#disposal_code").boundingBox(),
   ]);
-  console.log("Register-4 section menu bounds:", JSON.stringify({viewport:page.viewportSize(), menu, panel, footer, paper, anchor}));
-  expect(menu, "The section menu must have measurable bounds").not.toBeNull();
+  const viewport = page.viewportSize();
+  expect(paper, "The visible section menu paper must have measurable bounds").not.toBeNull();
   expect(panel, "The modal must have measurable bounds").not.toBeNull();
   expect(footer, "The modal footer must have measurable bounds").not.toBeNull();
-  if (menu && panel && footer) {
-    expect(menu.y, "Section menu must not extend above its modal").toBeGreaterThanOrEqual(panel.y);
-    expect(menu.y + menu.height, "Section menu must not obscure Save/Cancel").toBeLessThanOrEqual(footer.y);
+  expect(viewport, "The browser viewport must be measurable").not.toBeNull();
+  if (paper && panel && footer && viewport) {
+    expect(paper.y, "Visible section menu must not extend above its modal").toBeGreaterThanOrEqual(panel.y - 1);
+    expect(paper.y + paper.height, "Visible section menu must not obscure Save/Cancel").toBeLessThanOrEqual(footer.y + 1);
+    expect(paper.x, "Visible section menu must not be cut off at the left edge").toBeGreaterThanOrEqual(-1);
+    expect(paper.x + paper.width, "Visible section menu must not be cut off at the right edge").toBeLessThanOrEqual(viewport.width + 1);
   }
 }
 
@@ -101,7 +104,6 @@ for (const locale of ["en", "bn"] as const) {
     await dialog.locator("#disposal_code").scrollIntoViewIfNeeded();
     await dialog.locator("#disposal_code").click();
     await expect(page.getByRole("option").first()).toBeVisible();
-    await capture(page, `modal.mobile.${locale}.section-open-diagnostic`);
     await assertSectionMenuClearOfModalFooter(page);
   });
 
