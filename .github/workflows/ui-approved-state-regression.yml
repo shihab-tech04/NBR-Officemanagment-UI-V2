@@ -32,10 +32,26 @@ jobs:
             BASE="$(git rev-parse HEAD^)"
           fi
           node scripts/ui-regression-guard.mjs --check --base "$BASE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser QA dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund @playwright/test
+          npx playwright install --with-deps chromium
+      - name: Compare 14 matching UI states against owner-approved main goldens
+        env:
+          REGISTER4_APPROVED_VISUAL_DIFF: '1'
+        run: npx playwright test --config playwright.config.ts qa/register4-visual-review.pw.ts
       - name: Preserve source-impact evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: approved-ui-impact-report
-          path: test-results/ui-impact-report.json
+          path: |
+            test-results/ui-impact-report.json
+            test-results/register4-visual-review/
+            test-results/**/diff.png
+            playwright-report/
           if-no-files-found: ignore
