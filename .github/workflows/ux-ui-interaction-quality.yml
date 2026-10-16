@@ -19,6 +19,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify Register-4 task-level layout in EN/BN across desktop viewports
         run: npx playwright test --config playwright.config.ts qa/register4-interaction-quality.pw.ts
+      - name: Verify Register-4 form, table, TIN, section and negative-space behavior
+        run: npx playwright test --config playwright.config.ts qa/register4.pw.ts
       - name: Capture fourteen protected Register-4 states for independent visual review
         if: always()
         run: npx playwright test --config playwright.config.ts qa/register4-visual-review.pw.ts

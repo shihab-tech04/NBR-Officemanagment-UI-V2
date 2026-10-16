@@ -53,4 +53,10 @@ On 2026-10-16 the owner separately approved **visual appearance** of all fourtee
 
 ## Next evidence acceptance
 
+### Technical-evidence checkpoint after hosted visual regression
+
+The source-image ledger now records **20 of 24 observations as technically corroborated** with implementation, browser-test, approved-state or supplemental-image references. These are engineering observations and **do not constitute independent source-information acceptance**. Four observations remain unverified: **R4-003** (distinct entry actions), **R4-004** (KPI semantics), **R4-020** (selectable versus locked Circle) and **R4-021** (absent older proceeding fields). Their intent must be resolved by an authorized independent reviewer before any PASS is entered. The two forbidden extra-UI inventories are marked absent based on existing browser QA.
+
+The full-image second passes, independent matched-state information review and final acceptance are still `NOT_VERIFIED`. The release gate must continue to fail until an actual reviewer records those findings and evidence. A passing 14-state automated pixel comparison cannot authorize these semantic choices.
+
 Review the four supplemental right-scrolled images and the semantic differences R4-020/R4-021, record exact reviewer verdicts with source/actual references, and only then update each ledger row supported by that evidence. Independently run and inspect the fourteen pixel comparison assertions against the immutable `main` references. Never substitute this implementer's crosswalk for owner signoff.

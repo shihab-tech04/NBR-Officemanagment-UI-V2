@@ -54,9 +54,9 @@
         "component_or_source": "src/app/pages/register-stock/Register4ListPage.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/Register4ListPage.tsx; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -73,9 +73,9 @@
         "component_or_source": "src/app/pages/register-stock/Register4ListPage.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/Register4ListPage.tsx; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -130,9 +130,9 @@
         "component_or_source": "GeneratedTablePage.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "GeneratedTablePage.tsx; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -148,9 +148,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -166,9 +166,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -184,9 +184,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -202,9 +202,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and table.bn.closed.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -221,9 +221,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and modal.en.filled.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -240,9 +240,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and modal.en.filled.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -259,9 +259,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/table.en.closed.png and modal.en.filled.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -278,9 +278,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -297,9 +297,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -315,9 +315,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -333,9 +333,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -351,9 +351,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -369,9 +369,9 @@
         "component_or_source": "CardTable.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "CardTable.tsx; browser: qa/register4-interaction-quality.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "inline.en.right-scroll.png + inline.bn.right-scroll.png, artifact 12032854663; owner-approved inline.en.open.png (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -388,9 +388,9 @@
         "component_or_source": "src/app/pages/register-stock/Register4InlineRow.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/Register4InlineRow.tsx; browser: qa/register4-interaction-quality.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "qa/approved-visuals/register4/inline.en.open.png and inline.bn.open.png; visual regression run 38872300478 (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -443,9 +443,9 @@
         "component_or_source": "src/app/pages/register-stock/Register4InlineRow.tsx"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/Register4InlineRow.tsx; browser: qa/register4-interaction-quality.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "inline.en.right-scroll.png + inline.bn.right-scroll.png, artifact 12032854663; owner-approved inline.en.open.png (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -462,9 +462,9 @@
         "component_or_source": "src/app/pages/register-stock/register4-entry.css"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4-entry.css; browser: qa/register4-interaction-quality.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "inline.en.right-scroll.png + inline.bn.right-scroll.png, artifact 12032854663; owner-approved inline.en.open.png (technical visual evidence; independent information acceptance still pending)"
       }
     },
     {
@@ -481,9 +481,9 @@
         "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
       },
       "verification": {
-        "status": "NOT_VERIFIED",
-        "dom_or_function_evidence": null,
-        "visual_evidence": null
+        "status": "PASS",
+        "dom_or_function_evidence": "src/app/pages/register-stock/register4AssessmentTable.ts; browser: qa/register4.pw.ts; automated QA run 38872300454 (technical implementation evidence, not final information signoff)",
+        "visual_evidence": "table.en.right-scroll.png + table.bn.right-scroll.png, artifact 12032854663; typed assessment table crosswalk (technical visual evidence; independent information acceptance still pending)"
       }
     }
   ],
@@ -491,12 +491,14 @@
     {
       "id": "NO-REMOVE-LAST",
       "forbidden": "Remove last option without authorization",
-      "present": "NOT_VERIFIED"
+      "present": "NO",
+      "evidence": "qa/register4.pw.ts negative-space assertions (Remove last absent); UX/UI Interaction Quality run 38872300454"
     },
     {
       "id": "NO-ARBITRARY-FORM",
       "forbidden": "Unapproved full-record 14-cell form repeated as target design",
-      "present": "NOT_VERIFIED"
+      "present": "NO",
+      "evidence": "Register4InlineRow.tsx compact desktop editor and mobile field groups; approved-state images and UX/UI Interaction Quality run 38872300454"
     }
   ],
   "approved_visual_comparison": {
