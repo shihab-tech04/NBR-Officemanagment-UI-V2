@@ -33,15 +33,20 @@ for (const locale of ["en", "bn"] as const) {
         const row = document.querySelector<HTMLTableRowElement>("[data-testid=register4-inline-row]");
         const tin = row?.querySelector<HTMLElement>("input[id$='-tin']");
         const section = row?.querySelector<HTMLElement>("#register4-inline-table-disposal_code");
+        const sectionAdd = row?.querySelector<HTMLElement>(".register4-section-field__add");
         const save = row?.querySelector<HTMLElement>(".register4-inline__actions button:first-child");
         const cancel = row?.querySelector<HTMLElement>(".register4-inline__actions button:last-child");
         const wrapper = table?.closest(".card-table__wrapper");
-        if (!table || !row || !tin || !section || !save || !cancel || !wrapper) return null;
+        if (!table || !row || !tin || !section || !sectionAdd || !save || !cancel || !wrapper) return null;
         const rect=(x:Element)=>{const r=x.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width}};
+        const addRect=sectionAdd.getBoundingClientRect();
+        const atAddCenter=document.elementFromPoint(addRect.left+addRect.width/2,addRect.top+addRect.height/2);
         return {windowWidth:innerWidth, viewportLeft:Math.max(0,wrapper.getBoundingClientRect().left),
           viewportRight:Math.min(innerWidth,wrapper.getBoundingClientRect().right),
           scrollLeft:wrapper.scrollLeft, scrollExtent:wrapper.scrollWidth-wrapper.clientWidth,
-          tin:rect(tin),section:rect(section),save:rect(save),cancel:rect(cancel),row:rect(row)};
+          tin:rect(tin),section:rect(section),sectionAdd:rect(sectionAdd),
+          sectionAddReachable:atAddCenter===sectionAdd||sectionAdd.contains(atAddCenter),
+          save:rect(save),cancel:rect(cancel),row:rect(row)};
       });
       await page.screenshot({path:`test-results/register4-usability-${locale}-${width}.png`,animations:"disabled"});
       expect(m, "all approved task controls must exist in active UI").not.toBeNull();
@@ -50,6 +55,8 @@ for (const locale of ["en", "bn"] as const) {
       expect(m.tin.left, "TIN must be readable in current table viewport").toBeGreaterThanOrEqual(m.viewportLeft - 2);
       expect(m.section.left, "section editor must be within current viewport").toBeGreaterThanOrEqual(m.viewportLeft - 2);
       expect(m.section.right, "section editor must be usable without horizontal scroll").toBeLessThanOrEqual(m.viewportRight + 2);
+      expect(m.sectionAdd.right, "existing Add a section action must be in view").toBeLessThanOrEqual(m.viewportRight + 2);
+      expect(m.sectionAddReachable, "Add a section must not be covered by pinned actions").toBe(true);
       expect(m.save.right, "Save cannot be hidden at opposite end of horizontally scrolled table").toBeLessThanOrEqual(m.viewportRight + 2);
       expect(m.cancel.right, "Cancel must remain available alongside Save").toBeLessThanOrEqual(m.viewportRight + 2);
     });
