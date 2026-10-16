@@ -114,7 +114,13 @@ export function AppSelectField({
       FormHelperTextProps={{ id: `${id}-helper` }}
       sx={compact ? muiFilterSx : muiFieldSx}
       SelectProps={menuMaxHeight ? {
-        MenuProps: { PaperProps: { sx: { maxHeight: menuMaxHeight } } },
+        MenuProps: {
+          // The constrained Register-4 menu opens toward the dialog header so
+          // its choices cannot cover the persistent Save/Cancel footer.
+          anchorOrigin: { vertical: "top", horizontal: "left" },
+          transformOrigin: { vertical: "bottom", horizontal: "left" },
+          PaperProps: { sx: { maxHeight: menuMaxHeight } },
+        },
       } : undefined}
     >
       {normalized.map(o => (
