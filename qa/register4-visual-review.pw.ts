@@ -46,11 +46,14 @@ async function populateLookup(page: Page, locale: "en" | "bn") {
 }
 
 async function assertSectionMenuClearOfModalFooter(page: Page) {
-  const [menu, panel, footer] = await Promise.all([
+  const [menu, panel, footer, paper, anchor] = await Promise.all([
     page.getByRole("listbox").boundingBox(),
     page.locator(".app-modal-panel").boundingBox(),
     page.locator(".app-modal-panel .app-modal-footer").boundingBox(),
+    page.locator(".MuiMenu-paper").boundingBox(),
+    page.locator("#disposal_code").boundingBox(),
   ]);
+  console.log("Register-4 section menu bounds:", JSON.stringify({viewport:page.viewportSize(), menu, panel, footer, paper, anchor}));
   expect(menu, "The section menu must have measurable bounds").not.toBeNull();
   expect(panel, "The modal must have measurable bounds").not.toBeNull();
   expect(footer, "The modal footer must have measurable bounds").not.toBeNull();
@@ -98,6 +101,7 @@ for (const locale of ["en", "bn"] as const) {
     await dialog.locator("#disposal_code").scrollIntoViewIfNeeded();
     await dialog.locator("#disposal_code").click();
     await expect(page.getByRole("option").first()).toBeVisible();
+    await capture(page, `modal.mobile.${locale}.section-open-diagnostic`);
     await assertSectionMenuClearOfModalFooter(page);
   });
 
