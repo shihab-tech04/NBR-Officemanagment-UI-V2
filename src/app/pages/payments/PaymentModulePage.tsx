@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { PaymentRecordList } from './PaymentRecordList';
+import { PaymentCategoryTag } from './PaymentCategoryTag';
 import { OfficeReviewQueue, getOfficeReviewClient } from './OfficeReviewQueue';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { AppModal } from '../../components/modals/AppModal';
@@ -358,6 +359,7 @@ export function PaymentModulePage({page}: {page: string}) {
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
     {(current==='overview'||current==='transactions')&&<OfficeReviewQueue/>}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
+      renderValue={(key,value)=>key==='payment_type' ? <PaymentCategoryTag value={String(value ?? '')}/> : undefined}
       columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}),groupLabel:
         ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
         ['amount','payment_type','assessment_year','income_year','date','payment_channel'].includes(key)?t('drawerFinancial'):

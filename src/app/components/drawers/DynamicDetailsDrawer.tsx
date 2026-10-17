@@ -31,6 +31,8 @@ interface DynamicDetailsDrawerProps {
   extraFooterActions?: ReactNode;
   /** Key in rowData whose value renders as a subtitle under the name in the summary card */
   summarySubtitleKey?: string;
+  /** Optional, screen-scoped value presentation; other drawers are unchanged. */
+  renderValue?: (key: string, value: unknown) => ReactNode | undefined;
 }
 
 // ── Action / UI-only keys — never shown as data ──────────────────────────────
@@ -238,6 +240,7 @@ export function DynamicDetailsDrawer({
   showActions = true,
   extraFooterActions,
   summarySubtitleKey,
+  renderValue,
 }: DynamicDetailsDrawerProps) {
   const { t: tc } = useTranslation("common");
   const { t: td } = useTranslation("drawers");
@@ -410,10 +413,10 @@ export function DynamicDetailsDrawer({
                         <StatusBadge value={String(rowData[col.key])} />
                       ) : (
                         <div className="drawer-field__value-row">
-                          {isExpandable(col.key)
+                          {renderValue?.(col.key, rowData[col.key]) ?? (isExpandable(col.key)
                             ? <ExpandableText value={rowData[col.key]} maxChars={160} collapsedLines={4} mode="block" />
                             : <SafeText value={rowData[col.key]} mode="break" as="span" />
-                          }
+                          )}
                           {isCopyableField(col.key) && (
                             <CopyValueButton value={rowData[col.key]} label={getLabel(col)} />
                           )}

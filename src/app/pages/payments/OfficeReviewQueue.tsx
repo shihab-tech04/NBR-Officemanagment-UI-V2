@@ -7,6 +7,7 @@ import { AppTextField } from '../../components/forms/AppTextField';
 import { AppTextArea } from '../../components/forms/AppTextArea';
 import { SimulatedOfficerReview } from './SimulatedOfficerReview';
 import { SimulatedProfileAssignment } from './SimulatedProfileAssignment';
+import { PaymentCategoryTag } from './PaymentCategoryTag';
 import { OFFICE_AUTH_CALLBACK_URL } from '../../utils/officeAuthRedirect';
 import { isOfficeAdminDemo } from '../../utils/officeAdminDemo';
 import { OFFICE_PUBLIC_UI_ONLY } from '../../utils/officeAccessMode';
@@ -135,7 +136,7 @@ export function OfficeReviewQueue() {
       <SecondaryButton size="sm" disabled={busy} onClick={()=>void signOut()}>{t('Sign out','সাইন আউট')}</SecondaryButton>
       <SecondaryButton size="sm" onClick={()=>setRevision(v=>v+1)}>{t('Refresh inbox','ইনবক্স হালনাগাদ')}</SecondaryButton>
       {notices.some(n=>!n.is_read)&&<section><h3>{t('New notices','নতুন বিজ্ঞপ্তি')}</h3><ul>{notices.filter(n=>!n.is_read).map(n=><li key={n.id}><p>{label(n.message_code)} · {n.request_id}</p><SecondaryButton size="sm" onClick={()=>void markRead(n)}>{t('Mark read','পড়া হয়েছে')}</SecondaryButton></li>)}</ul></section>}
-      <div><h3>{t('Review requests','পর্যালোচনার অনুরোধ')}</h3>{rows.length===0?<p>{t('No requests assigned to this review inbox.','এই ইনবক্সে কোনো অনুরোধ নেই।')}</p>:<ul>{rows.map(r=><li key={r.id}><button type="button" className="table-card__toolbar-btn" onClick={()=>{setSelected(r.id);setReason('');}} aria-pressed={selected===r.id}>{r.id} · {r.category} · {r.assessment_year} · {label(r.request_status)}</button></li>)}</ul>}</div>
+      <div><h3>{t('Review requests','পর্যালোচনার অনুরোধ')}</h3>{rows.length===0?<p>{t('No requests assigned to this review inbox.','এই ইনবক্সে কোনো অনুরোধ নেই।')}</p>:<ul>{rows.map(r=><li key={r.id}><button type="button" className="table-card__toolbar-btn" onClick={()=>{setSelected(r.id);setReason('');}} aria-pressed={selected===r.id}>{r.id} · <PaymentCategoryTag value={r.category}/> · {r.assessment_year} · {label(r.request_status)}</button></li>)}</ul>}</div>
       {selectedRequest&&<div><h3>{t('Selected request','নির্বাচিত অনুরোধ')}</h3><p>{selectedRequest.id}</p><p>{t('Financial receipt','আর্থিক রসিদ')}: {selectedRequest.financial_receipt_status} · {t('Tax credit','কর ক্রেডিট')}: {selectedRequest.tax_credit_status}</p>
         <AppTextArea id="office-review-reason" label={t('Reason (minimum 10 characters)','কারণ (কমপক্ষে ১০ অক্ষর)')} value={reason} onChange={setReason}/>
         <div className="table-page__actions">
