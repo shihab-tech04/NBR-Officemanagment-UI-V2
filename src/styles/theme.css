@@ -213,6 +213,12 @@
     line-height: var(--typ-label-md-lh, 20px);
   }
 
+  /* Browser-default `bolder` on nested <strong>/<b> can compute as 900.
+     Keep emphasis within the approved weights; component rules can override. */
+  strong, b {
+    font-weight: var(--weight-bold);
+  }
+
   label {
     font-size: var(--typ-label-md-size, 14px);
     font-weight: var(--font-weight-medium);
