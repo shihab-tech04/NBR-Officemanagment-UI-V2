@@ -3,7 +3,7 @@
     "serialNo": "S/N",
     "register4TaxpayerTin": "Taxpayer Name & TIN",
     "register4FolioNo": "Folio No.",
-    "register4DisposalCode": "Disposal Code (Section)",
+    "register4DisposalCode": "Under Section",
     "register4AssessmentYear": "Tax Year",
     "register4AssessmentDate": "Assessment Date",
     "register4AssessedIncome": "Assessed Income",

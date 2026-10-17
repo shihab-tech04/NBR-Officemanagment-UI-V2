@@ -3,7 +3,7 @@
     "serialNo": "ক্রমিক নং",
     "register4TaxpayerTin": "করদাতার নাম\nও টিআইএন",
     "register4FolioNo": "ফলিও নং",
-    "register4DisposalCode": "কার্য সম্পাদন কোড (ধারা)",
+    "register4DisposalCode": "কার্য সম্পাদন কোড",
     "register4AssessmentYear": "কর বর্ষ",
     "register4AssessmentDate": "নিরূপণ তারিখ",
     "register4AssessedIncome": "নিরূপিত আয়",

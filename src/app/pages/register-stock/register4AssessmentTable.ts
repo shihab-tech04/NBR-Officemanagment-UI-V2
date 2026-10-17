@@ -20,7 +20,7 @@ export const REGISTER4_ASSESSMENT_COLUMNS: ColDef[] = [
   fc("circle", "Circle", { headerKey: "headers.circle", truncate: "compact", align: "left" }),
   fc("taxpayer_identity", "Taxpayer Name & TIN", { headerKey: "headers.register4TaxpayerTin", multilineHeader: true, truncate: "normal", align: "left" }),
   fc("folio_no", "Folio No.", { headerKey: "headers.register4FolioNo", align: "left" }),
-  fc("disposal_code", "Disposal Code (Section)", { headerKey: "headers.register4DisposalCode", align: "left", truncate: "none", mono: true }),
+  fc("disposal_code", "Under Section", { headerKey: "headers.register4DisposalCode", align: "left", truncate: "none", mono: true }),
   fc("assessment_year", "Assessment Year", { headerKey: "headers.register4AssessmentYear", truncate: "compact", align: "left" }),
   fc("assessment_date", "Assessment Date", { headerKey: "headers.register4AssessmentDate", truncate: "compact", align: "left" }),
   fc("assessed_income", "Assessed Income", { headerKey: "headers.register4AssessedIncome", align: "left" }),
@@ -151,7 +151,7 @@ export function buildRegister4EntryFields(
     // The manual register treats folio as an assigned identifier, not a user-created number.
     { key: "folio_no", label: label("register4FolioNo", "Folio No."), type: "text", readOnly: true, group: record },
     { key: "assessment_date", label: label("register4AssessmentDate", "Assessment Date"), type: "date", group: record },
-    { key: "disposal_code", label: label("register4DisposalCode", "Disposal Code (Section)"),
+    { key: "disposal_code", label: label("register4DisposalCode", "Under Section"),
       type: "sectionTrail", span: true, required: true, group: proceedings },
     { key: "assessed_income", label: label("register4AssessedIncome", "Assessed Income (BDT)"),
       type: "number", group: assessment },
