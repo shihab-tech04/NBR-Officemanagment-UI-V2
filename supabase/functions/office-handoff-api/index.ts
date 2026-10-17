@@ -1,6 +1,7 @@
 /** Office Management v1: public, synthetic-only handoff API.
  * This function never calls the protected office_v1_query, payment_v1_*
- * RPCs, or any real taxpayer source. All records carry synthetic provenance.
+ * RPCs, or any real taxpayer source. Synthetic TaxPay transactions are read
+ * through the corresponding public-only TaxPay handoff gateway.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
 
@@ -37,7 +38,7 @@ const ROUTES: Record<string,string> = {
 const CORS = {
   'Access-Control-Allow-Origin':'*',
   'Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type',
-  'Access-Control-Allow-Methods':'GET, OPTIONS',
+  'Access-Control-Allow-Methods':'GET, POST, OPTIONS',
   'Cache-Control':'no-store',
 };
 function respond(payload:unknown,status=200):Response {
@@ -55,10 +56,49 @@ function matchRoute(path:string):{name:string;filters:Record<string,string>}|nul
   if(ledger)return{name:'demand_payment_ledger',filters:{tin:ledger[1]}};
   return null;
 }
+const TAXPAY_HANDOFF='https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/taxpay-handoff-api/api/v1';
+const uuidRE=/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+function proxyPath(request:Request,url:URL):string|null {
+  const path=url.pathname.replace(/^\/office-handoff-api/,'')
+    .replace(/^\/api\/v1/,'').replace(/\/$/,'');
+  if(path==='/payments/transactions'&&request.method==='GET'){
+    const n=Number(url.searchParams.get('limit')??'100');
+    if(!Number.isInteger(n)||n<1||n>100)return null;
+    return '/office/inbox?limit='+n;
+  }
+  const m=path.match(/^\/payments\/transactions\/([0-9a-fA-F-]{36})(\/review|\/state)?$/);
+  if(!m||!uuidRE.test(m[1]))return null;
+  if(request.method==='GET'&&!m[2])return '/payments/'+m[1];
+  if(request.method==='POST'&&m[2]==='/review')
+    return '/office/payments/'+m[1]+'/review';
+  if(request.method==='POST'&&m[2]==='/state')
+    return '/office/payments/'+m[1]+'/state';
+  return null;
+}
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS});
-  if(req.method!=='GET')return respond({success:false,code:'METHOD_NOT_ALLOWED'},405);
   const url=new URL(req.url);
+  const proxied=proxyPath(req,url);
+  if(proxied){
+    try{
+      const body=req.method==='POST'?await req.text():undefined;
+      if(body&&body.length>4096)
+        return respond({success:false,code:'INVALID_BODY_SIZE'},400);
+      const upstream=await fetch(TAXPAY_HANDOFF+proxied,{
+        method:req.method,
+        headers:{'Content-Type':'application/json'},
+        body,signal:AbortSignal.timeout(10000),
+      });
+      const response=await upstream.text();
+      return new Response(response,{
+        status:upstream.status,headers:{...CORS,'Content-Type':'application/json; charset=utf-8'},
+      });
+    }catch(error){
+      console.error('synthetic TaxPay bridge:',error instanceof Error?error.message:'unknown');
+      return respond({success:false,code:'TAXPAY_HANDOFF_UNAVAILABLE'},502);
+    }
+  }
+  if(req.method!=='GET')return respond({success:false,code:'METHOD_NOT_ALLOWED'},405);
   const matched=matchRoute(url.pathname);
   if(!matched)return respond({success:false,code:'UNKNOWN_OFFICE_ROUTE'},404);
   const page=Number(url.searchParams.get('page')??'1');
