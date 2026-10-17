@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, startTransition } from "react";
 import { Menu, Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { formatLocalizedNumber } from "../../utils/localeFormatting";
 import { useDispatch } from "react-redux";
 import { useLocation, useNavigate } from "react-router";
 import type { AppDispatch } from "../../store/store";
@@ -19,7 +20,7 @@ interface MobileTopbarProps {
 }
 
 export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
-  const { t: translate } = useTranslation("common");
+  const { t: translate, i18n } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const isPaymentSampleRoute = useLocation().pathname.startsWith("/payments");
@@ -79,7 +80,7 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
           className="mobile-topbar__notification-button"
           aria-label={
             unreadCount > 0
-              ? translate("accessibility.notificationsUnread", { count: unreadCount })
+              ? translate("accessibility.notificationsUnread", { count: formatLocalizedNumber(unreadCount, i18n.resolvedLanguage) })
               : translate("accessibility.notifications")
           }
         >
@@ -87,7 +88,7 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
           {unreadCount > 0 && (
             unreadCount > 9 ? (
               <span className="mobile-topbar__notification-badge">
-                {unreadCount > 99 ? "99+" : unreadCount}
+                {unreadCount > 99 ? `${formatLocalizedNumber(99, i18n.resolvedLanguage)}+` : formatLocalizedNumber(unreadCount, i18n.resolvedLanguage)}
               </span>
             ) : (
               <span className="mobile-topbar__notification-dot" aria-hidden="true" />

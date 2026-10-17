@@ -34,6 +34,8 @@ import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../data/taxJurisdictions";
+import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
+import { localizeRecordValue } from "../../utils/recordDisplay";
 
 const PER_PAGE = 10;
 
@@ -165,7 +167,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
           <div className="table-card__title-group">
             <h2 className="table-card__title">{config.title}</h2>
             <span className="table-card__count" aria-live="polite" aria-atomic="true">
-              {filtered.length} {translateCommon("common.records")}
+              {new Intl.NumberFormat(i18n.resolvedLanguage === "bn" ? "bn-BD" : "en-GB").format(filtered.length)} {translateCommon("common.records")}
             </span>
           </div>
 
@@ -273,6 +275,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
 
 function AuditOverviewPage() {
   const { t, i18n } = useTranslation("audit");
+  const { t: translateTables } = useTranslation("tables");
   const navigate = useNavigate();
 
   type ExploreMetric = "risk_level" | "signals" | "coverage_tier" | "data_quality" | "circle" | "audit_state" | "control_flags" | "assessment_year" | "return_version";
@@ -305,12 +308,21 @@ function AuditOverviewPage() {
 
   const formatDashboardNumber = (value: number) =>
     new Intl.NumberFormat(i18n.resolvedLanguage === "bn" ? "bn-BD" : "en-US").format(Math.max(0, Math.round(value)));
+  const displayAuditValue = (value: string) => localizeRecordValue(value, translateTables, i18n.resolvedLanguage);
+  const displayPercent = (value: number) => formatLocalizedPercent(value, i18n.resolvedLanguage);
 
-  const formatDashboardCompact = (value: number) =>
-    new Intl.NumberFormat(i18n.resolvedLanguage === "bn" ? "bn-BD" : "en-US", {
+  const formatDashboardCompact = (value: number) => {
+    const rounded = Math.max(0, Math.round(value));
+    if (i18n.resolvedLanguage === "bn" && rounded >= 100_000) {
+      const unit = rounded >= 10_000_000 ? "কোটি" : "লক্ষ";
+      const divisor = rounded >= 10_000_000 ? 10_000_000 : 100_000;
+      return `${new Intl.NumberFormat("bn-BD", {maximumFractionDigits:1}).format(rounded / divisor)} ${unit}`;
+    }
+    return new Intl.NumberFormat(i18n.resolvedLanguage === "bn" ? "bn-BD" : "en-US", {
       notation: "compact",
       maximumFractionDigits: 1,
-    }).format(Math.max(0, Math.round(value)));
+    }).format(rounded);
+  };
 
   const projectCount = (sampleCount: number, sampleTotal: number, targetTotal: number) =>
     sampleTotal > 0 ? Math.round((sampleCount / sampleTotal) * targetTotal) : 0;
@@ -507,7 +519,7 @@ function AuditOverviewPage() {
 
     const share = denominator > 0 ? Math.round((count / denominator) * 100) : 0;
     const filterContext = filterMetric && filterValue !== "all"
-      ? `${exploreDefinitions[filterMetric].label}: ${filterValue}`
+      ? `${exploreDefinitions[filterMetric].label}: ${displayAuditValue(filterValue)}`
       : t("overview.explainer.allScreenedReturns");
 
     setExplanation({
@@ -517,7 +529,7 @@ function AuditOverviewPage() {
           title:t("overview.explainer.currentView"),
           items:[
             { label:t("overview.explainer.modeledReturns"), value:formatDashboardNumber(count) },
-            { label:t("overview.explainer.shareOfView"), value:`${share}%` },
+            { label:t("overview.explainer.shareOfView"), value:displayPercent(share) },
             { label:t("overview.explainer.filterContext"), value:filterContext },
           ],
         },
@@ -689,9 +701,14 @@ function AuditOverviewPage() {
   const countCircleRows = (rows: TableRow[], circle: string) =>
     rows.filter((row) => rowBelongsToWorkloadZone(row) && normalizeWorkloadCircle(row.circle) === circle).length;
 
-  const circleItems = workloadCircles.map((circle) => ({
+  // Project the selected-zone distribution as one set so independent rounding
+  // cannot make the circle total disagree with the dashboard candidate total.
+  const candidateSamples = workloadCircles.map((circle) => countCircleRows(candidates, circle));
+  const projectedZoneCandidates = projectCount(candidateSamples.reduce((sum, count) => sum + count, 0), Math.max(1, candidates.length), NATIONAL_AUDIT_CANDIDATES);
+  const projectedCircleCandidates = scaleDistribution(candidateSamples.map((value) => ({ value })), projectedZoneCandidates);
+  const circleItems = workloadCircles.map((circle, index) => ({
     circle,
-    candidates: projectCount(countCircleRows(candidates, circle), Math.max(1, candidates.length), NATIONAL_AUDIT_CANDIDATES),
+    candidates: projectedCircleCandidates[index]?.value ?? 0,
     active: projectCount(countCircleRows(activeCases, circle), caseSampleTotal, projectedActiveCases),
     evidence: projectCount(countCircleRows(pendingEvidence, circle), caseSampleTotal, projectedPendingEvidence),
     controls: projectCount(countCircleRows(openControls, circle), controlSampleTotal, projectedOpenControls),
@@ -803,7 +820,7 @@ function AuditOverviewPage() {
           <div className="audit-overview-v5__flow">
             {operations.map((item, index) => (
               <button type="button" className="audit-overview-v5__flow-stage" key={item.step} title={item.detail} onClick={() => navigate(item.route)}>
-                <span>{item.step}</span>
+                <span>{formatDashboardNumber(Number(item.step))}</span>
                 <div><strong>{item.title}</strong><small>{item.detail}</small></div>
                 <b>{formatDashboardNumber(item.value)}</b>
                 {index < operations.length - 1 && <ChevronRight size={16} aria-hidden="true" />}
@@ -862,15 +879,15 @@ function AuditOverviewPage() {
                       onClick={() => openOverviewExplanation("risk_level", item.label, item.value, NATIONAL_SCREENED_POPULATION)}
                     >
                       <i style={{ background:riskColorMap[item.label] }} />
-                      <span>{item.label}</span>
+                      <span>{displayAuditValue(item.label)}</span>
                       <strong>{formatDashboardNumber(item.value)}</strong>
-                      <small>{NATIONAL_SCREENED_POPULATION ? Math.round((item.value / NATIONAL_SCREENED_POPULATION) * 100) : 0}%</small>
+                      <small>{displayPercent(NATIONAL_SCREENED_POPULATION ? Math.round((item.value / NATIONAL_SCREENED_POPULATION) * 100) : 0)}</small>
                       <Info size={14} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       className="audit-overview-v5__concept-records"
-                      aria-label={`${t("overview.openRecords")} · ${item.label}`}
+                      aria-label={`${t("overview.openRecords")} · ${displayAuditValue(item.label)}`}
                       onClick={() => navigate(buildPopulationDrilldown("risk_level", item.label))}
                     >
                       <ChevronRight size={14} aria-hidden="true" />
@@ -891,15 +908,15 @@ function AuditOverviewPage() {
                         title={t("overview.explainer.openDetails")}
                         onClick={() => openOverviewExplanation("data_quality", label, value, NATIONAL_SCREENED_POPULATION)}
                       >
-                        <span>{label}</span>
+                        <span>{displayAuditValue(label)}</span>
                         <strong>{formatDashboardNumber(value)}</strong>
-                        <small>{NATIONAL_SCREENED_POPULATION ? Math.round((value / NATIONAL_SCREENED_POPULATION) * 100) : 0}%</small>
+                        <small>{displayPercent(NATIONAL_SCREENED_POPULATION ? Math.round((value / NATIONAL_SCREENED_POPULATION) * 100) : 0)}</small>
                         <Info size={13} aria-hidden="true" />
                       </button>
                       <button
                         type="button"
                         className="audit-overview-v5__concept-records"
-                        aria-label={`${t("overview.openRecords")} · ${label}`}
+                        aria-label={`${t("overview.openRecords")} · ${displayAuditValue(label)}`}
                         onClick={() => navigate(buildPopulationDrilldown("data_quality", label))}
                       >
                         <ChevronRight size={13} aria-hidden="true" />
@@ -1013,7 +1030,7 @@ function AuditOverviewPage() {
                         }}
                         options={[
                           { value: "all", label: t("overview.allValues") },
-                          ...filterOptions.map((value) => ({ value, label: value })),
+                          ...filterOptions.map((value) => ({ value, label: displayAuditValue(value) })),
                         ]}
                         compact
                         sortOptions
@@ -1038,15 +1055,15 @@ function AuditOverviewPage() {
 
               <div className="audit-overview-v5__insight" aria-live="polite">
                 <div>
-                  <span>{exploreDefinitions[groupMetric].label}{filterMetric && filterValue !== "all" ? ` · ${filterValue}` : ""}</span>
-                  <strong>{highlightedItem?.label ?? "—"}</strong>
+                  <span>{exploreDefinitions[groupMetric].label}{filterMetric && filterValue !== "all" ? ` · ${displayAuditValue(filterValue)}` : ""}</span>
+                  <strong>{highlightedItem ? displayAuditValue(highlightedItem.label) : "—"}</strong>
                 </div>
                 <div>
                   <strong>{highlightedItem ? formatDashboardNumber(highlightedItem.value) : 0}</strong>
                   <span>{t("overview.returnsShort")}</span>
                 </div>
                 <div>
-                  <strong>{highlightedItem && projectedFilteredPopulation ? Math.round((highlightedItem.value / projectedFilteredPopulation) * 100) : 0}%</strong>
+                  <strong>{displayPercent(highlightedItem && projectedFilteredPopulation ? Math.round((highlightedItem.value / projectedFilteredPopulation) * 100) : 0)}</strong>
                   <span>{t("overview.ofCurrentView")}</span>
                 </div>
                 {highlightedItem && (
@@ -1073,16 +1090,16 @@ function AuditOverviewPage() {
                       onFocus={() => setHighlightedValue(item.label)}
                       onClick={() => openOverviewExplanation(groupMetric, item.label, item.value)}
                     >
-                      <span className="audit-overview-v5__bar-label">{item.label}</span>
+                      <span className="audit-overview-v5__bar-label">{displayAuditValue(item.label)}</span>
                       <span className="audit-overview-v5__bar-track"><i style={{ width: `${Math.max(2, (item.value / maxExploreValue) * 100)}%`, background: explorerColor(item.label) }} /></span>
                       <strong>{formatDashboardNumber(item.value)}</strong>
-                      <small>{projectedFilteredPopulation ? Math.round((item.value / projectedFilteredPopulation) * 100) : 0}%</small>
+                      <small>{displayPercent(projectedFilteredPopulation ? Math.round((item.value / projectedFilteredPopulation) * 100) : 0)}</small>
                       <Info size={14} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       className="audit-overview-v5__concept-records"
-                      aria-label={`${t("overview.openRecords")} · ${item.label}`}
+                      aria-label={`${t("overview.openRecords")} · ${displayAuditValue(item.label)}`}
                       onClick={() => navigate(buildPopulationDrilldown(groupMetric, item.label))}
                     >
                       <ChevronRight size={14} aria-hidden="true" />
@@ -1198,7 +1215,7 @@ function AuditOverviewPage() {
                       </span>
                       <span className="audit-overview-v7__source-bar"><i style={{ width: `${(item.count / maxSelectionCount) * 100}%` }} /></span>
                       <strong>{formatDashboardNumber(item.count)}</strong>
-                      <small>{share}%</small>
+                      <small>{displayPercent(share)}</small>
                       <ChevronRight size={14} aria-hidden="true" />
                     </button>
                   );
@@ -1232,7 +1249,7 @@ function AuditOverviewPage() {
                   ) : (
                     <strong>{workloadZone || t("overview.allVerifiedCircles")}</strong>
                   )}
-                  <small>{workloadCircles.length} {t("overview.circlesShort")}</small>
+                  <small>{formatDashboardNumber(workloadCircles.length)} {t("overview.circlesShort")}</small>
                 </div>
                 <div className="audit-overview-v2__metric-toggle audit-overview-v6__workload-tabs" role="group" aria-label={t("overview.circleWorkload")}>
                   {(Object.keys(workloadLabels) as WorkloadMetric[]).map((key) => (
@@ -1243,7 +1260,7 @@ function AuditOverviewPage() {
 
               <div className="audit-overview-v6__workload-summary">
                 <div><span>{t("overview.currentMetric")}</span><strong>{formatDashboardNumber(workloadTotal)}</strong><small>{workloadLabels[workloadMetric]}</small></div>
-                <div><span>{t("overview.busiestCircle")}</span><strong>{busiestCircle?.circle ?? "—"}</strong><small>{busiestCircle ? Number(busiestCircle[workloadMetric] ?? 0) : 0} {workloadLabels[workloadMetric].toLowerCase()}</small></div>
+                <div><span>{t("overview.busiestCircle")}</span><strong>{busiestCircle?.circle ?? "—"}</strong><small>{formatDashboardNumber(busiestCircle ? Number(busiestCircle[workloadMetric] ?? 0) : 0)} {workloadLabels[workloadMetric].toLowerCase()}</small></div>
                 <div><span>{t("overview.averagePerCircle")}</span><strong>{formatDashboardNumber(workloadAverage)}</strong><small>{workloadLabels[workloadMetric]}</small></div>
               </div>
 
@@ -1264,7 +1281,7 @@ function AuditOverviewPage() {
               <div className="audit-overview-v6__workload-chart">
                 {visibleCircleItems.map((item) => {
                   const value = Number(item[workloadMetric] ?? 0);
-                  const detail = `${item.candidates} ${workloadLabels.candidates} · ${item.active} ${workloadLabels.active} · ${item.evidence} ${workloadLabels.evidence} · ${item.controls} ${workloadLabels.controls} · ${item.secondReview} ${workloadLabels.secondReview} · ${item.closed} ${workloadLabels.closed}`;
+                  const detail = `${formatDashboardNumber(item.candidates)} ${workloadLabels.candidates} · ${formatDashboardNumber(item.active)} ${workloadLabels.active} · ${formatDashboardNumber(item.evidence)} ${workloadLabels.evidence} · ${formatDashboardNumber(item.controls)} ${workloadLabels.controls} · ${formatDashboardNumber(item.secondReview)} ${workloadLabels.secondReview} · ${formatDashboardNumber(item.closed)} ${workloadLabels.closed}`;
                   return (
                     <button type="button" className={`audit-overview-v6__workload-row${value === 0 ? " is-zero" : ""}`} key={item.circle} title={detail} onClick={() => navigate(workloadRoute(item.circle))}>
                       <strong>{item.circle}</strong>
@@ -1296,9 +1313,9 @@ function AuditOverviewPage() {
 
           <DashSection title={t("overview.systemAssurance")} icon={BadgeCheck}>
             <div className="audit-overview__assurance">
-              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(NATIONAL_SCREENED_POPULATION)}+`}>{formatDashboardCompact(completeQuality)}/{formatDashboardCompact(NATIONAL_SCREENED_POPULATION)}+</strong><small>{t("overview.qualityComplete", { rate: completeQualityRate })}</small></button>
-              <button type="button" onClick={() => navigate("/audit/rules-governance")}><span>{t("overview.ruleGovernance")}</span><strong>{liveRules} {t("overview.live")}</strong><small>{t("overview.ruleMix", { staged: stagedRules, shadow: shadowRules, draft: draftRules, pending: pendingGovernance })}</small></button>
-              <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{AUDIT_TRAIL_ROWS.length}</strong><small>{t("overview.auditTrailSummary", { sensitive: sensitiveAccessEvents })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(NATIONAL_SCREENED_POPULATION)}+`}>{formatDashboardCompact(completeQuality)}/{formatDashboardCompact(NATIONAL_SCREENED_POPULATION)}+</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/rules-governance")}><span>{t("overview.ruleGovernance")}</span><strong>{formatDashboardNumber(liveRules)} {t("overview.live")}</strong><small>{t("overview.ruleMix", { staged: formatDashboardNumber(stagedRules), shadow: formatDashboardNumber(shadowRules), draft: formatDashboardNumber(draftRules), pending: formatDashboardNumber(pendingGovernance) })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{formatDashboardNumber(AUDIT_TRAIL_ROWS.length)}</strong><small>{t("overview.auditTrailSummary", { sensitive: formatDashboardNumber(sensitiveAccessEvents) })}</small></button>
             </div>
           </DashSection>
         </div>
@@ -1308,8 +1325,8 @@ function AuditOverviewPage() {
             {recentEvents.map((event) => (
               <button type="button" className="audit-overview-v4__activity-row" key={String(event.id)} onClick={() => navigate("/audit/audit-trail")}>
                 <span className="audit-overview__activity-marker" aria-hidden="true" />
-                <div><strong>{String(event.action ?? "—")}</strong><span>{String(event.actor_role ?? "—")}</span></div>
-                <time>{String(event.timestamp_utc ?? "—")}</time>
+                <div><strong>{displayAuditValue(String(event.action ?? "—"))}</strong><span>{displayAuditValue(String(event.actor_role ?? "—"))}</span></div>
+                <time>{event.timestamp_utc ? `${formatLocalizedDateTime(String(event.timestamp_utc).replace(/ UTC$/, "Z").replace(" ", "T"), i18n.resolvedLanguage, "UTC")} UTC` : "—"}</time>
                 <ChevronRight size={14} aria-hidden="true" />
               </button>
             ))}

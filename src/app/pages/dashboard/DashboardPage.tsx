@@ -12,6 +12,7 @@ import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { useSettings } from "../../hooks/useSettings";
 import type { ColDef } from "../modulePageUtils";
 import { gen, CIRCLES_DATA, NAMES, AY_OPTS } from "../modulePageUtils";
+import { formatLocalizedDate, formatLocalizedNumber } from "../../utils/localeFormatting";
 
 const INITIAL_VISIBLE = 6;
 
@@ -32,11 +33,13 @@ const CIRCLE_COLS: ColDef[] = [
 
 export function DashboardPage() {
   const { assessmentYear: ay } = useSettings();
-  const { t: translate } = useTranslation("dashboard");
+  const { t: translate, i18n } = useTranslation("dashboard");
   const { t: translateCommon } = useTranslation("common");
   const { t: translateKpi } = useTranslation("kpi");
 
   const [kpiExpanded, setKpiExpanded] = useState(false);
+  const displayNumber = (value: number) => formatLocalizedNumber(value, i18n.resolvedLanguage);
+  const displayDate = (value: string) => formatLocalizedDate(value, i18n.resolvedLanguage);
 
   const circleData = CIRCLES_DATA.map((c, i) => ({
     circle: c, total: 200 + i * 80, pending: 20 + i * 5, approved: 170 + i * 70, tax: `৳${30 + i * 15}L`,
@@ -49,19 +52,19 @@ export function DashboardPage() {
 
   const allKpis = [
     // Group 1 — Registration & Submission (first 6, visible by default)
-    { label: translateKpi("totalOnlineRegistration"),   value: "107",    icon: Globe,         tone: "primary" as const, subInfo: `${translate("labels.asOf")} 08-06-2026` },
-    { label: translateKpi("currentOnlineRegistration"), value: "0",      icon: TrendingUp,    tone: "primary" as const, subInfo: "01-07-2025 to 08-06-2026" },
-    { label: translateKpi("totalOnlineSubmission"),     value: "0",      icon: FileText,      tone: "primary" as const },
-    { label: translateKpi("taxPaidEReturn"),            value: "0",      icon: CreditCard,    tone: "success" as const, subInfo: translate("labels.paidByZero") },
-    { label: translateKpi("totalTdsAdvanceTax"),        value: "0",      icon: PiggyBank,     tone: "success" as const },
-    { label: translateKpi("totalAmendmentReturn"),      value: "0",      icon: FilePlus,      tone: "neutral" as const },
+    { label: translateKpi("totalOnlineRegistration"),   value: displayNumber(107), icon: Globe,         tone: "primary" as const, subInfo: `${translate("labels.asOf")} ${displayDate("2026-06-08")}` },
+    { label: translateKpi("currentOnlineRegistration"), value: displayNumber(0),   icon: TrendingUp,    tone: "primary" as const, subInfo: `${displayDate("2025-07-01")} – ${displayDate("2026-06-08")}` },
+    { label: translateKpi("totalOnlineSubmission"),     value: displayNumber(0),   icon: FileText,      tone: "primary" as const },
+    { label: translateKpi("taxPaidEReturn"),            value: displayNumber(0),   icon: CreditCard,    tone: "success" as const, subInfo: translate("labels.paidByZero") },
+    { label: translateKpi("totalTdsAdvanceTax"),        value: displayNumber(0),   icon: PiggyBank,     tone: "success" as const },
+    { label: translateKpi("totalAmendmentReturn"),      value: displayNumber(0),   icon: FilePlus,      tone: "neutral" as const },
     // Group 2 — Tax Payments & Claims (visible after See More)
-    { label: translateKpi("taxPaidWithReturn"),         value: "0",      icon: Receipt,       tone: "success" as const, subInfo: translate("labels.claimedByZero") },
-    { label: translateKpi("totalClaimedIbasChallan"),   value: "0",      icon: Landmark,      tone: "primary" as const, subInfo: translate("labels.claimedByZero") },
-    { label: translateKpi("advanceTaxCarChallan"),      value: "0",      icon: Car,           tone: "neutral" as const, subInfo: translate("labels.claimedByZero") },
-    { label: translateKpi("tdsSavingCertificate"),      value: "0",      icon: Banknote,      tone: "primary" as const },
-    { label: translateKpi("tdsBankInterest"),           value: "0",      icon: Banknote,      tone: "primary" as const },
-    { label: translateKpi("otherTdsAitClaims"),         value: "0",      icon: MoreHorizontal,tone: "neutral" as const },
+    { label: translateKpi("taxPaidWithReturn"),         value: displayNumber(0), icon: Receipt,       tone: "success" as const, subInfo: translate("labels.claimedByZero") },
+    { label: translateKpi("totalClaimedIbasChallan"),   value: displayNumber(0), icon: Landmark,      tone: "primary" as const, subInfo: translate("labels.claimedByZero") },
+    { label: translateKpi("advanceTaxCarChallan"),      value: displayNumber(0), icon: Car,           tone: "neutral" as const, subInfo: translate("labels.claimedByZero") },
+    { label: translateKpi("tdsSavingCertificate"),      value: displayNumber(0), icon: Banknote,      tone: "primary" as const },
+    { label: translateKpi("tdsBankInterest"),           value: displayNumber(0), icon: Banknote,      tone: "primary" as const },
+    { label: translateKpi("otherTdsAitClaims"),         value: displayNumber(0), icon: MoreHorizontal,tone: "neutral" as const },
   ];
 
   const visibleKpis = kpiExpanded ? allKpis : allKpis.slice(0, INITIAL_VISIBLE);

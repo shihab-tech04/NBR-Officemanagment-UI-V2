@@ -17,6 +17,7 @@ import { AppearanceSettingsPanel } from "../appearance/AppearanceSettingsPanel";
 import { NotificationDropdown } from "../dropdowns/NotificationDropdown";
 import { UserProfileDropdown } from "../dropdowns/UserProfileDropdown";
 import { useHelp } from "../../context/HelpContext";
+import { formatLocalizedNumber } from "../../utils/localeFormatting";
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -24,7 +25,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
-  const { t: translate } = useTranslation("common");
+  const { t: translate, i18n } = useTranslation("common");
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const isPaymentSampleRoute = useLocation().pathname.startsWith("/payments");
@@ -100,7 +101,7 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
             className={`topbar__notification-button${unreadCount > 0 ? " topbar__notification-button--has-unread" : ""}`}
             aria-label={
               unreadCount > 0
-                ? translate("accessibility.notificationsUnread", { count: unreadCount })
+                ? translate("accessibility.notificationsUnread", { count: formatLocalizedNumber(unreadCount, i18n.resolvedLanguage) })
                 : translate("accessibility.notifications")
             }
           >
@@ -108,7 +109,7 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
             {unreadCount > 0 &&
               (unreadCount > 9 ? (
                 <span className="topbar__notification-badge">
-                  {unreadCount > 99 ? "99+" : unreadCount}
+                  {unreadCount > 99 ? `${formatLocalizedNumber(99, i18n.resolvedLanguage)}+` : formatLocalizedNumber(unreadCount, i18n.resolvedLanguage)}
                 </span>
               ) : (
                 <span className="topbar__notification-dot" aria-hidden="true" />

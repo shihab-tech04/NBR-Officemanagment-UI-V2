@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import {buildPageKpis} from "../utils/buildPageKpis";
 import {localizeRecordValue} from "../utils/recordDisplay";
-import {formatLocalizedDate,formatLocalizedNumber} from "../utils/localeFormatting";
+import {formatLocalizedCurrency,formatLocalizedDate,formatLocalizedDateTime,formatLocalizedNumber,formatLocalizedPercent} from "../utils/localeFormatting";
 
 type Messages = Record<string,unknown>;
 const enFiles=import.meta.glob("../locales/en/*.json",{eager:true,import:"default"}) as Record<string,Messages>;
@@ -35,6 +35,12 @@ describe("English and Bengali translations",()=>{
     expect(localizeRecordValue("Deputy Commissioner",t,"bn")).toBe(bn["displayValues.deputyCommissioner"]);
     expect(localizeRecordValue("123456789012",t,"bn")).toBe("123456789012");
     expect(localizeRecordValue("৳50000",t,"bn")).toMatch(/^৳[০-৯,]+$/);
+    expect(localizeRecordValue("৳120,000",t,"bn")).toBe("৳১,২০,০০০");
+    expect(localizeRecordValue("8%",t,"bn")).toBe("৮%");
+    expect(localizeRecordValue("Very High",t,"bn")).toBe(bn["displayValues.veryHigh"]);
+    expect(localizeRecordValue("Not determined",t,"bn")).toBe(bn["displayValues.notDetermined"]);
+    expect(localizeRecordValue("OFFICER_SIGN_IN",t,"bn")).toBe(bn["displayValues.officerSignIn"]);
+    expect(localizeRecordValue("Wrong assessment year selected",t,"bn")).toBe(bn["displayValues.wrongAssessmentYearSelected"]);
   });
   it("localizes generated KPI labels while preserving numeric counts",()=>{
     const cards=buildPageKpis([{status:"Pending"},{status:"Approved"}],{totalLabel:"Total Returns",statusField:"status",statuses:[{value:"Pending",label:"Pending",tone:"warning"}]});
@@ -45,5 +51,8 @@ describe("English and Bengali translations",()=>{
     expect(formatLocalizedNumber(1234,"bn")).toContain("১");
     expect(formatLocalizedDate("2026-10-17","bn")).toMatch(/[০-৯]/);
     expect(formatLocalizedDate("invalid","bn")).toBe("invalid");
+    expect(formatLocalizedCurrency(120000,"bn")).toBe("৳১,২০,০০০");
+    expect(formatLocalizedPercent(36,"bn")).toBe("৩৬%");
+    expect(formatLocalizedDateTime("2026-09-28T05:14:40Z","bn","UTC")).toContain("২০২৬");
   });
 });

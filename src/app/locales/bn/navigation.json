@@ -100,7 +100,7 @@
   "administration": {
     "main": "প্রশাসন ও অনুরোধ",
     "certificateRequests": "সার্টিফিকেট অনুরোধ",
-    "dataEntryRequest": "ডেটা এন্ট্রি অনুরোধ",
+    "dataEntryRequest": "তথ্য এন্ট্রি অনুরোধ",
     "approvalRequest": "অনুমোদন অনুরোধ",
     "editRequest": "সংশোধন অনুরোধ",
     "disposalHistory": "নিষ্পত্তির ইতিহাস",

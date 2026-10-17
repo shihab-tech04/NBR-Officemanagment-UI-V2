@@ -18,6 +18,7 @@ import type { PageCfg, TableRow } from "../../pages/modulePageUtils";
 import { type AttachmentItem, getAttachmentPreviewKind, formatFileSize } from "../attachments/attachmentTypes";
 import { ZONES, CIRCLES, AY_OPTS } from "../../pages/modulePageUtils";
 import { useUIState } from "../../hooks/useUI";
+import { formatLocalizedNumber } from "../../utils/localeFormatting";
 
 const PER = 10;
 
@@ -240,7 +241,7 @@ function buildPsrBulkEntryFields(tf: (k: string, opts?: Record<string, string>) 
 
 export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTablePageProps) {
   const { isDesktop } = useUIState();
-  const { t: translateCommon } = useTranslation("common");
+  const { t: translateCommon, i18n } = useTranslation("common");
   const { t: translateActions } = useTranslation("actions");
   const { t: translateDrawers } = useTranslation("drawers");
   const { t: translatePages } = useTranslation("pages");
@@ -479,7 +480,7 @@ export function GeneratedTablePage({ cfg, drawerFields, wrapTitle }: GeneratedTa
           <div className="table-card__title-group">
             <h2 className="table-card__title">{resolvedTitle}</h2>
             <span className="table-card__count" aria-live="polite" aria-atomic="true">
-              {filtered.length} {translateCommon("common.records")}
+              {formatLocalizedNumber(filtered.length, i18n.resolvedLanguage)} {translateCommon("common.records")}
             </span>
           </div>
           <div className="table-card__search-wrapper">

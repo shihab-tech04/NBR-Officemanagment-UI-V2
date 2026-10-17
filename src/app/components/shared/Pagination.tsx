@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { formatLocalizedNumber } from "../../utils/localeFormatting";
 
 interface PaginationProps {
   total: number;
@@ -20,7 +21,8 @@ export function Pagination({
   onPerPageChange,
   perPageLabel,
 }: PaginationProps) {
-  const { t: translate } = useTranslation("common");
+  const { t: translate, i18n } = useTranslation("common");
+  const number = (value: number) => formatLocalizedNumber(value, i18n.resolvedLanguage);
   const totalPages = Math.ceil(total / perPage);
   const showPageSize = !!onPerPageChange && !!perPageOptions?.length;
   if (totalPages <= 1 && !showPageSize) return null;
@@ -35,7 +37,7 @@ export function Pagination({
     >
       <div className="pagination__meta">
         <span className="pagination__info" aria-live="polite" aria-atomic="true">
-          {translate("common.showing")} {from}–{to} {translate("common.of")} {total} {translate("common.records")}
+          {translate("common.showing")} {number(from)}–{number(to)} {translate("common.of")} {number(total)} {translate("common.records")}
         </span>
 
         {showPageSize && (
@@ -47,7 +49,7 @@ export function Pagination({
               onChange={(event) => onPerPageChange?.(Number(event.target.value))}
             >
               {perPageOptions?.map((option) => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option} value={option}>{number(option)}</option>
               ))}
             </select>
           </label>
@@ -69,11 +71,11 @@ export function Pagination({
             <button
               key={p}
               onClick={() => onPage(p)}
-              aria-label={translate("accessibility.page", { number: p })}
+              aria-label={translate("accessibility.page", { number: number(p) })}
               aria-current={p === page ? "page" : undefined}
               className={`pagination__page${p === page ? " pagination__page--active" : ""}`}
             >
-              {p}
+              {number(p)}
             </button>
           ))}
           <button
