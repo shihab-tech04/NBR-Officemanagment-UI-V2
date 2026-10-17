@@ -66,4 +66,8 @@ describe("office typography weight hierarchy", () => {
       expect(numericWeights.every((weight) => [400, 500, 600, 700].includes(weight)), file).toBe(true);
     }
   });
+
+  it("caps browser-default strong and bold emphasis at 700", () => {
+    expect(css("theme.css")).toMatch(/strong,\s*b\s*\{\s*font-weight:\s*var\(--weight-bold\);\s*\}/);
+  });
 });
