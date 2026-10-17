@@ -13,12 +13,12 @@ describe("Register-4 disposal section picker", () => {
   it("offers the custom-code action at the bottom of the dropdown, not beside it", async () => {
     const onChange = vi.fn();
     const { container } = render(
-      <Register4SectionField id="disposal_code" label="Disposal Code (Section)" value="" onChange={onChange} editor="inline" />,
+      <Register4SectionField id="disposal_code" label="Under Section" value="" onChange={onChange} editor="inline" />,
     );
 
     expect(container.querySelector(".register4-section-field__addition")).toBeNull();
     expect(screen.queryByRole("button", { name: /sectionAddNew/ })).toBeNull();
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Disposal Code (Section)" }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Under Section" }));
     const options = await screen.findAllByRole("option");
     const add = options.at(-1)!;
     expect(add).toHaveTextContent("register4.sectionAddNew");
@@ -35,8 +35,8 @@ describe("Register-4 disposal section picker", () => {
 
   it("still selects listed sections directly without opening the custom editor", async () => {
     const onChange = vi.fn();
-    render(<Register4SectionField id="disposal_code" label="Disposal Code (Section)" value="" onChange={onChange} editor="inline" />);
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Disposal Code (Section)" }));
+    render(<Register4SectionField id="disposal_code" label="Under Section" value="" onChange={onChange} editor="inline" />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Under Section" }));
     fireEvent.click(await screen.findByRole("option", { name: /180.*Self-assessment return/i }));
     expect(onChange).toHaveBeenCalledWith("180");
     expect(screen.queryByRole("group", { name: "register4.sectionAddNew" })).toBeNull();
