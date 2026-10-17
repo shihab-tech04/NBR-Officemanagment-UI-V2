@@ -46,6 +46,26 @@ begin
          case p_ordinal % 4 when 1 then 'income-tax' when 2 then 'appeal'
            when 3 then 'tribunal' else 'penalty' end
        when field.key='returnType' then 'Normal'
+       when field.key='matchStatus' then
+         case p_ordinal % 3 when 1 then 'Matched' when 2 then 'Pending'
+           else 'Mismatched' end
+       when field.key='verifStatus' then
+         case p_ordinal % 3 when 1 then 'Verified' when 2 then 'Pending'
+           else 'Failed' end
+       when field.key='dormantStatus' then 'Dormant'
+       when field.key='tribunalStatus' then
+         case p_ordinal % 3 when 1 then 'Pending' when 2 then 'Decided'
+           else 'Adjourned' end
+       when field.key='paymentStatus' then
+         case p_ordinal % 3 when 1 then 'Paid' when 2 then 'Unpaid'
+           else 'Partially Paid' end
+       when field.key='disposalStatus' then 'Disposed'
+       when field.key='activeStatus' then
+         case p_ordinal % 3 when 1 then 'Active' when 2 then 'Inactive'
+           else 'Suspended' end
+       when field.key='auditStatus' then
+         case p_ordinal % 4 when 1 then 'Selected' when 2 then 'In Progress'
+           when 3 then 'Completed' else 'Cancelled' end
        when field.key in ('status','approvalStatus','caseStatus','paymentStatus',
          'activeStatus','auditStatus','refundStatus','editStatus','appealStatus',
          'tribunalStatus','dormantStatus','matchStatus','verifStatus',
@@ -64,7 +84,11 @@ begin
          'revenue') then v_amount
        when field.key='fileSize' then '128 KB'
        when field.key='yearsDormant' then '2'
-       when field.key='entryType' then 'Original'
+       when field.key='entryType' then
+         case when p_ordinal%2=0 then 'Online' else 'Offline' end
+       when field.key='disposalMethod' then
+         case p_ordinal%3 when 1 then 'Handed Over' when 2 then 'Postal'
+           else 'Digital' end
        when field.key='category' then 'Income Tax'
        else 'SAMPLE-'||upper(field.key)||'-'||lpad(p_ordinal::text,3,'0')
      end) end
