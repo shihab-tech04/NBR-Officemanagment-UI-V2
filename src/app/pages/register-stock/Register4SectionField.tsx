@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Popover } from "@mui/material";
-import { Check, Plus, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppTextField } from "../../components/forms/AppTextField";
@@ -21,7 +21,7 @@ type Props = { id:string; label:string; value:string; onChange:(value:string)=>v
 export function Register4SectionField({id,label,value,onChange,helper,error,required,
   compact=false,editor="popover"}:Props) {
   const {t,i18n}=useTranslation("pages");
-  const addAnchor=useRef<HTMLDivElement>(null);
+  const selectAnchor=useRef<HTMLDivElement>(null);
   const [open,setOpen]=useState(false);
   const [custom,setCustom]=useState("");
   const [issue,setIssue]=useState("");
@@ -71,18 +71,18 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
     })),
     ...draftCodes.filter(code=>!candidates.includes(code)&&!documentedCodes.has(code))
       .map(code=>({value:"__pick__:"+code,label:code+" — "+t("register4.sectionCustomLabel") })),
+    {value:"__add_new__",label:"＋ "+t("register4.sectionAddNew"),className:"register4-section-field__add-option"},
   ];
+  const selectOption=(option:string)=>{
+    if(option==="__add_new__") {setOpen(true);setIssue("");return;}
+    if(option.startsWith("__pick__:")) pick(option.slice(9));
+  };
   return (
     <div className="register4-section-field">
-      <div className="register4-section-field__select">
+      <div className="register4-section-field__select" ref={selectAnchor}>
         <AppSelectField id={id} label={label} value="__current__"
-          onChange={option=>option.startsWith("__pick__:")&&pick(option.slice(9))}
+          onChange={selectOption}
           options={options} helper={error||helper} error={error} required={required} compact={compact}/>
-      </div>
-      <div className="register4-section-field__addition" ref={addAnchor}>
-        <span className="register4-section-field__rule" aria-hidden="true" />
-        <SecondaryButton icon={Plus} size="sm" className="register4-section-field__add"
-          onClick={()=>{setOpen(true);setIssue("");}}>{t("register4.sectionAddNew")}</SecondaryButton>
       </div>
       {issue&&!open&&<p role="alert" className="register4-section-field__error">{issue}</p>}
       {editor==="inline" && open && (
@@ -123,7 +123,7 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
         </div>
       )}
       {editor==="popover" && (
-        <Popover open={open} anchorEl={addAnchor.current}
+        <Popover open={open} anchorEl={selectAnchor.current}
           onClose={close}
           anchorOrigin={{vertical:"bottom",horizontal:"right"}}
           transformOrigin={{vertical:"top",horizontal:"right"}}

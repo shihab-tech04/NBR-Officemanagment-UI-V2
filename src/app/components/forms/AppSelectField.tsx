@@ -7,6 +7,8 @@ interface SelectOption {
   /** Per-option availability; optional so existing shared consumers are unchanged. */
   disabled?: boolean;
   title?: string;
+  /** Optional menu-row class for a context-specific action. */
+  className?: string;
 }
 
 interface AppSelectFieldProps {
@@ -112,7 +114,7 @@ export function AppSelectField({
       sx={compact ? muiFilterSx : muiFieldSx}
     >
       {normalized.map(o => (
-        <MenuItem key={o.value} value={o.value} disabled={o.disabled} title={o.title}>{o.label}</MenuItem>
+        <MenuItem key={o.value} value={o.value} disabled={o.disabled} title={o.title} className={o.className}>{o.label}</MenuItem>
       ))}
     </TextField>
   );
