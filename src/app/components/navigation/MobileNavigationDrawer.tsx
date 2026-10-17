@@ -34,19 +34,20 @@ export function MobileNavigationDrawer({
   onClose,
 }: MobileNavigationDrawerProps) {
   const { t: translate } = useTranslation("navigation");
+  const { t: translateCommon } = useTranslation("common");
   const { activeMain, activeSub, activeThird } = useRouteNav();
 
   const [expandedMain, setExpandedMain] = useState<string | null>(activeMain);
   const [expandedSub, setExpandedSub] = useState<string | null>(activeSub);
 
   const getMainLabel = (item: typeof NAVIGATION[0]): string => {
-    if (item.labelKey) return translate(item.labelKey, item.label);
+    if (item.labelKey) return translate(item.labelKey.replace(/^navigation\./, ""), item.label);
     const key = item.id.replace(/-./g, (match) => match[1].toUpperCase());
     return translate(`${key}.main`, item.label);
   };
 
   const getSubLabel = (parentId: string, childId: string, labelKey: string | undefined, fallback: string): string => {
-    if (labelKey) return translate(labelKey, fallback);
+    if (labelKey) return translate(labelKey.replace(/^navigation\./, ""), fallback);
     const parentKey = parentId.replace(/-./g, (m) => m[1].toUpperCase());
     const childKey = childId.replace(/-./g, (m) => m[1].toUpperCase());
     return translate(`${parentKey}.${childKey}`, fallback);
@@ -91,7 +92,7 @@ export function MobileNavigationDrawer({
       </div>
 
       {/* Navigation List */}
-      <nav className="mobile-nav-drawer__nav" aria-label="Mobile Navigation">
+      <nav className="mobile-nav-drawer__nav" aria-label={translateCommon("accessibility.mobileNavigation")}>
         {NAVIGATION.filter(({ id }) => id !== "settings").map((mainItem) => {
           const MainIcon = mainItem.icon;
           const isMainActive = activeMain === mainItem.id;

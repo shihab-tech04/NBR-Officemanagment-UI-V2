@@ -24,7 +24,7 @@ export function CertificateDataEntryPage() {
     titleKey: "dataEntryRequest.title",
     desc: "Review certificate data entry requests submitted for processing.",
     descKey: "dataEntryRequest.desc",
-    cols: [...CIRCLE_TIN_NAME, fc("request_no", "Request No.", { headerKey: "headers.requestNo" }), fc("cert_type", "Type", { headerKey: "headers.certificateType" }), fc("requested_by", "Requested By", { headerKey: "headers.requestedBy" }), fc("request_date", "Request Date", { headerKey: "headers.requestDate" }), BADGE("approval_status", "Status")],
+    cols: [...CIRCLE_TIN_NAME, fc("request_no", "Request No.", { headerKey: "headers.requestNo" }), fc("cert_type", "Type", { headerKey: "headers.certType" }), fc("requested_by", "Requested By", { headerKey: "headers.requestedBy" }), fc("request_date", "Request Date", { headerKey: "headers.requestDate" }), BADGE("approval_status", "Status")],
     filters: BASE_FILTERS,
     actions: ROW_VIEW,
     drawerActions: STD,

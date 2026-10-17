@@ -23,7 +23,8 @@ import {
 } from './paymentReference';
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
-import { formatLocalizedNumber } from '../../utils/localeFormatting';
+import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
+import { localizeRecordValue } from '../../utils/recordDisplay';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
@@ -115,7 +116,11 @@ const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:''
 
 export function PaymentModulePage({page}: {page: string}) {
   const {t,i18n} = useTranslation('payment');
+  const {t:translateTables} = useTranslation('tables');
   const displayNumber = (value:number) => formatLocalizedNumber(value,i18n.resolvedLanguage);
+  const displayMoney = (amount:number) => formatLocalizedCurrency(amount,i18n.resolvedLanguage);
+  const displayRecord = (value:string) => localizeRecordValue(value,translateTables,i18n.resolvedLanguage);
+  const displayEventDate = (value:string) => formatLocalizedDateTime(value,i18n.resolvedLanguage);
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
   const [scopeYear,setScopeYear] = useState('all');
@@ -266,18 +271,18 @@ export function PaymentModulePage({page}: {page: string}) {
     {toolbar(t('overview'))}
     <div className="payment-module__year-control">{yearSelect}</div>
     {showKpis([
-      kpi(t('payments'),String(scopedPayments.length),CreditCard),
-      kpi(t('received'),money(totalReceived(scopedOriginal)),Landmark,'success'),
-      kpi(t('eligible'),money(totalEligible(scopedOriginal)),CheckCircle2,'success'),
-      kpi(t('blocked'),String(scopedOriginal.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
-      kpi(t('offlinePending'),String(referenceOffline.filter(e=>e.status==='Pending' && (scopeYear==='all'||e.ay.replace('–','-')===scopeYear)).length),Clock3,'warning'),
+      kpi(t('payments'),displayNumber(scopedPayments.length),CreditCard),
+      kpi(t('received'),displayMoney(totalReceived(scopedOriginal)),Landmark,'success'),
+      kpi(t('eligible'),displayMoney(totalEligible(scopedOriginal)),CheckCircle2,'success'),
+      kpi(t('blocked'),displayNumber(scopedOriginal.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
+      kpi(t('offlinePending'),displayNumber(referenceOffline.filter(e=>e.status==='Pending' && (scopeYear==='all'||e.ay.replace('–','-')===scopeYear)).length),Clock3,'warning'),
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
-        {referenceCorrections.filter(c=>c.status==='Blocked' && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{c.reason} · {money(c.amount)}</p></button>)}
+        {referenceCorrections.filter(c=>c.status==='Blocked' && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{displayRecord(c.reason)} · {displayMoney(c.amount)}</p></button>)}
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
-        {referenceAudit.slice(0,4).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{e.action.replace(/_/g,' ').toLowerCase().replace(/\b\w/g,k=>k.toUpperCase())}</strong><p>{e.date} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
+        {referenceAudit.slice(0,4).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{displayRecord(e.action)}</strong><p>{displayEventDate(e.date)} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
       </section>
     </div>
   </>;
@@ -301,16 +306,16 @@ export function PaymentModulePage({page}: {page: string}) {
     <div className="payment-module__year-control">{yearSelect}</div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
-      kpi(t('payments'),String(isDemo?taxPayments.length:original.length),CreditCard),
-      kpi(t('received'),money(totalReceived(original)),Landmark,'success'),
-      kpi(t('eligible'),money(totalEligible(original)),CheckCircle2,'success'),
-      kpi(t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
+      kpi(t('payments'),displayNumber(isDemo?taxPayments.length:original.length),CreditCard),
+      kpi(t('received'),displayMoney(totalReceived(original)),Landmark,'success'),
+      kpi(t('eligible'),displayMoney(totalEligible(original)),CheckCircle2,'success'),
+      kpi(t('blocked'),displayNumber(original.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
     ])}
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
-      {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{v}</p></div>)}
+      {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
     </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=>({...c,ay:c.before.startsWith('AY ')?c.before.slice(3):'',amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
-      taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),money(totalReceived(original))],[t('eligible'),money(totalEligible(original))],[t('blocked'),String(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
+      taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),displayMoney(totalReceived(original))],[t('eligible'),displayMoney(totalEligible(original))],[t('blocked'),displayNumber(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
