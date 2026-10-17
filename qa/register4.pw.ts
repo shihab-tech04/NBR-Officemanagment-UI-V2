@@ -90,6 +90,7 @@ test("Register-4 Bangla uses concise approved description with no added disclaim
     localStorage.setItem("i18nextLng", "bn");
   });
   await page.reload();
+  await expect(page.locator(".card-table__table thead .card-table__th").first()).toBeVisible();
   await expect.poll(() => page.evaluate(async () => {
     await document.fonts.load('600 14px "Noto Sans Bengali"', 'কার্য সম্পাদন কোড');
     return document.fonts.check('600 14px "Noto Sans Bengali"', 'কার্য সম্পাদন কোড');
