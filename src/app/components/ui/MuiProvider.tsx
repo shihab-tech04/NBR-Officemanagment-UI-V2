@@ -8,6 +8,8 @@ console.error = (...args: unknown[]) => {
 };
 
 const muiTheme = createTheme({
+  // Material controls (including portals attached to body) inherit the Office font.
+  typography: { fontFamily: "inherit" },
   components: {
     MuiPaper: {
       styleOverrides: {

@@ -90,6 +90,24 @@ test("Register-4 Bangla uses concise approved description with no added disclaim
     localStorage.setItem("i18nextLng", "bn");
   });
   await page.reload();
+  await expect.poll(() => page.evaluate(async () => {
+    await document.fonts.load('600 14px "Noto Sans Bengali"', 'কার্য সম্পাদন কোড');
+    return document.fonts.check('600 14px "Noto Sans Bengali"', 'কার্য সম্পাদন কোড');
+  })).toBe(true);
+  const banglaTypography = await page.evaluate(() => {
+    const shell = document.querySelector('.app-shell');
+    const header = document.querySelector('.card-table__th');
+    return {
+      lang: document.documentElement.lang,
+      font: shell ? getComputedStyle(shell).fontFamily : '',
+      spacing: header ? getComputedStyle(header).letterSpacing : '',
+      headerWeight: header ? getComputedStyle(header).fontWeight : '',
+    };
+  });
+  expect(banglaTypography.lang).toBe('bn');
+  expect(banglaTypography.font).toContain('Noto Sans Bengali');
+  expect(banglaTypography.spacing).toBe('normal');
+  expect(banglaTypography.headerWeight).toBe('600');
   await expect(page.locator(".table-page__header .table-page__desc")).toHaveText("মাসিক কর নির্ধারণ বিবরণী");
   await expect(page.getByText(/শুধুমাত্র নমুনা তথ্য|এগুলো কেবল উদাহরণমূলক/)).toHaveCount(0);
   await expect(page.locator(".table-page > [role=note]")).toHaveCount(0);

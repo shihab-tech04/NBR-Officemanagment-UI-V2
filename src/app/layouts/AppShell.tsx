@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { AppDispatch } from "../store/store";
 import { logout } from "../store/authSlice";
 import { useSettings } from "../hooks/useSettings";
-import { FONTS } from "../data/fonts";
+import { resolveFontFamily } from "../data/fonts";
 import { useNavigation } from "../hooks/useNavigation";
 import { useUIState, useUIDispatch } from "../hooks/useUI";
 import { MuiProvider } from "../components/ui/MuiProvider";
@@ -19,8 +19,8 @@ export function AppShell({ onSignedOut }: { onSignedOut: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
   const { t: translate } = useTranslation("common");
 
-  const { fontId } = useSettings();
-  const fontFamily = FONTS[fontId].family;
+  const { fontId, languageId } = useSettings();
+  const fontFamily = resolveFontFamily(fontId, languageId);
   const { mobileDrawerOpen } = useUIState();
   const { setMobileDrawerOpen } = useUIDispatch();
 
