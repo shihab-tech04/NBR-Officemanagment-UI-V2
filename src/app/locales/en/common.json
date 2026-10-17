@@ -1,5 +1,6 @@
 {
   "appName": "Government Office Management",
+  "metaDescription": "Manage office records, returns, cases, payments and reports in the NBR eReturn office workspace.",
   "actions": {
     "add": "Add",
     "edit": "Edit",
@@ -101,8 +102,10 @@
     "userProfileOf": "User profile — {{name}}, {{role}}",
     "notifications": "Notifications",
     "notificationsUnread": "Notifications — {{count}} unread",
-    "helpGuide": "Help & User Guide"
+    "helpGuide": "Help & User Guide",
+    "sortBy":"Sort by {{field}}","explainValue":"Explain {{field}}: {{value}}","clearSearch":"Clear search","closeNotifications":"Close notifications","closeProfile":"Close profile","loadingPage":"Loading page","closeActions":"Close actions","mobileNavigation":"Mobile navigation"
   },
+  "navigation": { "selectPageFromSidebar": "Select a page from the sidebar to continue." },
   "notifications": {
     "saveSuccess": "Successfully saved",
     "deleteSuccess": "Successfully deleted",

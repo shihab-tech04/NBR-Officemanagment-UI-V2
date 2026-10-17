@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { localizeRecordValue } from "../../utils/recordDisplay";
 import { StatusBadge } from "../badges/StatusBadge";
 import type { ColDef, FlatCol, RowAction, TableRow } from "../../pages/modulePageUtils";
 import { isAttachmentArray } from "../attachments/attachmentTypes";
@@ -48,7 +49,10 @@ function cellTextClass(col: FlatCol): string {
 }
 
 export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, inlineRow, "aria-label": ariaLabel }: CardTableProps) {
-  const { t: translateTables } = useTranslation("tables");
+  const { t: translateTables, i18n } = useTranslation("tables");
+  const { t: translateActions } = useTranslation("actions");
+  const { t: translateCommon } = useTranslation("common");
+  const { t: translateDrawers } = useTranslation("drawers");
   const { t: translateEmptyStates } = useTranslation("emptyStates");
   const { t: translateUser } = useTranslation("user");
   const [hovered, setHovered] = useState<number | null>(null);
@@ -73,13 +77,19 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
     const active = sortKey === col.key;
     const SortIcon = active ? (sortDirection === "descending" ? ArrowDown : ArrowUp) : ArrowUpDown;
     return <button type="button" className={`card-table__sort-button${active ? " card-table__sort-button--active" : ""}`}
-      aria-label={`Sort by ${text}`} onClick={() => onSortColumn(col.key)} title={`Sort by ${text}`}>
+      aria-label={translateCommon("accessibility.sortBy", { field: text })} onClick={() => onSortColumn(col.key)} title={translateCommon("accessibility.sortBy", { field: text })}>
       <span className={headingClass}>{text}</span><SortIcon className="card-table__sort-icon" size={13} aria-hidden="true"/>
     </button>;
   };
 
   const rowId = (row: TableRow): string =>
     String(row[flat[0]?.key] ?? "").trim() || String(row["id"] ?? "");
+
+  const actionLabel = (action: RowAction): string => {
+    const keys: Record<string, string> = {view:"viewDetails",download:"downloadRecord",print:"printRecord",approve:"approveRecord",reject:"rejectRecord",verify:"verifyRecord",edit:"edit",resolve:"resolve",transfer:"transfer",assign:"assignOfficer"};
+    const key = keys[action.id] ?? action.labelKey?.replace(/^actions\./, "");
+    return key && translateActions(key) !== key ? translateActions(key) : action.label;
+  };
 
   return (
     <div className={`card-table${noCard ? "" : " card-table--bordered"}`}>
@@ -164,8 +174,8 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                     const displayVal = rawVal === null || rawVal === undefined
                       ? "—"
                       : isAttachmentArray(rawVal)
-                        ? `${rawVal.length} file${rawVal.length !== 1 ? "s" : ""}`
-                        : String(rawVal);
+                        ? translateDrawers("attachments.fileCount", { count: rawVal.length })
+                        : localizeRecordValue(String(rawVal), translateTables, i18n?.resolvedLanguage);
                     const cls = cellTextClass(col);
                     return (
                       <td
@@ -183,18 +193,18 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                             className={`card-table__cell-link${col.badge ? " card-table__cell-link--badge" : ""}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onCellClick(col.key, displayVal, row);
+                              onCellClick(col.key, String(rawVal), row);
                             }}
-                            aria-label={`Explain ${col.label}: ${displayVal}`}
+                            aria-label={translateCommon("accessibility.explainValue", {field:translateHeader(col.headerKey,col.label),value:displayVal})}
                           >
                             {col.badge ? (
-                              <StatusBadge value={displayVal} />
+                              <StatusBadge value={String(rawVal)} />
                             ) : (
                               <span className={cls} title={displayVal}>{displayVal}</span>
                             )}
                           </button>
                         ) : col.badge ? (
-                          <StatusBadge value={displayVal} />
+                          <StatusBadge value={String(rawVal ?? "")} />
                         ) : displayVal === "—" ? (
                           <span className="card-table__td--muted">—</span>
                         ) : (
@@ -212,7 +222,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                           <button
                             key={action.id}
                             type="button"
-                            aria-label={`${action.label} — ${rowId(row)}`}
+                            aria-label={`${actionLabel(action)} — ${rowId(row)}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onActionClick) onActionClick(action.id, row);
@@ -221,7 +231,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
                             className="card-table__action-btn card-table__action-btn--seemore"
                           >
                             <MoreHorizontal size={13} strokeWidth={2} aria-hidden="true" />
-                            <span aria-hidden="true">{action.label}</span>
+                            <span aria-hidden="true">{actionLabel(action)}</span>
                           </button>
                         ))}
                       </div>

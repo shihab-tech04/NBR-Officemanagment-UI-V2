@@ -1,5 +1,6 @@
 {
   "appName": "সরকারি অফিস ব্যবস্থাপনা",
+  "metaDescription": "NBR eReturn অফিসে রিটার্ন, কেস, পরিশোধ, প্রতিবেদন ও অফিসের রেকর্ড পরিচালনা করুন।",
   "actions": {
     "add": "যোগ করুন",
     "edit": "সম্পাদনা",
@@ -37,7 +38,7 @@
   "status": {
     "active": "সক্রিয়",
     "inactive": "নিষ্ক্রিয়",
-    "pending": "অপেক্ষমান",
+    "pending": "অপেক্ষমাণ",
     "approved": "অনুমোদিত",
     "rejected": "প্রত্যাখ্যাত",
     "draft": "খসড়া",
@@ -68,7 +69,7 @@
     "deselectAll": "সব অনির্বাচন করুন",
     "perPage": "প্রতি পৃষ্ঠা",
     "page": "পৃষ্ঠা",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "ayAbbrev": "আ.ব.",
     "selectPlaceholder": "নির্বাচন করুন…",
     "searchPlaceholder": "অনুসন্ধান…",
@@ -97,12 +98,14 @@
     "appearanceSettings": "প্রদর্শন সেটিংস",
     "primaryNavigation": "প্রাথমিক নেভিগেশন",
     "breadcrumbNavigation": "ব্রেডক্রাম্ব নেভিগেশন",
-    "assessmentYearSelector": "মূল্যায়ন বছর নির্বাচক",
+    "assessmentYearSelector": "কর নির্ধারণী বছর নির্বাচক",
     "userProfileOf": "ব্যবহারকারী প্রোফাইল — {{name}}, {{role}}",
     "notifications": "বিজ্ঞপ্তি",
     "notificationsUnread": "বিজ্ঞপ্তি — {{count}}টি অপঠিত",
-    "helpGuide": "সহায়তা ও ব্যবহারকারী নির্দেশিকা"
+    "helpGuide": "সহায়তা ও ব্যবহারকারী নির্দেশিকা",
+    "sortBy":"{{field}} অনুযায়ী সাজান","explainValue":"{{field}} ব্যাখ্যা করুন: {{value}}","clearSearch":"অনুসন্ধান মুছুন","closeNotifications":"বিজ্ঞপ্তি বন্ধ করুন","closeProfile":"প্রোফাইল বন্ধ করুন","loadingPage":"পৃষ্ঠা লোড হচ্ছে","closeActions":"কার্যক্রম বন্ধ করুন","mobileNavigation":"মোবাইল নেভিগেশন"
   },
+  "navigation": { "selectPageFromSidebar": "এগোতে পাশের মেনু থেকে একটি পৃষ্ঠা নির্বাচন করুন।" },
   "notifications": {
     "saveSuccess": "সফলভাবে সংরক্ষিত",
     "deleteSuccess": "সফলভাবে মুছে ফেলা হয়েছে",
@@ -112,7 +115,7 @@
     "confirmDelete": "আপনি কি নিশ্চিত যে এটি মুছে ফেলতে চান?"
   },
   "appearance": {
-    "appearance": "প্রদর্শনী সেটিংস",
+    "appearance": "প্রদর্শন সেটিংস",
     "theme": "রঙ থিম",
     "darkMode": "ডার্ক মোড",
     "language": "ভাষা",

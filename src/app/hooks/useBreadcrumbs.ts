@@ -17,8 +17,13 @@ export function useBreadcrumbs() {
 
   const activeMainItem = NAVIGATION.find((n) => n.id === activeMain) ?? NAVIGATION[0];
 
-  function getNavLabel(mainId: string, subId?: string, thirdId?: string, fallback?: string): string {
+  function getNavLabel(mainId: string, subId?: string, thirdId?: string, fallback?: string, explicitKey?: string): string {
     const mainKey = mainId.replace(/-./g, (m) => m[1].toUpperCase());
+    if (explicitKey) {
+      const key = explicitKey.replace(/^navigation\./, "");
+      const label = translateNav(key);
+      return label === key ? (fallback || subId || mainId) : label;
+    }
     if (thirdId) {
       const thirdKey = thirdId.replace(/-./g, (m) => m[1].toUpperCase());
       return translateNav(`${mainKey}.${thirdKey}`, fallback || thirdId);
@@ -39,7 +44,7 @@ export function useBreadcrumbs() {
       to: isDoubleEntryRoute ? "/dashboard/dashboard-main" : undefined,
     },
     {
-      label: getNavLabel(activeMainItem.id, undefined, undefined, activeMainItem.label),
+      label: getNavLabel(activeMainItem.id, undefined, undefined, activeMainItem.label, activeMainItem.labelKey),
       to: isDoubleEntryRoute ? "/dashboard/dashboard-main" : undefined,
     },
   ];
@@ -56,7 +61,7 @@ export function useBreadcrumbs() {
       const candidateId = isAuditCandidates ? params.get("candidate") || "" : "";
 
       breadcrumbs.push({
-        label: getNavLabel(activeMainItem.id, subItem.id, undefined, subItem.label),
+        label: getNavLabel(activeMainItem.id, subItem.id, undefined, subItem.label, subItem.labelKey),
         to:
           isDoubleEntry && (zone || circle)
             ? "/dashboard/combined-dashboard"
@@ -98,7 +103,7 @@ export function useBreadcrumbs() {
       const thirdItem = subItem.children.find((c) => c.id === activeThird);
       if (thirdItem) {
         breadcrumbs.push({
-          label: getNavLabel(activeMainItem.id, subItem.id, thirdItem.id, thirdItem.label),
+          label: getNavLabel(activeMainItem.id, subItem.id, thirdItem.id, thirdItem.label, thirdItem.labelKey),
         });
       }
     }

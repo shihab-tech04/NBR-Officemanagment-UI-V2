@@ -31,6 +31,7 @@ import {
 } from "../../services/repositories/specialRegistrationRepository";
 import { SpecialRegistrationDrawer } from "../../components/special-registration/SpecialRegistrationDrawer";
 import { SpecialRegistrationEditModal } from "../../components/special-registration/SpecialRegistrationEditModal";
+import { formatLocalizedDateTime } from "../../utils/localeFormatting";
 
 const PER_PAGE = 15;
 
@@ -53,18 +54,6 @@ const EMPTY_FILTERS: FilterValues = {
   status: "", country: "", fromDate: "", toDate: "",
 };
 
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
-
 function statusToDisplayValue(status: string): string {
   switch (status) {
     case "PENDING_REVIEW": return "pending review";
@@ -75,7 +64,7 @@ function statusToDisplayValue(status: string): string {
 }
 
 export function SpecialRegistrationPage() {
-  const { t }                = useTranslation("specialRegistration");
+  const { t, i18n }          = useTranslation("specialRegistration");
   const { t: ta }            = useTranslation("actions");
   const { t: tc }            = useTranslation("common");
   const { isDesktop }        = useUIState();
@@ -257,7 +246,7 @@ export function SpecialRegistrationPage() {
     applicantName:     app.applicantName,
     country:           app.country,
     email:             app.email,
-    submittedAtLabel:  formatDate(app.submittedAt),
+    submittedAtLabel:  formatLocalizedDateTime(app.submittedAt, i18n.resolvedLanguage),
     statusLabel:       statusToDisplayValue(app.status),
   }));
 

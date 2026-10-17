@@ -3,6 +3,7 @@ import { StatusBadge } from "../badges/StatusBadge";
 import type { ColDef, RowAction, TableRow, TableCellValue } from "../../pages/modulePageUtils";
 import { isAttachmentArray } from "../attachments/attachmentTypes";
 import { useTranslation } from "react-i18next";
+import { localizeRecordValue } from "../../utils/recordDisplay";
 
 // Support both report columns and standard columns
 type ReportCol =
@@ -54,7 +55,14 @@ export const UnifiedMobileCard = memo(function UnifiedMobileCard({
   mobileCardMapping,
 }: UnifiedMobileCardProps) {
   const { t: translateActions } = useTranslation("actions");
-  const { t: translateTables }  = useTranslation("tables");
+  const { t: translateTables, i18n } = useTranslation("tables");
+  const language = i18n?.resolvedLanguage ?? "en";
+  const { t: translateCommon } = useTranslation("common");
+  const actionLabel = (action: RowAction): string => {
+    const keys: Record<string, string> = {view:"viewDetails",download:"downloadRecord",print:"printRecord",approve:"approveRecord",reject:"rejectRecord",verify:"verifyRecord",edit:"edit",resolve:"resolve",transfer:"transfer",assign:"assignOfficer"};
+    const key = keys[action.id] ?? action.labelKey?.replace(/^actions\./, "");
+    return key && translateActions(key) !== key ? translateActions(key) : action.label;
+  };
 
   // Resolve translated label from headerKey, falling back to static label
   const resolveLabel = useCallback((label: string, headerKey?: string): string => {
@@ -173,9 +181,10 @@ export const UnifiedMobileCard = memo(function UnifiedMobileCard({
 
   const renderFieldValue = useCallback((field: FieldData, kind: "text" | "status" = "text") => {
     const value = String(field.value);
+    const displayValue = localizeRecordValue(value, translateTables, language);
     const content = kind === "status"
       ? <StatusBadge value={value} />
-      : <span title={value}>{value}</span>;
+      : <span title={displayValue}>{displayValue}</span>;
     if (!clickableKeys?.includes(field.key) || !onCellClick) return content;
     return (
       <button
@@ -185,12 +194,12 @@ export const UnifiedMobileCard = memo(function UnifiedMobileCard({
           e.stopPropagation();
           onCellClick(field.key, value, row);
         }}
-        aria-label={`Explain ${field.label}: ${value}`}
+        aria-label={translateCommon("accessibility.explainValue", {field:field.label,value:displayValue})}
       >
         {content}
       </button>
     );
-  }, [clickableKeys, onCellClick, row]);
+  }, [clickableKeys, onCellClick, row, translateTables, translateCommon, language]);
 
   const metaRows = useMemo(
     () => [identifierField, ...metaFields].filter(Boolean).slice(0, 5) as FieldData[],
@@ -269,7 +278,7 @@ export const UnifiedMobileCard = memo(function UnifiedMobileCard({
                 className="mobile-table-card__action-btn"
                 onClick={(e) => { e.stopPropagation(); onActionClick(action.id); }}
               >
-                {action.id === "view" ? translateActions("viewDetails") : action.label}
+                {actionLabel(action)}
               </button>
             ))}
           </div>

@@ -167,6 +167,12 @@ const syncLang = (lng: string) => {
   if (document.documentElement.lang !== tag) {
     document.documentElement.lang = tag;
   }
+  const title = `NBR eReturn — ${i18n.t("common:appName")}`;
+  const description = i18n.t("common:metaDescription");
+  document.title = title;
+  document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute("content", description);
+  document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.setAttribute("content", title);
+  document.querySelector<HTMLMetaElement>('meta[property="og:description"]')?.setAttribute("content", description);
 };
 i18n.on("languageChanged", syncLang);
 // Set initial lang synchronously (i18n.language is available after init)

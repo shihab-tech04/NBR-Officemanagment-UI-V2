@@ -26,7 +26,7 @@
     "amount": "পরিমাণ",
     "actions": "কার্যক্রম",
     "total": "মোট",
-    "pending": "অপেক্ষমান",
+    "pending": "অপেক্ষমাণ",
     "approved": "অনুমোদিত",
     "rejected": "প্রত্যাখ্যাত",
     "verified": "যাচাইকৃত",
@@ -39,7 +39,7 @@
     "doubleEntryPercentage": "ডাবল এন্ট্রি শতাংশ (%)",
     "psrNo": "PSR নম্বর",
     "submittedBy": "জমাদানকারী",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "return82bb": "৮২বিবি",
     "return82c2": "৮২সি(২)",
     "return212": "২১২",
@@ -69,7 +69,7 @@
     "remarks": "মন্তব্য",
     "selectionNo": "নির্বাচন নং",
     "selectionMethod": "পদ্ধতি",
-    "auditYear": "নিরীক্ষা মূল্যায়ন বছর",
+    "auditYear": "অডিটের কর নির্ধারণী বছর",
     "selectedDate": "নির্বাচনের তারিখ",
     "auditOfficer": "নিরীক্ষা কর্মকর্তা",
     "regNo": "নিবন্ধন নং",
@@ -241,7 +241,7 @@
     "taxCircle": "ট্যাক্স সার্কেল",
     "zone": "জোন",
     "taxZone": "ট্যাক্স জোন",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "status": "অবস্থা",
     "date": "তারিখ",
     "amount": "পরিমাণ",
@@ -262,5 +262,12 @@
     "records": "রেকর্ড",
     "pageOf": "পৃষ্ঠা {{page}} এর {{total}}",
     "recordsPerPage": "প্রতি পৃষ্ঠায় রেকর্ড"
+  },
+  "displayValues": {
+    "normal":"সাধারণ","online":"অনলাইন","offline":"অফলাইন","pending":"অপেক্ষমাণ","approved":"অনুমোদিত","rejected":"প্রত্যাখ্যাত","verified":"যাচাইকৃত","resolved":"সমাধানকৃত","transferred":"স্থানান্তরিত","cancelled":"বাতিলকৃত","issued":"ইস্যুকৃত","active":"সক্রিয়","inactive":"নিষ্ক্রিয়","underReview":"পর্যালোচনাধীন","inProgress":"চলমান","matched":"মিলেছে","mismatched":"মেলেনি","failed":"ব্যর্থ","selected":"নির্বাচিত","completed":"সম্পন্ন","decided":"নিষ্পত্তিকৃত","adjourned":"স্থগিত","disbursed":"বিতরণকৃত","paid":"পরিশোধিত","partiallyPaid":"আংশিক পরিশোধিত","unpaid":"অপরিশোধিত","dormant":"নিষ্ক্রিয়","never":"কখনো নয়",
+    "recordEntered":"রেকর্ড এন্ট্রি হয়েছে","assessmentReviewed":"কর নির্ধারণ পর্যালোচিত","adjustmentNoted":"সমন্বয় নথিভুক্ত","entryUpdated":"এন্ট্রি হালনাগাদ","duplicateTin":"একই টিআইএন একাধিকবার","wrongAy":"ভুল কর নির্ধারণী বছর","missingSignature":"স্বাক্ষর অনুপস্থিত","formatError":"বিন্যাসগত ত্রুটি","systemAutoCheck":"স্বয়ংক্রিয় সিস্টেম যাচাই","manualReview":"কর্মকর্তার পর্যালোচনা","wrongFiling":"ভুল স্থানে দাখিল","taxpayerRequest":"করদাতার অনুরোধ","jurisdictionalChange":"অধিক্ষেত্র পরিবর্তন","adminOrder":"প্রশাসনিক আদেশ","wrongCircle":"ভুল সার্কেল","wrongZone":"ভুল জোন","system":"সিস্টেম","officer":"কর্মকর্তা","tin":"টিআইএন","amount":"পরিমাণ","date":"তারিখ",
+    "assessment":"কর নির্ধারণ","penalty":"জরিমানা","appeal":"আপিল","assessmentError":"কর নির্ধারণে ত্রুটি","penaltyWaiver":"জরিমানা মওকুফ","incomeCertificate":"আয় সনদ","taxClearance":"কর ছাড়পত্র","noDuesCertificate":"বকেয়া নেই সনদ","returnSubmission":"রিটার্ন দাখিল","documentSubmission":"দলিল জমা","hearing":"শুনানি","returnView":"রিটার্ন পর্যালোচনা","psrEntry":"পিএসআর এন্ট্রি","editRequest":"সংশোধনের অনুরোধ","tdsRefund":"উৎসে কর ফেরত","advanceTaxRefund":"অগ্রিম কর ফেরত","errorAdjustment":"ত্রুটি সংশোধন ও সমন্বয়","previousValue":"পূর্ববর্তী মান","newValue":"নতুন মান","oldValue":"পুরোনো মান",
+    "taxCommissioner":"কর কমিশনার","deputyCommissioner":"উপকর কমিশনার","seniorCommissioner":"জ্যেষ্ঠ কর কমিশনার","circleOfficer":"সার্কেল কর্মকর্তা","dataEntryOperator":"তথ্য এন্ট্রি অপারেটর","admin":"প্রশাসক","viewer":"দর্শক","returnDataEntry":"রিটার্ন তথ্য এন্ট্রি","stockManager":"স্টক ব্যবস্থাপক","caseManager":"মামলা ব্যবস্থাপক","reportAnalyst":"প্রতিবেদন বিশ্লেষক",
+    "returned":"ফেরত দেওয়া","disposed":"নিষ্পন্ন","suspended":"সাময়িকভাবে স্থগিত","high":"উচ্চ","low":"নিম্ন","incomeTax":"আয়কর","vat":"ভ্যাট","taxPayment":"কর পরিশোধ","tdsCredit":"উৎসে কর জমা","advanceTax":"অগ্রিম কর","name":"নাম","address":"ঠিকানা","handedOver":"হস্তান্তর করা হয়েছে","postal":"ডাকযোগে","digital":"ডিজিটাল","riskBased":"ঝুঁকিভিত্তিক","random":"দৈবচয়ন","specialOrder":"বিশেষ আদেশ","soleProprietorship":"একক মালিকানা","partnership":"অংশীদারি প্রতিষ্ঠান","company":"কোম্পানি","ngo":"বেসরকারি সংস্থা","trust":"ট্রাস্ট","society":"সমিতি","foundation":"ফাউন্ডেশন","highCourt":"হাইকোর্ট","supremeCourt":"সুপ্রিম কোর্ট","taxTribunal":"কর ট্রাইব্যুনাল"
   }
 }

@@ -94,7 +94,7 @@
     "totalRelatedRevenue": "মোট সম্পর্কিত রাজস্ব",
     "tin": "TIN",
     "taxpayerName": "করদাতার নাম",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "originalDemand": "মূল (BDT)",
     "penalty": "জরিমানা (BDT)",
     "totalDemand": "মোট (BDT)",
@@ -119,7 +119,7 @@
     "zone": "জোন",
     "level": "স্তর",
     "searchPlaceholder": "অনুসন্ধান…",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "taxZone": "কর জোন",
     "taxCircle": "কর সার্কেল",
     "activeStatus": "সক্রিয় অবস্থা"
@@ -129,7 +129,7 @@
     "date": "তারিখ",
     "tinNo": "TIN নং",
     "taxpayerName": "করদাতার নাম",
-    "assessmentYear": "মূল্যায়ন বছর",
+    "assessmentYear": "কর নির্ধারণী বছর",
     "amount": "পরিমাণ",
     "status": "অবস্থা",
     "actions": "ক্রিয়া"
@@ -149,7 +149,7 @@
     },
     "filters": {
       "userType": "ব্যবহারকারীর ধরন",
-      "assessmentYear": "মূল্যায়ন বছর",
+      "assessmentYear": "কর নির্ধারণী বছর",
       "zone": "জোন",
       "circle": "সার্কেল"
     },

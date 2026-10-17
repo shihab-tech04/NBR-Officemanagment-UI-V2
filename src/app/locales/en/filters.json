@@ -75,6 +75,7 @@
     "close": "Close"
   },
   "filteredBy": "Filtered by:",
+  "panel": { "label": "Filters" },
   "title": "Filter Records",
   "subtitle": "Narrow down results using the options below",
   "activeFilters": "Active filters",

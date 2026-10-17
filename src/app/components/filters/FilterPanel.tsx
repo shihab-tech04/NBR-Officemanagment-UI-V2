@@ -6,6 +6,7 @@ import { TaxZoneSelectField } from "../forms/TaxZoneSelectField";
 import { AppDateField } from "../forms/AppDateField";
 import { PrimaryButton } from "../buttons/PrimaryButton";
 import { SecondaryButton } from "../buttons/SecondaryButton";
+import { localizeRecordValue } from "../../utils/recordDisplay";
 
 interface FilterPanelProps {
   filters: FilterDef[];
@@ -33,6 +34,7 @@ export function FilterPanel({
   searchableSelectsAfter,
 }: FilterPanelProps) {
   const { t: translate } = useTranslation("filters");
+  const { t: translateTables, i18n } = useTranslation("tables");
 
   const fields = (
     <div role="group" aria-label={translate("panel.label") || "Filters"} className="filter-grid">
@@ -43,7 +45,7 @@ export function FilterPanel({
         if (f.type === "select") {
           const opts = (f.options ?? []).map(o => ({
             value: o,
-            label: f.optionKeys?.[o] ? translate(f.optionKeys[o]) || o : o,
+            label: f.optionKeys?.[o] ? translate(f.optionKeys[o]) || o : localizeRecordValue(o, translateTables, i18n?.resolvedLanguage),
           }));
 
           if (f.key === "zone") {

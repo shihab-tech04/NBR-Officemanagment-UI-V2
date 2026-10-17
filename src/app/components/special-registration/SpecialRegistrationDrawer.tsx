@@ -12,6 +12,7 @@ import { PrimaryButton } from "../buttons/PrimaryButton";
 import { SecondaryButton } from "../buttons/SecondaryButton";
 import { DangerButton } from "../buttons/DangerButton";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { formatLocalizedDateTime } from "../../utils/localeFormatting";
 import {
   getDocumentsByCategory,
   type SpecialRegistrationApplication,
@@ -29,18 +30,6 @@ interface DrawerProps {
     appId: string,
     payload: { officerId: string; officerName: string; officerDesignation: string; rejectionReason: string }
   ) => Promise<void>;
-}
-
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
 }
 
 // ── Completeness check ────────────────────────────────────────────────────────
@@ -125,7 +114,8 @@ function DrawerField({ label, wide, children }: DrawerFieldProps) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SpecialRegistrationDrawer({ application, onClose, onEdit, onApprove, onReject }: DrawerProps) {
-  const { t } = useTranslation("specialRegistration");
+  const { t, i18n } = useTranslation("specialRegistration");
+  const formatDate = (date: string) => formatLocalizedDateTime(date, i18n.resolvedLanguage);
   const currentUser = useCurrentUser();
 
   const [approveOpen, setApproveOpen]   = useState(false);

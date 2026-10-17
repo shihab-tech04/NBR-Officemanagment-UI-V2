@@ -1,5 +1,6 @@
 import { FontPreviewText } from "./FontPreviewText";
 import { SelectedCheckmark } from "./SelectedCheckmark";
+import { useTranslation } from "react-i18next";
 
 type FontId = "poppins" | "noto-sans" | "google-sans";
 
@@ -17,11 +18,12 @@ interface FontOptionCardProps {
 }
 
 export function FontOptionCard({ font, selected, onSelect }: FontOptionCardProps) {
+  const { t } = useTranslation("appearance");
   return (
     <button
       onClick={() => onSelect(font.id)}
       aria-pressed={selected}
-      aria-label={`Font: ${font.name}`}
+      aria-label={`${t("font")}: ${font.name}`}
       className={`w-full flex items-start justify-between px-3 py-3 rounded-xl text-left transition-all duration-100 border-[1.5px] border-solid focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 ${selected ? "border-[var(--color-primary)] bg-[var(--color-primary-alpha-6)]" : "border-[var(--color-border)] bg-transparent hover:border-[var(--color-primary-alpha-12)] hover:bg-[var(--color-primary-alpha-3)]"}`}
     >
       <div className="min-w-0">

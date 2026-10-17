@@ -1,6 +1,7 @@
 import { useRef, type Ref, type RefObject } from "react";
 import { InputBase } from "@mui/material";
 import { Search, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface AppSearchFieldProps {
   value: string;
@@ -33,6 +34,7 @@ export function AppSearchField({
   size = "compact",
   clearable = true,
 }: AppSearchFieldProps) {
+  const { t } = useTranslation("common");
   const internalRef = useRef<HTMLInputElement>(null);
   const ref = (externalRef ?? internalRef) as RefObject<HTMLInputElement>;
 
@@ -107,7 +109,7 @@ export function AppSearchField({
           type="button"
           onClick={handleClear}
           tabIndex={-1}
-          aria-label="Clear search"
+          aria-label={t("accessibility.clearSearch")}
           style={{
             position: "absolute",
             right: "8px",

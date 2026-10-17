@@ -27,25 +27,16 @@ import {
 import type { CountryOption } from "../../data/countryOptions";
 import { toE164Phone } from "../../utils/phoneNumber";
 import { SpecialRegistrationManualModal } from "../../components/special-registration/SpecialRegistrationManualModal";
+import { formatLocalizedDateTime } from "../../utils/localeFormatting";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("en-BD", {
-      dateStyle: "long",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 // ── Success State ─────────────────────────────────────────────────────────────
 
 interface SuccessStateProps {
   result: SpecialRegResult;
   t: (k: string) => string;
+  language: string;
   onBackToLogin: () => void;
   onSubmitAnother: () => void;
 }
@@ -53,6 +44,7 @@ interface SuccessStateProps {
 function SuccessState({
   result,
   t,
+  language,
   onBackToLogin,
   onSubmitAnother,
 }: SuccessStateProps) {
@@ -63,7 +55,7 @@ function SuccessState({
       </div>
 
       <h2 className="sr-success__heading">{t("success.heading")}</h2>
-      <p className="sr-success__subheading">{t("success.subheading", { defaultValue: "Your application has been received and is under review." })}</p>
+      <p className="sr-success__subheading">{t("success.subheading")}</p>
 
       <div className="sr-success__card">
         <div className="sr-success__card-head">
@@ -76,14 +68,14 @@ function SuccessState({
 
         <div className="sr-success__detail-row">
           <span className="sr-success__detail-label">{t("success.submittedAt")}</span>
-          <span className="sr-success__detail-value">{formatDateTime(result.submittedAt)}</span>
+          <span className="sr-success__detail-value">{formatLocalizedDateTime(result.submittedAt, language)}</span>
         </div>
         <div className="sr-success__detail-row">
           <span className="sr-success__detail-label">{t("success.email")}</span>
           <span className="sr-success__detail-value">{result.email}</span>
         </div>
         <div className="sr-success__detail-row">
-          <span className="sr-success__detail-label">{t("success.statusLabel", { defaultValue: "Status" })}</span>
+          <span className="sr-success__detail-label">{t("success.statusLabel")}</span>
           <span className="sr-success__status-badge">{t("success.status")}</span>
         </div>
       </div>
@@ -294,6 +286,7 @@ export function SpecialRegistrationPublicPage() {
             <SuccessState
               result={result}
               t={t}
+              language={languageId}
               onBackToLogin={() => navigate("/")}
               onSubmitAnother={handleSubmitAnother}
             />
