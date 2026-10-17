@@ -25,7 +25,7 @@
 
 .user-management__title {
   font-size: var(--typ-heading-lg-size, 22px);
-  font-weight: 800;
+  font-weight: var(--typ-h1-weight);
   color: var(--color-text-primary);
   margin-bottom: 4px;
 }
@@ -140,7 +140,7 @@
 
 .user-details-drawer__section-title {
   font-size: var(--typ-body-md-size, 14px);
-  font-weight: 700;
+  font-weight: var(--typ-h3-weight);
   color: var(--color-text-primary);
   margin-bottom: 12px;
 }
@@ -169,7 +169,7 @@
 
 .user-details-drawer__info-label {
   font-size: var(--typ-label-sm-size, 12px);
-  font-weight: 600;
+  font-weight: var(--typ-label-sm-weight);
   color: var(--color-text-secondary);
   margin-bottom: 2px;
 

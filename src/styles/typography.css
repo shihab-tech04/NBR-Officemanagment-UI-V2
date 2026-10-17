@@ -38,6 +38,11 @@
   --font-family-label:   inherit;
   --font-family-table:   inherit;
   --font-family-button:  inherit;
+  /* Four supported weights shared by English and Bengali typography. */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
 }
 
 
@@ -164,22 +169,22 @@
   --typ-nav-label-lh:     var(--lh-nav-main);
 
   /* Weight tokens (scale-independent) */
-  --typ-h1-weight:          700;
-  --typ-h2-weight:          600;
-  --typ-h3-weight:          600;
-  --typ-body-lg-weight:     400;
-  --typ-body-md-weight:     400;
-  --typ-body-sm-weight:     400;
-  --typ-label-md-weight:    500;
-  --typ-label-sm-weight:    500;
-  --typ-button-weight:      600;
-  --typ-input-weight:       400;
-  --typ-table-header-weight: 600;
-  --typ-table-body-weight:  400;
-  --typ-caption-weight:     400;
-  --typ-badge-weight:       600;
-  --typ-tooltip-weight:     500;
-  --typ-nav-label-weight:   400;
+  --typ-h1-weight:          var(--weight-bold);
+  --typ-h2-weight:          var(--weight-semibold);
+  --typ-h3-weight:          var(--weight-semibold);
+  --typ-body-lg-weight:     var(--weight-regular);
+  --typ-body-md-weight:     var(--weight-regular);
+  --typ-body-sm-weight:     var(--weight-regular);
+  --typ-label-md-weight:    var(--weight-medium);
+  --typ-label-sm-weight:    var(--weight-medium);
+  --typ-button-weight:      var(--weight-semibold);
+  --typ-input-weight:       var(--weight-regular);
+  --typ-table-header-weight: var(--weight-semibold);
+  --typ-table-body-weight:  var(--weight-regular);
+  --typ-caption-weight:     var(--weight-regular);
+  --typ-badge-weight:       var(--weight-semibold);
+  --typ-tooltip-weight:     var(--weight-medium);
+  --typ-nav-label-weight:   var(--weight-regular);
 }
 
 

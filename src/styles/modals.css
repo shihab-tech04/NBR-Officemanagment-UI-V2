@@ -216,7 +216,7 @@
 
 .modal-form-header__title {
   font-size: var(--fs-body-md);
-  font-weight: 700;
+  font-weight: var(--typ-h3-weight);
   color: var(--color-text-primary);
   margin: 0;
 }

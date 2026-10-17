@@ -90,6 +90,7 @@ nav[aria-label="Breadcrumb"]::-webkit-scrollbar {
 /* InputLabel */
 .MuiInputLabel-root {
   color: var(--color-text-secondary) !important;
+  font-weight: var(--typ-label-md-weight) !important;
 }
 
 .MuiInputLabel-root.Mui-focused {
@@ -296,7 +297,7 @@ nav[aria-label="Breadcrumb"]::-webkit-scrollbar {
 
 .table-page__title {
   font-size: calc(22px * var(--font-scale-factor));
-  font-weight: 800;
+  font-weight: var(--typ-h1-weight);
   color: var(--color-text-primary);
   margin-bottom: 4px;
 }

@@ -26,7 +26,7 @@
 .table th {
   padding: 8px 12px;
   font-size: var(--fs-table-header);
-  font-weight: 700;
+  font-weight: var(--typ-table-header-weight);
   color: var(--color-text-secondary);
   text-align: left;
   border-bottom: 1px solid var(--color-border);
@@ -117,7 +117,7 @@
 .card-table__th {
   padding: 10px 14px;
   font-size: var(--fs-table-header);
-  font-weight: 700;
+  font-weight: var(--typ-table-header-weight);
   text-align: left;
   white-space: nowrap;
   letter-spacing: 0.04em;
@@ -328,7 +328,7 @@
 .dash-table__th {
   padding: 8px 14px;
   font-size: var(--fs-table-header);
-  font-weight: 700;
+  font-weight: var(--typ-table-header-weight);
   color: var(--color-text-secondary);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
@@ -587,7 +587,7 @@
   padding: 10px 14px;
   text-align: left;
   font-size: var(--fs-table-header);
-  font-weight: 700;
+  font-weight: var(--typ-table-header-weight);
   white-space: nowrap;
   letter-spacing: 0.03em;
   color: var(--color-text-secondary);
@@ -1331,7 +1331,7 @@
 
 .double-entry-table .card-table__th {
   font-size: var(--fs-table-header);
-  font-weight: 700;
+  font-weight: var(--typ-table-header-weight);
   color: var(--color-text-secondary);
   letter-spacing: 0.02em;
 }
