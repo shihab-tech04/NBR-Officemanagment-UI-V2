@@ -89,6 +89,6 @@ export const muiFieldSx: SxProps<Theme> = {
 // Compact filter/search fields — identical styling, slightly smaller font via size="small"
 export const muiFilterSx: SxProps<Theme> = {
   "& .MuiOutlinedInput-root": sharedRoot,
-  "& .MuiInputLabel-root": { ...sharedLabel, fontSize: "13px" },
-  "& .MuiFormHelperText-root": { ...sharedHelper, fontSize: "11px" },
+  "& .MuiInputLabel-root": { ...sharedLabel, fontSize: "var(--mui-filter-label-font-size)" },
+  "& .MuiFormHelperText-root": { ...sharedHelper, fontSize: "var(--mui-filter-helper-font-size)" },
 };
