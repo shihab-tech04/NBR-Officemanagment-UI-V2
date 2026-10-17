@@ -67,6 +67,7 @@ const muiTheme = createTheme({
         root: {
           color: "var(--color-text-secondary)",
           fontSize: "14px",
+          fontWeight: "var(--typ-label-md-weight)",
           "&.Mui-focused": { color: "var(--color-primary)" },
           "&.Mui-error": { color: "var(--color-error)" },
         },

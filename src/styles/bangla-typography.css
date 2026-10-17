@@ -14,8 +14,4 @@ html[lang="bn"] :is(
   letter-spacing: normal;
 }
 
-/* Table headers have 700-weight legacy styles; the shared 600 token reads
-   more evenly for Bengali without changing their font size or cell layout. */
-html[lang="bn"] :is(.table th, .card-table__th, .dash-table__th, .rct__th) {
-  font-weight: var(--typ-table-header-weight);
-}
+/* Table headings inherit the same 600-weight token for both languages. */
