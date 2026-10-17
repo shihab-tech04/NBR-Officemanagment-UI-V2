@@ -1,4 +1,16 @@
 /* Payment pages follow Office Management's table-page, card and modal system. */
+/* Service-category identities match the citizen TaxPay palette; status badges do not. */
+.payment-service-list { display:inline-flex; flex-wrap:wrap; align-items:center; gap:3px; max-width:100%; overflow-wrap:anywhere; }
+.payment-service-list__separator { color:var(--color-text-secondary); }
+.payment-service-tag { display:inline-flex; align-items:center; max-width:100%; padding:.16rem .48rem; border:1px solid var(--payment-service-border, var(--color-border)); border-radius:.5rem; background:var(--payment-service-bg, var(--color-surface)); color:var(--payment-service-text, var(--color-text-primary)); font-size:inherit; font-weight:650; line-height:1.5; white-space:normal; overflow-wrap:anywhere; }
+.payment-service-tag[data-payment-service="TAX_WITH_RETURN"] { --payment-service-border:#C9D8F5; --payment-service-bg:#EEF4FF; --payment-service-text:#214887; }
+.payment-service-tag[data-payment-service="ADVANCE_TAX"] { --payment-service-border:#F3D9B8; --payment-service-bg:#FFF6EC; --payment-service-text:#80420D; }
+.payment-service-tag[data-payment-service="ASSESSED_DEMAND"] { --payment-service-border:#C4E7D5; --payment-service-bg:#EDF8F2; --payment-service-text:#175C42; }
+.payment-service-tag[data-payment-service="PENALTY"] { --payment-service-border:#F2C8D1; --payment-service-bg:#FFF1F3; --payment-service-text:#873145; }
+.payment-service-tag[data-payment-service="SOURCE_TAX_DEPOSIT"] { --payment-service-border:#DFD2F1; --payment-service-bg:#F6F1FC; --payment-service-text:#4E327B; }
+.payment-service-tag[data-payment-service="APPELLATE_TRIBUNAL"] { --payment-service-border:#D3DBF4; --payment-service-bg:#F0F3FF; --payment-service-text:#38497F; }
+.payment-service-tag[data-payment-service="OTHER_TAX_PAYMENT"] { --payment-service-border:#DAE5B9; --payment-service-bg:#F7F9EF; --payment-service-text:#495924; }
+.payment-service-tag[data-payment-service="TRAVEL_TAX"] { --payment-service-border:#BDE7F2; --payment-service-bg:#ECF8FC; --payment-service-text:#07516B; }
 .payment-module { width:100%; min-width:0; box-sizing:border-box; color:var(--color-text-primary); }
 .payment-module > .payment-module__summary-grid, .payment-module > .payment-module__identity, .payment-module > .payment-module__year-control { margin-bottom:16px; }
 .payment-module__header { flex-shrink:0; }
