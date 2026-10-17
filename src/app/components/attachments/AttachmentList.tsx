@@ -17,7 +17,7 @@ function FileIcon({ kind }: { kind: AttachmentItem["previewKind"] }) {
 }
 
 export function AttachmentList({ attachments, title, emptyText }: AttachmentListProps) {
-  const { t: td } = useTranslation("drawers");
+  const { t: td, i18n } = useTranslation("drawers");
   const [preview, setPreview] = useState<AttachmentItem | null>(null);
 
   const sectionTitle = title ?? td("attachments.title");
@@ -60,7 +60,7 @@ export function AttachmentList({ attachments, title, emptyText }: AttachmentList
                   <span className="attachment-item__meta">
                     {att.sizeLabel}
                     {att.extension && ` · ${att.extension.replace(".", "").toUpperCase()}`}
-                    {att.uploadedAt && ` · ${new Date(att.uploadedAt).toLocaleDateString()}`}
+                    {att.uploadedAt && ` · ${new Date(att.uploadedAt).toLocaleDateString(i18n.resolvedLanguage?.startsWith("bn") ? "bn-BD" : "en-GB")}`}
                   </span>
                   {isMetaOnly(att) && (
                     <span className="attachment-item__note">

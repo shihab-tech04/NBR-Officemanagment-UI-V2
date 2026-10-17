@@ -115,13 +115,13 @@ export function SRDocumentRow({
           className="sr-doc-row__btn"
           onClick={() => !isLocked && inputRef.current?.click()}
           disabled={isLocked}
-          aria-label={hasFiles ? `Add more files to ${label}` : `Upload ${label}`}
+          aria-label={ts(hasFiles ? "documents.addFilesTo" : "documents.uploadDocument", {name:label})}
         >
           {validating
             ? <Loader2 size={14} strokeWidth={2} className="sr-doc-row__icon--spin" />
             : <Upload size={14} strokeWidth={2} />
           }
-          {validating ? "Checking…" : hasFiles ? "Add more" : "Choose file"}
+          {ts(validating ? "documents.checking" : hasFiles ? "documents.addMore" : "documents.chooseFile")}
         </button>
       )}
     </>
@@ -173,7 +173,7 @@ export function SRDocumentRow({
               <div className="sr-doc-row__label-row">
                 <label htmlFor={!hasFiles ? id : undefined} className="sr-doc-row__label">
                   {label}
-                  {required && <span className="sr-doc-row__required" aria-label="required"> *</span>}
+                  {required && <span className="sr-doc-row__required" aria-label={ts("documents.requiredLabel")}> *</span>}
                 </label>
                 {optional && optionalBadge && (
                   <span className="sr-doc-row__optional-badge">{optionalBadge}</span>
@@ -190,7 +190,7 @@ export function SRDocumentRow({
 
           {/* Uploaded file list */}
           {hasFiles && (
-            <ul className="sr-doc-row__files" aria-label="Attached files">
+            <ul className="sr-doc-row__files" aria-label={ts("documents.attachedFiles")}>
               {value.map((f, i) => (
                 <li key={`${f.name}-${i}`} className="sr-doc-row__file">
                   <FileText size={13} strokeWidth={1.8} aria-hidden="true" className="sr-doc-row__file-icon" />

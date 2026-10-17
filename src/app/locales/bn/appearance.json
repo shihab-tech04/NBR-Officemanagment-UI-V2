@@ -15,6 +15,7 @@
     "darkMode": "ডার্ক মোড"
   },
   "fonts": {
+    "preview": "বাংলা লেখা পড়ার নমুনা",
     "inter": "ইন্টার",
     "poppins": "পপিন্স",
     "notoSans": "নোটো স্যান্স",
@@ -25,6 +26,7 @@
     "standard": "স্বাভাবিক",
     "large": "বড়"
   },
+  "fontSizeDescriptions": { "compact": "ঘন তথ্যের জন্য ছোট অক্ষর", "standard": "দৈনন্দিন ব্যবহারের জন্য সুষম অক্ষর", "large": "সহজে পড়ার জন্য বড় অক্ষর" },
   "languages": {
     "en": "English",
     "bn": "বাংলা"

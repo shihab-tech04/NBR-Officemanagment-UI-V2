@@ -30,8 +30,26 @@ function chunkKpis(kpis: KpiDef[]): KpiDef[][] {
   return [kpis.slice(0, half), kpis.slice(half)];
 }
 
+export function formatKpiDisplayValue(value: string, language?: string): string {
+  if (!language?.startsWith("bn")) return value;
+  const shorthand = value.match(/^৳([\d.]+)(Cr|L|K)$/);
+  if (shorthand) {
+    const unit = { Cr: "কোটি", L: "লাখ", K: "হাজার" }[shorthand[2] as "Cr" | "L" | "K"];
+    const number = new Intl.NumberFormat("bn-BD", {
+      minimumFractionDigits: shorthand[1].includes(".") ? 1 : 0,
+      maximumFractionDigits: 1,
+    }).format(Number(shorthand[1]));
+    return `৳${number} ${unit}`;
+  }
+  if (/^৳\d+(?:\.\d+)?$/.test(value))
+    return `৳${new Intl.NumberFormat("bn-BD").format(Number(value.slice(1)))}`;
+  if (/^\d+(?:\.\d+)?$/.test(value))
+    return new Intl.NumberFormat("bn-BD").format(Number(value));
+  return value;
+}
+
 export function KpiRow({ kpis }: KpiRowProps) {
-  const { t: translate } = useTranslation("kpi");
+  const { t: translate, i18n } = useTranslation("kpi");
   const rows = chunkKpis(kpis);
 
   const renderCard = (k: KpiDef, i: number) => {
@@ -41,7 +59,7 @@ export function KpiRow({ kpis }: KpiRowProps) {
       <StatCard
         key={i}
         icon={icon}
-        value={k.value}
+        value={formatKpiDisplayValue(k.value, i18n?.resolvedLanguage)}
         label={k.labelKey ? (translate(k.labelKey) || k.label) : k.label}
         tone={tone}
       />

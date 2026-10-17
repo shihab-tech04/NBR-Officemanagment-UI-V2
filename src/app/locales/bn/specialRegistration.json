@@ -75,7 +75,8 @@
     "sampleDocument": "নমুনা দলিল",
     "prevSample": "আগের",
     "nextSample": "পরের",
-    "closeSample": "নমুনা বন্ধ করুন"
+    "closeSample": "নমুনা বন্ধ করুন",
+    "uploadDocument":"{{name}} আপলোড করুন","addFilesTo":"{{name}}-এ আরও ফাইল যোগ করুন","checking":"যাচাই হচ্ছে…","addMore":"আরও যোগ করুন","chooseFile":"ফাইল বেছে নিন","requiredLabel":"বাধ্যতামূলক","attachedFiles":"সংযুক্ত ফাইল"
   },
   "review": {
     "declaration": "আমি নিশ্চিত করছি যে প্রদত্ত তথ্য ও দলিলপত্র সঠিক। আমি এনবিআরকে আমার টিআইএনের বিপরীতে ইমেইল যাচাই করতে এবং এই আবেদন প্রক্রিয়া করতে অনুমতি দিচ্ছি।",
@@ -104,7 +105,6 @@
   },
   "manual": {
     "title": "eReturn Special Registration নির্দেশনা",
-    "userManual": "ব্যবহারকারী নির্দেশিকা",
     "close": "বন্ধ করুন",
     "apply": "নিবন্ধন ফর্মে যান",
     "userManual": "ব্যবহার নির্দেশিকা",
@@ -112,6 +112,8 @@
   },
   "success": {
     "heading": "আবেদন সফলভাবে জমা হয়েছে",
+    "subheading": "আপনার আবেদন গ্রহণ করা হয়েছে এবং এখন পর্যালোচনাধীন রয়েছে।",
+    "statusLabel": "অবস্থা",
     "applicationNumber": "আবেদন নম্বর",
     "submittedAt": "জমার সময়",
     "email": "ইমেইল ঠিকানা",

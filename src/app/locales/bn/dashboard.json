@@ -1,7 +1,7 @@
 {
   "main": {
     "title": "ড্যাশবোর্ড",
-    "subtitle": "নির্বাচিত মূল্যায়ন বছরের মূল রিটার্ন, অনুমোদন, সংগ্রহ এবং ব্যবহারকারীর কার্যকলাপ দেখুন।",
+    "subtitle": "নির্বাচিত কর নির্ধারণী বছরের মূল রিটার্ন, অনুমোদন, সংগ্রহ ও ব্যবহারকারীর কার্যক্রম দেখুন।",
     "welcome": "স্বাগতম",
     "overview": "সংক্ষিপ্ত বিবরণ"
   },
@@ -9,7 +9,7 @@
     "totalReturnsFiled": "মোট রিটার্ন দাখিল",
     "totalRequests": "মোট অনুরোধ",
     "totalPsr": "মোট PSR",
-    "pendingApprovals": "অপেক্ষমান অনুমোদন",
+    "pendingApprovals": "অপেক্ষমাণ অনুমোদন",
     "approvedToday": "আজ অনুমোদিত",
     "rejectedToday": "আজ প্রত্যাখ্যাত",
     "taxCollectedBdt": "কর সংগৃহীত (টাকা)",
@@ -17,7 +17,7 @@
     "activeUsers": "সক্রিয় ব্যবহারকারী",
     "totalPsrEntries": "মোট PSR এন্ট্রি",
     "totalDoubleEntry": "মোট ডাবল এন্ট্রি",
-    "pendingApproval": "অপেক্ষমান অনুমোদন"
+    "pendingApproval": "অপেক্ষমাণ অনুমোদন"
   },
   "sections": {
     "recentSubmissions": "সাম্প্রতিক জমা",
@@ -33,7 +33,7 @@
     "subtitle": "PSR এন্ট্রি, অনুমোদন, প্রত্যাখ্যান এবং সার্কেলওয়ারি অগ্রগতি ট্র্যাক করুন",
     "kpis": {
       "totalPsrEntries": "মোট PSR এন্ট্রি",
-      "pendingApproval": "অপেক্ষমান অনুমোদন",
+      "pendingApproval": "অপেক্ষমাণ অনুমোদন",
       "approvedToday": "আজ অনুমোদিত",
       "rejectedToday": "আজ প্রত্যাখ্যাত",
       "totalDoubleEntry": "মোট ডাবল এন্ট্রি"
@@ -56,7 +56,7 @@
     "kpis": {
       "notInitialized": "শুরু হয়নি",
       "initialized": "শুরু হয়েছে",
-      "pending": "অপেক্ষমান",
+      "pending": "অপেক্ষমাণ",
       "totalApproved": "মোট অনুমোদিত"
     },
     "sections": {
@@ -77,12 +77,12 @@
   },
   "combineDashboard": {
     "title": "কম্বাইন ড্যাশবোর্ড",
-    "subtitle": "নির্বাচিত মূল্যায়ন বছরের অনলাইন ও অফলাইন জমা এবং করের সমন্বিত তথ্য দেখুন।",
+    "subtitle": "নির্বাচিত কর নির্ধারণী বছরের অনলাইন ও অফলাইন দাখিল এবং করের সমন্বিত তথ্য দেখুন।",
     "reportTitle": "অনলাইন এবং অফলাইন (সম্মিলিত রিপোর্ট)"
   },
   "stats": {
     "totalReturns": "মোট রিটার্ন",
-    "pendingApprovals": "অপেক্ষমান অনুমোদন",
+    "pendingApprovals": "অপেক্ষমাণ অনুমোদন",
     "completedCases": "সম্পন্ন মামলা",
     "activePSR": "সক্রিয় PSR",
     "revenue": "রাজস্ব",

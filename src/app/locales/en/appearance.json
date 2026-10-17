@@ -15,6 +15,7 @@
     "darkMode": "Dark Mode"
   },
   "fonts": {
+    "preview": "The quick brown fox jumps",
     "inter": "Inter",
     "poppins": "Poppins",
     "notoSans": "Noto Sans",
@@ -25,6 +26,7 @@
     "standard": "Standard",
     "large": "Large"
   },
+  "fontSizeDescriptions": { "compact": "Smaller text for dense work", "standard": "Balanced text for daily use", "large": "Larger text for easier reading" },
   "languages": {
     "en": "English",
     "bn": "বাংলা"

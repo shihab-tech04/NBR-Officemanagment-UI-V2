@@ -13,6 +13,7 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
   const currentUser = useCurrentUser();
   const { t: translate } = useTranslation("user");
   const { t: translateActions } = useTranslation("actions");
+  const { t: translateCommon } = useTranslation("common");
   const { isDesktop } = useUIState();
 
   const menuItems = [
@@ -38,7 +39,7 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
           <button
             onClick={_onClose}
             className="mobile-modal-close"
-            aria-label="Close profile"
+            aria-label={translateCommon("accessibility.closeProfile")}
             style={{
               position: "absolute",
               top: "20px",

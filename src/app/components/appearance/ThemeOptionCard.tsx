@@ -1,5 +1,6 @@
 import { ColorSwatchGroup } from "./ColorSwatchGroup";
 import { SelectedCheckmark } from "./SelectedCheckmark";
+import { useTranslation } from "react-i18next";
 
 type ThemeId = "indigo-blue" | "gov-blue" | "slate-purple" | "plum-executive" | "fresh-teal" | "dark-mode";
 
@@ -28,11 +29,12 @@ function rgba(hex: string, alpha: number): string {
 }
 
 export function ThemeOptionCard({ theme, selected, onSelect }: ThemeOptionCardProps) {
+  const { t } = useTranslation("appearance");
   return (
     <button
       onClick={() => onSelect(theme.id)}
       aria-pressed={selected}
-      aria-label={`Color theme: ${theme.name}`}
+      aria-label={`${t("colorTheme")}: ${theme.name}`}
       className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all duration-100 w-full"
       style={{
         border: `1.5px solid ${selected ? theme.primary : "var(--color-border)"}`,

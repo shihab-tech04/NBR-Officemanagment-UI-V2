@@ -86,7 +86,7 @@ export function RowMoreMenu({ actions }: RowMoreMenuProps) {
           <button
             onClick={() => setOpen(false)}
             className="mobile-modal-close"
-            aria-label="Close actions"
+            aria-label={translate("accessibility.closeActions")}
             style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <X size={20} strokeWidth={2} />

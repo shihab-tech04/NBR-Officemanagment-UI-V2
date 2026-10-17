@@ -35,7 +35,7 @@
     "countryNoResults": "No countries found",
     "address": "Current Overseas Address",
     "addressHelper": "",
-    "phone": "Phone Number used in residing country",
+    "phone": "Phone Number in Country of Residence",
     "phoneHelper": "",
     "phoneDisabled": "Select country first",
     "phoneNoCountry": "Select country first",
@@ -59,7 +59,7 @@
       "helper": "Upload clear JPG, PNG or PDF files. Maximum file size: 2 MB each. Maximum 2 files."
     },
     "passport": {
-      "label": "Copy of Bio-page of passport",
+      "label": "Copy of Passport Biographical Page",
       "helper": "Upload the passport page containing the holder's photo and personal details. Maximum file size: 2 MB."
     },
     "visa": {
@@ -75,7 +75,8 @@
     "sampleDocument": "Sample document",
     "prevSample": "Previous",
     "nextSample": "Next",
-    "closeSample": "Close sample"
+    "closeSample": "Close sample",
+    "uploadDocument":"Upload {{name}}","addFilesTo":"Add more files to {{name}}","checking":"Checking…","addMore":"Add more","chooseFile":"Choose file","requiredLabel":"Required","attachedFiles":"Attached files"
   },
   "review": {
     "declaration": "I confirm that the information and documents provided are correct. I authorize NBR to verify my email against my TIN and process this application.",
@@ -103,15 +104,16 @@
     "countryBDExcluded": "Select your current country of residence outside Bangladesh."
   },
   "manual": {
-    "title": "eReturn Special Registration নির্দেশনা",
+    "title": "eReturn Special Registration Instructions",
     "userManual": "User Manual",
     "close": "Close",
     "apply": "Continue to Registration",
-    "userManual": "User Manual",
     "instructionsTitle": "Special Registration Instructions"
   },
   "success": {
     "heading": "Application Submitted",
+    "subheading": "Your application has been received and is under review.",
+    "statusLabel": "Status",
     "applicationNumber": "Application Number",
     "submittedAt": "Submitted",
     "email": "Email Address",

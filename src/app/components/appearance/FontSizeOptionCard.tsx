@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type FontSizeId = "compact" | "standard" | "large";
 
@@ -20,12 +21,13 @@ const previewSizes: Record<FontSizeId, string> = {
 };
 
 export function FontSizeOptionCard({ config, selected, onSelect }: FontSizeOptionCardProps) {
+  const { t } = useTranslation("appearance");
   return (
     <button
       type="button"
       onClick={() => onSelect(config.id)}
       aria-pressed={selected}
-      aria-label={`Font size: ${config.name}. ${config.description}`}
+      aria-label={`${t("fontSize")}: ${config.name}. ${config.description}`}
       className={`w-full text-left rounded-xl transition-all px-[14px] py-3 border-2 border-solid cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 ${selected ? "border-[var(--color-primary)] bg-[var(--color-primary-alpha-6)]" : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary-alpha-12)] hover:bg-[var(--color-primary-alpha-3)]"}`}
     >
       <div className="flex items-center justify-between gap-3">

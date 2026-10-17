@@ -41,6 +41,7 @@ export function NotificationDropdown({
   notifications, onClose, onNotificationClick, onMarkAllRead, forceBottomSheet = false,
 }: NotificationDropdownProps) {
   const { t: translate } = useTranslation("notifications");
+  const { t: translateCommon } = useTranslation("common");
   const { isDesktop } = useUIState();
   const isMobile = forceBottomSheet || !isDesktop;
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -88,7 +89,7 @@ export function NotificationDropdown({
             <button
               onClick={onClose}
               className="mobile-modal-close"
-              aria-label="Close notifications"
+              aria-label={translateCommon("accessibility.closeNotifications")}
               style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
               <X size={20} strokeWidth={2} />

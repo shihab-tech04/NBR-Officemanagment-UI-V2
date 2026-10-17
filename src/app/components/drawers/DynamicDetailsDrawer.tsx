@@ -8,6 +8,7 @@ import { SafeText, ExpandableText } from "../shared/SafeText";
 import { AttachmentList } from "../attachments/AttachmentList";
 import { type AttachmentItem, isAttachmentArray } from "../attachments/attachmentTypes";
 import { CopyValueButton, isCopyableField } from "../shared/CopyValueButton";
+import { localizeRecordValue } from "../../utils/recordDisplay";
 
 interface ColumnDef {
   key: string;
@@ -244,7 +245,7 @@ export function DynamicDetailsDrawer({
 }: DynamicDetailsDrawerProps) {
   const { t: tc } = useTranslation("common");
   const { t: td } = useTranslation("drawers");
-  const { t: th } = useTranslation("tables");
+  const { t: th, i18n } = useTranslation("tables");
 
   // ── Heavy section-building — memoized on rowData + columns ───────────────
   // Must be called before any early return to satisfy Rules of Hooks.
@@ -298,6 +299,9 @@ export function DynamicDetailsDrawer({
     if (col.labelKey) return th(col.labelKey) || td(col.labelKey) || col.label;
     return col.label;
   };
+  const displayValue = (value: unknown) => typeof value === "string"
+    ? localizeRecordValue(value, th, i18n?.resolvedLanguage)
+    : value;
 
   const drawerTitle = title || td("recordDetails.title") || "Record Details";
 
@@ -365,12 +369,12 @@ export function DynamicDetailsDrawer({
             {identifierCol && (
               <p className="drawer-summary__id">
                 <span className="drawer-summary__id-label">{getLabel(identifierCol)}: </span>
-                <SafeText value={rowData[identifierCol.key]} mode="break" as="span" />
+                <SafeText value={displayValue(rowData[identifierCol.key])} mode="break" as="span" />
               </p>
             )}
             {dateCol && (
               <p className="drawer-summary__meta">
-                {getLabel(dateCol)}: <SafeText value={rowData[dateCol.key]} mode="break" as="span" />
+                {getLabel(dateCol)}: <SafeText value={displayValue(rowData[dateCol.key])} mode="break" as="span" />
               </p>
             )}
           </div>
@@ -414,8 +418,8 @@ export function DynamicDetailsDrawer({
                       ) : (
                         <div className="drawer-field__value-row">
                           {renderValue?.(col.key, rowData[col.key]) ?? (isExpandable(col.key)
-                            ? <ExpandableText value={rowData[col.key]} maxChars={160} collapsedLines={4} mode="block" />
-                            : <SafeText value={rowData[col.key]} mode="break" as="span" />
+                            ? <ExpandableText value={displayValue(rowData[col.key])} maxChars={160} collapsedLines={4} mode="block" />
+                            : <SafeText value={displayValue(rowData[col.key])} mode="break" as="span" />
                           )}
                           {isCopyableField(col.key) && (
                             <CopyValueButton value={rowData[col.key]} label={getLabel(col)} />

@@ -23,6 +23,7 @@ import {
 } from './paymentReference';
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
+import { formatLocalizedNumber } from '../../utils/localeFormatting';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
@@ -113,7 +114,8 @@ type Details = { title:string; record:TableRow } | null;
 const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
 export function PaymentModulePage({page}: {page: string}) {
-  const {t} = useTranslation('payment');
+  const {t,i18n} = useTranslation('payment');
+  const displayNumber = (value:number) => formatLocalizedNumber(value,i18n.resolvedLanguage);
   const navigate = useNavigate();
   const current:PaymentPage = pages.includes(page as PaymentPage) ? page as PaymentPage : 'overview';
   const [scopeYear,setScopeYear] = useState('all');
@@ -334,15 +336,15 @@ export function PaymentModulePage({page}: {page: string}) {
     {toolbar(t('analytics'))}
     <p className="table-page__desc">{t('analyticsScope')}</p>
     {showKpis([
-      kpi(t('paymentVolume'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.volume),BarChart3),
-      kpi(t('successful'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.successful),CheckCircle2,'success'),
-      kpi(t('failed'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.failed),AlertTriangle,'error'),
-      kpi(t('pending'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.pending),Clock3,'warning'),
+      kpi(t('paymentVolume'),displayNumber(referenceIntelligence.volume),BarChart3),
+      kpi(t('successful'),displayNumber(referenceIntelligence.successful),CheckCircle2,'success'),
+      kpi(t('failed'),displayNumber(referenceIntelligence.failed),AlertTriangle,'error'),
+      kpi(t('pending'),displayNumber(referenceIntelligence.pending),Clock3,'warning'),
       kpi(t('abandoned'),referenceIntelligence.abandonment,Users,'warning'),
-      kpi(t('wrongSection'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.wrongSection),ShieldAlert,'warning'),
-      kpi(t('wrongYear'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.wrongYear),ShieldAlert,'warning'),
-      kpi(t('correctionRequests'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.corrections),CreditCard),
-      kpi(t('invalidated'),new Intl.NumberFormat('en-BD').format(referenceIntelligence.invalidatedCredits),AlertTriangle,'error'),
+      kpi(t('wrongSection'),displayNumber(referenceIntelligence.wrongSection),ShieldAlert,'warning'),
+      kpi(t('wrongYear'),displayNumber(referenceIntelligence.wrongYear),ShieldAlert,'warning'),
+      kpi(t('correctionRequests'),displayNumber(referenceIntelligence.corrections),CreditCard),
+      kpi(t('invalidated'),displayNumber(referenceIntelligence.invalidatedCredits),AlertTriangle,'error'),
     ])}
     <div className="payment-module__tab-scroll"><TabBar active={analyticsTab} onChange={setAnalyticsTab} tabs={[{id:'insights',label:t('insights')},{id:'monitoring',label:t('monitoring')}]} /></div>
     {analyticsTab==='insights' ? <div className="payment-module__summary-grid">

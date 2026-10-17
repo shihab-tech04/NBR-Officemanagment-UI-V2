@@ -22,6 +22,10 @@ export function AppearanceSettingsPanel({ onClose, isMobile }: AppearanceSetting
   const { themeId, fontId, fontSizeId, languageId } = useSettings();
   const { setThemeId, setFontId, setFontSizeId } = useAppearance();
   const { setLanguageId } = useLanguage();
+  const themeKey: Record<string, string> = {
+    "indigo-blue": "indigoBlue", "gov-blue": "govBlue", "slate-purple": "slatePurple",
+    "plum-executive": "plumExecutive", "fresh-teal": "freshTeal", "dark-mode": "darkMode",
+  };
 
   const panelContent = (
     <div
@@ -71,7 +75,7 @@ export function AppearanceSettingsPanel({ onClose, isMobile }: AppearanceSetting
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             {THEME_ORDER.map((tid) => (
-              <ThemeOptionCard key={tid} theme={THEMES[tid]} selected={themeId === tid} onSelect={setThemeId} />
+              <ThemeOptionCard key={tid} theme={{ ...THEMES[tid], name: translate(`themes.${themeKey[tid]}`) }} selected={themeId === tid} onSelect={setThemeId} />
             ))}
           </div>
         </div>
@@ -84,7 +88,7 @@ export function AppearanceSettingsPanel({ onClose, isMobile }: AppearanceSetting
           </div>
           <div className="flex flex-col gap-2">
             {FONT_ORDER.map((fid) => (
-              <FontOptionCard key={fid} font={FONTS[fid]} selected={fontId === fid} onSelect={setFontId} />
+              <FontOptionCard key={fid} font={{ ...FONTS[fid], preview: translate("fonts.preview") }} selected={fontId === fid} onSelect={setFontId} />
             ))}
           </div>
         </div>
@@ -97,7 +101,7 @@ export function AppearanceSettingsPanel({ onClose, isMobile }: AppearanceSetting
           </div>
           <div className="flex flex-col gap-2">
             {FONT_SIZE_ORDER.map((fsid) => (
-              <FontSizeOptionCard key={fsid} config={FONT_SIZES[fsid]} selected={fontSizeId === fsid} onSelect={setFontSizeId} />
+              <FontSizeOptionCard key={fsid} config={{ ...FONT_SIZES[fsid], name: translate(`fontSizes.${fsid}`), description: translate(`fontSizeDescriptions.${fsid}`) }} selected={fontSizeId === fsid} onSelect={setFontSizeId} />
             ))}
           </div>
         </div>
