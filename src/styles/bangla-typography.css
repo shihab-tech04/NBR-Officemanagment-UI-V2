@@ -1,0 +1,21 @@
+/* Bangla text uses the same components and layout, with script-appropriate
+   spacing and a readable line-height for the narrow primary navigation. */
+html[lang="bn"] {
+  --lh-nav-primary: 1.5;
+}
+
+/* Tracking that looks fine in Latin type disrupts Bangla letterforms. */
+html[lang="bn"] :is(
+  h1, h2, h3, h4, p, label, button, input, select, textarea, th, td,
+  .primary-nav-item__label, .secondary-nav-item__label,
+  .third-level-nav-item__label, .MuiTypography-root,
+  .MuiInputLabel-root, .MuiMenuItem-root
+) {
+  letter-spacing: normal;
+}
+
+/* Table headers have 700-weight legacy styles; the shared 600 token reads
+   more evenly for Bengali without changing their font size or cell layout. */
+html[lang="bn"] :is(.table th, .card-table__th, .dash-table__th, .rct__th) {
+  font-weight: var(--typ-table-header-weight);
+}

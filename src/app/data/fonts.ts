@@ -64,6 +64,14 @@ export const FONTS: Record<FontId, FontConfig> = {
 
 export const FONT_ORDER: FontId[] = ["inter", "poppins", "noto-sans", "google-sans"];
 
+/** Keep the selected Latin font, but render Bangla with the dedicated local face. */
+export function resolveFontFamily(fontId: FontId, language: string): string {
+  const selected = FONTS[fontId].family;
+  return language.toLowerCase().startsWith("bn")
+    ? `'Noto Sans Bengali', ${selected}`
+    : selected;
+}
+
 export const FONT_SIZES: Record<FontSizeId, FontSizeConfig> = {
   compact: {
     id: "compact",

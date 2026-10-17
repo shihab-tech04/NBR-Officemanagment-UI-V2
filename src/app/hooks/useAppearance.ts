@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { THEMES, type ThemeId } from "../data/themes";
-import { FONTS, type FontId, type FontSizeId } from "../data/fonts";
+import { resolveFontFamily, type FontId, type FontSizeId } from "../data/fonts";
 import { rgba } from "../utils/colors";
 import { useSettings, useSettingsDispatch } from "./useSettings";
 import { setTheme, setFont, setFontSize } from "../store/settingsSlice";
@@ -13,11 +13,11 @@ import { setTheme, setFont, setFontSize } from "../store/settingsSlice";
  * All setter calls automatically persist to localStorage via the Redux middleware.
  */
 export function useAppearance() {
-  const { themeId, fontId, fontSizeId } = useSettings();
+  const { themeId, fontId, fontSizeId, languageId } = useSettings();
   const dispatch = useSettingsDispatch();
 
   const t = THEMES[themeId];
-  const fontFamily = FONTS[fontId].family;
+  const fontFamily = resolveFontFamily(fontId, languageId);
   const textOnPrimary = t.id === "dark-mode" ? "#202124" : "#FFFFFF";
 
   // Sync font family to document.body
