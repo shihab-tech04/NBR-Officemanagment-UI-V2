@@ -95,15 +95,8 @@
   --space-xl:  20px;
   --space-2xl: 24px;
   --space-3xl: 32px;
-  /* Numeric aliases for 1-10 used elsewhere */
-  --space-1:   4px;
-  --space-2:   8px;
-  --space-3:   12px;
-  --space-4:   16px;
-  --space-5:   20px;
-  --space-6:   24px;
-  --space-8:   32px;
-  --space-10:  40px;
+  /* Numeric --space-* tokens are owned by tokens.css, imported before
+     typography.css. No numeric overrides are needed in this stylesheet. */
 
   /* ── Component dimension tokens ── */
   --card-padding:         20px;
