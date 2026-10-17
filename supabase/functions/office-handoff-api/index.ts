@@ -38,7 +38,7 @@ const ROUTES: Record<string,string> = {
 const CORS = {
   'Access-Control-Allow-Origin':'*',
   'Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type',
-  'Access-Control-Allow-Methods':'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods':'GET, POST, PATCH, OPTIONS',
   'Cache-Control':'no-store',
 };
 function respond(payload:unknown,status=200):Response {
@@ -75,6 +75,14 @@ function proxyPath(request:Request,url:URL):string|null {
     return '/office/payments/'+m[1]+'/state';
   return null;
 }
+function sampleActionPath(path:string):{route:string;sampleId:string;kind:string}|null {
+  const normalized=path.replace(/^\/office-handoff-api/,'')
+    .replace(/^\/api\/v1/,'').replace(/\/$/,'');
+  const match=normalized.match(/^(.*)\/(SAMPLE-[0-9]{3})\/(status|history)$/);
+  if(!match)return null;
+  const source=matchRoute('/office-handoff-api/api/v1'+match[1]);
+  return source?{route:source.name,sampleId:match[2],kind:match[3]}:null;
+}
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:CORS});
   const url=new URL(req.url);
@@ -96,6 +104,48 @@ Deno.serve(async(req:Request)=>{
     }catch(error){
       console.error('synthetic TaxPay bridge:',error instanceof Error?error.message:'unknown');
       return respond({success:false,code:'TAXPAY_HANDOFF_UNAVAILABLE'},502);
+    }
+  }
+  const actionPath=sampleActionPath(url.pathname);
+  if(actionPath){
+    if(!((actionPath.kind==='history'&&req.method==='GET')||
+       (actionPath.kind==='status'&&req.method==='PATCH')))
+      return respond({success:false,code:'METHOD_NOT_ALLOWED'},405);
+    const endpoint=Deno.env.get('SUPABASE_URL');
+    const key=Deno.env.get('SUPABASE_ANON_KEY')??Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+    if(!endpoint||!key)return respond({success:false,code:'BACKEND_NOT_CONFIGURED'},503);
+    try{
+      const client=createClient(endpoint,key,{auth:{persistSession:false,autoRefreshToken:false}});
+      let rpc:string;
+      let args:Record<string,unknown>;
+      if(actionPath.kind==='history'){
+        rpc='office_v1_handoff_status_history';
+        args={p_route:actionPath.route,p_sample_id:actionPath.sampleId,p_limit:100};
+      }else{
+        const body=await req.text();
+        if(body.length>2048)return respond({success:false,code:'INVALID_BODY_SIZE'},400);
+        const input=JSON.parse(body);
+        if(!input||typeof input!=='object'||Array.isArray(input))
+          return respond({success:false,code:'INVALID_BODY'},400);
+        rpc='office_v1_handoff_set_status';
+        args={p_route:actionPath.route,p_sample_id:actionPath.sampleId,
+          p_new_status:input.status,p_actor_code:input.actorCode,
+          p_reason:input.reason,p_idempotency_key:input.idempotencyKey,
+          p_expected_revision:input.expectedRevision??null};
+      }
+      const {data,error}=await client.rpc(rpc,args);
+      if(error){
+        const detail=error.message;
+        const status=/RECORD_NOT_FOUND/.test(detail)?404:
+          /CONFLICT|COLLISION|UNCHANGED|LIMIT/.test(detail)?409:
+          /INVALID_|NOT_IN_ROUTE_CONTRACT|NOT_SUPPORTED/.test(detail)?400:500;
+        if(status===500)console.error('sample status:',detail);
+        return respond({success:false,code:status===500?'BACKEND_ERROR':detail.split(':')[0]},status);
+      }
+      return respond({success:true,data,origin:'SYNTHETIC_HANDOFF'});
+    }catch(error){
+      console.error('sample action:',error instanceof Error?error.message:'unknown');
+      return respond({success:false,code:'INVALID_BODY'},400);
     }
   }
   if(req.method!=='GET')return respond({success:false,code:'METHOD_NOT_ALLOWED'},405);
