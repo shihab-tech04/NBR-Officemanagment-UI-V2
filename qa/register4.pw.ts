@@ -1,4 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
+
+async function openCustomSection(page: Page, scope: Locator) {
+  await scope.locator(".register4-section-field__select .MuiSelect-select").click();
+  await page.getByRole("option", { name: /Add new section/ }).click();
+}
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -324,7 +329,7 @@ test("Register-4 Section dropdown appends chronological selections and supports 
   await dialog.locator("#disposal_code").click();
   await page.getByRole("option", { name: /182.*Audit selection/ }).click();
   await expect(dialog.locator("#disposal_code")).toHaveText("180/182");
-  await dialog.getByRole("button", { name: "Add a section" }).click();
+  await openCustomSection(page, dialog);
   await page.locator("#disposal_code-custom").fill("১৮৩(৭)");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(dialog.locator("#disposal_code")).toHaveText("180/182/183(7)");
@@ -341,7 +346,7 @@ test("Register-4 custom section rejects invalid code and English/Bangla form kee
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name: "Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name: "Search", exact: true }).click();
-  await dialog.getByRole("button", { name: "Add a section" }).click();
+  await openCustomSection(page, dialog);
   await page.locator("#disposal_code-custom").fill("180/182");
   await page.getByRole("button", { name: "Add section", exact: true }).click();
   await expect(page.getByText("Use a section number such as 182 or 183(7).")).toBeVisible();
@@ -366,7 +371,7 @@ test("Register-4 inline custom-section editor does not cover other form inputs",
   const nextApprovedField=dialog.locator("#assessed_income");
   const preceding=await nextApprovedField.evaluate(e=>e.getBoundingClientRect().top);
   const unchanged=await assessmentDate.evaluate(e=>e.getBoundingClientRect().top);
-  await dialog.getByRole("button", { name: "Add a section" }).click();
+  await openCustomSection(page, dialog);
   const editor=dialog.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   expect(Math.abs((await assessmentDate.evaluate(e=>e.getBoundingClientRect().top))-unchanged)).toBeLessThanOrEqual(2);
@@ -390,7 +395,7 @@ test("Register-4 mobile in-flow section editor is contained on screen", async ({
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("searchbox", { name:"Search TIN" }).fill("TIN-10000");
   await dialog.getByRole("button", { name:"Search", exact:true }).click();
-  await dialog.getByRole("button", { name: "Add a section" }).click();
+  await openCustomSection(page, dialog);
   const popup=dialog.locator(".register4-section-field__inline-editor");
   await expect(popup).toBeVisible();
   const r=await popup.evaluate(e=>{const r=e.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width};});
@@ -433,15 +438,14 @@ test("Register-4 shortcuts prefill section codes except first fresh entry", asyn
   await page.getByRole("option",{name:/289.*Appellate authority/}).click();
   await expect(dialog.locator("#disposal_code")).toContainText("180/182/183(7)/289");
 });
-test("Register-4 custom section Add is visible outside dropdown, balanced popover has no warning paragraph", async ({page}) => {
+test("Register-4 custom section action lives inside dropdown and opens the existing editor", async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:/New Entry/i}).click();
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("group",{name:"TIN suggestions"}).getByRole("button",{name:"TIN-10000"}).click();
-  const add=dialog.getByRole("button",{name:"Add a section"});
-  await expect(add).toBeVisible();
-  await add.click();
+  await expect(dialog.locator(".register4-section-field__addition")).toHaveCount(0);
+  await openCustomSection(page,dialog);
   const pop=page.locator(".register4-section-field__inline-editor");
   await expect(pop).toBeVisible();
   await expect(pop).not.toContainText("draft-only");
@@ -464,7 +468,7 @@ test("Register-4 blocks an unsupported transition and preserves the existing tra
   await d.locator("#disposal_code").click();
   await expect(page.getByRole("option",{name:/^292 — Tribunal/})).toBeDisabled();
   await page.keyboard.press("Escape");
-  await d.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,d);
   await page.locator("#disposal_code-custom").fill("292");
   await page.getByRole("button",{name:"Add section",exact:true}).click();
   await expect(page.getByText("This section cannot follow the recorded sequence.",{exact:false})).toBeVisible();
@@ -678,32 +682,27 @@ test("Register-4 desktop Add row retains its approved icon-only actions",async({
   await discard.click();
 });
 
-// Screenshot regression: on a narrow phone the section selector and its
-// approved Add action must share a row without a decorative divider.
+// Screenshot regression: on a narrow phone the section picker is full width
+// and custom entry is discoverable as the last dropdown option.
 for (const width of [320, 360, 390]) {
-  test(`Register-4 mobile Dhara control stays inline at ${width}px`,async({page})=>{
+  test(`Register-4 mobile Dhara control stays full width at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:844});
     await page.goto("/register-stock/register-4");
     await page.getByRole("button",{name:"Add row"}).click();
     const card=page.getByRole("region",{name:"New row"});
     const field=card.locator(".register4-inline__cell--section");
     const select=field.locator(".register4-section-field__select .MuiOutlinedInput-root");
-    const add=field.locator(".register4-section-field__add");
     await expect(select).toBeVisible();
-    await expect(add).toBeVisible();
-    await expect(field.locator(".register4-section-field__rule")).toBeHidden();
-    const [parentRect,selectRect,addRect]=await Promise.all([
-      field.boundingBox(),select.boundingBox(),add.boundingBox(),
+    await expect(field.locator(".register4-section-field__addition")).toHaveCount(0);
+    const [parentRect,selectRect]=await Promise.all([
+      field.boundingBox(),select.boundingBox(),
     ]);
-    expect(parentRect&&selectRect&&addRect).toBeTruthy();
-    expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
-    expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
+    expect(parentRect&&selectRect).toBeTruthy();
     expect(selectRect!.height).toBeGreaterThanOrEqual(44);
-    expect(addRect!.x).toBeGreaterThanOrEqual(selectRect!.x+selectRect!.width);
-    expect(addRect!.x+addRect!.width).toBeLessThanOrEqual(parentRect!.x+parentRect!.width+1);
     expect(selectRect!.x).toBeGreaterThanOrEqual(parentRect!.x-1);
+    expect(selectRect!.x+selectRect!.width).toBeLessThanOrEqual(parentRect!.x+parentRect!.width+1);
     await page.screenshot({path:`test-results/register4-mobile-dhara-inline-${width}.png`,animations:"disabled"});
-    await add.click();
+    await openCustomSection(page,field);
     await expect(page.locator(".register4-section-field__popover")).toBeVisible();
     await page.keyboard.press("Escape");
     await card.getByRole("button",{name:"Discard row"}).click();
@@ -711,7 +710,7 @@ for (const width of [320, 360, 390]) {
 }
 
 // Actual field-width checks at phone sizes and at the previously broken
-// 430px threshold: the inner Dhara pair is the sole approved split control.
+// 430px threshold: the Dhara picker remains a single control.
 for (const width of [320, 360, 390, 430, 640]) {
   test(`Register-4 mobile inputs are full width with stable spacing at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:844});
@@ -848,10 +847,9 @@ test("Register-4 inline row stays compact with TIN lookup as floating popper",as
   // Measure actual outlined field edges, not the Select's inner text baseline
   // (which MUI intentionally places ~8px below the outline's top edge).
   const outline=draft.locator(".register4-inline__cell--section .register4-section-field__select .MuiOutlinedInput-root");
-  const add=draft.getByRole("button",{name:"Add a section"});
-  const [sectionRect,addRect]=await Promise.all([outline.boundingBox(),add.boundingBox()]);
-  expect(Math.abs(sectionRect!.y-addRect!.y)).toBeLessThan(2);
-  expect(Math.abs(sectionRect!.height-addRect!.height)).toBeLessThan(2);
+  const sectionRect=await outline.boundingBox();
+  expect(sectionRect!.height).toBeGreaterThanOrEqual(29);
+  await expect(draft.locator(".register4-section-field__addition")).toHaveCount(0);
   await page.screenshot({path:"test-results/register4-inline-compact-desktop.png",animations:"disabled"});
   await draft.getByRole("button",{name:"Discard row"}).click();
 });
@@ -868,10 +866,8 @@ test("Register-4 desktop Add row keeps compact heights, narrower Dhara and intac
     expect(height).toBeLessThanOrEqual(31);
   }
   const select=row.locator(".register4-inline__cell--section .MuiInputBase-root");
-  const dharaButton=row.getByRole("button",{name:"Add a section"});
-  const [selectBox,dharaBox]=await Promise.all([select.boundingBox(),dharaButton.boundingBox()]);
-  expect(Math.abs(selectBox!.y-dharaBox!.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(selectBox!.height-dharaBox!.height)).toBeLessThanOrEqual(2);
+  await expect(select).toBeVisible();
+  await expect(row.locator(".register4-section-field__addition")).toHaveCount(0);
   const actions=row.locator(".register4-inline__icon");
   await expect(actions).toHaveCount(2);
   const actionHeights=await actions.evaluateAll(els=>els.map(el=>el.getBoundingClientRect().height));
@@ -933,7 +929,7 @@ test("Register-4 desktop short fields are narrower; Circle, TIN and Date remain 
   }));
   expect(fields).toHaveLength(14);
   for(const [index,lower,upper] of [
-    [0,78,90],[3,88,100],[4,130,250],[5,95,107],
+    [0,78,90],[3,88,100],[4,290,308],[5,95,107],
     [7,108,120],[8,108,120],[9,108,120],[10,88,100],
     [11,112,128],[12,125,142],
   ] as const){
@@ -956,10 +952,8 @@ test("Register-4 desktop short fields are narrower; Circle, TIN and Date remain 
   expect(structure.width).toBeGreaterThanOrEqual(structure.wrapper);
   const section=row.locator(".register4-inline__cell--section");
   const sectionSelect=section.locator(".register4-section-field__select .MuiInputBase-root");
-  const sectionAdd=section.getByRole("button",{name:"Add a section"});
-  const [selectBox,addBox]=await Promise.all([sectionSelect.boundingBox(),sectionAdd.boundingBox()]);
-  expect(Math.abs(selectBox!.y-addBox!.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(selectBox!.height-addBox!.height)).toBeLessThanOrEqual(2);
+  await expect(sectionSelect).toBeVisible();
+  await expect(section.locator(".register4-section-field__addition")).toHaveCount(0);
   await expect(row.locator("#register4-inline-table-serial_no")).toHaveValue("33");
   await expect(row.locator("#register4-inline-table-folio_no")).toHaveValue("");
   await page.screenshot({path:"test-results/register4-desktop-narrow-fields-natural-table.png",animations:"disabled"});
@@ -979,7 +973,9 @@ test("Register-4 inline compact design remains usable and unclipped on mobile",a
   expect(rect!.x+rect!.width).toBeLessThanOrEqual(391);
   await suggestions.getByRole("button",{name:"TIN-10002"}).click();
   await expect(card.locator("#register4-inline-mobile-folio_no")).toHaveAttribute("readonly");
-  await expect(card.getByRole("button",{name:"Add a section"})).toBeVisible();
+  await card.locator(".register4-section-field__select .MuiSelect-select").click();
+  await expect(page.getByRole("option",{name:/Add new section/})).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.screenshot({path:"test-results/register4-inline-compact-mobile.png",animations:"disabled"});
   await card.getByRole("button",{name:"Discard row"}).click();
 });
@@ -1014,13 +1010,13 @@ test("Register-4 custom section editor expands inline and preserves Add/Cancel a
   const d=page.getByRole("dialog");
   await d.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
   await d.getByRole("button",{name:"Search",exact:true}).click();
-  await d.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,d);
   const e=d.locator(".register4-section-field__inline-editor");
   await expect(e).toBeVisible();
   await expect(page.locator(".register4-section-field__popover")).toHaveCount(0);
   await e.getByRole("button",{name:"Cancel"}).click();
   await expect(e).toHaveCount(0);
-  await d.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,d);
   await d.locator("#disposal_code-custom").fill("183(7)");
   await e.getByRole("button",{name:"Add section",exact:true}).click();
   await expect(d.locator("#disposal_code")).toContainText("180/183(7)");
@@ -1035,7 +1031,7 @@ test("Register-4 inline custom section Enter updates Dhara without submitting Ne
   await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
   await expect(dialog.locator("#disposal_code")).toContainText("180");
-  await dialog.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,dialog);
   const editor=dialog.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   await expect(editor.locator("form")).toHaveCount(0);
@@ -1064,9 +1060,8 @@ test("Register-4 New Entry shows a materially different, aligned desktop layout"
   expect(name!.x+name!.width).toBeLessThanOrEqual(facts!.x+3);
   expect(summaryRect!.height).toBeLessThan(76);
   const select=await d.locator(".register4-section-field__select .MuiOutlinedInput-root").boundingBox();
-  const add=await d.getByRole("button",{name:"Add a section"}).boundingBox();
-  expect(Math.abs(select!.y-add!.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(select!.height-add!.height)).toBeLessThanOrEqual(3);
+  await expect(d.locator(".register4-section-field__addition")).toHaveCount(0);
+  expect(select!.width).toBeGreaterThan(300);
   for(const id of ["arrear_year_demand","current_year_demand","revised_demand"]){
     await expect(d.locator("#"+id)).toBeVisible();
   }
@@ -1077,7 +1072,7 @@ test("Register-4 New Entry shows a materially different, aligned desktop layout"
   expect(demands[1]!.x).toBeLessThan(demands[2]!.x);
   await expect(d.locator(".entry-form__group-title")).toHaveCount(5);
   await page.screenshot({path:"test-results/register4-modal-materially-aligned-desktop.png",animations:"disabled"});
-  await d.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,d);
   const editor=d.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   const editorRect=await editor.boundingBox();
@@ -1100,7 +1095,7 @@ test("Register-4 New Entry modal preserves one-column alignment and all inputs o
     expect(r!.x).toBeGreaterThanOrEqual(0);
     expect(r!.x+r!.width).toBeLessThanOrEqual(391);
   }
-  await d.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,d);
   const editor=d.locator(".register4-section-field__inline-editor");
   await expect(editor).toBeVisible();
   const rect=await editor.boundingBox();
@@ -1112,7 +1107,7 @@ test("Register-4 New Entry modal preserves one-column alignment and all inputs o
 });
 
 
-test("Register-4 New Entry uses shared modal spacing and locked Add a section placement",async({page})=>{
+test("Register-4 New Entry uses shared modal spacing and a dropdown-contained custom action",async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await page.goto("/register-stock/register-4");
   await page.getByRole("button",{name:"New Entry"}).click();
@@ -1129,14 +1124,11 @@ test("Register-4 New Entry uses shared modal spacing and locked Add a section pl
     row:getComputedStyle(el).rowGap,col:getComputedStyle(el).columnGap
   }));
   expect(gaps).toEqual({row:"12px",col:"16px"});
-  const btn=dialog.getByRole("button",{name:"Add a section"});
   const select=dialog.locator(".register4-section-field__select .MuiOutlinedInput-root");
-  const [beforeButton,beforeSelect]=await Promise.all([btn.boundingBox(),select.boundingBox()]);
-  expect(Math.abs(beforeButton!.y-beforeSelect!.y)).toBeLessThanOrEqual(2);
-  await btn.click();
-  const [afterButton,afterSelect]=await Promise.all([btn.boundingBox(),select.boundingBox()]);
+  const beforeSelect=await select.boundingBox();
+  await openCustomSection(page,dialog);
+  const afterSelect=await select.boundingBox();
   for(const k of ["x","y","width","height"] as const) {
-    expect(Math.abs(afterButton![k]-beforeButton![k])).toBeLessThanOrEqual(2);
     expect(Math.abs(afterSelect![k]-beforeSelect![k])).toBeLessThanOrEqual(2);
   }
   await page.screenshot({path:"test-results/register4-custom-section-icon-desktop.png",animations:"disabled"});
@@ -1148,7 +1140,7 @@ test("Register-4 custom section editor uses full width input and only X / check 
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
-  await dialog.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,dialog);
   const editor=dialog.locator(".register4-section-field__inline-editor");
   const input=editor.locator("#disposal_code-custom");
   const cancel=editor.getByRole("button",{name:"Cancel",exact:true});
@@ -1185,7 +1177,7 @@ test("Register-4 custom icon actions fit inside the mobile modal without changin
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
-  await dialog.getByRole("button",{name:"Add a section"}).click();
+  await openCustomSection(page,dialog);
   const editor=dialog.locator(".register4-section-field__inline-editor");
   const rects=await Promise.all([
     editor.boundingBox(),editor.locator("#disposal_code-custom").boundingBox(),
@@ -1218,19 +1210,17 @@ test("Register-4 Add row has only original reference columns, without second-lin
   const row=page.getByTestId("register4-inline-row");
   const section=row.locator(".register4-inline__cell--section");
   const select=section.locator(".register4-section-field__select .MuiOutlinedInput-root");
-  const add=section.getByRole("button",{name:"Add a section"});
   await expect(row.locator("td")).toHaveCount(14); // 13 reference columns + save/discard actions
   await expect(section.locator(".register4-inline__subfields")).toHaveCount(0);
   await expect(page.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
-  const [sectionRect,selectRect,addRect,rowRect]=await Promise.all([
-    section.boundingBox(),select.boundingBox(),add.boundingBox(),row.boundingBox()
+  const [sectionRect,selectRect,rowRect]=await Promise.all([
+    section.boundingBox(),select.boundingBox(),row.boundingBox()
   ]);
-  // The user's new request reduces the Dhara control's width; keep the
-  // selector and approved Add action side by side at the narrower size.
+  // The Dhara field stays in the reference column without a separate action.
   expect(sectionRect!.width).toBeGreaterThanOrEqual(293);
   expect(sectionRect!.width).toBeLessThanOrEqual(307);
-  expect(Math.abs(selectRect!.y-addRect!.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(selectRect!.height-addRect!.height)).toBeLessThanOrEqual(2);
+  expect(selectRect!.width).toBeGreaterThan(240);
+  await expect(section.locator(".register4-section-field__addition")).toHaveCount(0);
   expect(rowRect!.height).toBeLessThan(120);
   const label=section.locator(".register4-section-field__select .MuiInputLabel-root");
   await expect(label).toHaveCount(1);
@@ -1251,7 +1241,9 @@ test("Register-4 mobile Add row and New Entry contain no unauthorized fields and
   expect(await label.evaluate(el=>getComputedStyle(el).opacity)).not.toBe("0");
   await expect(card.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
   await expect(card.locator(".register4-inline__subfields")).toHaveCount(0);
-  await expect(card.getByRole("button",{name:"Add a section"})).toBeVisible();
+  await card.locator(".register4-section-field__select .MuiSelect-select").click();
+  await expect(page.getByRole("option",{name:/Add new section/})).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(card.locator("#register4-inline-mobile-folio_no")).toHaveAttribute("readonly");
   await card.getByRole("button",{name:"Discard row"}).click();
   await page.getByRole("button",{name:"New Entry"}).click();
@@ -1259,7 +1251,9 @@ test("Register-4 mobile Add row and New Entry contain no unauthorized fields and
   await dialog.getByRole("searchbox",{name:"Search TIN"}).fill("TIN-10001");
   await dialog.getByRole("button",{name:"Search",exact:true}).click();
   await expect(dialog.locator("#disposal_code")).toBeAttached();
-  await expect(dialog.locator(".register4-section-field__add")).toBeVisible();
+  await dialog.locator(".register4-section-field__select .MuiSelect-select").click();
+  await expect(page.getByRole("option",{name:/Add new section/})).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(dialog.locator(".entry-form__field")).toHaveCount(11);
   await expect(dialog.locator('[id*="proceeding_reference"],[id*="proceeding_event_date"]')).toHaveCount(0);
   await page.screenshot({path:"test-results/register4-reference-only-new-entry-mobile.png",animations:"disabled"});

@@ -93,7 +93,7 @@
     "tinNotFound": "No taxpayer found for this TIN.",
     "tinSuggestions": "TIN suggestions",
     "sectionChoose": "Choose a section",
-    "sectionAddNew": "Add a section",
+    "sectionAddNew": "Add new section",
     "sectionSelected": "Selected section history (in entry order)",
     "sectionCustomLabel": "Section number",
     "sectionInvalid": "Use a section number such as 182 or 183(7).",
