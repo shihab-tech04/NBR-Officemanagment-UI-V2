@@ -35,5 +35,7 @@
 .cms-actions button:disabled, .cms-primary:disabled { opacity: .5; cursor: not-allowed; }
 .cms-login { max-width: 480px; }
 .cms-login form { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.cms-modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: var(--space-4); background: rgb(20 30 50 / 45%); }
+.cms-modal { width: min(100%, 440px); box-shadow: var(--shadow-xl); }
 .cms-message { margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 @media (max-width: 800px) { .cms-page { padding: var(--space-4); } .cms-layout { grid-template-columns: 1fr; } .cms-image-grid, .cms-fields { grid-template-columns: 1fr; } }

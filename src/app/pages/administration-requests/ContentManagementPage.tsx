@@ -19,7 +19,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
 const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
 const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
 const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, storageKey: 'office-cms-admin-session' } }) : null;
+  ? createClient(backendUrl, backendKey, { auth: { persistSession: true } }) : null;
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
@@ -53,6 +53,7 @@ export function ContentManagementPage() {
   const [tab, setTab] = useState<'banners' | 'logo'>('banners');
   const [user, setUser] = useState<User | null>(null);
   const [authorized, setAuthorized] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -80,16 +81,16 @@ export function ContentManagementPage() {
       if (!active) return;
       const identity = data.user || null;
       setUser(identity);
-      if (!identity) return;
+      if (!identity) { void refresh().catch(err => setMessage(err.message)); return; }
       const { data: permission, error } = await cms.from('taxpay_portal_admins')
         .select('user_uid').eq('user_uid', identity.id).eq('active', true).maybeSingle();
       if (!active) return;
       setAuthorized(Boolean(permission) && !error);
-      if (permission && !error) void refresh().catch(err => setMessage(err.message));
+      void refresh().catch(err => setMessage(err.message));
     }
     void init();
     const { data: listener } = cms?.auth.onAuthStateChange((_event, session) => {
-      if (!session) { setUser(null); setAuthorized(false); setBanners([]); setDraft(null); }
+      if (!session) { setUser(null); setAuthorized(false); void refresh().catch(err => setMessage(err.message)); }
     }) || { data: null };
     return () => { active = false; listener?.subscription.unsubscribe(); };
   }, []);
@@ -110,9 +111,10 @@ export function ContentManagementPage() {
       setUser(data.user);
       const { data: role, error: roleError } = await cms.from('taxpay_portal_admins')
         .select('user_uid').eq('user_uid', data.user.id).eq('active', true).maybeSingle();
-      if (roleError || !role) throw new Error('This account does not have verified portal administration access.');
+      if (roleError || !role) throw new Error('This account cannot publish banners.');
       setAuthorized(true);
       await refresh();
+      setShowSignIn(false);
       setPassword('');
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
@@ -134,7 +136,8 @@ export function ContentManagementPage() {
   }
 
   async function save(publish?: boolean) {
-    if (!cms || !user || !draft || busy) return;
+    if (!cms || !draft || busy) return;
+    if (!user || !authorized) { setShowSignIn(true); return; }
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete all English and Bangla fields within the mobile character limits.');
       return;
@@ -159,7 +162,9 @@ export function ContentManagementPage() {
   }
 
   async function remove() {
-    if (!cms || !draft || busy || !window.confirm(`Remove ${draft.heading_en}? This will remove it from the public carousel.`)) return;
+    if (!cms || !draft || busy) return;
+    if (!user || !authorized) { setShowSignIn(true); return; }
+    if (!window.confirm(`Remove ${draft.heading_en}? This will remove it from the public carousel.`)) return;
     setBusy(true); setMessage('');
     try {
       const { data, error } = await cms.from('taxpay_site_banners').delete()
@@ -181,17 +186,7 @@ export function ContentManagementPage() {
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
     </div>
     {tab === 'logo' ? <section className="cms-panel"><h2>Site Logo</h2><p>Logo management will be developed in the next phase.</p></section> : !cms ?
-      <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : !authorized ?
-      <section className="cms-panel cms-login">
-        <h2>Verified administrator access</h2>
-        <p>Banner publication requires a verified TaxPay portal administrator account.</p>
-        <form onSubmit={signIn}>
-          <label>Email<input type="email" required autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} /></label>
-          <label>Password<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-          <button className="cms-primary" type="submit" disabled={busy}>Sign in to manage banners</button>
-        </form>
-        {user && <p>Current session does not have verified administrator access.</p>}
-      </section> : <div className="cms-layout">
+      <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading"><h2>Banners</h2><button type="button" aria-label="Refresh banners" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={18}/></button></div>
           {banners.map(row => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => setSelectedId(row.id)}>
@@ -230,6 +225,16 @@ export function ContentManagementPage() {
           </div>
         </section>}
       </div>}
+    {showSignIn && <div className="cms-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSignIn(false); }}>
+      <section className="cms-panel cms-login cms-modal" role="dialog" aria-modal="true" aria-labelledby="cms-sign-in-title">
+        <div className="cms-panel__heading"><h2 id="cms-sign-in-title">Sign in to publish</h2><button type="button" aria-label="Close" onClick={() => setShowSignIn(false)}>×</button></div>
+        <form onSubmit={signIn}>
+          <label>Email<input type="email" required autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} /></label>
+          <label>Password<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+          <button className="cms-primary" type="submit" disabled={busy}>Continue</button>
+        </form>
+      </section>
+    </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
   </main>;
 }
