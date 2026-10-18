@@ -2,10 +2,14 @@
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
 export type StoryPayment = {
   id:string;service:string;amountMinor:number;status:string;createdAt:string;
-  details:{payerName?:string;taxpayerTin?:string;assessmentYear?:string;
+  details?:{
+    payerName?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
     taxZone?:string;taxCircle?:string;receiptReference?:string;
-    paymentChannel?:string;paymentMethod?:string;lines?:unknown[];
-    receiptMobile?:string;noticeReference?:string};
+    paymentChannel?:string;paymentMethod?:string;
+    lines?:unknown[];receiptMobile?:string;noticeReference?:string;
+    payerMode?:string;incomeTaxType?:string;travelRoute?:string;
+    travelDate?:string;passengerName?:string;
+  };
 };
 export type StoryNotice = {id:number;paymentId:string;type:string;createdAt:string};
 async function get<T>(path:string):Promise<T> {
