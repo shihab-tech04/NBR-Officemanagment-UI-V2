@@ -73,6 +73,21 @@
 .payment-module__table-card .card-table__wrapper { width:100%; min-width:0; }
 .payment-module__table-card .card-table { width:100%; min-width:0; }
 .payment-module__table-card .card-table__table { width:100%; min-width:720px; table-layout:auto; }
+/* The seven visible transaction fields use the existing card-table grid.
+   Keep service and both financial statuses visible without horizontal overflow. */
+@media (min-width: 1280px) {
+  .payment-module[data-testid="payment-transactions"] .card-table__table {
+    width:100%;
+    min-width:0;
+    table-layout:fixed;
+  }
+  .payment-module[data-testid="payment-transactions"] .card-table__th,
+  .payment-module[data-testid="payment-transactions"] .card-table__td {
+    padding-inline:8px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+}
 .payment-module__tab-scroll .tab-bar__tab:focus-visible { outline-offset:-2px; }
 @media(max-width:1023px) {
   .payment-module__table-card .card-table__table { min-width:0; }
