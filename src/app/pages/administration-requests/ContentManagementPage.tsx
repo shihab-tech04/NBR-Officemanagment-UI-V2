@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
+import { SiteLogoPanel } from './SiteLogoPanel';
 
 type Banner = {
   id: string; service_code: string | null; sort_order: number; published: boolean;
@@ -211,7 +212,7 @@ export function ContentManagementPage() {
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
     </div>
-    {tab === 'logo' ? <section className="cms-panel"><h2>Site Logo</h2><p>Logo management will be developed in the next phase.</p></section> : !cms ?
+    {tab === 'logo' ? <SiteLogoPanel cms={cms} officeUserId={officeUserId} /> : !cms ?
       <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div>
