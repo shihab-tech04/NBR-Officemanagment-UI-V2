@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
 import { ImagePlus, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 
@@ -19,7 +21,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
 const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
 const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
 const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: true } }) : null;
+  ? createClient(backendUrl, backendKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) : null;
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
@@ -51,11 +53,7 @@ function originalImageUrl(id: string) {
 
 export function ContentManagementPage() {
   const [tab, setTab] = useState<'banners' | 'logo'>('banners');
-  const [user, setUser] = useState<User | null>(null);
-  const [authorized, setAuthorized] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const officeUserId = useSelector((state: RootState) => state.auth.userId);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Banner | null>(null);
@@ -74,25 +72,7 @@ export function ContentManagementPage() {
   };
 
   useEffect(() => {
-    let active = true;
-    async function init() {
-      if (!cms) return;
-      const { data } = await cms.auth.getUser();
-      if (!active) return;
-      const identity = data.user || null;
-      setUser(identity);
-      if (!identity) { void refresh().catch(err => setMessage(err.message)); return; }
-      const { data: permission, error } = await cms.from('taxpay_portal_admins')
-        .select('user_uid').eq('user_uid', identity.id).eq('active', true).maybeSingle();
-      if (!active) return;
-      setAuthorized(Boolean(permission) && !error);
-      void refresh().catch(err => setMessage(err.message));
-    }
-    void init();
-    const { data: listener } = cms?.auth.onAuthStateChange((_event, session) => {
-      if (!session) { setUser(null); setAuthorized(false); void refresh().catch(err => setMessage(err.message)); }
-    }) || { data: null };
-    return () => { active = false; listener?.subscription.unsubscribe(); };
+    void refresh().catch(err => setMessage(err.message));
   }, []);
 
   useEffect(() => {
@@ -100,25 +80,6 @@ export function ContentManagementPage() {
     setDesktopFile(null);
     setMobileFile(null);
   }, [banners, selectedId]);
-
-  async function signIn(event: React.FormEvent) {
-    event.preventDefault();
-    if (!cms) return;
-    setBusy(true); setMessage('');
-    try {
-      const { data, error } = await cms.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      setUser(data.user);
-      const { data: role, error: roleError } = await cms.from('taxpay_portal_admins')
-        .select('user_uid').eq('user_uid', data.user.id).eq('active', true).maybeSingle();
-      if (roleError || !role) throw new Error('This account cannot publish banners.');
-      setAuthorized(true);
-      await refresh();
-      setShowSignIn(false);
-      setPassword('');
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setBusy(false); }
-  }
 
   function update(key: TextKey, value: string) {
     setDraft(current => current ? { ...current, [key]: value } : null);
@@ -137,7 +98,7 @@ export function ContentManagementPage() {
 
   async function save(publish?: boolean) {
     if (!cms || !draft || busy) return;
-    if (!user || !authorized) { setShowSignIn(true); return; }
+    if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete all English and Bangla fields within the mobile character limits.');
       return;
@@ -151,7 +112,7 @@ export function ContentManagementPage() {
       const payload = Object.fromEntries(fields.map(field => [field.key, draft[field.key]]));
       const { data, error } = await cms.from('taxpay_site_banners').update({ ...payload,
         desktop_image_path: desktop, mobile_image_path: mobile,
-        published: publish ?? draft.published, updated_by: user.id,
+        published: publish ?? draft.published, updated_by: null,
       }).eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('A newer edit was published. Refresh and review it before retrying.');
@@ -163,7 +124,7 @@ export function ContentManagementPage() {
 
   async function remove() {
     if (!cms || !draft || busy) return;
-    if (!user || !authorized) { setShowSignIn(true); return; }
+    if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
     if (!window.confirm(`Remove ${draft.heading_en}? This will remove it from the public carousel.`)) return;
     setBusy(true); setMessage('');
     try {
@@ -225,16 +186,6 @@ export function ContentManagementPage() {
           </div>
         </section>}
       </div>}
-    {showSignIn && <div className="cms-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSignIn(false); }}>
-      <section className="cms-panel cms-login cms-modal" role="dialog" aria-modal="true" aria-labelledby="cms-sign-in-title">
-        <div className="cms-panel__heading"><h2 id="cms-sign-in-title">Sign in to publish</h2><button type="button" aria-label="Close" onClick={() => setShowSignIn(false)}>×</button></div>
-        <form onSubmit={signIn}>
-          <label>Email<input type="email" required autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} /></label>
-          <label>Password<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-          <button className="cms-primary" type="submit" disabled={busy}>Continue</button>
-        </form>
-      </section>
-    </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
   </main>;
 }
