@@ -35,7 +35,7 @@ const demoProfiles = demoUserIds.map((id,index)=>({
   nid:'—',phone:'—'
 }));
 const demoUserTin=(id:string)=>`DEMO-TIN-${String(demoUserIds.indexOf(id as typeof demoUserIds[number])+1).padStart(3,'0')}`;
-const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).replace(/\bSept\b/,'Sep');
 const demoTimeline=(events:readonly {occurredAt:string;action:string;note:string}[])=>
   events.map(e=>`${new Date(e.occurredAt).toISOString()} · ${e.action} · ${e.note}`).join(' | ');
 const demoGlobalRows=demoTransactions.map(tx=>({
@@ -130,14 +130,16 @@ export function PaymentModulePage({page}: {page: string}) {
   const [liveNotices,setLiveNotices] = useState<SimulationNotice[]>([]);
   const [storyPayments,setStoryPayments] = useState<StoryPayment[]>([]);
   const [storyNotices,setStoryNotices] = useState<StoryNotice[]>([]);
+  const [storyLoading,setStoryLoading]=useState(true);
+  const [storyError,setStoryError]=useState('');
   // This fictional-payment feed has no officer login or verification dependency.
   useEffect(()=>{
     let mounted=true;
     const refresh=async()=>{
       try {
         const [payments,notices]=await Promise.all([getStoryPayments(),getStoryNotices()]);
-        if(mounted){setStoryPayments(payments);setStoryNotices(notices);}
-      }catch {if(mounted){setStoryPayments([]);setStoryNotices([]);}}
+        if(mounted){setStoryPayments(payments);setStoryNotices(notices);setStoryError('');setStoryLoading(false);}
+      }catch(e){if(mounted){setStoryError(e instanceof Error?e.message:'Payment connection failed');setStoryLoading(false);}}
     };
     void refresh();
     const timer=window.setInterval(()=>void refresh(),5000);
@@ -255,7 +257,9 @@ export function PaymentModulePage({page}: {page: string}) {
     transaction_timeline:'Guest payment submitted → TaxPay SQL → Office SQL',
     note:'Simulated payment'
   }));
-  const allRows=paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
+  // The actual Transactions page must never mix in reference snapshots,
+  // scenario fixtures, authenticated preview ledgers or QA API records.
+  const allRows=current==='transactions'?storyRows:paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
@@ -329,14 +333,9 @@ export function PaymentModulePage({page}: {page: string}) {
   </>;
   const transactions=()=> <>
     {toolbar(t('transactions'))}
-    <div className="payment-module__year-control"><AppSelectField id="payment-dataset-scope" label={t('demoDataSource')} value={paymentDataset} onChange={value=>setPaymentDataset(value as 'reference'|'scenarios'|'connected')} compact options={[{value:'reference',label:t('demoReferenceData')},{value:'scenarios',label:t('demoMixedData')},{value:'connected',label:'Connected SQL payment simulation'}]}/></div>
-    {paymentDataset==='scenarios'&&<p className="table-page__desc">{t('demoScopeNotice')}</p>}
-    <div className="table-page__desc" role="status" aria-live="polite">
-      {liveError?`Shared SQL connection error: ${liveError}`:
-       liveLoading?'Loading shared SQL simulation ledger…':
-       `Shared SQL simulation: ${liveTransactions.length} transactions, ${liveTransactions.reduce((n,x)=>n+x.allocations.length,0)} allocations. Select Connected SQL payment simulation to inspect.`}
-    </div>
-    {paymentDataset==='connected'&&liveLoading?<p role="status">Loading connected records…</p>:null}
+    {storyLoading?<p className="table-page__desc" role="status">Loading transactions…</p>:null}
+    {storyError?<p className="table-page__desc" role="alert">{storyError}</p>:null}
+    {!storyLoading&&!storyError&&scopedPayments.length===0?<p className="table-page__desc" role="status">No payments submitted yet.</p>:null}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
   const taxpayer=()=> <>
@@ -405,7 +404,7 @@ export function PaymentModulePage({page}: {page: string}) {
 
   return <div className="table-page payment-module" data-testid={`payment-${current}`}>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
-    {(current==='overview'||current==='transactions')&&<OfficeReviewQueue/>}
+    {current==='overview'&&<OfficeReviewQueue/>}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
       renderValue={(key,value)=>key==='payment_type' ? <PaymentCategoryTag value={String(value ?? '')}/> : undefined}
       columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}),groupLabel:

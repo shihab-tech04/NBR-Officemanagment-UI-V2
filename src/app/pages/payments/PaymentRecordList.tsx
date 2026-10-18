@@ -15,10 +15,10 @@ import type { ColDef, FilterDef, MobileCardMapping, TableRow } from '../modulePa
 /** Parse the controlled Payment snapshot's human-readable dates, never sort them lexicographically. */
 export function paymentDateOrdinal(value:unknown):number|null {
   if(typeof value !== 'string')return null;
-  const match=/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/.exec(value.trim());
+  const match=/^(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})$/.exec(value.trim());
   if (!match) return null;
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const month=months.indexOf(match[2]);
+  const month=months.indexOf(match[2].slice(0,3));
   if(month<0)return null;
   const day=Number(match[1]); const year=Number(match[3]);
   const date=new Date(Date.UTC(year,month,day));

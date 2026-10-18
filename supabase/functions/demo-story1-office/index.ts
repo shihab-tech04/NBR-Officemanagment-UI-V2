@@ -27,7 +27,13 @@ Deno.serve(async(req)=>{
       args={p_input:{id:record.id,sessionId:incoming.sessionId,
          service:record.data.service,amountMinor:record.data.amountMinor,
          data:record.data,status:record.status,createdAt:record.createdAt}};
-   }else if(req.method==="GET"&&path==="/payments"){rpc="demo_story1_office_list";}
+   }else if(req.method==="GET"&&path==="/payments"){
+      const u=new URL(req.url),page=Number(u.searchParams.get("page")??"1"),
+            perPage=Number(u.searchParams.get("perPage")??"100");
+      if(!Number.isSafeInteger(page)||!Number.isSafeInteger(perPage)||page<1||perPage<1||perPage>100)
+        return respond({success:false,error:"INVALID_PAGINATION"},400);
+      rpc="demo_story1_office_page";args={p_page:page,p_per_page:perPage};
+   }
    else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
    else return respond({success:false,error:"NOT_FOUND"},404);
    const {data,error}=await client.rpc(rpc,args);
