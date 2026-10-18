@@ -97,7 +97,7 @@ const samplePayments = referencePayments.map(p => ({
 function paymentColumns(t:(key:string)=>string) {
   const columns = (fields: [string,string,boolean?][]):ColDef[] => fields.map(([key,label,badge])=>({type:'col',col:{key,label:t(label),badge:!!badge,truncate:'normal'}}));
   return {
-    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['payment_type','Service'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true]]),
+    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['payment_type','Service'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true],['ledger_status','colCredit',true]]),
     correction:columns([['id','colCase'],['taxpayer','colTaxpayer'],['reason','colReason'],['amount','colAmount'],['stage','colStage'],['status','status',true]]),
     offline:columns([['id','colEvent'],['taxpayer','colTaxpayer'],['event','colType'],['component','component'],['amount','colAmount'],['status','status',true]]),
     incident:columns([['id','colReference'],['taxpayer','colTaxpayer'],['type','incidentType'],['date','colReported'],['status','status',true]]),
