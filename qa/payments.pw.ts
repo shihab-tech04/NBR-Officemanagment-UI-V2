@@ -316,3 +316,35 @@ test('Guest-submitted payment is displayed without an officer sign-in gate',asyn
   await expect(page.getByText('Authorized officer sign-in required')).toHaveCount(0);
   await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
+
+test('transaction details footer opens the exact TaxPay certificate for view, print and download',async({page})=>{
+  await page.goto('/payments/transactions');
+  await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
+  await page.getByRole('button',{name:'View Details'}).first().click();
+  const drawer=page.locator('.responsive-overlay');
+  await expect(drawer).toBeVisible();
+  const footer=drawer.locator('.responsive-overlay__footer');
+  await expect(footer.getByRole('button',{name:'View certificate'})).toBeVisible();
+  await expect(footer.getByRole('button',{name:'Print'})).toBeVisible();
+  await expect(footer.getByRole('button',{name:'Download'})).toBeVisible();
+  await page.evaluate(()=>{
+    (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls=[];
+    window.open=(url?:string|URL)=>{
+      (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls.push(String(url));
+      return null;
+    };
+  });
+  await footer.getByRole('button',{name:'View certificate'}).click();
+  await footer.getByRole('button',{name:'Print'}).click();
+  await footer.getByRole('button',{name:'Download'}).click();
+  const links=await page.evaluate(()=> (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls);
+  expect(links).toHaveLength(3);
+  for(const link of links){
+    const url=new URL(link);
+    expect(url.origin+url.pathname).toBe('https://shihab-tech04.github.io/nbr-taxpay/');
+    expect(url.searchParams.get('action')).toBe('payment_details');
+    expect(url.searchParams.get('transactionId')).toBe(submittedPayments[0].id);
+  }
+  expect(new URL(links[1]).searchParams.get('docAction')).toBe('print');
+  expect(new URL(links[2]).searchParams.get('docAction')).toBe('download');
+});
