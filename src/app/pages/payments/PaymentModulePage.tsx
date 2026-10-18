@@ -35,7 +35,7 @@ const demoProfiles = demoUserIds.map((id,index)=>({
   nid:'—',phone:'—'
 }));
 const demoUserTin=(id:string)=>`DEMO-TIN-${String(demoUserIds.indexOf(id as typeof demoUserIds[number])+1).padStart(3,'0')}`;
-const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).replace(/\bSept\b/,'Sep');
 const demoTimeline=(events:readonly {occurredAt:string;action:string;note:string}[])=>
   events.map(e=>`${new Date(e.occurredAt).toISOString()} · ${e.action} · ${e.note}`).join(' | ');
 const demoGlobalRows=demoTransactions.map(tx=>({
