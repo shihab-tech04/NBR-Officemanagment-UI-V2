@@ -38,6 +38,17 @@ function imageUrl(path: string | null) {
   return path && cms ? cms.storage.from('taxpay-banners').getPublicUrl(path).data.publicUrl : null;
 }
 
+const originalImages: Record<string, string> = {
+  intro: 'taxpay-hero-payment-v3.webp',
+  return: 'taxpay-hero-return-v3.webp',
+  advance: 'taxpay-hero-advance-v3.webp',
+  withholding: 'taxpay-hero-withholding-v3.webp',
+  travel: 'taxpay-hero-travel-v6.webp',
+};
+function originalImageUrl(id: string) {
+  return originalImages[id] ? `https://raw.githubusercontent.com/shihab-tech04/nbr-taxpay/main/src/assets/${originalImages[id]}` : null;
+}
+
 export function ContentManagementPage() {
   const [tab, setTab] = useState<'banners' | 'logo'>('banners');
   const [user, setUser] = useState<User | null>(null);
@@ -194,9 +205,10 @@ export function ContentManagementPage() {
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
               const file = device === 'desktop' ? desktopFile : mobileFile;
+              const preview = imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(draft.id);
               return <div className="cms-upload" key={device}>
                 <h3>{device === 'desktop' ? 'Desktop image' : 'Mobile image'}</h3>
-                {imageUrl(path) ? <img src={imageUrl(path)!} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>{device === 'desktop' ? 'Current bundled illustration remains in use' : 'Uses desktop image'}</p></div>}
+                {preview ? <img src={preview} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>No image selected</p></div>}
                 {file && <p>New image selected: {file.name}</p>}
                 <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace
                   <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => device === 'desktop' ? setDesktopFile(event.target.files?.[0] || null) : setMobileFile(event.target.files?.[0] || null)} />
