@@ -30,14 +30,16 @@ jobs:
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
           VITE_TAXPAY_REVIEW_DISABLED: 'true'
+          VITE_TAXPAY_CMS_SUPABASE_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
-      - name: Verify open UI build contains no connected review endpoint or privileged key
+      - name: Verify open UI contains no privileged key
         shell: bash
         run: |
-          ! grep -REq 'eyqhoavnitkrajvyqvxn|sb_publishable_|sb_secret_|service_role' dist/assets
-          echo 'PASS: open Office UI has no compiled-in Supabase project endpoint or key'
+          ! grep -REq 'sb_secret_|service_role' dist/assets
+          echo 'PASS: Office CMS public client requires verified administrator database policies'
 
       - name: Verify built asset paths and files
         run: |

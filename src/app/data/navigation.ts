@@ -6,7 +6,7 @@ import {
   BookOpen, Archive, CloudUpload, HardDrive, BadgeCheck, FilePen,
   CopyCheck, MapPinOff, Network, FolderX, Ban, ListChecks,
   ArrowLeftRight, Receipt, CreditCard, KeyRound, Rows3,
-  Notebook, BadgeInfo, Globe, History, FileStack, FolderOpen, Calculator, BookCheck, CalendarRange,
+  Notebook, BadgeInfo, Globe, History, FileStack, FolderOpen, Calculator, BookCheck, CalendarRange, Images,
 } from "lucide-react";
 
 // LucideIcon type for navigation
@@ -232,6 +232,7 @@ export const NAVIGATION: MainNavDef[] = [
       { id: "special-registration", label: "Special Registration List", labelKey: "navigation.administration.specialRegistrationList", icon: Notebook },
       { id: "time-extension", label: "Time Extension", labelKey: "navigation.administration.timeExtension", icon: History },
       { id: "audit-selection", label: "Audit Selection", labelKey: "navigation.administration.auditSelection", icon: BadgeInfo },
+      { id: "content-management", label: "Content Management", labelKey: "navigation.administration.contentManagement", icon: Images },
       { id: "rules-calculation", label: "Rules & Calculation", labelKey: "navigation.administration.rulesCalculation", icon: Calculator, children: [
         { id: "tax-years", label: "Tax Years", labelKey: "navigation.administration.taxYears", icon: CalendarRange },
         { id: "rule-library", label: "Rule Library", labelKey: "navigation.administration.ruleLibrary", icon: BookOpen },

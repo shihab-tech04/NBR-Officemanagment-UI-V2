@@ -47,6 +47,7 @@ const PermissionListPage       = lazy(() => import("./pages/administration-reque
 const SpecialRegistrationPage  = lazy(() => import("./pages/administration-requests/SpecialRegistrationPage").then(m => ({ default: m.SpecialRegistrationPage })));
 const TimeExtensionPage        = lazy(() => import("./pages/administration-requests/TimeExtensionPage").then(m => ({ default: m.TimeExtensionPage })));
 const AuditSelectionPage       = lazy(() => import("./pages/administration-requests/AuditSelectionPage").then(m => ({ default: m.AuditSelectionPage })));
+const ContentManagementPage    = lazy(() => import("./pages/administration-requests/ContentManagementPage").then(m => ({ default: m.ContentManagementPage })));
 const AuditModulePage          = lazy(() => import("./pages/audit/AuditModulePage").then(m => ({ default: m.AuditModulePage })));
 const PaymentsOverviewPage    = lazy(() => import("./pages/payments/PaymentsOverviewPage").then(m => ({ default: m.PaymentsOverviewPage })));
 const PaymentModulePage = lazy(() => import("./pages/payments/PaymentModulePage").then(m => ({ default: m.PaymentModulePage })));
@@ -225,6 +226,7 @@ export const router = createBrowserRouter([
       { path: "administration/special-registration",Component: SpecialRegistrationPage },
       { path: "administration/time-extension",     Component: TimeExtensionPage },
       { path: "administration/audit-selection",    Component: AuditSelectionPage },
+      { path: "administration/content-management", Component: ContentManagementPage },
       { path: "administration/rules-calculation/:thirdNav", Component: RulesCalculationPage },
     ],
   },
