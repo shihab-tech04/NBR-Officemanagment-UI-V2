@@ -28,7 +28,7 @@ function isHead(value:unknown):value is PaymentHead{
   return Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 }
 const nonempty=(value:unknown)=>typeof value==='string'&&value.trim()?value.trim():undefined;
-const known=(value:unknown)=>nonempty(value)&&!['Taxpayer / withholding agent','GUEST'].includes(String(value))?String(value).trim():undefined;
+const known=(value:unknown)=>nonempty(value)&&!['Taxpayer / withholding agent','GUEST','—'].includes(String(value))?String(value).trim():undefined;
 export const storyFieldLabels:Record<string,string>={
   taxpayer_name:'Taxpayer',tin:'TIN',payer_name:'Payer',
   payment_type:'Service',date:'Date',assessment_year:'Assessment year',
