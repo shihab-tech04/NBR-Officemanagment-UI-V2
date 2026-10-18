@@ -5,6 +5,9 @@ import type { RootState } from '../../store/store';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
+import { ImageCropDialog } from './ImageCropDialog';
+import { IMAGE_FILE_ACCEPT, isSupportedImageType, MAX_IMAGE_BYTES } from './imageCrop';
+import { useImagePreview } from './useImagePreview';
 
 type Banner = {
   id: string; service_code: string | null; sort_order: number; published: boolean;
@@ -70,6 +73,9 @@ export function ContentManagementPage() {
   const [editing, setEditing] = useState(false);
   const [desktopFile, setDesktopFile] = useState<File | null>(null);
   const [mobileFile, setMobileFile] = useState<File | null>(null);
+  const [cropTask, setCropTask] = useState<{ device: 'desktop' | 'mobile'; file: File } | null>(null);
+  const desktopPreview = useImagePreview(desktopFile);
+  const mobilePreview = useImagePreview(mobileFile);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -99,6 +105,7 @@ export function ContentManagementPage() {
     }
     setDesktopFile(null);
     setMobileFile(null);
+    setCropTask(null);
   }, [banners, selectedId, newDraft]);
 
   function addBanner() {
@@ -131,15 +138,16 @@ export function ContentManagementPage() {
     setDesiredPosition(Math.max(1, banners.findIndex(row => row.id === selectedId) + 1));
     setDesktopFile(null);
     setMobileFile(null);
+    setCropTask(null);
     setEditing(false);
     setMessage('');
   }
 
   async function upload(file: File, id: string, device: 'desktop' | 'mobile') {
     if (!cms) throw new Error('Storage is unavailable.');
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)
-      throw new Error('Upload a JPG, PNG, or WebP image of 5 MB or less.');
-    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+    if (!isSupportedImageType(file))
+      throw new Error(`Upload a PNG, JPG, or JPEG image no larger than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`);
+    const extension = file.type === 'image/png' ? 'png' : 'jpg';
     const path = `${id}/${device}-${crypto.randomUUID()}.${extension}`;
     const { error } = await cms.storage.from('taxpay-banners').upload(path, file, { contentType: file.type, upsert: false });
     if (error) throw error;
@@ -230,16 +238,24 @@ export function ContentManagementPage() {
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
               const file = device === 'desktop' ? desktopFile : mobileFile;
-              const preview = imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(draft.id);
+              const preview = (editing && (device === 'desktop' ? desktopPreview : mobilePreview)) || imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(draft.id);
               return <div className="cms-upload" key={device}>
                 <h3>{device === 'desktop' ? 'Desktop image' : 'Mobile image'}</h3>
                 {preview ? <img src={preview} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>No image selected</p></div>}
-                {editing && file && <p>New image selected: {file.name}</p>}
+                {editing && file && <p>Cropped image ready: {file.name}</p>}
                 {editing && <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace
-                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => device === 'desktop' ? setDesktopFile(event.target.files?.[0] || null) : setMobileFile(event.target.files?.[0] || null)} />
+                  <input type="file" accept={IMAGE_FILE_ACCEPT} disabled={busy} onChange={event => {
+                    const picked = event.target.files?.[0];
+                    event.target.value = '';
+                    if (picked) { setMessage(''); setCropTask({ device, file: picked }); }
+                  }} />
                 </label>}
-                {editing && path && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null } : null)}>Remove image</button>}
-                {editing && <p>JPG, PNG or WebP · Max 5 MB</p>}
+                {editing && (path || file) && <button type="button" className="cms-text-button" onClick={() => {
+                  setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null } : null);
+                  if (device === 'desktop') setDesktopFile(null);
+                  else setMobileFile(null);
+                }}>Remove image</button>}
+                {editing && <p>PNG, JPG or JPEG · Crop before saving · Max 5 MB</p>}
               </div>;
             })}
           </div>
@@ -257,5 +273,12 @@ export function ContentManagementPage() {
         </section>}
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
+    {cropTask && <ImageCropDialog key={`${cropTask.device}-${cropTask.file.name}-${cropTask.file.lastModified}`} file={cropTask.file}
+      title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 1600 : 1200}
+      outputHeight={800} onCancel={() => setCropTask(null)} onApply={cropped => {
+        if (cropTask.device === 'desktop') setDesktopFile(cropped);
+        else setMobileFile(cropped);
+        setCropTask(null);
+      }} />}
   </main>;
 }

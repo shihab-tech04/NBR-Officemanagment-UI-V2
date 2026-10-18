@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
+import { ImageCropDialog } from './ImageCropDialog';
+import { IMAGE_FILE_ACCEPT, isSupportedImageType } from './imageCrop';
 
 type SiteLogoRecord = {
   id: 'primary'; image_path: string | null; image_width: number | null;
@@ -9,28 +11,16 @@ type SiteLogoRecord = {
 type LogoFile = { file: File; width: number; height: number };
 
 const fallbackLogo = 'https://raw.githubusercontent.com/shihab-tech04/nbr-taxpay/main/src/assets/amar-kor-wordmark-no-wave-20261018.png';
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const acceptedTypes = ['image/png', 'image/jpeg', 'image/webp'];
 
 function liveLogoUrl(cms: SupabaseClient, path: string | null) {
   return path ? cms.storage.from('taxpay-branding').getPublicUrl(path).data.publicUrl : fallbackLogo;
-}
-
-async function readImage(file: File): Promise<LogoFile> {
-  if (!acceptedTypes.includes(file.type) || file.size > MAX_FILE_BYTES)
-    throw new Error('Select a PNG, JPG, or WebP image no larger than 5 MB.');
-  const bitmap = await createImageBitmap(file);
-  const { width, height } = bitmap;
-  bitmap.close();
-  if (width < 600 || width > 6000 || height < 120 || height > 2000 || width / height < 3.5 || width / height > 6.5)
-    throw new Error('Use a horizontal wordmark, 600–6000 px wide, 120–2000 px tall, with a ratio between 3.5:1 and 6.5:1.');
-  return { file, width, height };
 }
 
 export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | null; officeUserId: string | null }) {
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<LogoFile | null>(null);
+  const [cropSource, setCropSource] = useState<File | null>(null);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -62,26 +52,26 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
 
   function cancel() {
     setSelected(null);
+    setCropSource(null);
     setEditing(false);
     setMessage('');
   }
 
-  async function choose(file: File | null) {
+  function choose(file: File | null) {
     setMessage('');
-    setSelected(null);
     if (!file) return;
-    try { setSelected(await readImage(file)); }
-    catch (error) { setMessage((error as Error).message); }
+    setCropSource(file);
   }
 
   async function save() {
     if (!cms || !record || !selected || busy) return;
     if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
+    if (!isSupportedImageType(selected.file)) { setMessage('Only cropped PNG, JPG and JPEG files up to 5 MB may be published.'); return; }
     setBusy(true);
     setMessage('');
     try {
       // Immutable paths make the public CDN switch atomically when SQL updates.
-      const extension = selected.file.type === 'image/png' ? 'png' : selected.file.type === 'image/webp' ? 'webp' : 'jpg';
+      const extension = selected.file.type === 'image/png' ? 'png' : 'jpg';
       const path = `logos/${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await cms.storage.from('taxpay-branding').upload(path, selected.file, {
         contentType: selected.file.type, cacheControl: '31536000', upsert: false,
@@ -128,9 +118,13 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
       {editing && <>
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
-            <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => void choose(event.target.files?.[0] || null)} />
+            <input type="file" accept={IMAGE_FILE_ACCEPT} disabled={busy} onChange={event => {
+              const file = event.target.files?.[0] || null;
+              event.target.value = '';
+              choose(file);
+            }} />
           </label>
-          <p>Recommended: transparent PNG or WebP, 2150 × 440 px. Accepted ratio 3.5:1–6.5:1; max 5 MB. The current blue design remains until you save.</p>
+          <p>PNG, JPG or JPEG only · Crop to 2150 × 440 px · Max 5 MB. PNG preserves transparency. The current blue design remains until you save.</p>
         </div>
         <div className="cms-actions"><div className="cms-actions__main">
           <button type="button" className="cms-primary" disabled={busy || !selected} onClick={() => void save()}><Save size={16}/> Save changes</button>
@@ -139,5 +133,10 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
       </>}
     </>}
     {message && <p className="cms-message" role="status">{message}</p>}
+    {cropSource && <ImageCropDialog file={cropSource} title="site logo" outputWidth={2150} outputHeight={440}
+      onCancel={() => setCropSource(null)} onApply={file => {
+        setSelected({ file, width: 2150, height: 440 });
+        setCropSource(null);
+      }} />}
   </section>;
 }

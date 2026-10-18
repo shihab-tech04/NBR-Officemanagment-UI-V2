@@ -30,7 +30,7 @@ describe('Site Logo editor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit logo' }));
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
-    expect(screen.getByText(/Recommended: transparent PNG or WebP/)).toBeInTheDocument();
+    expect(screen.getByText(/PNG, JPG or JPEG only/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Edit logo' })).toBeInTheDocument();
