@@ -139,7 +139,7 @@ export function PaymentModulePage({page}: {page: string}) {
     const refresh=async()=>{
       try {
         const [payments,notices]=await Promise.all([getStoryPayments(),getStoryNotices()]);
-        if(mounted){setStoryPayments(payments);setStoryNotices(notices);setStoryError('');setStoryLoading(false);}
+        if(mounted){const visibleIds=new Set(payments.map(item=>item.id));setStoryPayments(payments);setStoryNotices(notices.filter(notice=>visibleIds.has(notice.paymentId)));setStoryError('');setStoryLoading(false);}
       }catch(e){if(mounted){setStoryError(e instanceof Error?e.message:'Payment connection failed');setStoryLoading(false);}}
     };
     void refresh();
