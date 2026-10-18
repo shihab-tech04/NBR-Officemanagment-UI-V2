@@ -231,7 +231,7 @@ export function PaymentModulePage({page}: {page: string}) {
     setFormError('');setDraftPreview(true);
   };
   const keys=paymentColumns(t);
-  const storyRows:TableRow[]=storyPayments.map(tx=>({
+  const storyRows=storyPayments.map(tx=>({
     key:tx.id,
     date:demoDate(tx.createdAt),
     taxpayer_name:tx.details.payerName||'—',
@@ -255,7 +255,7 @@ export function PaymentModulePage({page}: {page: string}) {
     transaction_timeline:'Guest payment submitted → TaxPay SQL → Office SQL',
     note:'Simulated payment'
   }));
-  const allRows:TableRow[]=[...storyRows,...(paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:liveTransactionRows(liveTransactions))];
+  const allRows=[...storyRows,...(paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:liveTransactionRows(liveTransactions))];
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
