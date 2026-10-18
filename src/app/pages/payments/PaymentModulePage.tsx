@@ -255,7 +255,7 @@ export function PaymentModulePage({page}: {page: string}) {
     transaction_timeline:'Guest payment submitted → TaxPay SQL → Office SQL',
     note:'Simulated payment'
   }));
-  const allRows=[...storyRows,...(paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:liveTransactionRows(liveTransactions))];
+  const allRows=paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
@@ -312,7 +312,7 @@ export function PaymentModulePage({page}: {page: string}) {
     <div className="payment-module__year-control">{yearSelect}</div>
     {showKpis([
       kpi(t('payments'),displayNumber(scopedPayments.length),CreditCard),
-      kpi(t('received'),displayMoney(totalReceived(scopedOriginal)+storyPayments.reduce((n,p)=>n+p.amountMinor/100,0)),Landmark,'success'),
+      kpi(t('received'),displayMoney(totalReceived(scopedOriginal)+(paymentDataset==='connected'?storyPayments.reduce((n,p)=>n+p.amountMinor/100,0):0)),Landmark,'success'),
       kpi(t('eligible'),displayMoney(totalEligible(scopedOriginal)),CheckCircle2,'success'),
       kpi(t('blocked'),displayNumber(scopedOriginal.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
       kpi(t('offlinePending'),displayNumber(referenceOffline.filter(e=>e.status==='Pending' && (scopeYear==='all'||e.ay.replace('–','-')===scopeYear)).length),Clock3,'warning'),
@@ -322,7 +322,7 @@ export function PaymentModulePage({page}: {page: string}) {
         {referenceCorrections.filter(c=>c.status==='Blocked' && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{displayRecord(c.reason)} · {displayMoney(c.amount)}</p></button>)}
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
-        {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>goto('transactions')}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
+        {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
         {referenceAudit.slice(0,Math.max(0,4-storyNotices.length)).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{displayRecord(e.action)}</strong><p>{displayEventDate(e.date)} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
       </section>
     </div>
