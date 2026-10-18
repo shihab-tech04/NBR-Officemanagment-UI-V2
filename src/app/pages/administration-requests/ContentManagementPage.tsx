@@ -35,6 +35,13 @@ const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'action_en', label: 'Button · English' },
   { key: 'action_bn', label: 'Button · বাংলা' },
 ];
+const bannerCategories = [
+  { value: '', label: 'Main banner' },
+  { value: 'TAX_WITH_RETURN', label: 'Tax with Return' },
+  { value: 'ADVANCE_TAX', label: 'Advance Income Tax' },
+  { value: 'SOURCE_TAX_DEPOSIT', label: 'Source Tax Deposit' },
+  { value: 'TRAVEL_TAX', label: 'Travel Tax' },
+];
 
 function imageUrl(path: string | null) {
   return path && cms ? cms.storage.from('taxpay-banners').getPublicUrl(path).data.publicUrl : null;
@@ -154,11 +161,11 @@ export function ContentManagementPage() {
       const mobile = mobileFile ? await upload(mobileFile, draft.id, 'mobile') : draft.mobile_image_path;
       const payload = Object.fromEntries(fields.map(field => [field.key, draft[field.key]]));
       const values = {
-        ...payload, desktop_image_path: desktop, mobile_image_path: mobile,
+        ...payload, service_code: draft.service_code, desktop_image_path: desktop, mobile_image_path: mobile,
         published: draft.published, updated_by: null,
       };
       const { data, error } = isNew
-        ? await cms.from('taxpay_site_banners').insert({ id: draft.id, service_code: null, sort_order: banners.length, ...values }).select('id').maybeSingle()
+        ? await cms.from('taxpay_site_banners').insert({ id: draft.id, sort_order: banners.length, ...values }).select('id').maybeSingle()
         : await cms.from('taxpay_site_banners').update(values).eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('A newer edit was published. Refresh and review it before retrying.');
@@ -209,13 +216,14 @@ export function ContentManagementPage() {
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><div className="cms-list__toolbar"><button type="button" aria-label="Refresh banners" title="Refresh" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={17}/></button><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div></div>
           {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
-            <span><strong>{row.heading_en}</strong><small>{row.id === 'intro' ? 'Main Banner' : 'Service Banner'} · Serial {index + 1}</small></span>
+            <span><strong>{row.heading_en}</strong><small>{row.service_code ? 'Service Banner' : 'Main Banner'} · Serial {index + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
           </button>)}
           {isNewBanner && <div className="cms-banner-item is-selected"><span><strong>New banner</strong><small>Unsaved · Serial {desiredPosition}</small></span><span className="cms-status">Draft</span></div>}
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
-          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.id === 'intro' ? 'Main Banner' : 'Service Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner'}</strong>}</div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Controls the display order on TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
             {(['desktop','mobile'] as const).map(device => {
