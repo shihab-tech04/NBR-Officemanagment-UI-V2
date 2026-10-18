@@ -4,7 +4,27 @@ const viewports = [
   {width:1440,height:900}, {width:1280,height:800}, {width:1024,height:768},
   {width:768,height:1024}, {width:390,height:844}, {width:360,height:800}, {width:320,height:568},
 ];
+const submittedPayments = [
+  {id:'00000000-0000-4000-8000-000000000001',payer:'Md. Rahman',amount:42500,date:'2026-10-12T10:00:00Z'},
+  {id:'00000000-0000-4000-8000-000000000002',payer:'Md. Abdul Karim',amount:100000,date:'2026-10-10T10:00:00Z'},
+  {id:'00000000-0000-4000-8000-000000000003',payer:'Taxpayer C',amount:20000,date:'2026-10-08T10:00:00Z'},
+  {id:'00000000-0000-4000-8000-000000000004',payer:'Taxpayer D',amount:30000,date:'2026-09-20T10:00:00Z'},
+  {id:'00000000-0000-4000-8000-000000000005',payer:'Taxpayer E',amount:50000,date:'2026-09-03T10:00:00Z'},
+].map(p=>({
+  id:p.id,service:'TAX_WITH_RETURN',amountMinor:p.amount*100,
+  status:'SIMULATED_SUCCESS',createdAt:p.date,
+  details:{payerName:p.payer,taxpayerTin:'1111111111111',assessmentYear:'2026-27',
+    paymentMethod:'BKASH',receiptReference:'UI-'+p.id},
+}));
 test.beforeEach(async ({page}) => {
+  // Fixtures are injected into Playwright only, never saved in live SQL.
+  await page.route('**/functions/v1/demo-story1-office/**',route=>{
+    const url=new URL(route.request().url());
+    const isPayments=url.pathname.endsWith('/payments');
+    const data=isPayments?{items:submittedPayments,total:submittedPayments.length,page:1,perPage:100}:[];
+    return route.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({success:true,data,simulationOnly:true})});
+  });
   await page.addInitScript(() => {
     localStorage.setItem('gov_ui_auth',JSON.stringify({isAuthenticated:true,userId:'admin'}));
     localStorage.setItem('gov_ui_settings',JSON.stringify({assessmentYear:'2027-28',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:'en'}));
@@ -76,8 +96,8 @@ test('mobile transaction card distinguishes receipt and tax-credit status',async
  await page.goto('/payments/transactions');
  await expect(page.locator('.mobile-table-card').first()).toBeVisible({timeout:18000});
  const text=await page.locator('.mobile-table-card-list').innerText();
- expect(text).toContain('Not yet credited');
- expect(text).toContain('Failed');
+ expect(text).toContain('No official tax credit');
+ expect(text).toContain('Simulated success');
 });
 test('small-screen correction modal has tappable actions',async({page})=>{
  await page.setViewportSize({width:360,height:800});
@@ -112,7 +132,7 @@ for (const config of [
 
 // Regression evidence for the post-release source audit. These assertions are in addition
 // to the original 65 responsive checks, not substitutes for them.
-test('first visit shows mock payment records independently of Office Management tax-year selection', async ({page}) => {
+test('Transactions shows only submitted SQL records independently of Office tax-year selection', async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/payments/transactions');
   await expect(page.locator('[data-testid="payment-transactions"]')).toBeVisible();
@@ -143,7 +163,7 @@ test('mobile transaction cards have an explicit View Details action', async({pag
   const viewButton=page.locator('.mobile-table-card__action-btn').first();
   await expect(viewButton).toBeVisible();
   await viewButton.click();
-  await expect(page.getByText('PT-2026-000922').last()).toBeVisible();
+  await expect(page.getByText('00000000-0000-4000-8000-000000000001').last()).toBeVisible();
 });
 
 test('Taxpayer 360 summary and credit preview are distinct functional tabs', async({page})=>{
@@ -283,34 +303,16 @@ test('phone sorts transaction cards inside standard Filter sheet, and resets',as
 });
 
 
-test('mixed-payment demo is opt-in and preserves the certified reference register', async ({page})=>{
- await page.setViewportSize({width:1440,height:900});
- await page.goto('/payments/transactions');
- const rows=page.locator('.card-table tbody tr');
- await expect(rows).toHaveCount(5);
- const source=page.locator('#payment-dataset-scope');
- await expect(source).toBeVisible();
- await source.click();
- await page.getByRole('option',{name:'Mixed-payment scenarios (demo)'}).click();
- await expect(rows).toHaveCount(9);
- await expect(page.locator('[data-testid="payment-transactions"]')).toContainText('Fictional scenarios only');
- const mixed=rows.filter({hasText:'৳11,400'});
- await expect(mixed).toHaveCount(1);
- await expect(mixed).toContainText('user4, user1, user5');
- await mixed.click();
- await expect(page.getByText('DEMO-TX-005').first()).toBeVisible();
- await expect(page.getByText(/DEMO-L-007/).first()).toBeVisible();
- await page.screenshot({path:'test-results/payment-mixed-multi-beneficiary-1440.png',fullPage:true,animations:'disabled'});
+test('Transactions never shows the reference or scenario source selector',async({page})=>{
+  await page.goto('/payments/transactions');
+  await expect(page.locator('#payment-dataset-scope')).toHaveCount(0);
+  await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
+  await expect(page.getByText('Mixed-payment scenarios (demo)')).toHaveCount(0);
+  await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
-
-
-test('Connected SQL requires an authorized Office session; reference screens remain intact',async({page})=>{
- await page.goto('/payments/transactions');
- await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
- await expect(page.getByText(/Shared SQL connection error:/)).toBeVisible();
- await page.locator('#payment-dataset-scope').click();
- await page.getByRole('option',{name:'Connected SQL payment simulation'}).click();
- await expect(page.getByText(/Shared SQL connection error:/)).toBeVisible();
- await expect(page.getByText('SIM-SQL-TEST-001')).toHaveCount(0);
- await page.screenshot({path:'test-results/payment-connected-requires-auth-1440.png',animations:'disabled'});
+test('Guest-submitted payment is displayed without an officer sign-in gate',async({page})=>{
+  await page.goto('/payments/transactions');
+  await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
+  await expect(page.getByText('Authorized officer sign-in required')).toHaveCount(0);
+  await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
