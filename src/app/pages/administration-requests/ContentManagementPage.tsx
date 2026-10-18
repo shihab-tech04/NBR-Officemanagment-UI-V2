@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
-import { ImagePlus, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ImagePlus, Pencil, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 
 type Banner = {
@@ -57,6 +57,7 @@ export function ContentManagementPage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Banner | null>(null);
+  const [editing, setEditing] = useState(false);
   const [desktopFile, setDesktopFile] = useState<File | null>(null);
   const [mobileFile, setMobileFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,12 +78,21 @@ export function ContentManagementPage() {
 
   useEffect(() => {
     setDraft(banners.find(row => row.id === selectedId) || null);
+    setEditing(false);
     setDesktopFile(null);
     setMobileFile(null);
   }, [banners, selectedId]);
 
   function update(key: TextKey, value: string) {
     setDraft(current => current ? { ...current, [key]: value } : null);
+  }
+
+  function cancelEdit() {
+    setDraft(banners.find(row => row.id === selectedId) || null);
+    setDesktopFile(null);
+    setMobileFile(null);
+    setEditing(false);
+    setMessage('');
   }
 
   async function upload(file: File, id: string, device: 'desktop' | 'mobile') {
@@ -117,6 +127,7 @@ export function ContentManagementPage() {
       if (error) throw error;
       if (!data) throw new Error('A newer edit was published. Refresh and review it before retrying.');
       await refresh();
+      setEditing(false);
       setMessage('Saved to the shared banner database and read back successfully.');
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
@@ -150,13 +161,13 @@ export function ContentManagementPage() {
       <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading"><h2>Banners</h2><button type="button" aria-label="Refresh banners" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={18}/></button></div>
-          {banners.map(row => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => setSelectedId(row.id)}>
+          {banners.map(row => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setSelectedId(row.id); setEditing(false); }}>
             <span><strong>{row.heading_en}</strong><small>{row.id === 'intro' ? 'Main Banner' : 'Service Banner'} · #{row.sort_order + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
           </button>)}
         </section>
-        {draft && <section className="cms-panel cms-editor" aria-label="Edit banner">
-          <div className="cms-panel__heading"><div><h2>{draft.id === 'intro' ? 'Main Banner' : 'Service Banner'}</h2><p>{draft.heading_en}</p></div><span className="cms-status">v{draft.version}</span></div>
+        {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
+          <div className="cms-panel__heading"><div><h2>{draft.id === 'intro' ? 'Main Banner' : 'Service Banner'}</h2><p>{draft.heading_en}</p></div><div className="cms-editor__header-actions"><span className="cms-status">v{draft.version}</span>{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
           <div className="cms-image-grid">
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
@@ -165,25 +176,26 @@ export function ContentManagementPage() {
               return <div className="cms-upload" key={device}>
                 <h3>{device === 'desktop' ? 'Desktop image' : 'Mobile image'}</h3>
                 {preview ? <img src={preview} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>No image selected</p></div>}
-                {file && <p>New image selected: {file.name}</p>}
-                <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace
+                {editing && file && <p>New image selected: {file.name}</p>}
+                {editing && <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace
                   <input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => device === 'desktop' ? setDesktopFile(event.target.files?.[0] || null) : setMobileFile(event.target.files?.[0] || null)} />
-                </label>
-                {path && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null } : null)}>Remove image</button>}
-                <p>JPG, PNG or WebP · Max 5 MB</p>
+                </label>}
+                {editing && path && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null } : null)}>Remove image</button>}
+                {editing && <p>JPG, PNG or WebP · Max 5 MB</p>}
               </div>;
             })}
           </div>
-          <div className="cms-fields">{fields.map(field => <label key={field.key}>{field.label}
-            {field.key.includes('description') ? <textarea rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
-              <input maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />}
+          <div className="cms-fields">{fields.map(field => <div className="cms-field" key={field.key}><label htmlFor={`cms-${field.key}`}>{field.label}</label>
+            {editing ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
+              <input id={`cms-${field.key}`} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />) :
+              <p className="cms-readonly-value">{draft[field.key]}</p>}
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
-          </label>)}</div>
-          <div className="cms-actions">
+          </div>)}</div>
+          {editing && <div className="cms-actions">
             <button type="button" className="cms-danger" disabled={busy} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>
-            <div><button type="button" disabled={busy} onClick={() => void save()}><Save size={16}/> Save changes</button>
+            <div><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button><button type="button" disabled={busy} onClick={() => void save()}><Save size={16}/> Save changes</button>
               <button type="button" className="cms-primary" disabled={busy} onClick={() => void save(!draft.published)}>{draft.published ? 'Unpublish' : 'Publish'}</button></div>
-          </div>
+          </div>}
         </section>}
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
