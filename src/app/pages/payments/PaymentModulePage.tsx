@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, FileCheck2, Printer, Download, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { PaymentRecordList } from './PaymentRecordList';
 import { PaymentCategoryTag } from './PaymentCategoryTag';
 import { OfficeReviewQueue, getOfficeReviewClient } from './OfficeReviewQueue';
@@ -218,6 +218,21 @@ export function PaymentModulePage({page}: {page: string}) {
   },[selectedTin]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
+  const transactionReceiptId=details?.title===t('transactions')
+    ?String(details.record.payment_ref??''):null;
+  const validReceiptId=transactionReceiptId&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionReceiptId)
+    ?transactionReceiptId:null;
+  // The Admin footer opens the SAME SQL-linked TaxPay ReceiptView route.
+  // Print and Download invoke the exact same document with an action hint.
+  const openCertificate=(action?:'print'|'download')=>{
+    if(!validReceiptId)return;
+    const url=new URL('https://shihab-tech04.github.io/nbr-taxpay/');
+    url.searchParams.set('action','payment_details');
+    url.searchParams.set('transactionId',validReceiptId);
+    if(action)url.searchParams.set('docAction',action);
+    window.open(url.toString(),'_blank','noopener,noreferrer');
+  };
+
   const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});};
   const change=(key:keyof typeof firstDraft,value:string)=>{setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
   const previewDraft=()=>{
@@ -392,7 +407,12 @@ export function PaymentModulePage({page}: {page: string}) {
         ['amount','payment_type','assessment_year','income_year','date','payment_channel'].includes(key)?t('drawerFinancial'):
         ['financial_receipt_status','ledger_status','status'].includes(key)?t('drawerStatus'):
         ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')
-      }))} showActions={false}/>
+      }))} showActions={false}
+      extraFooterActions={validReceiptId ? <>
+        <PrimaryButton size="sm" icon={FileCheck2} onClick={()=>openCertificate()}>View certificate</PrimaryButton>
+        <SecondaryButton size="sm" icon={Printer} onClick={()=>openCertificate('print')}>Print</SecondaryButton>
+        <SecondaryButton size="sm" icon={Download} onClick={()=>openCertificate('download')}>Download</SecondaryButton>
+      </>:undefined}/>
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
       <form id="payment-draft-form" onSubmit={e=>{e.preventDefault();draftPreview?saveDraft():previewDraft();}}>
