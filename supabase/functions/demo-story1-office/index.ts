@@ -27,6 +27,18 @@ Deno.serve(async(req)=>{
       args={p_input:{id:record.id,sessionId:incoming.sessionId,
          service:record.data.service,amountMinor:record.data.amountMinor,
          data:record.data,status:record.status,createdAt:record.createdAt}};
+   }else if(req.method==="POST"&&path==="/authorization/mirror"){
+      const raw=await req.text();if(raw.length>200)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
+      const incoming=JSON.parse(raw),id=incoming.id;
+      if(typeof id!=="string"||!/^[0-9a-fA-F-]{36}$/.test(id))return respond({success:false,error:"INVALID_ID"},400);
+      // Never accept a caller-supplied authorization state: read TaxPay SQL back.
+      const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/authorizations/"
+        +encodeURIComponent(id)+"/snapshot";
+      const res=await fetch(sourceUrl,{signal:AbortSignal.timeout(10000)});
+      if(!res.ok)return respond({success:false,error:"SOURCE_AUTHORIZATION_MISSING"},424);
+      const snapshot=await res.json();
+      if(!snapshot?.success||snapshot.data?.id!==id)return respond({success:false,error:"SOURCE_AUTHORIZATION_INVALID"},424);
+      rpc="demo_auth_office_mirror";args={p_input:snapshot.data};
    }else if(req.method==="GET"&&path==="/payments"){
       const u=new URL(req.url),page=Number(u.searchParams.get("page")??"1"),
             perPage=Number(u.searchParams.get("perPage")??"100");

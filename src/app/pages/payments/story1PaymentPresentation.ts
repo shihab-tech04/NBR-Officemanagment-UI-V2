@@ -40,6 +40,8 @@ export const storyFieldLabels:Record<string,string>={
   income_tax_type:'Income tax type',travel_route:'Travel route',
   travel_date:'Travel date',passenger_name:'Passenger',
   passport_number:'Passport number (masked)',
+  beneficiary_count:'Beneficiaries',authorization_references:'Authorization IDs',
+  payer_beneficiary_audit:'Payer to beneficiary allocations',payment_lines:'Allocation details',
 };
 export function storyDetailLabel(key:string):string{
   const match=/^head_(\d+)_(name|code|tax|penalty|surcharge|interest|total|note)$/.exec(key);
@@ -51,16 +53,23 @@ export function storyDetailLabel(key:string):string{
 }
 export function storyGroup(key:string):string {
   if(key.startsWith('head_'))return 'Payment heads & amount breakdown';
-  if(['taxpayer_name','tin','payer_name','payer_mode','receipt_mobile','passenger_name','passport_number'].includes(key))return 'Taxpayer & payer';
+  if(['taxpayer_name','tin','payer_name','payer_mode','receipt_mobile','passenger_name','passport_number','beneficiary_count'].includes(key))return 'Taxpayer & payer';
   if(['payment_type','date','assessment_year','amount','payment_channel','income_tax_type','travel_route','travel_date','zone','circle'].includes(key))return 'Payment information';
   if(['financial_receipt_status','ledger_status'].includes(key))return 'Payment status';
   return 'References';
 }
 export function toStoryPaymentRow(tx:StoryPayment){
   const d=tx.details??{};
+  const allocations=Array.isArray(d.lines)?d.lines.filter(
+    line=>typeof line.beneficiary==='string'&&/^user([1-9]|10)$/.test(line.beneficiary)
+  ):[];
+  const recipients=Array.from(new Set(allocations.map(line=>line.beneficiary!)));
+  const tinFor=(id:string)=>id==='user10'?'1010101010101':id.replace('user','').repeat(13);
+  const actor=nonempty(d.payerId)||known(d.payerName);
   const method=nonempty(d.paymentMethod)||nonempty(d.paymentChannel);
-  const taxpayerName=known(d.taxpayerName)||(d.payerMode==='OTHER'?undefined:known(d.payerName));
-  const taxpayerTin=nonempty(d.taxpayerTin);
+  const taxpayerName=recipients.length?recipients.join(', '):
+    known(d.taxpayerName)||(d.payerMode==='OTHER'?undefined:known(d.payerName));
+  const taxpayerTin=recipients.length?recipients.map(tinFor).join(', '):nonempty(d.taxpayerTin);
   const date=new Date(tx.createdAt);
   const lines:Array<PaymentHead>=Array.isArray(d.lines)?d.lines.filter(isHead):[];
   const breakdown:Record<string,string>={};
@@ -82,9 +91,12 @@ export function toStoryPaymentRow(tx:StoryPayment){
     date:Number.isNaN(date.getTime())?'—':date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).replace(/\bSept\b/,'Sep'),
     taxpayer_name:taxpayerName??(taxpayerTin?'TIN '+taxpayerTin:'—'),
     tin:taxpayerTin??'—',
-    payer_name:known(d.payerName)??'—',
-    payment_type:paymentServiceName[tx.service]??tx.service,
-    assessment_year:nonempty(d.assessmentYear)??'—',
+    payer_name:actor??'—',
+    payment_type:allocations.length?Array.from(new Set(allocations.map(
+      line=>paymentServiceName[line.category||'']??line.category??tx.service))).join(', '):
+      paymentServiceName[tx.service]??tx.service,
+    assessment_year:allocations.length?Array.from(new Set(allocations.map(
+      line=>line.assessmentYear||'—'))).join(', '):nonempty(d.assessmentYear)??'—',
     amount:money(tx.amountMinor/100),
     financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Simulated success':tx.status.replace(/_/g,' '),
     ledger_status:'No official tax credit',
@@ -101,6 +113,13 @@ export function toStoryPaymentRow(tx:StoryPayment){
     ...(nonempty(d.travelDate)?{travel_date:d.travelDate}:{}),
     ...(nonempty(d.passengerName)?{passenger_name:d.passengerName}:{}),
     ...(tx.service==='TRAVEL_TAX'?{passport_number:nonempty(d.passportNumberMasked)??'—'}:{}),
+    ...(allocations.length?{
+      beneficiary_count:recipients.length,
+      authorization_references:allocations.map(line=>line.authorizationId||'Self payment').join(', '),
+      payer_beneficiary_audit:allocations.map(line=>
+        `${actor??'—'} paid for ${line.beneficiary}: ${money((line.amountMinor||0)/100)} · ${line.category||tx.service} · authorization ${line.authorizationId||'self'}`).join(' | '),
+      payment_lines:JSON.stringify(allocations),
+    }:{}),
     ...breakdown,
   };
 }
