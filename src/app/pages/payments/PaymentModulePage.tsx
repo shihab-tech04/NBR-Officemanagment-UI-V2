@@ -24,6 +24,7 @@ import {
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
+import { toStoryPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 
@@ -96,7 +97,7 @@ const samplePayments = referencePayments.map(p => ({
 function paymentColumns(t:(key:string)=>string) {
   const columns = (fields: [string,string,boolean?][]):ColDef[] => fields.map(([key,label,badge])=>({type:'col',col:{key,label:t(label),badge:!!badge,truncate:'normal'}}));
   return {
-    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true],['ledger_status','colCredit',true]]),
+    transactions:columns([['date','colDate'],['taxpayer_name','colTaxpayer'],['payment_type','Service'],['assessment_year','ay'],['amount','colAmount'],['financial_receipt_status','colReceipt',true],['ledger_status','colCredit',true]]),
     correction:columns([['id','colCase'],['taxpayer','colTaxpayer'],['reason','colReason'],['amount','colAmount'],['stage','colStage'],['status','status',true]]),
     offline:columns([['id','colEvent'],['taxpayer','colTaxpayer'],['event','colType'],['component','component'],['amount','colAmount'],['status','status',true]]),
     incident:columns([['id','colReference'],['taxpayer','colTaxpayer'],['type','incidentType'],['date','colReported'],['status','status',true]]),
@@ -233,30 +234,7 @@ export function PaymentModulePage({page}: {page: string}) {
     setFormError('');setDraftPreview(true);
   };
   const keys=paymentColumns(t);
-  const storyRows=storyPayments.map(tx=>({
-    key:tx.id,
-    date:demoDate(tx.createdAt),
-    taxpayer_name:tx.details.payerName||'—',
-    tin:tx.details.taxpayerTin||'—',
-    payer_name:tx.details.payerName||'—',
-    payment_type:tx.service,
-    assessment_year:tx.details.assessmentYear||'—',
-    income_year:'—',
-    amount:money(tx.amountMinor/100),
-    financial_receipt_status:'Simulated success',
-    ledger_status:'No official tax credit',
-    tax_event_id:'—',
-    payment_ref:tx.id,
-    acs_reference:tx.details.receiptReference||'—',
-    payment_channel:tx.details.paymentMethod||tx.details.paymentChannel||'—',
-    zone:tx.details.taxZone||'—',
-    circle:tx.details.taxCircle||'—',
-    receipt_mobile:tx.details.receiptMobile||'—',
-    notice_reference:tx.details.noticeReference||'—',
-    payment_lines:JSON.stringify(tx.details.lines||[]),
-    transaction_timeline:'Guest payment submitted → TaxPay SQL → Office SQL',
-    note:'Simulated payment'
-  }));
+  const storyRows=storyPayments.map(toStoryPaymentRow);
   // The actual Transactions page must never mix in reference snapshots,
   // scenario fixtures, authenticated preview ledgers or QA API records.
   const allRows=current==='transactions'?storyRows:paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
@@ -406,12 +384,15 @@ export function PaymentModulePage({page}: {page: string}) {
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
     {current==='overview'&&<OfficeReviewQueue/>}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
-      renderValue={(key,value)=>key==='payment_type' ? <PaymentCategoryTag value={String(value ?? '')}/> : undefined}
-      columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}),groupLabel:
+      renderValue={(key,value)=>details?.title===t('transactions')?undefined:key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
+      columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({
+        key,label:details?.title===t('transactions')?storyDetailLabel(key):t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}),
+        groupLabel:details?.title===t('transactions')?storyGroup(key):
         ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
         ['amount','payment_type','assessment_year','income_year','date','payment_channel'].includes(key)?t('drawerFinancial'):
         ['financial_receipt_status','ledger_status','status'].includes(key)?t('drawerStatus'):
-        ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')}))} showActions={false}/>
+        ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')
+      }))} showActions={false}/>
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
       <form id="payment-draft-form" onSubmit={e=>{e.preventDefault();draftPreview?saveDraft():previewDraft();}}>
