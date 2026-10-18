@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
-import { ImagePlus, Pencil, Plus, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 
 type Banner = {
@@ -214,7 +214,7 @@ export function ContentManagementPage() {
     {tab === 'logo' ? <section className="cms-panel"><h2>Site Logo</h2><p>Logo management will be developed in the next phase.</p></section> : !cms ?
       <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
-          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><div className="cms-list__toolbar"><button type="button" aria-label="Refresh banners" title="Refresh" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={17}/></button><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div></div>
+          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div>
           {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
             <span><strong>{row.heading_en}</strong><small>{row.service_code ? 'Service Banner' : 'Main Banner'} · Serial {index + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
