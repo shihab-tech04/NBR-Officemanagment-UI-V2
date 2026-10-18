@@ -165,6 +165,18 @@ Deno.serve(async(req:Request)=>{
       return respond({success:false,code:'INVALID_QUERY_FILTER'},400);
     filters[key]=value;
   }
+  // Reject invalid calendar dates and inverted intervals at the HTTP boundary.
+  const parseDate=(value:string|null):boolean=>{
+    if(value===null||value==='')return true;
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(value))return false;
+    const [y,m,d]=value.split('-').map(Number);
+    const parsed=new Date(Date.UTC(y,m-1,d));
+    return parsed.getUTCFullYear()===y&&parsed.getUTCMonth()+1===m&&parsed.getUTCDate()===d;
+  };
+  const fromDate=filters.fromDate??null,toDate=filters.toDate??null;
+  if(!parseDate(fromDate)||!parseDate(toDate)||
+      (fromDate&&toDate&&fromDate>toDate))
+    return respond({success:false,code:'INVALID_DATE_FILTER'},400);
   const endpoint=Deno.env.get('SUPABASE_URL');
   const key=Deno.env.get('SUPABASE_ANON_KEY')??Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
   if(!endpoint||!key)return respond({success:false,code:'BACKEND_NOT_CONFIGURED'},503);
@@ -176,7 +188,7 @@ Deno.serve(async(req:Request)=>{
       p_route:matched.name,p_page:page,p_per_page:perPage,p_filters:filters,
     });
     if(error){
-      if(error.message.includes('INVALID_QUERY'))
+      if(/INVALID_QUERY|INVALID_DATE_FILTER|INVALID_QUERY_FILTER/.test(error.message))
         return respond({success:false,code:'INVALID_QUERY_PARAMETERS'},400);
       console.error('handoff API:',error.message);
       return respond({success:false,code:'BACKEND_ERROR'},500);
