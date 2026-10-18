@@ -3,10 +3,11 @@ const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story
 export type StoryPayment = {
   id:string;service:string;amountMinor:number;status:string;createdAt:string;
   details?:{
-    payerName?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
+    payerId?:string;payerName?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
     taxZone?:string;taxCircle?:string;receiptReference?:string;
     paymentChannel?:string;paymentMethod?:string;
-    lines?:unknown[];receiptMobile?:string;noticeReference?:string;
+    lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;[key:string]:unknown}>;
+    receiptMobile?:string;noticeReference?:string;
     payerMode?:string;incomeTaxType?:string;travelRoute?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
   };
