@@ -249,9 +249,9 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && <div className="cms-actions">
-            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>}</div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
