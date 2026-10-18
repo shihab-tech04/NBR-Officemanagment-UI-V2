@@ -8,6 +8,10 @@
 .cms-panel h3 { font-size: 15px; margin: 0 0 var(--space-3); }
 .cms-panel__heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
 .cms-panel__heading button { background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px; cursor: pointer; }
+.cms-list__heading { align-items: center; flex-wrap: wrap; }
+.cms-count { display: inline-block; margin-left: var(--space-1); font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.cms-list__toolbar { display: flex; gap: var(--space-2); align-items: center; }
+.cms-panel__heading .cms-add-button { display: inline-flex; align-items: center; gap: var(--space-1); padding: 9px 11px; border-color: var(--color-primary); background: var(--color-primary); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .cms-editor__header-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
 .cms-panel__heading .cms-edit-button { display: inline-flex; align-items: center; gap: var(--space-2); padding: 9px 14px; color: var(--color-primary); font-weight: 600; }
 .cms-banner-item { text-align: left; display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-3); background: transparent; border: 1px solid transparent; border-bottom-color: var(--color-border); cursor: pointer; color: inherit; border-radius: var(--radius-md); }
@@ -17,6 +21,10 @@
 .cms-banner-item small { margin-top: var(--space-1); color: var(--color-text-secondary); }
 .cms-status { font-size: 12px; color: var(--color-text-secondary); background: var(--color-background, #f3f5f9); border-radius: var(--radius-full); padding: 4px 8px; white-space: nowrap; }
 .cms-status.is-published { color: #177141; background: #e6f6ed; }
+.cms-order-field { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: 12px 14px; margin-bottom: var(--space-4); border-radius: var(--radius-md); background: var(--color-background, #f4f6f9); }
+.cms-order-field label { display: block; font-size: 13px; font-weight: 650; }
+.cms-order-field small { display: block; margin-top: 3px; color: var(--color-text-secondary); font-size: 12px; }
+.cms-order-field select { min-width: 84px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface, #fff); color: var(--color-text-primary); font: inherit; }
 .cms-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5); }
 .cms-upload { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-3); }
 .cms-upload img, .cms-no-image { width: 100%; aspect-ratio: 16 / 7; object-fit: contain; background: var(--color-background, #f4f6f9); border-radius: var(--radius-md); }
@@ -32,15 +40,24 @@
 .cms-fields .cms-field small { text-align: right; color: var(--color-text-secondary); font-weight: 400; }
 .cms-fields input, .cms-fields textarea, .cms-login input { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface, #fff); color: var(--color-text-primary); font: inherit; }
 .cms-fields small { text-align: right; color: var(--color-text-secondary); font-weight: 400; }
-.cms-actions { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding-top: var(--space-5); margin-top: var(--space-5); border-top: 1px solid var(--color-border); }
-.cms-actions > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.cms-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; padding-top: var(--space-5); margin-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.cms-actions__main, .cms-actions__secondary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.cms-actions__secondary { gap: var(--space-4); }
 .cms-actions button, .cms-primary { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface, #fff); color: var(--color-text-primary); padding: 9px 14px; display: inline-flex; gap: var(--space-2); align-items: center; cursor: pointer; }
 .cms-actions button.cms-primary, .cms-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
 .cms-actions button.cms-danger { color: #b42332; border-color: #edc9cf; }
+.cms-publish-control { display: inline-flex; gap: var(--space-2); align-items: center; font-size: 12px; white-space: nowrap; }
+.cms-publish-control > span { color: var(--color-text-secondary); }
+.cms-publish-control strong { font-size: 12px; font-weight: 600; }
+.cms-actions .cms-switch { position: relative; width: 40px; height: 24px; padding: 0; border: 0; border-radius: 100px; background: #abb2be; transition: background .2s ease; }
+.cms-actions .cms-switch.is-on { background: #177141; }
+.cms-switch > span { display: block; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s ease; }
+.cms-switch.is-on > span { transform: translateX(16px); }
+.cms-actions .cms-switch:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
 .cms-actions button:disabled, .cms-primary:disabled { opacity: .5; cursor: not-allowed; }
 .cms-login { max-width: 480px; }
 .cms-login form { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
 .cms-modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: var(--space-4); background: rgb(20 30 50 / 45%); }
 .cms-modal { width: min(100%, 440px); box-shadow: var(--shadow-xl); }
 .cms-message { margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
-@media (max-width: 800px) { .cms-page { padding: var(--space-4); } .cms-layout { grid-template-columns: 1fr; } .cms-image-grid, .cms-fields { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .cms-page { padding: var(--space-4); } .cms-layout { grid-template-columns: 1fr; } .cms-image-grid, .cms-fields { grid-template-columns: 1fr; } .cms-actions { align-items: stretch; flex-direction: column; } .cms-actions__main, .cms-actions__secondary { justify-content: flex-start; } }

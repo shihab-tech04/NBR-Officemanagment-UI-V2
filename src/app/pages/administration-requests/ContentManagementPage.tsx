@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
-import { ImagePlus, Pencil, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ImagePlus, Pencil, Plus, RefreshCcw, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 
 type Banner = {
@@ -57,6 +57,8 @@ export function ContentManagementPage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Banner | null>(null);
+  const [newDraft, setNewDraft] = useState<Banner | null>(null);
+  const [desiredPosition, setDesiredPosition] = useState(1);
   const [editing, setEditing] = useState(false);
   const [desktopFile, setDesktopFile] = useState<File | null>(null);
   const [mobileFile, setMobileFile] = useState<File | null>(null);
@@ -65,7 +67,7 @@ export function ContentManagementPage() {
 
   const refresh = async () => {
     if (!cms) return;
-    const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order');
+    const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
     if (error) throw error;
     const next = (data || []) as Banner[];
     setBanners(next);
@@ -77,18 +79,48 @@ export function ContentManagementPage() {
   }, []);
 
   useEffect(() => {
-    setDraft(banners.find(row => row.id === selectedId) || null);
-    setEditing(false);
+    const index = banners.findIndex(row => row.id === selectedId);
+    if (newDraft && newDraft.id === selectedId) {
+      setDraft(newDraft);
+      setDesiredPosition(banners.length + 1);
+      setEditing(true);
+    } else {
+      setDraft(index >= 0 ? banners[index] : null);
+      setDesiredPosition(Math.max(1, index + 1));
+      setEditing(false);
+    }
     setDesktopFile(null);
     setMobileFile(null);
-  }, [banners, selectedId]);
+  }, [banners, selectedId, newDraft]);
+
+  function addBanner() {
+    const id = `banner_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const blank: Banner = {
+      id, service_code: null, sort_order: banners.length, published: false,
+      heading_en: '', heading_bn: '', description_en: '', description_bn: '',
+      mobile_heading_en: '', mobile_heading_bn: '',
+      mobile_description_en: '', mobile_description_bn: '', action_en: '', action_bn: '',
+      desktop_image_path: null, mobile_image_path: null, version: 1,
+      updated_at: new Date().toISOString(), updated_by: null,
+    };
+    setNewDraft(blank);
+    setSelectedId(id);
+    setMessage('');
+  }
 
   function update(key: TextKey, value: string) {
     setDraft(current => current ? { ...current, [key]: value } : null);
   }
 
   function cancelEdit() {
+    if (newDraft && newDraft.id === selectedId) {
+      setNewDraft(null);
+      setSelectedId(banners[0]?.id || null);
+      setMessage('');
+      return;
+    }
     setDraft(banners.find(row => row.id === selectedId) || null);
+    setDesiredPosition(Math.max(1, banners.findIndex(row => row.id === selectedId) + 1));
     setDesktopFile(null);
     setMobileFile(null);
     setEditing(false);
@@ -106,7 +138,7 @@ export function ContentManagementPage() {
     return path;
   }
 
-  async function save(publish?: boolean) {
+  async function save() {
     if (!cms || !draft || busy) return;
     if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
@@ -116,19 +148,31 @@ export function ContentManagementPage() {
     setBusy(true); setMessage('');
     try {
       const current = banners.find(row => row.id === draft.id);
-      if (!current || current.version !== draft.version) throw new Error('The banner changed. Refresh before saving.');
+      const isNew = !current && newDraft?.id === draft.id;
+      if (!isNew && (!current || current.version !== draft.version)) throw new Error('The banner changed. Refresh before saving.');
       const desktop = desktopFile ? await upload(desktopFile, draft.id, 'desktop') : draft.desktop_image_path;
       const mobile = mobileFile ? await upload(mobileFile, draft.id, 'mobile') : draft.mobile_image_path;
       const payload = Object.fromEntries(fields.map(field => [field.key, draft[field.key]]));
-      const { data, error } = await cms.from('taxpay_site_banners').update({ ...payload,
-        desktop_image_path: desktop, mobile_image_path: mobile,
-        published: publish ?? draft.published, updated_by: null,
-      }).eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
+      const values = {
+        ...payload, desktop_image_path: desktop, mobile_image_path: mobile,
+        published: draft.published, updated_by: null,
+      };
+      const { data, error } = isNew
+        ? await cms.from('taxpay_site_banners').insert({ id: draft.id, service_code: null, sort_order: banners.length, ...values }).select('id').maybeSingle()
+        : await cms.from('taxpay_site_banners').update(values).eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('A newer edit was published. Refresh and review it before retrying.');
+      if (isNew || desiredPosition !== banners.findIndex(row => row.id === draft.id) + 1) {
+        const { error: orderError } = await cms.rpc('taxpay_set_banner_position', {
+          p_banner_id: draft.id, p_position: desiredPosition,
+        });
+        if (orderError) throw new Error(`Banner saved, but serial update failed: ${orderError.message}`);
+      }
+      setNewDraft(null);
+      setSelectedId(draft.id);
       await refresh();
       setEditing(false);
-      setMessage('Saved to the shared banner database and read back successfully.');
+      setMessage(isNew ? 'New banner added to the shared TaxPay catalog.' : 'Banner changes saved to TaxPay.');
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
   }
@@ -149,6 +193,9 @@ export function ContentManagementPage() {
     finally { setBusy(false); }
   }
 
+  const isNewBanner = !!draft && newDraft?.id === draft.id;
+  const publishedCount = banners.filter(row => row.published).length;
+
   return <main className="cms-page">
     <header className="cms-page__heading">
       <div><h1>Content Management</h1><p>Manage content shown on the public TaxPay website.</p></div>
@@ -160,14 +207,16 @@ export function ContentManagementPage() {
     {tab === 'logo' ? <section className="cms-panel"><h2>Site Logo</h2><p>Logo management will be developed in the next phase.</p></section> : !cms ?
       <section className="cms-panel"><p>Content service configuration is unavailable. Publishing is disabled.</p></section> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
-          <div className="cms-panel__heading"><h2>Banners</h2><button type="button" aria-label="Refresh banners" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={18}/></button></div>
-          {banners.map(row => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setSelectedId(row.id); setEditing(false); }}>
-            <span><strong>{row.heading_en}</strong><small>{row.id === 'intro' ? 'Main Banner' : 'Service Banner'} · #{row.sort_order + 1}</small></span>
+          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><div className="cms-list__toolbar"><button type="button" aria-label="Refresh banners" title="Refresh" onClick={() => void refresh().catch(err => setMessage(err.message))}><RefreshCcw size={17}/></button><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div></div>
+          {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
+            <span><strong>{row.heading_en}</strong><small>{row.id === 'intro' ? 'Main Banner' : 'Service Banner'} · Serial {index + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
           </button>)}
+          {isNewBanner && <div className="cms-banner-item is-selected"><span><strong>New banner</strong><small>Unsaved · Serial {desiredPosition}</small></span><span className="cms-status">Draft</span></div>}
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
-          <div className="cms-panel__heading"><div><h2>{draft.id === 'intro' ? 'Main Banner' : 'Service Banner'}</h2><p>{draft.heading_en}</p></div><div className="cms-editor__header-actions"><span className="cms-status">v{draft.version}</span>{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.id === 'intro' ? 'Main Banner' : 'Service Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Controls the display order on TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
@@ -192,9 +241,9 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && <div className="cms-actions">
-            <button type="button" className="cms-danger" disabled={busy} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>
-            <div><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button><button type="button" disabled={busy} onClick={() => void save()}><Save size={16}/> Save changes</button>
-              <button type="button" className="cms-primary" disabled={busy} onClick={() => void save(!draft.published)}>{draft.published ? 'Unpublish' : 'Publish'}</button></div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
+            <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
+              {!isNewBanner && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>}</div>
           </div>}
         </section>}
       </div>}
