@@ -1,0 +1,23 @@
+name: Story 1 Office UI Build
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/pages/payments/**'
+      - 'supabase/functions/demo-story1-office/**'
+      - '.github/workflows/story1-office-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/
+          VITE_TAXPAY_REVIEW_DISABLED: 'true'
