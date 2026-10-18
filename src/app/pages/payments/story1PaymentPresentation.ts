@@ -58,7 +58,7 @@ export function storyGroup(key:string):string {
 export function toStoryPaymentRow(tx:StoryPayment){
   const d=tx.details??{};
   const method=nonempty(d.paymentMethod)||nonempty(d.paymentChannel);
-  const taxpayerName=known(d.taxpayerName)||known(d.payerName);
+  const taxpayerName=known(d.taxpayerName)||(d.payerMode==='OTHER'?undefined:known(d.payerName));
   const taxpayerTin=nonempty(d.taxpayerTin);
   const date=new Date(tx.createdAt);
   const lines:Array<PaymentHead>=Array.isArray(d.lines)?d.lines.filter(isHead):[];
