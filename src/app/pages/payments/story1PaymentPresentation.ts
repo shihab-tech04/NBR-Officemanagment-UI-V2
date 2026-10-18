@@ -39,6 +39,7 @@ export const storyFieldLabels:Record<string,string>={
   notice_reference:'Notice reference',payer_mode:'Payment for',
   income_tax_type:'Income tax type',travel_route:'Travel route',
   travel_date:'Travel date',passenger_name:'Passenger',
+  passport_number:'Passport number (masked)',
 };
 export function storyDetailLabel(key:string):string{
   const match=/^head_(\d+)_(name|code|tax|penalty|surcharge|interest|total|note)$/.exec(key);
@@ -50,7 +51,7 @@ export function storyDetailLabel(key:string):string{
 }
 export function storyGroup(key:string):string {
   if(key.startsWith('head_'))return 'Payment heads & amount breakdown';
-  if(['taxpayer_name','tin','payer_name','payer_mode','receipt_mobile','passenger_name'].includes(key))return 'Taxpayer & payer';
+  if(['taxpayer_name','tin','payer_name','payer_mode','receipt_mobile','passenger_name','passport_number'].includes(key))return 'Taxpayer & payer';
   if(['payment_type','date','assessment_year','amount','payment_channel','income_tax_type','travel_route','travel_date','zone','circle'].includes(key))return 'Payment information';
   if(['financial_receipt_status','ledger_status'].includes(key))return 'Payment status';
   return 'References';
@@ -99,6 +100,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
     ...(nonempty(d.travelRoute)?{travel_route:d.travelRoute}:{}),
     ...(nonempty(d.travelDate)?{travel_date:d.travelDate}:{}),
     ...(nonempty(d.passengerName)?{passenger_name:d.passengerName}:{}),
+    ...(tx.service==='TRAVEL_TAX'?{passport_number:nonempty(d.passportNumberMasked)??'—'}:{}),
     ...breakdown,
   };
 }

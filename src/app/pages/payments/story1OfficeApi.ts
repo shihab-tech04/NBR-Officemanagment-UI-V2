@@ -8,7 +8,7 @@ export type StoryPayment = {
     paymentChannel?:string;paymentMethod?:string;
     lines?:unknown[];receiptMobile?:string;noticeReference?:string;
     payerMode?:string;incomeTaxType?:string;travelRoute?:string;
-    travelDate?:string;passengerName?:string;
+    travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
   };
 };
 export type StoryNotice = {id:number;paymentId:string;type:string;createdAt:string};
