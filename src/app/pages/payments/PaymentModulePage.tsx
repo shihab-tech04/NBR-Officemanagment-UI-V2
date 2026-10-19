@@ -397,7 +397,7 @@ export function PaymentModulePage({page}: {page: string}) {
 
   return <div className="table-page payment-module" data-testid={`payment-${current}`}>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
-    {current==='overview'&&<OfficeReviewQueue/>}
+    {(current==='overview'||current==='transactions')&&<OfficeReviewQueue/>}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
       renderValue={(key,value)=>details?.title===t('transactions')?undefined:key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
       columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({
