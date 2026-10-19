@@ -7,7 +7,7 @@ test('notifications form an accessible bottom sheet and actions remain usable', 
   await page.locator('.mobile-topbar__notification-button').click();
   const sheet = page.getByRole('dialog', { name: 'Notifications' });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('button', { name: 'Security' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Security', exact: true })).toBeVisible();
   const title = await sheet.getByRole('heading', { name: 'Notifications' }).boundingBox();
   const close = await sheet.getByRole('button', { name: 'Close notifications' }).boundingBox();
   expect(title).not.toBeNull(); expect(close).not.toBeNull();
