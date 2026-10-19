@@ -198,12 +198,12 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
               />
               {selectedRole && (
                 <div className="modal-fieldset__full role-summary">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <SafeText value={selectedRole.name} mode="truncate" as="span" className="text-[13px] font-semibold text-[var(--color-primary)]" />
+                  <div className="role-summary__header flex items-center justify-between mb-2">
+                    <div className="role-summary__identity flex items-center gap-2 min-w-0">
+                      <SafeText value={selectedRole.name} mode="break" as="span" className="role-summary__name text-[13px] font-semibold text-[var(--color-primary)]" />
                       <span className="modal-form-header__subtitle">{selectedRole.level}</span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="role-summary__meta flex items-center gap-2">
                       <span className="modal-form-header__subtitle">{selectedRole.permissions.length} {translate("form.permissionsCount")}</span>
                       <button
                         type="button"

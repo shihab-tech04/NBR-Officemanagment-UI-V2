@@ -1280,6 +1280,14 @@
 
 @media (max-width: 600px) {
   .crm-review__perm-rows { grid-template-columns: 1fr; }
+
+  /* All permission controls stay visible; none should require horizontal
+     scrolling within the Create Role wizard. */
+  .permissions-panel__header,
+  .permissions-panel__controls { min-width:0; }
+  .permissions-panel__controls { flex-wrap:wrap; align-items:center; gap:8px; }
+  .permissions-panel__select-all { flex:1 1 auto; min-width:0; }
+  .permissions-panel__control-actions { flex:0 1 auto; min-width:0; flex-wrap:wrap; justify-content:flex-end; }
 }
 
 /* ── Role Details drawer safety ─────────────────────────────────────────── */

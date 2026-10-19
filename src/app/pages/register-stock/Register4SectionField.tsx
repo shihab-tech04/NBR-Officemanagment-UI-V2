@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Popover } from "@mui/material";
-import { Check, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppTextField } from "../../components/forms/AppTextField";
@@ -23,6 +23,7 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
   const {t,i18n}=useTranslation("pages");
   const selectAnchor=useRef<HTMLDivElement>(null);
   const [open,setOpen]=useState(false);
+  const [sectionMenuOpen,setSectionMenuOpen]=useState(false);
   const [custom,setCustom]=useState("");
   const [issue,setIssue]=useState("");
   const [draftCodes,setDraftCodes]=useState<string[]>([]);
@@ -74,6 +75,7 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
     {value:"__add_new__",label:"＋ "+t("register4.sectionAddNew"),className:"register4-section-field__add-option"},
   ];
   const selectOption=(option:string)=>{
+    setSectionMenuOpen(false);
     if(option==="__add_new__") {setOpen(true);setIssue("");return;}
     if(option.startsWith("__pick__:")) pick(option.slice(9));
   };
@@ -82,7 +84,14 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
       <div className="register4-section-field__select" ref={selectAnchor}>
         <AppSelectField id={id} label={label} value="__current__"
           onChange={selectOption}
-          options={options} helper={error||helper} error={error} required={required} compact={compact}/>
+          options={options} helper={error||helper} error={error} required={required} compact={compact}
+          selectOpen={sectionMenuOpen} onSelectOpenChange={setSectionMenuOpen}/>
+        <button type="button" className="register4-section-field__next"
+          onClick={()=>setSectionMenuOpen(true)} aria-label={t("register4.sectionAdd")}
+          title={t("register4.sectionAddNew")}>
+          <Plus size={16} strokeWidth={2} aria-hidden="true" />
+          <span>{t("register4.sectionAdd")}</span>
+        </button>
       </div>
       {issue&&!open&&<p role="alert" className="register4-section-field__error">{issue}</p>}
       {editor==="inline" && open && (

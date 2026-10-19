@@ -905,6 +905,18 @@ nav[aria-label="Breadcrumb"]::-webkit-scrollbar {
     grid-column: 1;
     grid-row: 1;
     margin-right: 0;
+    min-width:0;
+    flex-wrap:wrap;
+    align-items:flex-start;
+  }
+  .table-card__title-group .table-card__title {
+    flex:1 1 100%;
+    min-width:0;
+    line-height:1.45;
+    overflow-wrap:anywhere;
+  }
+  .table-card__title-group .table-card__count {
+    flex:0 0 auto;
   }
 
   /* Row 1 col 2: EMPTY - filter will be on row 2 */

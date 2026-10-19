@@ -280,6 +280,7 @@ export function RoleManagementPage() {
       {selectedRole && (
         <ResponsiveOverlay
           open={detailsOpen}
+          className="role-detail-overlay"
           onClose={() => { setDetailsOpen(false); setSelectedRoleId(null); }}
           title={translate("details.roleDetails") || "Role Details"}
           footer={detailsFooter}

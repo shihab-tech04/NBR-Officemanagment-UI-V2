@@ -28,11 +28,15 @@ interface AppSelectFieldProps {
   sortOptions?: boolean;
   /** Switch to a searchable autocomplete when non-empty options exceed this count. */
   searchableAfter?: number;
+  /** Optional controlled menu state for a separate, accessible add action. */
+  selectOpen?: boolean;
+  onSelectOpenChange?: (open: boolean) => void;
 }
 
 export function AppSelectField({
   id, label, value, onChange, options, helper, error,
   required, disabled, compact, ariaLabel, sortOptions = false, searchableAfter,
+  selectOpen, onSelectOpenChange,
 }: AppSelectFieldProps) {
   const normalizedRaw: SelectOption[] = options.map(o =>
     typeof o === "string" ? { value: o, label: o } : o
@@ -113,6 +117,11 @@ export function AppSelectField({
       }}
       FormHelperTextProps={{ id: `${id}-helper` }}
       sx={compact ? muiFilterSx : muiFieldSx}
+      SelectProps={onSelectOpenChange ? {
+        open: selectOpen,
+        onOpen: () => onSelectOpenChange(true),
+        onClose: () => onSelectOpenChange(false),
+      } : undefined}
     >
       {normalized.map(o => (
         <MenuItem key={o.value} value={o.value} disabled={o.disabled} title={o.title} className={o.className}>{o.label}</MenuItem>
