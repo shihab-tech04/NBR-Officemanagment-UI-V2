@@ -35,15 +35,18 @@
 /* Section trail: the visible Add action opens the existing next-section menu;
    the final menu item still handles custom section codes. */
 .register4-section-field { min-width:0; display:flex; flex-direction:column; gap:var(--space-2); }
-.register4-section-field__select { min-width:0; display:flex; align-items:flex-start; gap:var(--space-2); }
-.register4-section-field__select > .MuiFormControl-root { min-width:0; flex:1 1 auto; }
+.register4-section-field__select { position:relative; min-width:0; }
+.register4-section-field__select > .MuiFormControl-root { min-width:0; width:100%; }
+.register4-section-field__select .MuiSelect-select { padding-right:84px; }
 .register4-section-field__next {
-  display:inline-flex; gap:5px; align-items:center; justify-content:center;
-  min-height:44px; flex:0 0 auto; padding:0 10px;
-  border:1px solid var(--color-primary); color:var(--color-primary);
-  background:var(--color-surface); border-radius:var(--radius-md);
-  font-size:var(--fs-label-md); font-weight:600; cursor:pointer;
+  position:absolute;top:4px;right:34px;z-index:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;padding:0;
+  border:0;border-left:1px solid var(--color-border); color:var(--color-primary);
+  background:var(--color-surface);border-radius:0;
+  cursor:pointer;
 }
+.register4-section-field__select:has(.MuiInputBase-sizeSmall) .register4-section-field__next { top:0;height:40px; }
 .register4-section-field__next:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
 .register4-section-field__add-option.MuiMenuItem-root {
   border-top:1px solid var(--color-border);

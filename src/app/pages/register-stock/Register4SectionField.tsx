@@ -87,10 +87,9 @@ export function Register4SectionField({id,label,value,onChange,helper,error,requ
           options={options} helper={error||helper} error={error} required={required} compact={compact}
           selectOpen={sectionMenuOpen} onSelectOpenChange={setSectionMenuOpen}/>
         <button type="button" className="register4-section-field__next"
-          onClick={()=>setSectionMenuOpen(true)} aria-label={t("register4.sectionAdd")}
+          onClick={()=>setSectionMenuOpen(true)} aria-label={t("register4.sectionAddNew")}
           title={t("register4.sectionAddNew")}>
           <Plus size={16} strokeWidth={2} aria-hidden="true" />
-          <span>{t("register4.sectionAdd")}</span>
         </button>
       </div>
       {issue&&!open&&<p role="alert" className="register4-section-field__error">{issue}</p>}
