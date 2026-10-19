@@ -410,7 +410,7 @@ export function CombinedDashboardPage() {
         : translate("combined.subtitle");
 
   return (
-    <div className="dashboard-page">
+    <div className="dashboard-page combined-dashboard-page">
       <div className="dashboard-page__header">
         <h1 className="dashboard-page__title">{translate("combined.title")}</h1>
         <p className="dashboard-page__subtitle">{subtitle}</p>

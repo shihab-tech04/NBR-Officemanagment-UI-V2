@@ -32,23 +32,19 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  const notificationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
-        setNotificationPanelOpen(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
       }
     }
-    if (notificationPanelOpen || profileDropdownOpen) {
+    if (profileDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [notificationPanelOpen, profileDropdownOpen]);
+  }, [profileDropdownOpen]);
 
   return (
     <header className="mobile-topbar">
@@ -74,9 +70,9 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
       </div>}
 
       {/* Notification bell */}
-      <div className="mobile-topbar__notification-wrapper" ref={notificationRef}>
+      <div className="mobile-topbar__notification-wrapper">
         <button
-          onClick={() => setNotificationPanelOpen((o) => !o)}
+          onClick={() => { setProfileDropdownOpen(false); setNotificationPanelOpen((o) => !o); }}
           className="mobile-topbar__notification-button"
           aria-label={
             unreadCount > 0
