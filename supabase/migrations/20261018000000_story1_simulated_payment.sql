@@ -43,7 +43,7 @@ begin
  insert into demo_payment.story_notifications(payment_id,event_type)
  values(v_id,'NEW_SIMULATED_PAYMENT');
  return jsonb_build_object('id',v_id,'mirrored',true,'replayed',false);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.demo_story1_office_list()
@@ -57,7 +57,7 @@ begin
   'amountMinor',x.amount_minor,'status',x.status,'createdAt',x.created_at,
   'details',x.data->'details') order by x.created_at desc)
  from (select * from demo_payment.story_payments order by created_at desc limit 100) x),'[]'::jsonb);
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.demo_story1_office_notices()
@@ -70,7 +70,7 @@ begin
  return coalesce((select jsonb_agg(jsonb_build_object('id',n.id,'paymentId',n.payment_id,
   'type',n.event_type,'createdAt',n.created_at) order by n.id desc)
  from (select * from demo_payment.story_notifications order by id desc limit 100) n),'[]'::jsonb);
-end;$function$
+end;$function$;
 
 revoke all on function public.demo_story1_mirror(jsonb), public.demo_story1_office_list(), public.demo_story1_office_notices() from public;
 grant execute on function public.demo_story1_mirror(jsonb), public.demo_story1_office_list(), public.demo_story1_office_notices() to anon,authenticated;
