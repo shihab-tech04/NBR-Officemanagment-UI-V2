@@ -69,6 +69,7 @@ export function AppSelectField({
           <TextField
             {...params}
             label={label || undefined}
+            placeholder={normalizedRaw.find((option) => option.value === "")?.label}
             helperText={error || helper}
             error={!!error}
             required={required}

@@ -525,8 +525,13 @@ export function UserActivityReportPage() {
                     onChange={(value) => handleActivityFilterChange("user_type", value)}
                     options={[
                       { value: "", label: tc("common.selectPlaceholder") },
-                      ...USER_TYPES.map((value) => ({ value, label: value })),
+                      ...USER_TYPES.map((value) => ({
+                        value,
+                        label: value.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase()).replace(/\bNbr\b/g, "NBR").replace(/\bDct\b/g, "DCT"),
+                      })),
                     ]}
+                    sortOptions
+                    searchableAfter={6}
                     error={activitySubmitAttempted && !activityDraft.user_type
                       ? tr("userActivityWorkspace.validation.required")
                       : undefined}

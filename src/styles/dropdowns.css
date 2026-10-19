@@ -46,6 +46,17 @@
   max-height: calc(100vh - 120px);
 }
 
+.notification-dropdown:not(.notification-dropdown--bottom-sheet) {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.notification-dropdown__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.48);
+}
+
 /* Bottom-sheet variant — applied via JS class (not a media query) so it works
    regardless of viewport width. dropdown-enter is NOT applied alongside this. */
 .notification-dropdown--bottom-sheet {
@@ -909,5 +920,62 @@
   :root[data-font-scale="large"] .account-dropdown__signout-button {
     font-size: calc(var(--fs-body, 14px) * 1.2);
     min-height: 52px;
+  }
+}
+
+/* Notification-only mobile layout: the header's actions must not squeeze its
+   title, and all five filters should be discoverable without sideways swiping. */
+@media (max-width: 1023px) {
+  .notification-dropdown--bottom-sheet {
+    max-height: min(84dvh, 760px) !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 40px;
+    align-items: center;
+    gap: 4px 8px;
+    padding: 12px 16px;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__header-left {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__unread-badge {
+    white-space: nowrap;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__close {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__mark-read {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: end;
+    min-height: 40px;
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__filters {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__filter-chip {
+    min-height: 36px;
+    padding: 6px 12px;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__list {
+    min-height: 0;
+    max-height: 58dvh;
+    overscroll-behavior: contain;
+  }
+  .notification-dropdown--bottom-sheet .notification-dropdown__item {
+    padding: 12px 16px;
   }
 }

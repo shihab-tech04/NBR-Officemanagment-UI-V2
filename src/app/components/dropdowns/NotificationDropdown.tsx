@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BellDot, BadgeCheck, CheckCircle, UserCheck, FilePen, Receipt,
@@ -11,6 +11,7 @@ import type {
   NotificationPriority,
 } from "../../store/notificationsSlice";
 import { useUIState } from "../../hooks/useUI";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 type LucideIcon = React.ComponentType<{
   size?: number; strokeWidth?: number; className?: string;
@@ -46,6 +47,38 @@ export function NotificationDropdown({
   const isMobile = forceBottomSheet || !isDesktop;
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useOverlayScrollLock(isMobile);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+      }
+      if (event.key !== "Tab" || !sheetRef.current) return;
+      const buttons = Array.from(sheetRef.current.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+      if (!buttons.length) return;
+      if (event.shiftKey && document.activeElement === buttons[0]) {
+        event.preventDefault();
+        buttons[buttons.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) {
+        event.preventDefault();
+        buttons[0].focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [isMobile]);
 
   const filteredNotifications = notifications.filter(n => {
     if (activeFilter === "all") return true;
@@ -66,36 +99,37 @@ export function NotificationDropdown({
 
   const dropdownContent = (
     <div
+      ref={sheetRef}
       className={isMobile ? "notification-dropdown notification-dropdown--bottom-sheet" : "notification-dropdown dropdown-enter"}
-      style={isMobile ? undefined : { width: "min(420px, calc(100vw - 32px))", maxHeight: "calc(100vh - 120px)" }}
+      role={isMobile ? "dialog" : undefined}
+      aria-modal={isMobile ? true : undefined}
+      aria-labelledby={isMobile ? "office-notification-sheet-title" : undefined}
     >
       {/* Header */}
       <div className="notification-dropdown__header">
         <div className="notification-dropdown__header-left">
-          <h3 className="notification-dropdown__title">{translate("title")}</h3>
+          <h3 id="office-notification-sheet-title" className="notification-dropdown__title">{translate("title")}</h3>
           {unreadCount > 0 && (
             <span className="notification-dropdown__unread-badge">
               {unreadCount} {translate("new")}
             </span>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {unreadCount > 0 && (
-            <button onClick={onMarkAllRead} className="notification-dropdown__mark-read">
-              {translate("markAllAsRead")}
-            </button>
-          )}
-          {isMobile && (
-            <button
-              onClick={onClose}
-              className="mobile-modal-close"
-              aria-label={translateCommon("accessibility.closeNotifications")}
-              style={{ width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center" }}
-            >
-              <X size={20} strokeWidth={2} />
-            </button>
-          )}
-        </div>
+        {unreadCount > 0 && (
+          <button onClick={onMarkAllRead} className="notification-dropdown__mark-read">
+            {translate("markAllAsRead")}
+          </button>
+        )}
+        {isMobile && (
+          <button
+            ref={closeRef}
+            onClick={onClose}
+            className="mobile-modal-close notification-dropdown__close"
+            aria-label={translateCommon("accessibility.closeNotifications")}
+          >
+            <X size={20} strokeWidth={2} />
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -156,7 +190,7 @@ export function NotificationDropdown({
       </div>
 
       {/* Footer */}
-      {notifications.length > 0 && (
+      {!isMobile && notifications.length > 0 && (
         <div className="notification-dropdown__footer">
           <button onClick={onClose} className="notification-dropdown__see-all">
             {translate("seeAll")}
@@ -171,10 +205,9 @@ export function NotificationDropdown({
     return createPortal(
       <>
         <div
-          className="mobile-modal-backdrop"
+          className="mobile-modal-backdrop notification-dropdown__backdrop"
           onClick={onClose}
           aria-hidden="true"
-          style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15, 23, 42, 0.48)" }}
         />
         {dropdownContent}
       </>,
