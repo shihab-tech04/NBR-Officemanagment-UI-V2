@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/app/pages/payments/**'
       - 'supabase/functions/demo-story1-office/**'
+      - 'supabase/migrations/**'
+      - 'tests/integration/story1OfficeMigrations.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
@@ -21,3 +23,45 @@ jobs:
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
           VITE_TAXPAY_REVIEW_DISABLED: 'true'
+  sql-migrations:
+    name: Disposable Office SQL and eight simulated services
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+      - name: Bootstrap only disposable API roles and apply ordered Office migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -c 'create role anon nologin; create role authenticated nologin;'
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" = 6
+          for sql in supabase/migrations/*.sql; do
+            echo "Applying $sql"
+            psql -X -v ON_ERROR_STOP=1 -f "$sql"
+          done
+      - name: Verify eight categories, idempotency, notices and authorization transitions
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1OfficeMigrations.sql
