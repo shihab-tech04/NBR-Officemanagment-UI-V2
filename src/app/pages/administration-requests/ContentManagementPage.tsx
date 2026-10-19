@@ -58,6 +58,13 @@ const originalImages: Record<string, string> = {
   withholding: 'taxpay-hero-withholding-v3.webp',
   travel: 'taxpay-hero-travel-v6.webp',
 };
+const bannerImageByService: Record<string, string> = {
+  TAX_WITH_RETURN: 'return', ADVANCE_TAX: 'advance',
+  SOURCE_TAX_DEPOSIT: 'withholding', TRAVEL_TAX: 'travel',
+};
+function defaultBannerImageId(serviceCode: string | null) {
+  return serviceCode ? (bannerImageByService[serviceCode] || 'intro') : 'intro';
+}
 function originalImageUrl(id: string) {
   return originalImages[id] ? `https://raw.githubusercontent.com/shihab-tech04/nbr-taxpay/main/src/assets/${originalImages[id]}` : null;
 }
@@ -238,7 +245,10 @@ export function ContentManagementPage() {
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
               const file = device === 'desktop' ? desktopFile : mobileFile;
-              const preview = (editing && (device === 'desktop' ? desktopPreview : mobilePreview)) || imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(draft.id);
+              // Keep the unsaved preview and the published TaxPay carousel in
+              // agreement: category controls the default, not the record ID.
+              // Previously uploaded/cropped artwork remains authoritative.
+              const preview = (editing && (device === 'desktop' ? desktopPreview : mobilePreview)) || imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(defaultBannerImageId(draft.service_code));
               return <div className="cms-upload" key={device}>
                 <h3>{device === 'desktop' ? 'Desktop image' : 'Mobile image'}</h3>
                 {preview ? <img src={preview} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>No image selected</p></div>}

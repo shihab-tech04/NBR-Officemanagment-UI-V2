@@ -997,6 +997,20 @@
   background-color: var(--color-primary-alpha-4);
   border: 1px solid var(--color-primary-alpha-12);
 }
+.role-summary__header,
+.role-summary__identity,
+.role-summary__meta { min-width:0; }
+.role-summary__identity { flex:1 1 auto; flex-wrap:wrap; }
+.role-summary__name { min-width:0; overflow-wrap:anywhere; }
+.role-summary__meta { flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; }
+@media (max-width:640px) {
+  .modal-fieldset__grid { grid-template-columns:minmax(0,1fr); }
+  .modal-fieldset__body { min-width:0; }
+  .role-summary__header { display:flex; flex-direction:column; align-items:stretch; gap:10px; }
+  .role-summary__identity { width:100%; align-items:baseline; }
+  .role-summary__meta { width:100%; justify-content:space-between; gap:8px; }
+  .role-summary__meta > button { min-height:44px; }
+}
 
 .role-summary__tags {
   display: flex;

@@ -10,15 +10,14 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("Register-4 disposal section picker", () => {
-  it("offers the custom-code action at the bottom of the dropdown, not beside it", async () => {
+  it("shows an Add affordance beside the trail and keeps custom codes at the end of the chooser", async () => {
     const onChange = vi.fn();
     const { container } = render(
       <Register4SectionField id="disposal_code" label="Under Section" value="" onChange={onChange} editor="inline" />,
     );
 
     expect(container.querySelector(".register4-section-field__addition")).toBeNull();
-    expect(screen.queryByRole("button", { name: /sectionAddNew/ })).toBeNull();
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Under Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "register4.sectionAddNew" }));
     const options = await screen.findAllByRole("option");
     const add = options.at(-1)!;
     expect(add).toHaveTextContent("register4.sectionAddNew");

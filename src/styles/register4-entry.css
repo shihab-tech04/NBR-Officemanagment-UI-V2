@@ -32,9 +32,22 @@
 .register4-entry__fields .entry-form__group-title:first-child { margin-top:0; }
 .register4-entry__fields input[readonly] { background:var(--color-background-subtle); cursor:default; }
 
-/* Section control: custom-code action belongs to the end of the dropdown. */
+/* Section trail: the visible Add action opens the existing next-section menu;
+   the final menu item still handles custom section codes. */
 .register4-section-field { min-width:0; display:flex; flex-direction:column; gap:var(--space-2); }
-.register4-section-field__select { min-width:0; }
+.register4-section-field__select { position:relative; min-width:0; }
+.register4-section-field__select > .MuiFormControl-root { min-width:0; width:100%; }
+.register4-section-field__select .MuiSelect-select { padding-right:84px; }
+.register4-section-field__next {
+  position:absolute;top:4px;right:34px;z-index:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;padding:0;
+  border:0;border-left:1px solid var(--color-border); color:var(--color-primary);
+  background:var(--color-surface);border-radius:0;
+  cursor:pointer;
+}
+.register4-section-field__select:has(.MuiInputBase-sizeSmall) .register4-section-field__next { top:0;height:40px; }
+.register4-section-field__next:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
 .register4-section-field__add-option.MuiMenuItem-root {
   border-top:1px solid var(--color-border);
   margin-top:var(--space-1);

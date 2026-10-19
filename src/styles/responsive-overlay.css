@@ -211,6 +211,25 @@
     width: 44px;
     height: 44px;
   }
+
+  /* Detail actions can exceed half a phone screen. Let the user read the
+     actual user/role content first, then scroll naturally to its actions. */
+  .responsive-overlay:is(.user-detail-drawer,.role-detail-overlay) {
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior:contain;
+  }
+  .responsive-overlay:is(.user-detail-drawer,.role-detail-overlay) .responsive-overlay__header {
+    position:sticky; top:0; z-index:1; background:var(--color-surface);
+  }
+  .responsive-overlay:is(.user-detail-drawer,.role-detail-overlay) .responsive-overlay__body {
+    flex:0 0 auto;
+    overflow:visible;
+  }
+  .responsive-overlay:is(.user-detail-drawer,.role-detail-overlay) .responsive-overlay__footer {
+    flex:0 0 auto;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+  }
 }
 
 /* ── Closing Animations ───────────────────────────────────────────────── */
