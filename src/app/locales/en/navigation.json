@@ -115,6 +115,7 @@
     "taxYears": "Tax Years",
     "ruleLibrary": "Rule Library",
     "calculationControls": "Calculation Controls",
-    "validationPublish": "Validation & Publish"
+    "validationPublish": "Validation & Publish",
+    "yearComparison": "Year Comparison"
   }
 }
