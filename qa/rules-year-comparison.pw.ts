@@ -174,13 +174,17 @@ test("Tax-year wizard uses Office fields and compact back/next controls on deskt
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/administration/rules-calculation/tax-years");
   await page.getByRole("button", { name: "Prepare tax year" }).click();
-  await expect(page.getByRole("heading", { name: "Tax-Year Draft Preparation" })).toBeVisible();
+  const modal = page.getByRole("dialog", { name: "Prepare Tax Year" });
+  await expect(modal).toBeVisible();
+  await expect(page.locator(".table-page")).toBeVisible();
+  await expect(page.locator(".app-modal-backdrop")).toBeVisible();
   await expect(page.locator(".rules-engine__wizard-grid .MuiOutlinedInput-root")).toHaveCount(4);
-  for (const label of ["Return to Tax Years", "Next", "Cancel"]) {
+  for (const label of ["Next", "Cancel"]) {
     const button = page.getByRole("button", { name: label, exact: true });
     await expect(button).toBeVisible();
     expect(await button.evaluate((el) => el.getBoundingClientRect().width), label + " must not span the page").toBeLessThan(260);
   }
+  await expect(modal.locator(".app-modal-footer")).toBeVisible();
   await page.screenshot({ path: "test-results/rules-tax-year-wizard-desktop.png", animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   const steps = page.getByRole("navigation", { name: "Tax-year preparation steps" });
@@ -190,4 +194,7 @@ test("Tax-year wizard uses Office fields and compact back/next controls on deskt
   expect(widths.scroll, "six wizard steps should scroll inside the mobile viewport").toBeGreaterThan(widths.client);
   await page.screenshot({ path: "test-results/rules-tax-year-wizard-mobile.png", animations: "disabled", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Tax Years" })).toBeVisible();
 });
