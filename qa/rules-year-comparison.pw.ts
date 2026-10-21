@@ -68,3 +68,15 @@ test("Rules year comparison retains EN/BN localization", async ({ page }) => {
     fullPage: true, animations: "disabled",
   });
 });
+
+test("Rule Library uses Office pagination and shows useful mobile rule metadata", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/administration/rules-calculation/rule-library");
+  const cards = page.locator(".mobile-table-card-list .mobile-table-card");
+  await expect(cards).toHaveCount(25);
+  await expect(cards.first()).toContainText("ACK-1695-001");
+  await expect(cards.first()).toContainText("Forms, Evidence & Administration");
+  await expect(page.getByRole("navigation", { name: "Pagination" })).toBeVisible();
+  await cards.first().click();
+  await expect(page.locator(".dynamic-drawer")).toBeVisible();
+});
