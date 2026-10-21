@@ -109,6 +109,7 @@ export function RuleYearComparisonPanel() {
               fc("comparison_state", tr("Review state", "পর্যালোচনা অবস্থা")),
             ]}
             rows={rows}
+            mobileCardMapping={{ primary:"rule_id", meta:["group", "target_execution", "comparison_state"] }}
             onRowClick={setDetails}
           />
           <div className="table-card__pagination">
