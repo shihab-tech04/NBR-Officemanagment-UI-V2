@@ -38,6 +38,16 @@ const DRAFT_YEAR = "2027-28";
 const TABS = new Set(["tax-years", "year-comparison", "rule-library", "calculation-controls", "validation-publish"]);
 const statusLabel = (status: string | null | undefined) => status ? status.replaceAll("_", " ") : "Not recorded";
 
+function recordedStatusLabel(code: string | null | undefined, bn: boolean): string {
+  if (!code) return bn ? "নথিভুক্ত নয়" : "Not recorded";
+  if (code === "INHERITED_PENDING_REVIEW") return bn ? "উত্তরাধিকারী · পর্যালোচনা বাকি" : "Inherited · review pending";
+  if (code === "CERTIFIED_CURRENT") return bn ? "বর্তমান হিসেবে নথিভুক্ত" : "Recorded current";
+  if (code.startsWith("EXECUTABLE")) return bn ? "নথিভুক্ত কার্যকর" : "Recorded executable";
+  if (code.startsWith("NON_EXECUTABLE")) return bn ? "কার্যকর নয়" : "Not executable";
+  if (code.startsWith("FAIL_CLOSED")) return bn ? "নিরাপত্তার জন্য অবরুদ্ধ" : "Blocked";
+  return code.replaceAll("_", " ");
+}
+
 function ScopeNote({ text }: { text: string }) {
   return <p className="rules-engine__scope">{text}</p>;
 }
@@ -106,6 +116,8 @@ export function RulesCalculationPage() {
         origin: rule.origin ?? tr("Not recorded", "তথ্য নেই"),
         applicability: year === DRAFT_YEAR ? "INHERITED_PENDING_REVIEW" : rule.applicability,
         execution: year === DRAFT_YEAR ? "NOT_CERTIFIED" : (rule.execution ?? tr("Not recorded", "তথ্য নেই")),
+        applicability_view: recordedStatusLabel(year === DRAFT_YEAR ? "INHERITED_PENDING_REVIEW" : rule.applicability, bn),
+        execution_view: recordedStatusLabel(year === DRAFT_YEAR ? "NON_EXECUTABLE" : rule.execution, bn),
         legal_source: rule.legalSource.length ? rule.legalSource.join("; ") : tr("Not recorded", "তথ্য নেই"),
         certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
         status: year === DRAFT_YEAR ? tr("PENDING REVIEW", "পর্যালোচনা বাকি") : tr("SQL snapshot", "SQL স্ন্যাপশট"),
@@ -212,9 +224,9 @@ export function RulesCalculationPage() {
           </div>
           <ResponsiveTable aria-label="Controlled rule identity registry" cols={[
             fc("rule_id", tr("Rule ID", "বিধি আইডি")), fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
-            fc("applicability", tr("Year applicability", "বর্ষভিত্তিক প্রযোজ্যতা")), fc("execution", tr("Recorded execution label", "সংরক্ষিত কার্যকর অবস্থা")),
+            fc("applicability_view", tr("Recorded applicability", "নথিভুক্ত প্রযোজ্যতা")), fc("execution_view", tr("Recorded execution", "নথিভুক্ত কার্যকর অবস্থা")),
           ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
-            mobileCardMapping={{primary:"rule_id",meta:["group","applicability"]}}
+            mobileCardMapping={{primary:"rule_id",meta:["group","applicability_view"]}}
             onRowClick={openRuleDetails} />
           <div className="table-card__pagination">
             <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
