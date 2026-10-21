@@ -12,10 +12,10 @@ describe("Rules Admin authenticated SQL read contract", () => {
   });
 
   it("uses exact authorized SQL years endpoint with no-store transport", async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({
       years: [{ id: "year-1", assessmentYear: "2026-27", incomeYear: "2025-26", ruleCount: 366 }],
-    }), { status: 200 })) as unknown as typeof fetch;
-    const api = createRulesAdminReadClient({ ...credentials, fetcher });
+    }), { status: 200 }));
+    const api = createRulesAdminReadClient({ ...credentials, fetcher: fetcher as unknown as typeof fetch });
     const years = await api.getYears();
     expect(years[0].ruleCount).toBe(366);
     expect(fetcher).toHaveBeenCalledOnce();
