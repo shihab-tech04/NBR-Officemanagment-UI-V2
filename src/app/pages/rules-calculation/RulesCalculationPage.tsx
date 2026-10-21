@@ -139,11 +139,11 @@ export function RulesCalculationPage() {
     id: item.assessmentYear,
     assessment_year: item.assessmentYear,
     income_year: item.incomeYear,
-    sql_state: statusLabel(item.dbState),
+    sql_state: item.dbState === "reference_only" ? tr("Historical reference", "ঐতিহাসিক রেফারেন্স") : item.dbState === "draft" ? tr("Draft", "খসড়া") : tr("Recorded active", "নথিভুক্ত সক্রিয়"),
     lifecycle: statusLabel(item.lifecycle),
     rule_versions: item.ruleVersions,
     pending: item.inheritedPending,
-    coverage: statusLabel(item.coverage),
+    coverage: item.coverage === "complete_canonical" ? tr("Identity inventory recorded", "পরিচয় তালিকা নথিভুক্ত") : item.coverage === "cloned_pending_review" ? tr("Inherited · review pending", "উত্তরাধিকারী · পর্যালোচনা বাকি") : tr("Historical rules incomplete", "ঐতিহাসিক বিধি অসম্পূর্ণ"),
     legal_cutoff: item.legalCutoff || "Not verified",
     certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
   }));
@@ -187,25 +187,21 @@ export function RulesCalculationPage() {
 
       {section === "tax-years" && (
         <section className="rules-engine__section" aria-labelledby="tax-years-heading">
-          <div className="rules-engine__stepper-heading"><h2 id="tax-years-heading" className="rules-engine__heading">{bn ? "SQL করবর্ষ রেজিস্ট্রি" : "Tax-year registry"}</h2>
-            <PrimaryButton onClick={() => setDraftWizardOpen(true)}>{tr("Prepare new tax-year draft", "নতুন করবর্ষের খসড়া প্রস্তুত করুন")}</PrimaryButton>
+          <div className="rules-engine__list-heading">
+            <h2 id="tax-years-heading" className="rules-engine__heading">{tr("Assessment years", "করবর্ষসমূহ")}</h2>
+            <span className="rules-engine__count">{TAX_YEAR_SNAPSHOT.length} {tr("recorded years", "নথিভুক্ত বর্ষ")}</span>
           </div>
-          <ResponsiveTable aria-label="Observed tax-year states" cols={[
-            fc("assessment_year", tr("Assessment year", "করবর্ষ")), fc("income_year", tr("Income year", "আয়বর্ষ")),
-            fc("sql_state", tr("SQL state", "SQL অবস্থা")), fc("coverage", tr("Coverage", "কভারেজ")),
-            fc("rule_versions", tr("Rule versions", "বিধি সংস্করণ")), fc("pending", tr("Pending review", "পর্যালোচনা বাকি")),
+          <ResponsiveTable aria-label={tr("Select a tax year to view its rules", "বিধি দেখতে করবর্ষ নির্বাচন করুন")} cols={[
+            fc("assessment_year", tr("Assessment year", "করবর্ষ")),
+            fc("income_year", tr("Income year", "আয়বর্ষ")),
+            fc("rule_versions", tr("Recorded rules", "নথিভুক্ত বিধি")),
+            fc("coverage", tr("Coverage", "কভারেজ")),
+            fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
           ]} rows={yearRows} onRowClick={openYearRules}
-            mobileCardMapping={{primary:"assessment_year",meta:["income_year","coverage","rule_versions"]}} />
-          <div className="rules-engine__comparison">
-            <article className="rules-engine__panel"><h3>AY 2026–27</h3>
-              <p>{tr("Income year 2025–26 · 366 recorded rule versions.", "আয়বর্ষ ২০২৫–২৬ · ৩৬৬টি নথিভুক্ত বিধি সংস্করণ।")}</p>
-              <p>{tr("SQL state is ACTIVE. Seven stored PASS labels are historical SQL evidence only; Agent v2.1 release remains NOT CERTIFIED.", "SQL অবস্থা ACTIVE। সংরক্ষিত সাতটি PASS কেবল পূর্বের SQL-প্রমাণ; এজেন্ট v2.1-এর প্রকাশ এখনও অনুমোদিত নয়।")}</p>
-            </article>
-            <article className="rules-engine__panel"><h3>AY 2027–28</h3>
-              <p>{tr("Income year 2026–27 · 366 inherited rule versions.", "আয়বর্ষ ২০২৬–২৭ · ৩৬৬টি উত্তরাধিকারী বিধি সংস্করণ।")}</p>
-              <p>{tr("DRAFT / INHERITED_PENDING_REVIEW. Every inherited version remains non-executable; approval does not carry forward.", "DRAFT / INHERITED_PENDING_REVIEW। উত্তরাধিকারী সংস্করণগুলো চালু নয়; পূর্বের অনুমোদন নতুন বর্ষে বহাল হয় না।")}</p>
-            </article>
-          </div>
+            mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
+          <p className="rules-engine__meta rules-engine__after-table">
+            {tr("Snapshot 10 October 2026. SQL records are not legal certification; historical coverage remains incomplete.", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট। SQL রেকর্ড আইনি অনুমোদন নয়; ঐতিহাসিক বিধি এখনও অসম্পূর্ণ।")}
+          </p>
         </section>
       )}
 
