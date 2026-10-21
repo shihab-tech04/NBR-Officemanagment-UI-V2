@@ -24,6 +24,39 @@ export interface DraftCustomRule {
   purpose: string;
   status: "PROPOSED";
 }
+/** Proposed legal links remain human-review-only even when a PDF checksum matches. */
+export type DraftRuleLevel = "PARENT" | "SUBRULE" | "CHILD";
+export type DraftHierarchyBasis = "STATUTORY" | "ADMINISTRATIVE";
+export interface DraftProvisionCandidate {
+  proposalId: string;
+  ruleId: string;
+  parentRuleId: string;
+  level: DraftRuleLevel;
+  hierarchyBasis: DraftHierarchyBasis;
+  sourceId: string;
+  sourcePdfSha256: string;
+  provisionLocator: string;
+  previousText: string;
+  proposedText: string;
+  issueDate: string;
+  effectiveDate: string;
+  savingsText: string;
+  taxpayerScope: string;
+  triggeringFacts: string;
+  rateOrFormula: string;
+  exemptionOrException: string;
+  impacts: CandidateImpact[];
+  reviewState: "PROPOSED" | "CONFLICT";
+}
+export function freshProvisionCandidate(): DraftProvisionCandidate {
+  return {
+    proposalId: "", ruleId: "", parentRuleId: "", level: "PARENT", hierarchyBasis: "STATUTORY",
+    sourceId: "", sourcePdfSha256: "", provisionLocator: "", previousText: "", proposedText: "",
+    issueDate: "", effectiveDate: "", savingsText: "", taxpayerScope: "",
+    triggeringFacts: "", rateOrFormula: "", exemptionOrException: "",
+    impacts: [], reviewState: "PROPOSED",
+  };
+}
 export interface TaxYearDraftInput {
   targetYear: string;
   incomeYear: string;
@@ -31,6 +64,7 @@ export interface TaxYearDraftInput {
   legalCutoff: string;
   selectedRuleIds: string[];
   customRules: DraftCustomRule[];
+  proposedProvisions: DraftProvisionCandidate[];
   documents: DraftDocumentEvidence[];
   legalEffect: CandidateLegalEffect;
   changeNote: string;
@@ -51,6 +85,7 @@ export function freshDraftInput(): TaxYearDraftInput {
     legalCutoff: "",
     selectedRuleIds: [],
     customRules: [],
+    proposedProvisions: [],
     documents: [],
     legalEffect: "UNVERIFIED",
     changeNote: "",
@@ -77,6 +112,30 @@ export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds:
     }
     candidates.add(rule.candidateId);
   }
+  const provisions = input.proposedProvisions ?? [];
+  const proposalIds = new Set<string>();
+  const allowedRuleIds = new Set([...canonicalIds, ...input.customRules.map(rule => rule.candidateId)]);
+  const controlledPdfHashes = new Set(input.documents.filter(doc => doc.type === "PDF").map(doc => doc.sha256));
+  for (const proposed of provisions) {
+    if (!/^[A-Z][A-Z0-9-]{3,63}$/.test(proposed.proposalId) || proposalIds.has(proposed.proposalId))
+      throw new Error("Invalid or duplicate provision proposal ID");
+    proposalIds.add(proposed.proposalId);
+    if (!allowedRuleIds.has(proposed.ruleId) ||
+        (proposed.parentRuleId && !allowedRuleIds.has(proposed.parentRuleId)) ||
+        proposed.parentRuleId === proposed.ruleId ||
+        !["PARENT", "SUBRULE", "CHILD"].includes(proposed.level) ||
+        !["STATUTORY", "ADMINISTRATIVE"].includes(proposed.hierarchyBasis))
+      throw new Error("Invalid proposed hierarchy or unmatched rule identity");
+    if (!controlledPdfHashes.has(proposed.sourcePdfSha256) ||
+        !proposed.sourceId.trim() || !proposed.provisionLocator.trim() ||
+        !(proposed.previousText.trim() || proposed.proposedText.trim()))
+      throw new Error("A proposed provision requires a linked original PDF, source ID, locator and text");
+    if ([proposed.issueDate, proposed.effectiveDate].some(date => date && !/^\d{4}-\d{2}-\d{2}$/.test(date)))
+      throw new Error("Invalid proposed provision date");
+    if (proposed.impacts.some(impact => !CANDIDATE_IMPACTS.includes(impact)) ||
+        !["PROPOSED", "CONFLICT"].includes(proposed.reviewState))
+      throw new Error("Invalid proposed impact or review state");
+  }
   if (input.legalCutoff && !/^\d{4}-\d{2}-\d{2}$/.test(input.legalCutoff)) throw new Error("Invalid cutoff date format");
   if (input.documents.some(doc => !/^[a-f0-9]{64}$/.test(doc.sha256) || doc.evidenceStatus !== "UNVERIFIED" || doc.persisted !== false)) {
     throw new Error("Document metadata is invalid or improperly approved");
@@ -101,6 +160,11 @@ export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds:
       customRuleProposals: input.customRules.map(x => ({ candidateId: x.candidateId, purpose: x.purpose.trim(), status: "PROPOSED" as const })),
     },
     sourceDocuments: input.documents.map(doc => ({ ...doc, evidenceStatus: "UNVERIFIED" as const, persisted: false as const })),
+    provisionCandidates: provisions.map(p => ({
+      ...p, impacts: [...p.impacts], legalVerified: false as const, sqlVersionId: null,
+      persistence: "LOCAL_REVIEW_ONLY" as const, gapState: "OPEN" as const,
+    })),
+    coverageReconciliation: { state: "OPEN" as const, sqlVersionsVerified: 0, agentLocatorsVerified: 0, unmatchedItemsVisible: true },
     legalComparison: { proposedEffect: input.legalEffect, reviewNotes: input.changeNote.trim(), result: "HUMAN_REVIEW_REQUIRED", verifiedAmendment: false },
     impactReview: CANDIDATE_IMPACTS.map(type => ({ target: type, status: "OPEN" as const, candidate: input.proposedImpacts.includes(type) })),
     releaseGate: { result: "BLOCKED", reason: "Current law, official originals, source applicability, agent tests, SQL read-back and approval must be independently certified" },
