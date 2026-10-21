@@ -53,3 +53,58 @@
 .rules-engine__evidence .app-btn { margin-top:7px; }
 @media (max-width:1100px) { .rules-engine__steps { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width:640px) { .rules-engine__steps { grid-template-columns:repeat(2,minmax(0,1fr)); } .rules-engine__wizard-grid,.rules-engine__impact-grid { grid-template-columns:minmax(0,1fr); } .rules-engine__wizard-actions { justify-content:stretch; } }
+
+
+/* Focused Tax Year → Rules → Details: same Office tokens and shared components. */
+.rules-engine__header { align-items: center; gap: 16px; }
+.rules-engine__header .app-btn { flex-shrink: 0; }
+.rules-engine__list-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; }
+.rules-engine__list-heading .rules-engine__heading { margin: 0; }
+.rules-engine__list-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.rules-engine__count { color: var(--color-text-secondary); font-size: var(--fs-body-sm, 12px); }
+.rules-engine__filters--rules { grid-template-columns: minmax(145px, 0.8fr) minmax(240px, 2fr) minmax(180px, 1fr); }
+.rules-engine__after-table { margin: 12px 0 0; line-height: 1.5; }
+.rules-engine__details-dialog .responsive-overlay__body { padding: 16px 20px 20px; }
+.rules-engine__detail { display: flex; flex-direction: column; gap: 14px; }
+.rules-engine__detail-intro { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.rules-engine__detail-intro h3 { color: var(--color-text-primary); font-size: var(--fs-h3, 16px); line-height: 1.4; margin: 0 0 4px; overflow-wrap: anywhere; }
+.rules-engine__detail-intro p { color: var(--color-text-secondary); font-size: var(--fs-body-sm, 12px); margin: 0; }
+.rules-engine__detail-state { flex-shrink: 0; max-width: 170px; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 6px 10px; color: var(--color-text-secondary); font-size: var(--fs-body-sm, 12px); line-height: 1.3; text-align: center; }
+.rules-engine__detail-section { border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-xl); overflow: hidden; }
+.rules-engine__detail-section h3 { margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-text-primary); background: var(--color-surface-secondary, var(--color-surface)); font-size: var(--fs-h4, 14px); font-weight: var(--typ-h2-weight); }
+.rules-engine__detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.rules-engine__detail-grid > div { padding: 12px 14px; min-width: 0; border-bottom: 1px solid var(--color-border); }
+.rules-engine__detail-grid > div:nth-child(odd) { border-right: 1px solid var(--color-border); }
+.rules-engine__detail-grid > div:nth-last-child(-n + 2) { border-bottom: 0; }
+.rules-engine__detail-grid dt, .rules-engine__detail-key { margin: 0 0 5px; font-size: var(--fs-body-sm, 12px); color: var(--color-text-secondary); }
+.rules-engine__detail-grid dd { margin: 0; color: var(--color-text-primary); font-size: var(--fs-body, 14px); line-height: 1.45; overflow-wrap: anywhere; }
+.rules-engine__detail-field { padding: 12px 14px; border-bottom: 1px solid var(--color-border); }
+.rules-engine__detail-field p { margin: 0; }
+.rules-engine__source-list { margin: 4px 0 0; padding-left: 18px; color: var(--color-text-primary); font-size: var(--fs-body, 14px); line-height: 1.5; }
+.rules-engine__source-list li + li { margin-top: 6px; }
+.rules-engine__detail-footnote { margin: 0; color: var(--color-text-secondary); font-size: var(--fs-body-sm, 12px); line-height: 1.5; }
+.rules-engine__stepper { max-width: 1100px; }
+.rules-engine__stepper-heading > .app-btn { width: auto; }
+.rules-engine__wizard-actions .app-btn, .rules-engine__evidence .app-btn { width: auto; }
+@media (max-width: 800px) {
+  .rules-engine__filters--rules { grid-template-columns: minmax(0, 1fr); }
+  .rules-engine__header { align-items: start; }
+}
+@media (max-width: 640px) {
+  .rules-engine__header .app-btn { max-width: 100%; }
+  .rules-engine__detail-intro { flex-direction: column; }
+  .rules-engine__details-dialog .responsive-overlay__body { padding: 12px 14px 16px; }
+  .rules-engine__detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .rules-engine__detail-grid > div { border-right: 0 !important; border-bottom: 1px solid var(--color-border) !important; }
+  .rules-engine__detail-grid > div:last-child { border-bottom: 0 !important; }
+  .rules-engine__wizard-actions { justify-content: flex-end; }
+}
+
+/* Mobile: preserve all six stages without burying the form below three rows. */
+@media (max-width: 640px) {
+  .rules-engine__stepper { width: 100%; min-width: 0; max-width: 100%; }
+  .rules-engine__steps { display: flex; flex-wrap: nowrap; width: 100%; max-width: calc(100vw - 24px); min-width: 0; gap: 7px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 2px 1px 8px; margin: 12px 0; }
+  .rules-engine__step { flex: 0 0 168px; min-height: 50px; display: flex; align-items: center; gap: 8px; padding: 8px 9px; text-align: start; scroll-snap-align: start; }
+  .rules-engine__step p { margin: 0; line-height: 1.35; }
+  .rules-engine__step-no { flex-shrink: 0; }
+}

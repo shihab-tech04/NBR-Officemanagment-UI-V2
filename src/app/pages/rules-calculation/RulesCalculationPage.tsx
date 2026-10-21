@@ -5,13 +5,12 @@ import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
 import { RuleYearComparisonPanel } from "./RuleYearComparisonPanel";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarRange, History, ShieldCheck } from "lucide-react";
-import { StatCard } from "../../components/cards/StatCard";
+import { ArrowLeft, Plus } from "lucide-react";
+import { RuleDetailsPanel, type RuleDetailRecord } from "./RuleDetailsPanel";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { Pagination } from "../../components/shared/Pagination";
-import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
 import { fc, type TableRow } from "../modulePageUtils";
 import {
   GATE_CODES, RULES_BASELINE, RULES_BASELINE_SHA256, RULES_SNAPSHOT_DATE,
@@ -77,12 +76,10 @@ export function RulesCalculationPage() {
   const [group, setGroup] = useState("");
   const [rulePage, setRulePage] = useState(1);
   const [rulePerPage, setRulePerPage] = useState(25);
-  const [details, setDetails] = useState<TableRow | null>(null);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
   const openYearRules = (row: TableRow) => {
     const selected = String(row.assessment_year ?? "");
     if (!TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === selected)) return;
-    setDetails(null);
     setRulePage(1);
     navigate(`/administration/rules-calculation/rule-library?year=${encodeURIComponent(selected)}`);
   };
@@ -123,19 +120,30 @@ export function RulesCalculationPage() {
         status: year === DRAFT_YEAR ? tr("PENDING REVIEW", "পর্যালোচনা বাকি") : tr("SQL snapshot", "SQL স্ন্যাপশট"),
       }));
   }, [isRuleListYear, search, group, year, bn]);
-  const selectedRuleDetails = section === "rule-library" && selectedRuleKey
-    ? ruleRows.find((row) => row.rule_id === selectedRuleKey) ?? null
+  const selectedCanonicalRule = section === "rule-library" && isRuleListYear && selectedRuleKey
+    ? RULES.find((rule) => rule.id === selectedRuleKey) ?? null
     : null;
-  const displayedDetails = section === "rule-library" ? selectedRuleDetails : details;
+  const ruleDetails: RuleDetailRecord | null = selectedCanonicalRule ? {
+    id: selectedCanonicalRule.id,
+    group: groupLabel(selectedCanonicalRule.group),
+    year,
+    incomeYear: selectedYear.incomeYear,
+    source: selectedCanonicalRule.source,
+    origin: selectedCanonicalRule.origin,
+    legalSource: selectedCanonicalRule.legalSource,
+    applicability: selectedCanonicalRule.applicability,
+    execution: selectedCanonicalRule.execution,
+    inherited: year === DRAFT_YEAR,
+  } : null;
   const yearRows: TableRow[] = TAX_YEAR_SNAPSHOT.map((item) => ({
     id: item.assessmentYear,
     assessment_year: item.assessmentYear,
     income_year: item.incomeYear,
-    sql_state: statusLabel(item.dbState),
+    sql_state: item.dbState === "reference_only" ? tr("Historical reference", "ঐতিহাসিক রেফারেন্স") : item.dbState === "draft" ? tr("Draft", "খসড়া") : tr("Recorded active", "নথিভুক্ত সক্রিয়"),
     lifecycle: statusLabel(item.lifecycle),
     rule_versions: item.ruleVersions,
     pending: item.inheritedPending,
-    coverage: statusLabel(item.coverage),
+    coverage: item.coverage === "complete_canonical" ? tr("Identity inventory recorded", "পরিচয় তালিকা নথিভুক্ত") : item.coverage === "cloned_pending_review" ? tr("Inherited · review pending", "উত্তরাধিকারী · পর্যালোচনা বাকি") : tr("Historical rules incomplete", "ঐতিহাসিক বিধি অসম্পূর্ণ"),
     legal_cutoff: item.legalCutoff || "Not verified",
     certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
   }));
@@ -151,53 +159,49 @@ export function RulesCalculationPage() {
 
   return (
     <div className="table-page rules-engine-page">
-      <div className="table-page__header">
+      <div className="table-page__header rules-engine__header">
         <div>
-          <h1 className="table-page__title">{titles[section]}</h1>
-          <p className="table-page__desc">{bn ? "কর আইন, SQL সংস্করণ ও অনুমোদন অবস্থার তুলনা" : "Legal-source, SQL-version and authorization crosswalk"}</p>
+          <h1 className="table-page__title">{section === "rule-library" ? tr("Rules", "বিধিসমূহ") + " · AY " + year : titles[section]}</h1>
+          <p className="table-page__desc">{section === "tax-years"
+            ? tr("Select a tax year to explore its recorded rules.", "করবর্ষ নির্বাচন করে সংশ্লিষ্ট নথিভুক্ত বিধি দেখুন।")
+            : section === "rule-library"
+              ? tr("Select a rule to inspect its legal references and status.", "আইনি রেফারেন্স ও অবস্থা দেখতে বিধি নির্বাচন করুন।")
+              : section === "year-comparison"
+                ? tr("Compare the recorded identities of two years.", "দুই করবর্ষের বিধির পরিচয় তুলনা করুন।")
+                : tr("Controlled rules inventory and review status.", "নিয়ন্ত্রিত বিধি ও পর্যালোচনার অবস্থা।")}</p>
         </div>
-        <p className="rules-engine__snapshot-label">{bn ? "যাচাইকৃত SQL পর্যবেক্ষণ" : "SQL observation"} · {RULES_SNAPSHOT_DATE}</p>
+        {section === "tax-years" ? <PrimaryButton size="lg" icon={Plus} onClick={() => setDraftWizardOpen(true)}>
+          {tr("Prepare tax year", "করবর্ষের খসড়া")}
+        </PrimaryButton> : <p className="rules-engine__snapshot-label">
+          {tr("Read-only snapshot", "পাঠযোগ্য স্ন্যাপশট")} · {RULES_SNAPSHOT_DATE}
+        </p>}
       </div>
-      {section !== "year-comparison" && <ScopeNote text={bn
-        ? "এই তথ্য ১০ অক্টোবর ২০২৬-এ নেওয়া SQL স্ন্যাপশট; এটি সরাসরি ডেটাবেস সংযোগ বা হিসাবের আইনগত অনুমোদন নয়।"
-        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />}
 
-      {section !== "year-comparison" && !(section === "rule-library" && requestedYear) && <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
-        <StatCard icon={BookOpen} label={bn ? "বিধির পরিচয়" : "Canonical rule identities"} value="366" subInfo={RULES_BASELINE} />
-        <StatCard icon={History} label={bn ? "নথিভুক্ত সংস্করণ" : "SQL rule-version records"} value="733" tone="neutral" />
-        <StatCard icon={CalendarRange} label={bn ? "করবর্ষ" : "Year records"} value="4" tone="neutral" />
-        <StatCard icon={ShieldCheck} label={bn ? "ইঞ্জিন সার্টিফিকেশন" : "Engine certification"} value="Pending" tone="warning" />
-      </div>}
-
-      {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
+      {(section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
-            compact value={year} onChange={(value) => { setSearchParams({year:value}); setDetails(null); setRulePage(1); }}
+            compact value={year} onChange={(value) => { setSearchParams({year:value}); setRulePage(1); }}
             options={TAX_YEAR_SNAPSHOT.map((item) => ({ value: item.assessmentYear, label: item.assessmentYear }))} />
         </div>
       )}
 
       {section === "tax-years" && (
         <section className="rules-engine__section" aria-labelledby="tax-years-heading">
-          <div className="rules-engine__stepper-heading"><h2 id="tax-years-heading" className="rules-engine__heading">{bn ? "SQL করবর্ষ রেজিস্ট্রি" : "Tax-year registry"}</h2>
-            <PrimaryButton onClick={() => setDraftWizardOpen(true)}>{tr("Prepare new tax-year draft", "নতুন করবর্ষের খসড়া প্রস্তুত করুন")}</PrimaryButton>
+          <div className="rules-engine__list-heading">
+            <h2 id="tax-years-heading" className="rules-engine__heading">{tr("Assessment years", "করবর্ষসমূহ")}</h2>
+            <span className="rules-engine__count">{TAX_YEAR_SNAPSHOT.length} {tr("recorded years", "নথিভুক্ত বর্ষ")}</span>
           </div>
-          <ResponsiveTable aria-label="Observed tax-year states" cols={[
-            fc("assessment_year", tr("Assessment year", "করবর্ষ")), fc("income_year", tr("Income year", "আয়বর্ষ")),
-            fc("sql_state", tr("SQL state", "SQL অবস্থা")), fc("coverage", tr("Coverage", "কভারেজ")),
-            fc("rule_versions", tr("Rule versions", "বিধি সংস্করণ")), fc("pending", tr("Pending review", "পর্যালোচনা বাকি")),
+          <ResponsiveTable aria-label={tr("Select a tax year to view its rules", "বিধি দেখতে করবর্ষ নির্বাচন করুন")} cols={[
+            fc("assessment_year", tr("Assessment year", "করবর্ষ")),
+            fc("income_year", tr("Income year", "আয়বর্ষ")),
+            fc("rule_versions", tr("Recorded rules", "নথিভুক্ত বিধি")),
+            fc("coverage", tr("Coverage", "কভারেজ")),
+            fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
           ]} rows={yearRows} onRowClick={openYearRules}
-            mobileCardMapping={{primary:"assessment_year",meta:["income_year","coverage","rule_versions"]}} />
-          <div className="rules-engine__comparison">
-            <article className="rules-engine__panel"><h3>AY 2026–27</h3>
-              <p>{tr("Income year 2025–26 · 366 recorded rule versions.", "আয়বর্ষ ২০২৫–২৬ · ৩৬৬টি নথিভুক্ত বিধি সংস্করণ।")}</p>
-              <p>{tr("SQL state is ACTIVE. Seven stored PASS labels are historical SQL evidence only; Agent v2.1 release remains NOT CERTIFIED.", "SQL অবস্থা ACTIVE। সংরক্ষিত সাতটি PASS কেবল পূর্বের SQL-প্রমাণ; এজেন্ট v2.1-এর প্রকাশ এখনও অনুমোদিত নয়।")}</p>
-            </article>
-            <article className="rules-engine__panel"><h3>AY 2027–28</h3>
-              <p>{tr("Income year 2026–27 · 366 inherited rule versions.", "আয়বর্ষ ২০২৬–২৭ · ৩৬৬টি উত্তরাধিকারী বিধি সংস্করণ।")}</p>
-              <p>{tr("DRAFT / INHERITED_PENDING_REVIEW. Every inherited version remains non-executable; approval does not carry forward.", "DRAFT / INHERITED_PENDING_REVIEW। উত্তরাধিকারী সংস্করণগুলো চালু নয়; পূর্বের অনুমোদন নতুন বর্ষে বহাল হয় না।")}</p>
-            </article>
-          </div>
+            mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
+          <p className="rules-engine__meta rules-engine__after-table">
+            {tr("Snapshot 10 October 2026. SQL records are not legal certification; historical coverage remains incomplete.", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট। SQL রেকর্ড আইনি অনুমোদন নয়; ঐতিহাসিক বিধি এখনও অসম্পূর্ণ।")}
+          </p>
         </section>
       )}
 
@@ -205,36 +209,44 @@ export function RulesCalculationPage() {
 
       {section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
-          <div className="rules-engine__stepper-heading">
-            <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"} · AY {year}</h2>
-            {requestedYear && <SecondaryButton size="lg" onClick={() => navigate("/administration/rules-calculation/tax-years")}>
-              {tr("Back to Tax Years", "করবর্ষে ফিরে যান")}
-            </SecondaryButton>}
+          <div className="rules-engine__list-heading">
+            <h2 id="rule-library-heading" className="rules-engine__heading">{tr("Recorded rules", "নথিভুক্ত বিধি")}</h2>
+            <div className="rules-engine__list-actions">
+              <span className="rules-engine__count">{ruleRows.length} {tr("matching rules", "মিলে যাওয়া বিধি")}</span>
+              {requestedYear && <SecondaryButton size="sm" icon={ArrowLeft}
+                onClick={() => navigate("/administration/rules-calculation/tax-years")}>
+                {tr("Tax Years", "করবর্ষ")}</SecondaryButton>}
+            </div>
           </div>
-          <p className="rules-engine__meta">{isRuleListYear
-            ? `${ruleRows.length} of ${catalog.expected_total} ${bn ? "পরিচয়" : "rule identities"} · ${statusLabel(selectedYear.coverage)}`
-            : tr("Historical year detail is incomplete; rule identities are not inferred from current-year records.", "ঐতিহাসিক বর্ষের তথ্য অসম্পূর্ণ; বর্তমান বর্ষ থেকে বিধির পরিচয় অনুমান করা হয় না।")}</p>
-          <div className="rules-engine__filters">
-            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={(value) => {setSearch(value); setRulePage(1);}} />
-            <AppSelectField id="rule-group" compact label={bn ? "বিধি গ্রুপ" : "Rule group"}
-              value={group} onChange={(value) => {setGroup(value); setRulePage(1);}} searchableAfter={5} sortOptions options={[
-                { value: "", label: bn ? "সব গ্রুপ" : "All groups" },
-                ...SQL_RULE_GROUPS.map((g) => ({ value:g.id, label:`${bn ? g.bn : g.en} (${g.count})` })),
-              ]} />
+          <div className="rules-engine__filters rules-engine__filters--rules">
+            <AppSelectField id="rules-year" compact label={tr("Assessment year", "করবর্ষ")}
+              value={year} onChange={(value) => {setSearchParams({year:value});setRulePage(1);}}
+              options={TAX_YEAR_SNAPSHOT.map((item)=>({value:item.assessmentYear,label:item.assessmentYear}))}/>
+            <AppSearchField label={tr("Search rules or legal references", "বিধি বা আইনি রেফারেন্স খুঁজুন")}
+              value={search} onChange={(value)=>{setSearch(value);setRulePage(1);}}/>
+            <AppSelectField id="rule-group" compact label={tr("Rule group", "বিধির গ্রুপ")}
+              value={group} onChange={(value)=>{setGroup(value);setRulePage(1);}} searchableAfter={5} sortOptions
+              options={[{value:"",label:tr("All groups","সব গ্রুপ")},
+                ...SQL_RULE_GROUPS.map((g)=>({value:g.id,label:`${bn?g.bn:g.en} (${g.count})`}))]}/>
           </div>
-          <ResponsiveTable aria-label="Controlled rule identity registry" cols={[
-            fc("rule_id", tr("Rule ID", "বিধি আইডি")), fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
-            fc("applicability_view", tr("Recorded applicability", "নথিভুক্ত প্রযোজ্যতা")), fc("execution_view", tr("Recorded execution", "নথিভুক্ত কার্যকর অবস্থা")),
-          ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
-            mobileCardMapping={{primary:"rule_id",meta:["group","applicability_view"]}}
-            onRowClick={openRuleDetails} />
+          {!isRuleListYear && <p className="rules-engine__scope" role="status">
+            {tr("Historical rules have not been reconstructed for this year. No current-year records are copied backward.", "এই করবর্ষের ঐতিহাসিক বিধি পুনর্গঠিত নয়। বর্তমান বিধি পিছনের বছরে অনুলিপি করা হয় না।")}
+          </p>}
+          <ResponsiveTable aria-label={tr("Year-specific rule library", "করবর্ষভিত্তিক বিধি তালিকা")} cols={[
+            fc("rule_id", tr("Rule ID", "বিধি আইডি")),
+            fc("legal_source", tr("Recorded legal reference", "নথিভুক্ত আইনি রেফারেন্স"), {truncate:"long"}),
+            fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
+            fc("execution_view", tr("Record status", "রেকর্ড অবস্থা")),
+          ]} rows={ruleRows.slice((rulePage-1)*rulePerPage,rulePage*rulePerPage)}
+            mobileCardMapping={{primary:"rule_id",meta:["legal_source","group","execution_view"]}}
+            onRowClick={openRuleDetails}/>
           <div className="table-card__pagination">
             <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
-              perPageOptions={[10,25,50]} onPerPageChange={(value) => {setRulePerPage(value); setRulePage(1);}} />
+              perPageOptions={[10,25,50]} onPerPageChange={(value)=>{setRulePerPage(value);setRulePage(1);}}/>
           </div>
-          <ScopeNote text={bn
-            ? "গ্রুপ হলো প্রশাসনিক শ্রেণিবিন্যাস, আইনের স্বয়ংক্রিয় প্যারেন্ট–চাইল্ড সম্পর্ক নয়।"
-            : "Groups are administrative classifications, not evidence of statutory parent/subrule/child hierarchy. Open a row for recorded legal-source locators."} />
+          <p className="rules-engine__meta rules-engine__after-table">
+            {tr("Administrative groups are not statutory hierarchy. Legal references and execution labels are recorded, not independently approved.", "প্রশাসনিক গ্রুপ আইনি ধারা-বিন্যাস নয়। আইন ও কার্যকর অবস্থার রেফারেন্স নথিভুক্ত, স্বাধীনভাবে অনুমোদিত নয়।")}
+          </p>
         </section>
       )}
 
@@ -262,26 +274,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      <DynamicDetailsDrawer open={!!displayedDetails}
-        onClose={section === "rule-library" ? closeRuleDetails : () => setDetails(null)}
-        title={section === "rule-library" ? `${tr("Rule Details", "বিধির বিস্তারিত")} · ${selectedRuleKey ?? ""}` : tr("Tax-year evidence", "করবর্ষের প্রমাণ")}
-        rowData={displayedDetails} showActions={false} columns={section === "tax-years" ? [
-          { key:"assessment_year", label:tr("Assessment year", "করবর্ষ") }, { key:"income_year", label:tr("Income year", "আয়বর্ষ") },
-          { key:"sql_state", label:tr("Stored SQL state", "সংরক্ষিত SQL অবস্থা") }, { key:"lifecycle", label:tr("Lifecycle", "লাইফসাইকেল") },
-          { key:"coverage", label:tr("Coverage", "কভারেজ") }, { key:"rule_versions", label:tr("Rule versions", "বিধি সংস্করণ") },
-          { key:"pending", label:tr("Inherited pending review", "উত্তরাধিকারী পর্যালোচনা বাকি") }, { key:"legal_cutoff", label:tr("Legal cutoff", "আইনি কাটঅফ") },
-          { key:"certification", label:tr("Independent Agent certification", "স্বাধীন এজেন্ট সার্টিফিকেশন") },
-        ] : [
-          {key:"rule_id",label:tr("Canonical identity", "মূল পরিচয়"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"year",label:tr("Assessment year", "করবর্ষ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"group",label:tr("Administrative grouping", "প্রশাসনিক গ্রুপ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"applicability",label:tr("Recorded year applicability", "নথিভুক্ত বর্ষভিত্তিক প্রযোজ্যতা"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"execution",label:tr("Recorded SQL execution label", "সংরক্ষিত কার্যকর লেবেল"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"legal_source",label:tr("Recorded legal-source reference", "আইনি উৎসের রেফারেন্স"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"source",label:tr("Canonical source artifact", "মূল উৎস নথি"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"origin",label:tr("Origin task", "উৎস টাস্ক"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"certification",label:tr("Independent Agent release status", "স্বাধীন এজেন্ট প্রকাশ অবস্থা"),groupLabel:tr("Verification", "যাচাইকরণ")},
-        ]} />
+      <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>
     </div>
   );
 }

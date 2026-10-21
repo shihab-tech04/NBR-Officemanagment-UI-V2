@@ -73,7 +73,7 @@ export function RuleYearComparisonPanel() {
         {tr("Assessment-year rule comparison", "করবর্ষভিত্তিক বিধি তুলনা")}
       </h2>
       <p className="rules-engine__meta">
-        {tr("Compare recorded rule identities and see historical evidence gaps. Legal changes are not inferred from inherited identifiers.", "নথিভুক্ত বিধির পরিচয় ও ঐতিহাসিক প্রমাণের ঘাটতি তুলনা করুন। উত্তরাধিকারী পরিচয় দেখে আইনি পরিবর্তন অনুমান করা হয় না।")}
+        {tr("Compare recorded identities. Legal changes require separate verification.", "নথিভুক্ত বিধির পরিচয় ও ঐতিহাসিক প্রমাণের ঘাটতি তুলনা করুন। উত্তরাধিকারী পরিচয় দেখে আইনি পরিবর্তন অনুমান করা হয় না।")}
       </p>
       <div className="rules-engine__filters">
         <AppSelectField id="rules-compare-base" compact label={tr("From assessment year", "যে করবর্ষ থেকে")} value={baseYear} onChange={chooseBase} options={years} sortOptions/>
@@ -81,7 +81,7 @@ export function RuleYearComparisonPanel() {
       </div>
       <p className="rules-engine__scope" role="status">
         {available
-          ? tr("Recorded identities only. Source provisions, exact rates, formulas, commencement and taxpayer effects still require independent legal comparison.", "কেবল নথিভুক্ত পরিচয়। আইনের বিধান, সুনির্দিষ্ট হার, সূত্র, কার্যকারিতা ও করদাতার প্রভাব স্বাধীন যাচাই সাপেক্ষ।")
+          ? tr("Identity comparison only — not a verified legal or calculation difference.", "কেবল নথিভুক্ত পরিচয়। আইনের বিধান, সুনির্দিষ্ট হার, সূত্র, কার্যকারিতা ও করদাতার প্রভাব স্বাধীন যাচাই সাপেক্ষ।")
           : bn
             ? "নির্বাচিত করবর্ষের ঐতিহাসিক বিধি অসম্পূর্ণ অথবা একই বর্ষ নির্বাচিত। কোন বিধি অনুমান বা অনুলিপি করা হয়নি।"
             : snapshotCoverageReason(baseYear, targetYear)}
@@ -121,18 +121,18 @@ export function RuleYearComparisonPanel() {
       <DynamicDetailsDrawer open={!!details} onClose={() => setDetails(null)}
         title={tr("Version comparison evidence", "সংস্করণ তুলনার প্রমাণ")} rowData={details} showActions={false}
         columns={[
-          {key:"rule_id",label:tr("Canonical rule ID", "মূল বিধি আইডি")},
-          {key:"group",label:tr("Administrative group", "প্রশাসনিক গ্রুপ")},
-          {key:"base_year",label:tr("From assessment year", "পূর্ব করবর্ষ")},
-          {key:"base_execution",label:tr("From-year execution record", "পূর্ব বর্ষের অবস্থা")},
-          {key:"base_execution_code",label:tr("Recorded status code", "নথিভুক্ত অবস্থা কোড")},
-          {key:"target_year",label:tr("To assessment year", "পরের করবর্ষ")},
-          {key:"target_execution",label:tr("To-year execution record", "পরের বর্ষের অবস্থা")},
-          {key:"target_execution_code",label:tr("Recorded status code", "নথিভুক্ত অবস্থা কোড")},
-          {key:"legal_reference",label:tr("Recorded source locators", "নথিভুক্ত উৎস")},
-          {key:"comparison_state",label:tr("Review state", "পর্যালোচনা অবস্থা")},
-          {key:"comparison_state_code",label:tr("Review status code", "পর্যালোচনা কোড")},
-          {key:"evidence",label:tr("Evidence boundary", "প্রমাণের সীমা")},
+          {key:"rule_id",label:tr("Canonical rule ID", "মূল বিধি আইডি"),groupLabel:tr("Rule identity", "বিধির পরিচয়")},
+          {key:"group",label:tr("Administrative group", "প্রশাসনিক গ্রুপ"),groupLabel:tr("Rule identity", "বিধির পরিচয়")},
+          {key:"base_year",label:tr("From assessment year", "পূর্ব করবর্ষ"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"base_execution",label:tr("From-year record", "পূর্ব বর্ষের অবস্থা"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"base_execution_code",label:tr("From-year code", "পূর্ব বর্ষের কোড"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"target_year",label:tr("To assessment year", "পরের করবর্ষ"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"target_execution",label:tr("To-year record", "পরের বর্ষের অবস্থা"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"target_execution_code",label:tr("To-year code", "পরের বর্ষের কোড"),groupLabel:tr("Recorded year states", "নথিভুক্ত বর্ষের অবস্থা")},
+          {key:"legal_reference",label:tr("Recorded legal references", "নথিভুক্ত আইনি রেফারেন্স"),groupLabel:tr("Source & review", "উৎস ও পর্যালোচনা")},
+          {key:"comparison_state",label:tr("Review state", "পর্যালোচনা অবস্থা"),groupLabel:tr("Source & review", "উৎস ও পর্যালোচনা")},
+          {key:"comparison_state_code",label:tr("Review code", "পর্যালোচনা কোড"),groupLabel:tr("Source & review", "উৎস ও পর্যালোচনা")},
+          {key:"evidence",label:tr("Evidence boundary", "প্রমাণের সীমা"),groupLabel:tr("Source & review", "উৎস ও পর্যালোচনা")},
         ]}/>
     </section>
   );
