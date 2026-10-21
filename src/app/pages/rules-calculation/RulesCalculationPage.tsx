@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
 import { RuleYearComparisonPanel } from "./RuleYearComparisonPanel";
-import { useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { BookOpen, CalendarRange, History, ShieldCheck } from "lucide-react";
 import { StatCard } from "../../components/cards/StatCard";
@@ -56,7 +57,11 @@ export function RulesCalculationPage() {
   const section = thirdNav && TABS.has(thirdNav) ? thirdNav : "tax-years";
   const { i18n } = useTranslation();
   const bn = i18n.language.startsWith("bn");
-  const [year, setYear] = useState(BASE_YEAR);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedYear = searchParams.get("year");
+  const year = TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === requestedYear) ? requestedYear! : BASE_YEAR;
+  const selectedRuleKey = searchParams.get("rule");
   const tr = (en: string, bnText: string) => bn ? bnText : en;
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("");
@@ -64,6 +69,21 @@ export function RulesCalculationPage() {
   const [rulePerPage, setRulePerPage] = useState(25);
   const [details, setDetails] = useState<TableRow | null>(null);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
+  const openYearRules = (row: TableRow) => {
+    const selected = String(row.assessment_year ?? "");
+    if (!TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === selected)) return;
+    setDetails(null);
+    setRulePage(1);
+    navigate(`/administration/rules-calculation/rule-library?year=${encodeURIComponent(selected)}`);
+  };
+  const openRuleDetails = (row: TableRow) => {
+    setSearchParams({ year, rule: String(row.rule_id ?? "") });
+  };
+  const closeRuleDetails = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("rule");
+    setSearchParams(params, { replace: true });
+  };
   const selectedYear = TAX_YEAR_SNAPSHOT.find((item) => item.assessmentYear === year) ?? TAX_YEAR_SNAPSHOT[2];
   const groupLabel = (groupId: string) => {
     const found = SQL_RULE_GROUPS.find((item) => item.id === groupId);
@@ -91,6 +111,10 @@ export function RulesCalculationPage() {
         status: year === DRAFT_YEAR ? tr("PENDING REVIEW", "পর্যালোচনা বাকি") : tr("SQL snapshot", "SQL স্ন্যাপশট"),
       }));
   }, [isRuleListYear, search, group, year, bn]);
+  const selectedRuleDetails = section === "rule-library" && selectedRuleKey
+    ? ruleRows.find((row) => row.rule_id === selectedRuleKey) ?? null
+    : null;
+  const displayedDetails = section === "rule-library" ? selectedRuleDetails : details;
   const yearRows: TableRow[] = TAX_YEAR_SNAPSHOT.map((item) => ({
     id: item.assessmentYear,
     assessment_year: item.assessmentYear,
@@ -136,7 +160,7 @@ export function RulesCalculationPage() {
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
-            compact value={year} onChange={(value) => { setYear(value); setDetails(null); setRulePage(1); }}
+            compact value={year} onChange={(value) => { setSearchParams({year:value}); setDetails(null); setRulePage(1); }}
             options={TAX_YEAR_SNAPSHOT.map((item) => ({ value: item.assessmentYear, label: item.assessmentYear }))} />
         </div>
       )}
@@ -150,7 +174,8 @@ export function RulesCalculationPage() {
             fc("assessment_year", tr("Assessment year", "করবর্ষ")), fc("income_year", tr("Income year", "আয়বর্ষ")),
             fc("sql_state", tr("SQL state", "SQL অবস্থা")), fc("coverage", tr("Coverage", "কভারেজ")),
             fc("rule_versions", tr("Rule versions", "বিধি সংস্করণ")), fc("pending", tr("Pending review", "পর্যালোচনা বাকি")),
-          ]} rows={yearRows} onRowClick={(row) => setDetails(row)} />
+          ]} rows={yearRows} onRowClick={openYearRules}
+            mobileCardMapping={{primary:"assessment_year",meta:["income_year","coverage","rule_versions"]}} />
           <div className="rules-engine__comparison">
             <article className="rules-engine__panel"><h3>AY 2026–27</h3>
               <p>{tr("Income year 2025–26 · 366 recorded rule versions.", "আয়বর্ষ ২০২৫–২৬ · ৩৬৬টি নথিভুক্ত বিধি সংস্করণ।")}</p>
@@ -168,7 +193,12 @@ export function RulesCalculationPage() {
 
       {section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
-          <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"}</h2>
+          <div className="rules-engine__stepper-heading">
+            <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"} · AY {year}</h2>
+            {requestedYear && <SecondaryButton onClick={() => navigate("/administration/rules-calculation/tax-years")}>
+              {tr("Back to Tax Years", "করবর্ষে ফিরে যান")}
+            </SecondaryButton>}
+          </div>
           <p className="rules-engine__meta">{isRuleListYear
             ? `${ruleRows.length} of ${catalog.expected_total} ${bn ? "পরিচয়" : "rule identities"} · ${statusLabel(selectedYear.coverage)}`
             : tr("Historical year detail is incomplete; rule identities are not inferred from current-year records.", "ঐতিহাসিক বর্ষের তথ্য অসম্পূর্ণ; বর্তমান বর্ষ থেকে বিধির পরিচয় অনুমান করা হয় না।")}</p>
@@ -185,7 +215,7 @@ export function RulesCalculationPage() {
             fc("applicability", tr("Year applicability", "বর্ষভিত্তিক প্রযোজ্যতা")), fc("execution", tr("Recorded execution label", "সংরক্ষিত কার্যকর অবস্থা")),
           ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
             mobileCardMapping={{primary:"rule_id",meta:["group","applicability"]}}
-            onRowClick={(row) => setDetails(row)} />
+            onRowClick={openRuleDetails} />
           <div className="table-card__pagination">
             <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
               perPageOptions={[10,25,50]} onPerPageChange={(value) => {setRulePerPage(value); setRulePage(1);}} />
@@ -220,8 +250,10 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      <DynamicDetailsDrawer open={!!details} onClose={() => setDetails(null)} title={section === "tax-years" ? tr("Tax-year evidence", "করবর্ষের প্রমাণ") : tr("Rule evidence", "বিধির প্রমাণ")}
-        rowData={details} showActions={false} columns={section === "tax-years" ? [
+      <DynamicDetailsDrawer open={!!displayedDetails}
+        onClose={section === "rule-library" ? closeRuleDetails : () => setDetails(null)}
+        title={section === "rule-library" ? `${tr("Rule Details", "বিধির বিস্তারিত")} · ${selectedRuleKey ?? ""}` : tr("Tax-year evidence", "করবর্ষের প্রমাণ")}
+        rowData={displayedDetails} showActions={false} columns={section === "tax-years" ? [
           { key:"assessment_year", label:tr("Assessment year", "করবর্ষ") }, { key:"income_year", label:tr("Income year", "আয়বর্ষ") },
           { key:"sql_state", label:tr("Stored SQL state", "সংরক্ষিত SQL অবস্থা") }, { key:"lifecycle", label:tr("Lifecycle", "লাইফসাইকেল") },
           { key:"coverage", label:tr("Coverage", "কভারেজ") }, { key:"rule_versions", label:tr("Rule versions", "বিধি সংস্করণ") },
