@@ -88,20 +88,20 @@ test("Tax Years opens selected-year Rules then source-backed Rule Details", asyn
   const row = page.locator(".card-table__table tbody tr").filter({ hasText: "2026-27" }).first();
   await row.click();
   await expect(page).toHaveURL(/\/administration\/rules-calculation\/rule-library\?year=2026-27/);
-  await expect(page.getByRole("heading", { name: /Source-linked rule identities.*2026-27/ })).toBeVisible();
-  const back = page.getByRole("button", { name: "Back to Tax Years" });
-  await expect(back).toHaveClass(/app-btn--lg/);
+  await expect(page.getByRole("heading", { name: /Rules.*2026-27/ })).toBeVisible();
+  const back = page.getByRole("button", { name: "Tax Years" });
+  await expect(back).toHaveClass(/app-btn--sm/);
   const backWidth = await back.evaluate((element) => element.getBoundingClientRect().width);
   expect(backWidth, "back action must not be a full-width banner").toBeLessThan(300);
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(25);
   await page.locator(".card-table__table tbody tr").first().click();
   await expect(page).toHaveURL(/year=2026-27&rule=ACK-1695-001/);
-  const drawer = page.locator(".dynamic-drawer");
+  const drawer = page.locator(".rules-engine__details-dialog");
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText("Rule Details");
-  await expect(drawer).toContainText("Identity & Applicability");
-  await expect(drawer).toContainText("Legal Sources & Provenance");
-  await expect(drawer).toContainText("Verification");
+  await expect(drawer).toContainText("Identity & applicability");
+  await expect(drawer).toContainText("Legal sources & provenance");
+  await expect(drawer).toContainText("Calculation & eReturn mapping");
   await expect(drawer).toContainText("Income Tax Act s169(5)");
   await expect(drawer).toContainText("CERTIFIED_CURRENT");
   await page.screenshot({ path: "test-results/rules-year-rule-details-desktop.png", fullPage: true, animations: "disabled" });
@@ -112,10 +112,10 @@ test("Tax Years does not populate unknown historical rules and allows return nav
   await page.goto("/administration/rules-calculation/tax-years");
   await page.locator(".card-table__table tbody tr").first().click();
   await expect(page).toHaveURL(/rule-library\?year=2024-25/);
-  await expect(page.getByText(/Historical year detail is incomplete/)).toBeVisible();
+  await expect(page.getByText(/Historical rules have not been reconstructed/)).toBeVisible();
   await expect(page.locator(".card-table__empty")).toBeVisible();
   await expect(page.locator(".card-table__table tbody tr").filter({ hasText: "ACK-1695-001" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Back to Tax Years" }).click();
+  await page.getByRole("button", { name: "Tax Years" }).click();
   await expect(page).toHaveURL(/rules-calculation\/tax-years$/);
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(4);
 });
@@ -130,15 +130,15 @@ test("Year to Rules to Details works with Office mobile cards and direct links",
   const rules = page.locator(".mobile-table-card-list .mobile-table-card");
   await expect(rules).toHaveCount(25);
   await rules.first().click();
-  await expect(page.locator(".dynamic-drawer")).toBeVisible();
-  await expect(page.locator(".dynamic-drawer")).toContainText("ACK-1695-001");
+  await expect(page.locator(".rules-engine__details-dialog")).toBeVisible();
+  await expect(page.locator(".rules-engine__details-dialog")).toContainText("ACK-1695-001");
   await page.screenshot({ path: "test-results/rules-year-rule-details-mobile.png", fullPage: true, animations: "disabled" });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
 
   await page.goto("/administration/rules-calculation/rule-library?year=2026-27&rule=ACK-1695-001");
-  await expect(page.locator(".dynamic-drawer")).toBeVisible();
-  await expect(page.locator(".dynamic-drawer")).toContainText("Income Tax Act s169(5)");
+  await expect(page.locator(".rules-engine__details-dialog")).toBeVisible();
+  await expect(page.locator(".rules-engine__details-dialog")).toContainText("Income Tax Act s169(5)");
 });
 
 test("Bangla year-to-rule navigation reuses existing Office labels and layout", async ({ page }) => {
@@ -152,7 +152,7 @@ test("Bangla year-to-rule navigation reuses existing Office labels and layout", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/administration/rules-calculation/tax-years");
   await page.locator(".mobile-table-card-list .mobile-table-card").nth(2).click();
-  await expect(page.getByRole("button", { name: "করবর্ষে ফিরে যান" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /উৎস-সংযুক্ত বিধি পরিচয়.*2026-27/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "করবর্ষ" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /বিধিসমূহ.*2026-27/ })).toBeVisible();
   await page.screenshot({ path: "test-results/rules-year-rule-list-mobile-bn.png", fullPage: true, animations: "disabled" });
 });
