@@ -73,7 +73,7 @@ export function RuleYearComparisonPanel() {
         {tr("Assessment-year rule comparison", "করবর্ষভিত্তিক বিধি তুলনা")}
       </h2>
       <p className="rules-engine__meta">
-        {tr("Compare recorded rule identities and see historical evidence gaps. Legal changes are not inferred from inherited identifiers.", "নথিভুক্ত বিধির পরিচয় ও ঐতিহাসিক প্রমাণের ঘাটতি তুলনা করুন। উত্তরাধিকারী পরিচয় দেখে আইনি পরিবর্তন অনুমান করা হয় না।")}
+        {tr("Compare recorded identities. Legal changes require separate verification.", "নথিভুক্ত বিধির পরিচয় ও ঐতিহাসিক প্রমাণের ঘাটতি তুলনা করুন। উত্তরাধিকারী পরিচয় দেখে আইনি পরিবর্তন অনুমান করা হয় না।")}
       </p>
       <div className="rules-engine__filters">
         <AppSelectField id="rules-compare-base" compact label={tr("From assessment year", "যে করবর্ষ থেকে")} value={baseYear} onChange={chooseBase} options={years} sortOptions/>
@@ -81,7 +81,7 @@ export function RuleYearComparisonPanel() {
       </div>
       <p className="rules-engine__scope" role="status">
         {available
-          ? tr("Recorded identities only. Source provisions, exact rates, formulas, commencement and taxpayer effects still require independent legal comparison.", "কেবল নথিভুক্ত পরিচয়। আইনের বিধান, সুনির্দিষ্ট হার, সূত্র, কার্যকারিতা ও করদাতার প্রভাব স্বাধীন যাচাই সাপেক্ষ।")
+          ? tr("Identity comparison only — not a verified legal or calculation difference.", "কেবল নথিভুক্ত পরিচয়। আইনের বিধান, সুনির্দিষ্ট হার, সূত্র, কার্যকারিতা ও করদাতার প্রভাব স্বাধীন যাচাই সাপেক্ষ।")
           : bn
             ? "নির্বাচিত করবর্ষের ঐতিহাসিক বিধি অসম্পূর্ণ অথবা একই বর্ষ নির্বাচিত। কোন বিধি অনুমান বা অনুলিপি করা হয়নি।"
             : snapshotCoverageReason(baseYear, targetYear)}
