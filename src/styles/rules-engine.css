@@ -102,7 +102,8 @@
 
 /* Mobile: preserve all six stages without burying the form below three rows. */
 @media (max-width: 640px) {
-  .rules-engine__steps { display: flex; flex-wrap: nowrap; gap: 7px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 2px 1px 8px; margin: 12px 0; }
+  .rules-engine__stepper { width: 100%; min-width: 0; max-width: 100%; }
+  .rules-engine__steps { display: flex; flex-wrap: nowrap; width: 100%; max-width: calc(100vw - 24px); min-width: 0; gap: 7px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 2px 1px 8px; margin: 12px 0; }
   .rules-engine__step { flex: 0 0 168px; min-height: 50px; display: flex; align-items: center; gap: 8px; padding: 8px 9px; text-align: start; scroll-snap-align: start; }
   .rules-engine__step p { margin: 0; line-height: 1.35; }
   .rules-engine__step-no { flex-shrink: 0; }
