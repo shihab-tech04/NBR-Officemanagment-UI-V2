@@ -16,7 +16,7 @@ test("Office Rules year comparison is an actual routed, reusable desktop table",
   await expect(page.getByRole("heading", { name: "Assessment-year rule comparison" })).toBeVisible();
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(25);
   await expect(page.locator(".card-table__table tbody tr").first()).toContainText("ACK-1695-001");
-  await expect(page.getByText("INHERITED_PENDING_REVIEW").first()).toBeVisible();
+  await expect(page.getByText("Inherited · review pending").first()).toBeVisible();
   await expect(page.getByText(/Identity only.*legal and calculation diff NOT VERIFIED/).first()).toHaveCount(0);
   await page.screenshot({
     path: "test-results/rules-year-comparison-desktop-en.png",
