@@ -78,7 +78,7 @@ test("Rule Library uses Office pagination and shows useful mobile rule metadata"
   await expect(cards.first()).toContainText("Forms, Evidence & Administration");
   await expect(page.getByRole("navigation", { name: "Pagination" })).toBeVisible();
   await cards.first().click();
-  await expect(page.locator(".dynamic-drawer")).toBeVisible();
+  await expect(page.locator(".rules-engine__details-dialog")).toBeVisible();
 });
 
 test("Tax Years opens selected-year Rules then source-backed Rule Details", async ({ page }) => {
