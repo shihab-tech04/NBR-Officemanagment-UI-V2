@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, ClipboardList, Download, FileCheck2 } from "lucide-react";
+import { AppModal } from "../../components/modals/AppModal";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { AppSearchField } from "../../components/forms/AppSearchField";
@@ -98,7 +99,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : String(error)); }
   };
 
-  return <section className="rules-engine__stepper" aria-labelledby="draft-stepper-title">
+  return <AppModal open={true} onClose={onClose} size="xl" title={tr("Prepare Tax Year", "করবর্ষের খসড়া প্রস্তুতি")}><section className="rules-engine__stepper" aria-labelledby="draft-stepper-title">
     <div className="rules-engine__stepper-heading">
       <div><h1 id="draft-stepper-title">{tr("Tax-Year Draft Preparation", "করবর্ষের খসড়া প্রস্তুতি")}</h1>
         <p>{tr("Prepare an assessment year from the controlled baseline.", "নিয়ন্ত্রিত ভিত্তি থেকে নতুন করবর্ষের খসড়া প্রস্তুত করুন।")}</p></div>
@@ -155,5 +156,5 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     </div>
     {statusMessage && <p role="status" className="rules-engine__meta">{statusMessage}</p>}
     <div className="rules-engine__wizard-actions"><SecondaryButton size="lg" onClick={() => stage === 0 ? onClose() : setStage(s=>s-1)} icon={ArrowLeft}>{stage===0?tr("Cancel", "বাতিল"):tr("Back", "পেছনে")}</SecondaryButton>{stage < 5 && <PrimaryButton size="lg" icon={stage===4?FileCheck2:ArrowRight} onClick={() => setStage(s=>Math.min(5,s+1))}>{tr("Next", "পরবর্তী")}</PrimaryButton>}{stage === 5 && <SecondaryButton size="lg" icon={ClipboardList} onClick={onClose}>{tr("Done reviewing", "পর্যালোচনা শেষ")}</SecondaryButton>}</div>
-  </section>;
+  </section></AppModal>;
 }
