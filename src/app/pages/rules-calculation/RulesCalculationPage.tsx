@@ -54,7 +54,7 @@ function ScopeNote({ text }: { text: string }) {
 function YearStatus({ year }: { year: TaxYearObservation }) {
   return (
     <div className="rules-engine__status">
-      <p><strong>Stored SQL state:</strong> {statusLabel(year.dbState)}</p>
+      <p><strong>Observed SQL state (10 Oct 2026 snapshot):</strong> {statusLabel(year.dbState)}</p>
       <p><strong>Lifecycle:</strong> {statusLabel(year.lifecycle)}</p>
       <p><strong>Agent/engine certification:</strong> {isCertifiedForEngineExecution(year) ? "VERIFIED" : "NOT CERTIFIED"}</p>
     </div>
@@ -196,7 +196,7 @@ export function RulesCalculationPage() {
             fc("income_year", tr("Income year", "আয়বর্ষ")),
             fc("rule_versions", tr("Recorded identities", "নথিভুক্ত পরিচয়")),
             fc("coverage", tr("Coverage", "কভারেজ")),
-            fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
+            fc("sql_state", tr("10 Oct 2026 snapshot state", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট অবস্থা")),
           ]} rows={yearRows} onRowClick={openYearRules}
             mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
           <p className="rules-engine__meta rules-engine__after-table">
