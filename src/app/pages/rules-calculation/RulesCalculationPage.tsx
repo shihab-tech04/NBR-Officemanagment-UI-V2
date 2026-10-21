@@ -155,7 +155,7 @@ export function RulesCalculationPage() {
     "calculation-controls": "Calculation Controls", "validation-publish": "Validation & Publish",
   };
 
-  if (draftWizardOpen) return <TaxYearDraftStepper onClose={() => setDraftWizardOpen(false)} />;
+
 
   return (
     <div className="table-page rules-engine-page">
@@ -275,6 +275,7 @@ export function RulesCalculationPage() {
       )}
 
       <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>
+      {draftWizardOpen && <TaxYearDraftStepper onClose={() => setDraftWizardOpen(false)} />}
     </div>
   );
 }
