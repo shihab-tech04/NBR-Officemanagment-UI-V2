@@ -39,6 +39,8 @@ test("Rules year comparison preserves existing mobile card and drawer behavior",
   await expect(page.locator(".card-table")).toBeHidden();
   const cards = page.locator(".mobile-table-card-list .mobile-table-card");
   await expect(cards).toHaveCount(25);
+  await expect(cards.first()).toContainText("Forms, Evidence & Administration");
+  await expect(cards.first()).toContainText("Legal comparison pending");
   await cards.first().click();
   await expect(page.locator(".dynamic-drawer")).toBeVisible();
   await expect(page.getByText("Identity only — legal and calculation diff NOT VERIFIED")).toBeVisible();
