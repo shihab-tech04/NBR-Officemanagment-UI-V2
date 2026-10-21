@@ -9,6 +9,7 @@ import { StatCard } from "../../components/cards/StatCard";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
+import { Pagination } from "../../components/shared/Pagination";
 import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
 import { fc, type TableRow } from "../modulePageUtils";
 import {
@@ -59,6 +60,8 @@ export function RulesCalculationPage() {
   const tr = (en: string, bnText: string) => bn ? bnText : en;
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("");
+  const [rulePage, setRulePage] = useState(1);
+  const [rulePerPage, setRulePerPage] = useState(25);
   const [details, setDetails] = useState<TableRow | null>(null);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
   const selectedYear = TAX_YEAR_SNAPSHOT.find((item) => item.assessmentYear === year) ?? TAX_YEAR_SNAPSHOT[2];
@@ -133,7 +136,7 @@ export function RulesCalculationPage() {
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
-            compact value={year} onChange={(value) => { setYear(value); setDetails(null); }}
+            compact value={year} onChange={(value) => { setYear(value); setDetails(null); setRulePage(1); }}
             options={TAX_YEAR_SNAPSHOT.map((item) => ({ value: item.assessmentYear, label: item.assessmentYear }))} />
         </div>
       )}
@@ -170,9 +173,9 @@ export function RulesCalculationPage() {
             ? `${ruleRows.length} of ${catalog.expected_total} ${bn ? "পরিচয়" : "rule identities"} · ${statusLabel(selectedYear.coverage)}`
             : tr("Historical year detail is incomplete; rule identities are not inferred from current-year records.", "ঐতিহাসিক বর্ষের তথ্য অসম্পূর্ণ; বর্তমান বর্ষ থেকে বিধির পরিচয় অনুমান করা হয় না।")}</p>
           <div className="rules-engine__filters">
-            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={setSearch} />
+            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={(value) => {setSearch(value); setRulePage(1);}} />
             <AppSelectField id="rule-group" compact label={bn ? "বিধি গ্রুপ" : "Rule group"}
-              value={group} onChange={setGroup} searchableAfter={5} sortOptions options={[
+              value={group} onChange={(value) => {setGroup(value); setRulePage(1);}} searchableAfter={5} sortOptions options={[
                 { value: "", label: bn ? "সব গ্রুপ" : "All groups" },
                 ...SQL_RULE_GROUPS.map((g) => ({ value:g.id, label:`${bn ? g.bn : g.en} (${g.count})` })),
               ]} />
@@ -180,7 +183,13 @@ export function RulesCalculationPage() {
           <ResponsiveTable aria-label="Controlled rule identity registry" cols={[
             fc("rule_id", tr("Rule ID", "বিধি আইডি")), fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
             fc("applicability", tr("Year applicability", "বর্ষভিত্তিক প্রযোজ্যতা")), fc("execution", tr("Recorded execution label", "সংরক্ষিত কার্যকর অবস্থা")),
-          ]} rows={ruleRows} onRowClick={(row) => setDetails(row)} />
+          ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
+            mobileCardMapping={{primary:"rule_id",meta:["group","applicability"]}}
+            onRowClick={(row) => setDetails(row)} />
+          <div className="table-card__pagination">
+            <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
+              perPageOptions={[10,25,50]} onPerPageChange={(value) => {setRulePerPage(value); setRulePage(1);}} />
+          </div>
           <ScopeNote text={bn
             ? "গ্রুপ হলো প্রশাসনিক শ্রেণিবিন্যাস, আইনের স্বয়ংক্রিয় প্যারেন্ট–চাইল্ড সম্পর্ক নয়।"
             : "Groups are administrative classifications, not evidence of statutory parent/subrule/child hierarchy. Open a row for recorded legal-source locators."} />
