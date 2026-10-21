@@ -194,13 +194,13 @@ export function RulesCalculationPage() {
           <ResponsiveTable aria-label={tr("Select a tax year to view its rules", "বিধি দেখতে করবর্ষ নির্বাচন করুন")} cols={[
             fc("assessment_year", tr("Assessment year", "করবর্ষ")),
             fc("income_year", tr("Income year", "আয়বর্ষ")),
-            fc("rule_versions", tr("Recorded rules", "নথিভুক্ত বিধি")),
+            fc("rule_versions", tr("Recorded identities", "নথিভুক্ত পরিচয়")),
             fc("coverage", tr("Coverage", "কভারেজ")),
             fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
           ]} rows={yearRows} onRowClick={openYearRules}
             mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
           <p className="rules-engine__meta rules-engine__after-table">
-            {tr("Snapshot 10 October 2026. SQL records are not legal certification; historical coverage remains incomplete.", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট। SQL রেকর্ড আইনি অনুমোদন নয়; ঐতিহাসিক বিধি এখনও অসম্পূর্ণ।")}
+            {tr("Recorded counts are rule identities, not verified complete tax law or 1:1 eReturn calculations. Historical coverage remains incomplete (SQL snapshot: 10 October 2026).", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট। SQL রেকর্ড আইনি অনুমোদন নয়; ঐতিহাসিক বিধি এখনও অসম্পূর্ণ।")}
           </p>
         </section>
       )}
