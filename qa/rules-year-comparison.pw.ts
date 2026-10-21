@@ -156,3 +156,33 @@ test("Bangla year-to-rule navigation reuses existing Office labels and layout", 
   await expect(page.getByRole("heading", { name: /বিধিসমূহ.*2026-27/ })).toBeVisible();
   await page.screenshot({ path: "test-results/rules-year-rule-list-mobile-bn.png", fullPage: true, animations: "disabled" });
 });
+
+
+test("Tax Year entry screen uses one compact action, not repeated dashboard cards", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/administration/rules-calculation/tax-years");
+  await expect(page.getByRole("heading", { name: "Tax Years" })).toBeVisible();
+  await expect(page.locator(".rules-engine__kpis")).toHaveCount(0);
+  await expect(page.locator(".card-table__table tbody tr")).toHaveCount(4);
+  const action = page.getByRole("button", { name: "Prepare tax year" });
+  await expect(action).toBeVisible();
+  expect(await action.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThan(240);
+  await page.screenshot({ path: "test-results/rules-tax-years-focused-desktop.png", animations: "disabled", fullPage: true });
+});
+
+test("Tax-year wizard uses Office fields and compact back/next controls on desktop and mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/administration/rules-calculation/tax-years");
+  await page.getByRole("button", { name: "Prepare tax year" }).click();
+  await expect(page.getByRole("heading", { name: "Tax-Year Draft Preparation" })).toBeVisible();
+  await expect(page.locator(".rules-engine__wizard-grid .MuiOutlinedInput-root")).toHaveCount(4);
+  for (const label of ["Return to Tax Years", "Next", "Cancel"]) {
+    const button = page.getByRole("button", { name: label, exact: true });
+    await expect(button).toBeVisible();
+    expect(await button.evaluate((el) => el.getBoundingClientRect().width), label + " must not span the page").toBeLessThan(260);
+  }
+  await page.screenshot({ path: "test-results/rules-tax-year-wizard-desktop.png", animations: "disabled", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "test-results/rules-tax-year-wizard-mobile.png", animations: "disabled", fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+});
