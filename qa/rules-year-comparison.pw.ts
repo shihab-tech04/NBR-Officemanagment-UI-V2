@@ -96,6 +96,7 @@ test("Tax Years opens selected-year Rules then source-backed Rule Details", asyn
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText("Rule Details");
   await expect(drawer).toContainText("Income Tax Act s169(5)");
+  await expect(drawer).toContainText("CERTIFIED_CURRENT");
   await page.screenshot({ path: "test-results/rules-year-rule-details-desktop.png", fullPage: true, animations: "disabled" });
 });
 
