@@ -14,6 +14,17 @@ import { compareSnapshotIdentities, snapshotComparisonAvailable, snapshotCoverag
  * Read-only until the authenticated Rules API supplies two independently verified
  * legal rule versions; identity overlap is never treated as unchanged legislation.
  */
+function readableExecution(value: string, bn: boolean): string {
+  if (value === "INHERITED_PENDING_REVIEW") return bn ? "উত্তরাধিকারী · পর্যালোচনা বাকি" : "Inherited · review pending";
+  if (value.startsWith("NON_EXECUTABLE")) return bn ? "কার্যকর নয়" : "Not executable";
+  if (value === "FACT_GATED") return bn ? "তথ্য যাচাই সাপেক্ষ" : "Fact-gated";
+  if (value.startsWith("EXECUTABLE") || value === "CURRENT_EXECUTABLE") {
+    return bn ? "নথিভুক্ত কার্যকর" : "Recorded executable";
+  }
+  if (value === "FAIL_CLOSED" || value.startsWith("FAIL_CLOSED")) return bn ? "অবরুদ্ধ" : "Blocked";
+  return value.replaceAll("_", " ");
+}
+
 export function RuleYearComparisonPanel() {
   const { i18n } = useTranslation();
   const bn = i18n.language.startsWith("bn");
@@ -39,9 +50,12 @@ export function RuleYearComparisonPanel() {
       group: bn ? rule.groupBn : rule.groupEn,
       base_year: rule.baseAssessmentYear,
       target_year: rule.targetAssessmentYear,
-      base_execution: rule.baseExecution,
-      target_execution: rule.targetExecution,
-      comparison_state: rule.status,
+      base_execution: readableExecution(rule.baseExecution, bn),
+      base_execution_code: rule.baseExecution,
+      target_execution: readableExecution(rule.targetExecution, bn),
+      target_execution_code: rule.targetExecution,
+      comparison_state: tr("Legal comparison pending", "আইনি তুলনা বাকি"),
+      comparison_state_code: rule.status,
       legal_reference: rule.legalSources.join("; ") || tr("Not recorded", "তথ্য নেই"),
       origin: rule.origin ?? tr("Not recorded", "তথ্য নেই"),
       evidence: tr("Identity only — legal and calculation diff NOT VERIFIED", "কেবল পরিচয় — আইন ও হিসাবের পার্থক্য যাচাইকৃত নয়"),
@@ -110,10 +124,13 @@ export function RuleYearComparisonPanel() {
           {key:"group",label:tr("Administrative group", "প্রশাসনিক গ্রুপ")},
           {key:"base_year",label:tr("From assessment year", "পূর্ব করবর্ষ")},
           {key:"base_execution",label:tr("From-year execution record", "পূর্ব বর্ষের অবস্থা")},
+          {key:"base_execution_code",label:tr("Recorded status code", "নথিভুক্ত অবস্থা কোড")},
           {key:"target_year",label:tr("To assessment year", "পরের করবর্ষ")},
           {key:"target_execution",label:tr("To-year execution record", "পরের বর্ষের অবস্থা")},
+          {key:"target_execution_code",label:tr("Recorded status code", "নথিভুক্ত অবস্থা কোড")},
           {key:"legal_reference",label:tr("Recorded source locators", "নথিভুক্ত উৎস")},
           {key:"comparison_state",label:tr("Review state", "পর্যালোচনা অবস্থা")},
+          {key:"comparison_state_code",label:tr("Review status code", "পর্যালোচনা কোড")},
           {key:"evidence",label:tr("Evidence boundary", "প্রমাণের সীমা")},
         ]}/>
     </section>
