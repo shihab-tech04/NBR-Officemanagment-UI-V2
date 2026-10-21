@@ -235,6 +235,7 @@ export const NAVIGATION: MainNavDef[] = [
       { id: "content-management", label: "Content Management", labelKey: "navigation.administration.contentManagement", icon: Images },
       { id: "rules-calculation", label: "Rules & Calculation", labelKey: "navigation.administration.rulesCalculation", icon: Calculator, children: [
         { id: "tax-years", label: "Tax Years", labelKey: "navigation.administration.taxYears", icon: CalendarRange },
+        { id: "year-comparison", label: "Year Comparison", labelKey: "navigation.administration.yearComparison", icon: History },
         { id: "rule-library", label: "Rule Library", labelKey: "navigation.administration.ruleLibrary", icon: BookOpen },
         { id: "calculation-controls", label: "Calculation Controls", labelKey: "navigation.administration.calculationControls", icon: Calculator },
         { id: "validation-publish", label: "Validation & Publish", labelKey: "navigation.administration.validationPublish", icon: BookCheck },

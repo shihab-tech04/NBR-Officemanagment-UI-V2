@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
+import { RuleYearComparisonPanel } from "./RuleYearComparisonPanel";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { BookOpen, CalendarRange, History, ShieldCheck } from "lucide-react";
@@ -8,6 +9,7 @@ import { StatCard } from "../../components/cards/StatCard";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
+import { Pagination } from "../../components/shared/Pagination";
 import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
 import { fc, type TableRow } from "../modulePageUtils";
 import {
@@ -32,7 +34,7 @@ const RULES: RuleObservation[] = catalog.rules.map((item) => ({
 }));
 const BASE_YEAR = "2026-27";
 const DRAFT_YEAR = "2027-28";
-const TABS = new Set(["tax-years", "rule-library", "calculation-controls", "validation-publish"]);
+const TABS = new Set(["tax-years", "year-comparison", "rule-library", "calculation-controls", "validation-publish"]);
 const statusLabel = (status: string | null | undefined) => status ? status.replaceAll("_", " ") : "Not recorded";
 
 function ScopeNote({ text }: { text: string }) {
@@ -58,6 +60,8 @@ export function RulesCalculationPage() {
   const tr = (en: string, bnText: string) => bn ? bnText : en;
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("");
+  const [rulePage, setRulePage] = useState(1);
+  const [rulePerPage, setRulePerPage] = useState(25);
   const [details, setDetails] = useState<TableRow | null>(null);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
   const selectedYear = TAX_YEAR_SNAPSHOT.find((item) => item.assessmentYear === year) ?? TAX_YEAR_SNAPSHOT[2];
@@ -100,10 +104,10 @@ export function RulesCalculationPage() {
     certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
   }));
   const titles: Record<string, string> = bn ? {
-    "tax-years": "করবর্ষ", "rule-library": "বিধি লাইব্রেরি",
+    "tax-years": "করবর্ষ", "year-comparison": "বর্ষ তুলনা", "rule-library": "বিধি লাইব্রেরি",
     "calculation-controls": "হিসাব নিয়ন্ত্রণ", "validation-publish": "যাচাই ও প্রকাশ",
   } : {
-    "tax-years": "Tax Years", "rule-library": "Rule Library",
+    "tax-years": "Tax Years", "year-comparison": "Year Comparison", "rule-library": "Rule Library",
     "calculation-controls": "Calculation Controls", "validation-publish": "Validation & Publish",
   };
 
@@ -118,21 +122,21 @@ export function RulesCalculationPage() {
         </div>
         <p className="rules-engine__snapshot-label">{bn ? "যাচাইকৃত SQL পর্যবেক্ষণ" : "SQL observation"} · {RULES_SNAPSHOT_DATE}</p>
       </div>
-      <ScopeNote text={bn
+      {section !== "year-comparison" && <ScopeNote text={bn
         ? "এই তথ্য ১০ অক্টোবর ২০২৬-এ নেওয়া SQL স্ন্যাপশট; এটি সরাসরি ডেটাবেস সংযোগ বা হিসাবের আইনগত অনুমোদন নয়।"
-        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />
+        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />}
 
-      <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
+      {section !== "year-comparison" && <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
         <StatCard icon={BookOpen} label={bn ? "বিধির পরিচয়" : "Canonical rule identities"} value="366" subInfo={RULES_BASELINE} />
         <StatCard icon={History} label={bn ? "নথিভুক্ত সংস্করণ" : "SQL rule-version records"} value="733" tone="neutral" />
         <StatCard icon={CalendarRange} label={bn ? "করবর্ষ" : "Year records"} value="4" tone="neutral" />
         <StatCard icon={ShieldCheck} label={bn ? "ইঞ্জিন সার্টিফিকেশন" : "Engine certification"} value="Pending" tone="warning" />
-      </div>
+      </div>}
 
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
-            compact value={year} onChange={(value) => { setYear(value); setDetails(null); }}
+            compact value={year} onChange={(value) => { setYear(value); setDetails(null); setRulePage(1); }}
             options={TAX_YEAR_SNAPSHOT.map((item) => ({ value: item.assessmentYear, label: item.assessmentYear }))} />
         </div>
       )}
@@ -160,6 +164,8 @@ export function RulesCalculationPage() {
         </section>
       )}
 
+      {section === "year-comparison" && <RuleYearComparisonPanel />}
+
       {section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
           <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"}</h2>
@@ -167,9 +173,9 @@ export function RulesCalculationPage() {
             ? `${ruleRows.length} of ${catalog.expected_total} ${bn ? "পরিচয়" : "rule identities"} · ${statusLabel(selectedYear.coverage)}`
             : tr("Historical year detail is incomplete; rule identities are not inferred from current-year records.", "ঐতিহাসিক বর্ষের তথ্য অসম্পূর্ণ; বর্তমান বর্ষ থেকে বিধির পরিচয় অনুমান করা হয় না।")}</p>
           <div className="rules-engine__filters">
-            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={setSearch} />
+            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={(value) => {setSearch(value); setRulePage(1);}} />
             <AppSelectField id="rule-group" compact label={bn ? "বিধি গ্রুপ" : "Rule group"}
-              value={group} onChange={setGroup} searchableAfter={5} sortOptions options={[
+              value={group} onChange={(value) => {setGroup(value); setRulePage(1);}} searchableAfter={5} sortOptions options={[
                 { value: "", label: bn ? "সব গ্রুপ" : "All groups" },
                 ...SQL_RULE_GROUPS.map((g) => ({ value:g.id, label:`${bn ? g.bn : g.en} (${g.count})` })),
               ]} />
@@ -177,7 +183,13 @@ export function RulesCalculationPage() {
           <ResponsiveTable aria-label="Controlled rule identity registry" cols={[
             fc("rule_id", tr("Rule ID", "বিধি আইডি")), fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
             fc("applicability", tr("Year applicability", "বর্ষভিত্তিক প্রযোজ্যতা")), fc("execution", tr("Recorded execution label", "সংরক্ষিত কার্যকর অবস্থা")),
-          ]} rows={ruleRows} onRowClick={(row) => setDetails(row)} />
+          ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
+            mobileCardMapping={{primary:"rule_id",meta:["group","applicability"]}}
+            onRowClick={(row) => setDetails(row)} />
+          <div className="table-card__pagination">
+            <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
+              perPageOptions={[10,25,50]} onPerPageChange={(value) => {setRulePerPage(value); setRulePage(1);}} />
+          </div>
           <ScopeNote text={bn
             ? "গ্রুপ হলো প্রশাসনিক শ্রেণিবিন্যাস, আইনের স্বয়ংক্রিয় প্যারেন্ট–চাইল্ড সম্পর্ক নয়।"
             : "Groups are administrative classifications, not evidence of statutory parent/subrule/child hierarchy. Open a row for recorded legal-source locators."} />
