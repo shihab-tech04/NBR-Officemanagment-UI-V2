@@ -5,13 +5,12 @@ import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
 import { RuleYearComparisonPanel } from "./RuleYearComparisonPanel";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarRange, History, ShieldCheck } from "lucide-react";
-import { StatCard } from "../../components/cards/StatCard";
+import { ArrowLeft, Plus } from "lucide-react";
+import { RuleDetailsPanel, type RuleDetailRecord } from "./RuleDetailsPanel";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { Pagination } from "../../components/shared/Pagination";
-import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
 import { fc, type TableRow } from "../modulePageUtils";
 import {
   GATE_CODES, RULES_BASELINE, RULES_BASELINE_SHA256, RULES_SNAPSHOT_DATE,
@@ -77,12 +76,10 @@ export function RulesCalculationPage() {
   const [group, setGroup] = useState("");
   const [rulePage, setRulePage] = useState(1);
   const [rulePerPage, setRulePerPage] = useState(25);
-  const [details, setDetails] = useState<TableRow | null>(null);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
   const openYearRules = (row: TableRow) => {
     const selected = String(row.assessment_year ?? "");
     if (!TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === selected)) return;
-    setDetails(null);
     setRulePage(1);
     navigate(`/administration/rules-calculation/rule-library?year=${encodeURIComponent(selected)}`);
   };
@@ -123,10 +120,21 @@ export function RulesCalculationPage() {
         status: year === DRAFT_YEAR ? tr("PENDING REVIEW", "পর্যালোচনা বাকি") : tr("SQL snapshot", "SQL স্ন্যাপশট"),
       }));
   }, [isRuleListYear, search, group, year, bn]);
-  const selectedRuleDetails = section === "rule-library" && selectedRuleKey
-    ? ruleRows.find((row) => row.rule_id === selectedRuleKey) ?? null
+  const selectedCanonicalRule = section === "rule-library" && isRuleListYear && selectedRuleKey
+    ? RULES.find((rule) => rule.id === selectedRuleKey) ?? null
     : null;
-  const displayedDetails = section === "rule-library" ? selectedRuleDetails : details;
+  const ruleDetails: RuleDetailRecord | null = selectedCanonicalRule ? {
+    id: selectedCanonicalRule.id,
+    group: groupLabel(selectedCanonicalRule.group),
+    year,
+    incomeYear: selectedYear.incomeYear,
+    source: selectedCanonicalRule.source,
+    origin: selectedCanonicalRule.origin,
+    legalSource: selectedCanonicalRule.legalSource,
+    applicability: selectedCanonicalRule.applicability,
+    execution: selectedCanonicalRule.execution,
+    inherited: year === DRAFT_YEAR,
+  } : null;
   const yearRows: TableRow[] = TAX_YEAR_SNAPSHOT.map((item) => ({
     id: item.assessmentYear,
     assessment_year: item.assessmentYear,
@@ -172,7 +180,7 @@ export function RulesCalculationPage() {
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
-            compact value={year} onChange={(value) => { setSearchParams({year:value}); setDetails(null); setRulePage(1); }}
+            compact value={year} onChange={(value) => { setSearchParams({year:value}); setRulePage(1); }}
             options={TAX_YEAR_SNAPSHOT.map((item) => ({ value: item.assessmentYear, label: item.assessmentYear }))} />
         </div>
       )}
@@ -262,26 +270,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      <DynamicDetailsDrawer open={!!displayedDetails}
-        onClose={section === "rule-library" ? closeRuleDetails : () => setDetails(null)}
-        title={section === "rule-library" ? `${tr("Rule Details", "বিধির বিস্তারিত")} · ${selectedRuleKey ?? ""}` : tr("Tax-year evidence", "করবর্ষের প্রমাণ")}
-        rowData={displayedDetails} showActions={false} columns={section === "tax-years" ? [
-          { key:"assessment_year", label:tr("Assessment year", "করবর্ষ") }, { key:"income_year", label:tr("Income year", "আয়বর্ষ") },
-          { key:"sql_state", label:tr("Stored SQL state", "সংরক্ষিত SQL অবস্থা") }, { key:"lifecycle", label:tr("Lifecycle", "লাইফসাইকেল") },
-          { key:"coverage", label:tr("Coverage", "কভারেজ") }, { key:"rule_versions", label:tr("Rule versions", "বিধি সংস্করণ") },
-          { key:"pending", label:tr("Inherited pending review", "উত্তরাধিকারী পর্যালোচনা বাকি") }, { key:"legal_cutoff", label:tr("Legal cutoff", "আইনি কাটঅফ") },
-          { key:"certification", label:tr("Independent Agent certification", "স্বাধীন এজেন্ট সার্টিফিকেশন") },
-        ] : [
-          {key:"rule_id",label:tr("Canonical identity", "মূল পরিচয়"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"year",label:tr("Assessment year", "করবর্ষ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"group",label:tr("Administrative grouping", "প্রশাসনিক গ্রুপ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"applicability",label:tr("Recorded year applicability", "নথিভুক্ত বর্ষভিত্তিক প্রযোজ্যতা"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"execution",label:tr("Recorded SQL execution label", "সংরক্ষিত কার্যকর লেবেল"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
-          {key:"legal_source",label:tr("Recorded legal-source reference", "আইনি উৎসের রেফারেন্স"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"source",label:tr("Canonical source artifact", "মূল উৎস নথি"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"origin",label:tr("Origin task", "উৎস টাস্ক"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
-          {key:"certification",label:tr("Independent Agent release status", "স্বাধীন এজেন্ট প্রকাশ অবস্থা"),groupLabel:tr("Verification", "যাচাইকরণ")},
-        ]} />
+      <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>
     </div>
   );
 }
