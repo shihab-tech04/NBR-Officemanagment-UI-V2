@@ -177,7 +177,7 @@ export function RulesCalculationPage() {
         </p>}
       </div>
 
-      {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
+      {(section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
             compact value={year} onChange={(value) => { setSearchParams({year:value}); setRulePage(1); }}
@@ -209,36 +209,44 @@ export function RulesCalculationPage() {
 
       {section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
-          <div className="rules-engine__stepper-heading">
-            <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"} · AY {year}</h2>
-            {requestedYear && <SecondaryButton size="lg" onClick={() => navigate("/administration/rules-calculation/tax-years")}>
-              {tr("Back to Tax Years", "করবর্ষে ফিরে যান")}
-            </SecondaryButton>}
+          <div className="rules-engine__list-heading">
+            <h2 id="rule-library-heading" className="rules-engine__heading">{tr("Recorded rules", "নথিভুক্ত বিধি")}</h2>
+            <div className="rules-engine__list-actions">
+              <span className="rules-engine__count">{ruleRows.length} {tr("matching rules", "মিলে যাওয়া বিধি")}</span>
+              {requestedYear && <SecondaryButton size="sm" icon={ArrowLeft}
+                onClick={() => navigate("/administration/rules-calculation/tax-years")}>
+                {tr("Tax Years", "করবর্ষ")}</SecondaryButton>}
+            </div>
           </div>
-          <p className="rules-engine__meta">{isRuleListYear
-            ? `${ruleRows.length} of ${catalog.expected_total} ${bn ? "পরিচয়" : "rule identities"} · ${statusLabel(selectedYear.coverage)}`
-            : tr("Historical year detail is incomplete; rule identities are not inferred from current-year records.", "ঐতিহাসিক বর্ষের তথ্য অসম্পূর্ণ; বর্তমান বর্ষ থেকে বিধির পরিচয় অনুমান করা হয় না।")}</p>
-          <div className="rules-engine__filters">
-            <AppSearchField label={bn ? "বিধি খুঁজুন" : "Search rule ID, source, group"} value={search} onChange={(value) => {setSearch(value); setRulePage(1);}} />
-            <AppSelectField id="rule-group" compact label={bn ? "বিধি গ্রুপ" : "Rule group"}
-              value={group} onChange={(value) => {setGroup(value); setRulePage(1);}} searchableAfter={5} sortOptions options={[
-                { value: "", label: bn ? "সব গ্রুপ" : "All groups" },
-                ...SQL_RULE_GROUPS.map((g) => ({ value:g.id, label:`${bn ? g.bn : g.en} (${g.count})` })),
-              ]} />
+          <div className="rules-engine__filters rules-engine__filters--rules">
+            <AppSelectField id="rules-year" compact label={tr("Assessment year", "করবর্ষ")}
+              value={year} onChange={(value) => {setSearchParams({year:value});setRulePage(1);}}
+              options={TAX_YEAR_SNAPSHOT.map((item)=>({value:item.assessmentYear,label:item.assessmentYear}))}/>
+            <AppSearchField label={tr("Search rules or legal references", "বিধি বা আইনি রেফারেন্স খুঁজুন")}
+              value={search} onChange={(value)=>{setSearch(value);setRulePage(1);}}/>
+            <AppSelectField id="rule-group" compact label={tr("Rule group", "বিধির গ্রুপ")}
+              value={group} onChange={(value)=>{setGroup(value);setRulePage(1);}} searchableAfter={5} sortOptions
+              options={[{value:"",label:tr("All groups","সব গ্রুপ")},
+                ...SQL_RULE_GROUPS.map((g)=>({value:g.id,label:`${bn?g.bn:g.en} (${g.count})`}))]}/>
           </div>
-          <ResponsiveTable aria-label="Controlled rule identity registry" cols={[
-            fc("rule_id", tr("Rule ID", "বিধি আইডি")), fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
-            fc("applicability_view", tr("Recorded applicability", "নথিভুক্ত প্রযোজ্যতা")), fc("execution_view", tr("Recorded execution", "নথিভুক্ত কার্যকর অবস্থা")),
-          ]} rows={ruleRows.slice((rulePage - 1) * rulePerPage, rulePage * rulePerPage)}
-            mobileCardMapping={{primary:"rule_id",meta:["group","applicability_view"]}}
-            onRowClick={openRuleDetails} />
+          {!isRuleListYear && <p className="rules-engine__scope" role="status">
+            {tr("Historical rules have not been reconstructed for this year. No current-year records are copied backward.", "এই করবর্ষের ঐতিহাসিক বিধি পুনর্গঠিত নয়। বর্তমান বিধি পিছনের বছরে অনুলিপি করা হয় না।")}
+          </p>}
+          <ResponsiveTable aria-label={tr("Year-specific rule library", "করবর্ষভিত্তিক বিধি তালিকা")} cols={[
+            fc("rule_id", tr("Rule ID", "বিধি আইডি")),
+            fc("legal_source", tr("Recorded legal reference", "নথিভুক্ত আইনি রেফারেন্স"), {truncate:"long"}),
+            fc("group", tr("Administrative group", "প্রশাসনিক গ্রুপ")),
+            fc("execution_view", tr("Record status", "রেকর্ড অবস্থা")),
+          ]} rows={ruleRows.slice((rulePage-1)*rulePerPage,rulePage*rulePerPage)}
+            mobileCardMapping={{primary:"rule_id",meta:["legal_source","group","execution_view"]}}
+            onRowClick={openRuleDetails}/>
           <div className="table-card__pagination">
             <Pagination page={rulePage} total={ruleRows.length} perPage={rulePerPage} onPage={setRulePage}
-              perPageOptions={[10,25,50]} onPerPageChange={(value) => {setRulePerPage(value); setRulePage(1);}} />
+              perPageOptions={[10,25,50]} onPerPageChange={(value)=>{setRulePerPage(value);setRulePage(1);}}/>
           </div>
-          <ScopeNote text={bn
-            ? "গ্রুপ হলো প্রশাসনিক শ্রেণিবিন্যাস, আইনের স্বয়ংক্রিয় প্যারেন্ট–চাইল্ড সম্পর্ক নয়।"
-            : "Groups are administrative classifications, not evidence of statutory parent/subrule/child hierarchy. Open a row for recorded legal-source locators."} />
+          <p className="rules-engine__meta rules-engine__after-table">
+            {tr("Administrative groups are not statutory hierarchy. Legal references and execution labels are recorded, not independently approved.", "প্রশাসনিক গ্রুপ আইনি ধারা-বিন্যাস নয়। আইন ও কার্যকর অবস্থার রেফারেন্স নথিভুক্ত, স্বাধীনভাবে অনুমোদিত নয়।")}
+          </p>
         </section>
       )}
 
