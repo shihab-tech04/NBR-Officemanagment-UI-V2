@@ -60,4 +60,4 @@ This draft transport does **not** yet satisfy the complete canonical typed contr
 5. Repeat tests under approved isolated PG17 + Auth + Edge stack, diff exact-current code, verify readback, backup and rollback. Never issue production taxpayer POST.
 
 ## Local test command
-From this W5 workspace: `node --test tests/engine_boundary.test.mjs` (no network or hosted production invocation). Real PG integration tests require isolated fixture and `W5_PG_SOCKET`, `W5_PG_DB`; the original four SQL tests are skipped without that fixture. 137 original Agent cases and 32 installed-Agent acceptance tests are not certified by local handler tests.
+From this W5 workspace: `node --test tests/engine_boundary.node.mjs` (no network or hosted production invocation). Real PG integration tests require isolated fixture and `W5_PG_SOCKET`, `W5_PG_DB`; the original four SQL tests are skipped without that fixture. 137 original Agent cases and 32 installed-Agent acceptance tests are not certified by local handler tests.
