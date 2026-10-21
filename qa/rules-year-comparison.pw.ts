@@ -183,6 +183,10 @@ test("Tax-year wizard uses Office fields and compact back/next controls on deskt
   }
   await page.screenshot({ path: "test-results/rules-tax-year-wizard-desktop.png", animations: "disabled", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  const steps = page.getByRole("navigation", { name: "Tax-year preparation steps" });
+  await expect(steps).toBeVisible();
+  expect(await steps.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(82);
+  expect(await steps.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   await page.screenshot({ path: "test-results/rules-tax-year-wizard-mobile.png", animations: "disabled", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
 });
