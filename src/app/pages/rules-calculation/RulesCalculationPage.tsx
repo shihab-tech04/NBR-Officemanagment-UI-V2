@@ -207,7 +207,7 @@ export function RulesCalculationPage() {
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
           <div className="rules-engine__stepper-heading">
             <h2 id="rule-library-heading" className="rules-engine__heading">{bn ? "উৎস-সংযুক্ত বিধি পরিচয়" : "Source-linked rule identities"} · AY {year}</h2>
-            {requestedYear && <SecondaryButton onClick={() => navigate("/administration/rules-calculation/tax-years")}>
+            {requestedYear && <SecondaryButton size="lg" onClick={() => navigate("/administration/rules-calculation/tax-years")}>
               {tr("Back to Tax Years", "করবর্ষে ফিরে যান")}
             </SecondaryButton>}
           </div>
@@ -272,11 +272,15 @@ export function RulesCalculationPage() {
           { key:"pending", label:tr("Inherited pending review", "উত্তরাধিকারী পর্যালোচনা বাকি") }, { key:"legal_cutoff", label:tr("Legal cutoff", "আইনি কাটঅফ") },
           { key:"certification", label:tr("Independent Agent certification", "স্বাধীন এজেন্ট সার্টিফিকেশন") },
         ] : [
-          {key:"rule_id",label:tr("Canonical identity", "মূল পরিচয়")},{key:"year",label:tr("Assessment year", "করবর্ষ")},
-          {key:"group",label:tr("Administrative grouping", "প্রশাসনিক গ্রুপ")},{key:"applicability",label:tr("Year applicability", "বর্ষভিত্তিক প্রযোজ্যতা")},
-          {key:"execution",label:tr("Recorded SQL execution label", "সংরক্ষিত কার্যকর লেবেল")},{key:"legal_source",label:tr("Recorded legal-source reference", "আইনি উৎসের রেফারেন্স")},
-          {key:"source",label:tr("Canonical source artifact", "মূল উৎস নথি")},{key:"origin",label:tr("Origin task", "উৎস টাস্ক")},
-          {key:"certification",label:tr("Independent Agent release status", "স্বাধীন এজেন্ট প্রকাশ অবস্থা")},
+          {key:"rule_id",label:tr("Canonical identity", "মূল পরিচয়"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
+          {key:"year",label:tr("Assessment year", "করবর্ষ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
+          {key:"group",label:tr("Administrative grouping", "প্রশাসনিক গ্রুপ"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
+          {key:"applicability",label:tr("Recorded year applicability", "নথিভুক্ত বর্ষভিত্তিক প্রযোজ্যতা"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
+          {key:"execution",label:tr("Recorded SQL execution label", "সংরক্ষিত কার্যকর লেবেল"),groupLabel:tr("Identity & Applicability", "পরিচয় ও প্রযোজ্যতা")},
+          {key:"legal_source",label:tr("Recorded legal-source reference", "আইনি উৎসের রেফারেন্স"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
+          {key:"source",label:tr("Canonical source artifact", "মূল উৎস নথি"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
+          {key:"origin",label:tr("Origin task", "উৎস টাস্ক"),groupLabel:tr("Legal Sources & Provenance", "আইনি উৎস ও প্রমাণপঞ্জি")},
+          {key:"certification",label:tr("Independent Agent release status", "স্বাধীন এজেন্ট প্রকাশ অবস্থা"),groupLabel:tr("Verification", "যাচাইকরণ")},
         ]} />
     </div>
   );
