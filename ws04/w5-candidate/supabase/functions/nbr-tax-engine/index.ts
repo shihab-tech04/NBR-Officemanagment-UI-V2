@@ -1,0 +1,1209 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  // No wildcard credentialed CORS. Handler sets a vetted exact origin per request.
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+};
+
+const ENGINE_VERSION = "NBR-TAX-ENGINE-1.5.0";
+// Release gates are separate from the historical seed gates marked PASS in October 2026.
+// These evidence records must be created only by an approved legal/security/QA workflow.
+const FROZEN_REGISTRY_SHA256 = "34902bac07a459a4f0c051b90bfe3b4c492f2465d06c661bab18ab7f36252184";
+const FROZEN_BASELINE_RULE_COUNT = 366;
+// SHA-256 of the 366 FINAL_2026_09_30 rule_id values, sorted lexically and
+// joined with "\n" (no trailing newline). A new rule identity requires a
+// separately certified registry/version upgrade; a count alone is insufficient.
+const FROZEN_RULE_IDENTITY_SHA256 = "0c917287e5f9c0d51b5cd77dea03f813d4fe8ccc382ec9fec74bf850cc444871";
+const RELEASE_GATES = [
+  "LEGAL_SOURCE_V2_1",
+  "ENGINE_SECURITY_V2_1",
+  "AGENT_137_V2_1",
+  "AGENT_32_V2_1",
+  "PERSISTED_E2E_6",
+] as const;
+const SCALE_DIGITS = 10n;
+const SCALE = 10n ** SCALE_DIGITS;
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function verifiedBearer(req: Request): string | null {
+  const authorization = req.headers.get("authorization") ?? "";
+  const match = /^Bearer ([A-Za-z0-9._~+\/-]+=*)$/i.exec(authorization.trim());
+  return match?.[1] ?? null;
+}
+
+function validAssessmentYear(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}$/.test(value)) return false;
+  const start = Number(value.slice(0, 4));
+  return Number(value.slice(5)) === (start + 1) % 100;
+}
+
+function objectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonnegativeMoney(value: unknown): boolean {
+  if (typeof value !== "number" && typeof value !== "string") return false;
+  const raw = String(value).trim().replace(/,/g, "");
+  return /^\d+(?:\.\d{1,10})?$/.test(raw) &&
+    (typeof value !== "number" || Number.isSafeInteger(value) ||
+      (Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER));
+}
+
+function invalidCalculationFacts(body: Record<string, any>): string[] {
+  const invalid: string[] = [];
+  if (!objectRecord(body.taxpayer)) {
+    invalid.push("taxpayer");
+  } else {
+    const taxpayer = body.taxpayer;
+    if (taxpayer.isNewTaxpayer !== null && taxpayer.isNewTaxpayer !== undefined &&
+        typeof taxpayer.isNewTaxpayer !== "boolean") invalid.push("isNewTaxpayer");
+    const count = taxpayer.disabledChildCount;
+    if (count !== null && count !== undefined &&
+        !((typeof count === "number" && Number.isSafeInteger(count) && count >= 0 && count <= 2147483647) ||
+          (typeof count === "string" && /^\d+$/.test(count) && Number(count) <= 2147483647))) {
+      invalid.push("disabledChildCount");
+    }
+    if (typeof taxpayer.entityType !== "string" ||
+        normalizeEntityType(taxpayer.entityType) !== "individual") invalid.push("entityType");
+    if (taxpayer.specialCategory !== null && taxpayer.specialCategory !== undefined &&
+        typeof taxpayer.specialCategory !== "string") invalid.push("specialCategory");
+  }
+  if (!objectRecord(body.returnData) || !objectRecord(body.returnData.incomeHeads) ||
+      Object.keys(body.returnData.incomeHeads).length === 0) {
+    invalid.push("incomeHeads");
+  } else {
+    for (const [key, value] of Object.entries(body.returnData.incomeHeads)) {
+      if (!nonnegativeMoney(value)) invalid.push(`incomeHeads.${key}`);
+    }
+  }
+  if (objectRecord(body.returnData)) {
+    const returnData = body.returnData;
+    if (returnData.taxRebates !== undefined) {
+      if (!objectRecord(returnData.taxRebates)) invalid.push("taxRebates");
+      else for (const [key, value] of Object.entries(returnData.taxRebates)) {
+        if (!nonnegativeMoney(value)) invalid.push(`taxRebates.${key}`);
+      }
+    }
+    for (const key of [
+      "taxDeductedAtSource", "advanceTaxPaid", "selfAssessmentTaxPaid",
+      "adjustedTotalIncomeForRebate", "eligibleInvestmentAmount",
+    ]) {
+      if (returnData[key] !== undefined && returnData[key] !== null &&
+          !nonnegativeMoney(returnData[key])) invalid.push(key);
+    }
+  }
+  if (body.ruleFacts !== undefined) {
+    if (!objectRecord(body.ruleFacts)) invalid.push("ruleFacts");
+    else for (const [key, facts] of Object.entries(body.ruleFacts)) {
+      if (!objectRecord(facts)) {
+        invalid.push(`ruleFacts.${key}`);
+        continue;
+      }
+      for (const operand of ["baseAmount", "quantity"]) {
+        if (facts[operand] !== undefined && !nonnegativeMoney(facts[operand])) {
+          invalid.push(`ruleFacts.${key}.${operand}`);
+        }
+      }
+    }
+  }
+  return invalid;
+}
+
+function missingReleaseGates(
+  gates: Array<Record<string, any>>,
+  ruleSetHash: string,
+): string[] {
+  return RELEASE_GATES.filter((code) => {
+    const gate = gates.find((row) => row.gate_code === code);
+    const evidence = gate?.evidence_detail;
+    return (
+      gate?.status !== "PASS" ||
+      !gate?.evidence_ref ||
+      !gate?.evaluated_by ||
+      !gate?.evaluated_at ||
+      !evidence ||
+      evidence.rule_set_hash !== ruleSetHash ||
+      evidence.registry_sha256 !== FROZEN_REGISTRY_SHA256 ||
+      evidence.decision !== "APPROVED"
+    );
+  });
+}
+
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => JSON.stringify(k) + ":" + canonical(v));
+  return "{" + entries.join(",") + "}";
+}
+
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function decimal(value: unknown): bigint {
+  if (value === null || value === undefined || value === "") return 0n;
+  const raw = String(value).trim().replace(/,/g, "");
+  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) throw new Error(`Invalid decimal value: ${raw}`);
+  const negative = raw.startsWith("-");
+  const clean = negative ? raw.slice(1) : raw;
+  const [whole, fraction = ""] = clean.split(".");
+  const scaled = BigInt(whole || "0") * SCALE + BigInt((fraction + "0".repeat(Number(SCALE_DIGITS))).slice(0, Number(SCALE_DIGITS)));
+  return negative ? -scaled : scaled;
+}
+
+function decimalString(value: bigint, trim = true): string {
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const whole = absolute / SCALE;
+  const fraction = (absolute % SCALE).toString().padStart(Number(SCALE_DIGITS), "0");
+  const normalizedFraction = trim ? fraction.replace(/0+$/, "") : fraction;
+  return `${negative ? "-" : ""}${whole}${normalizedFraction ? "." + normalizedFraction : ""}`;
+}
+
+function add(a: bigint, b: bigint) { return a + b; }
+function sub(a: bigint, b: bigint) { return a - b; }
+function mul(a: bigint, b: bigint) { return (a * b) / SCALE; }
+function min(...values: bigint[]) { return values.reduce((a, b) => (a < b ? a : b)); }
+function max(a: bigint, b: bigint) { return a > b ? a : b; }
+
+function parseNumericRate(value: unknown): bigint | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" || typeof value === "bigint") return decimal(String(value));
+  const raw = String(value).trim().replace(/,/g, "");
+  if (/^-?\d+(?:\.\d+)?$/.test(raw)) return decimal(raw);
+  const exactPct = raw.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
+  if (exactPct) return decimal(exactPct[1]) / 100n;
+
+  // Legal prose is not an executable expression. In particular, a single
+  // percentage may be conditional on an unproven statutory predicate.
+  return null;
+}
+
+function canonicalRateOptions(value: unknown): Array<{ key: string; rate: string; label: string }> {
+  if (value === null || value === undefined || value === "") return [];
+  const out: Array<{ key: string; rate: string; label: string }> = [];
+
+  const pushRate = (key: string, candidate: unknown, label: string) => {
+    const parsed = parseNumericRate(candidate);
+    if (parsed !== null) out.push({ key, rate: decimalString(parsed), label });
+  };
+
+  if (typeof value === "number" || typeof value === "bigint") {
+    pushRate("primary", value, String(value));
+    return out;
+  }
+
+  if (typeof value === "object" && !Array.isArray(value)) {
+    for (const [key, candidate] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof candidate === "number" || (typeof candidate === "string" && /^-?\d+(?:\.\d+)?$/.test(candidate.trim()))) {
+        pushRate(key, candidate, key.replaceAll("_", " "));
+      }
+    }
+    return out;
+  }
+
+  const raw = String(value).trim();
+  const direct = parseNumericRate(raw);
+  if (direct !== null) {
+    out.push({ key: "primary", rate: decimalString(direct), label: raw });
+    return out;
+  }
+
+  // Never extract apparent "options" from unstructured canonical prose.
+  // A caller-selected index must not bypass legally conditional language.
+  return out;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === "string" && value.trim()) {
+    if (value.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.map((item) => String(item)).filter(Boolean);
+      } catch {
+        // use raw string as one fact label
+      }
+    }
+    return value.split(";").map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function requiredFacts(rule: Record<string, unknown>): string[] {
+  const direct = [
+    ...toStringArray(rule.inputs),
+    ...toStringArray(rule.required_facts),
+    ...toStringArray(rule.trigger_inputs),
+  ];
+  const canonicalFactGates = rule.canonical_fact_gates;
+  if (canonicalFactGates && typeof canonicalFactGates === "object" && !Array.isArray(canonicalFactGates)) {
+    for (const [key, value] of Object.entries(canonicalFactGates as Record<string, unknown>)) {
+      if (value !== null && value !== undefined) direct.push(key);
+    }
+  }
+  const closure = rule.closure_reconciliation_v2;
+  if (closure && typeof closure === "object" && !Array.isArray(closure)) {
+    const manifest = (closure as Record<string, unknown>).fact_gate_manifest;
+    if (Array.isArray(manifest)) {
+      for (const item of manifest) {
+        if (item && typeof item === "object" && "field" in item) direct.push(String((item as Record<string, unknown>).field));
+      }
+    }
+  }
+  return [...new Set(direct)].filter(Boolean);
+}
+
+
+function totalPositive(input: Record<string, unknown> | undefined): boolean {
+  if (!input) return false;
+  return Object.values(input).some((value) => {
+    try { return decimal(value ?? 0) > 0n; } catch { return false; }
+  });
+}
+
+function normalizeEntityType(value: unknown): string {
+  const raw = String(value ?? "individual").trim().toLowerCase();
+  if (["natural_person","resident_individual","nonresident_bangladeshi_individual"].includes(raw)) return "individual";
+  return raw || "individual";
+}
+
+function resolveApplicability(
+  ruleRow: Record<string, any>,
+  binding: Record<string, any> | null,
+  body: Record<string, any>,
+  suppliedRuleFacts: Record<string, any>,
+) {
+  const ruleId = String(ruleRow.rule_key);
+  const facts = suppliedRuleFacts[ruleId] ?? {};
+  const suppliedFactKeys = Object.keys(facts).filter(
+    (key) => !["applicable","triggered"].includes(key),
+  );
+  const hasSuppliedRuleFacts = suppliedFactKeys.length > 0;
+
+  const entityType = normalizeEntityType(body.taxpayer?.entityType);
+  const entityTypes = Array.isArray(binding?.entity_types)
+    ? binding.entity_types.map((value:unknown)=>normalizeEntityType(value))
+    : [];
+  if (entityTypes.length > 0 && !entityTypes.includes(entityType)) {
+    return { state:"NOT_APPLICABLE", reason:`Runtime binding is for ${entityTypes.join(", ")}; current entity is ${entityType}.` };
+  }
+
+  const mode = String(binding?.runtime_mode ?? "MANUAL_FACT_GATE");
+  if (mode === "HISTORICAL_ONLY" || mode === "NOT_APPLICABLE" || mode === "ALWAYS" || mode === "ENTITY") {
+    return { state:"APPLICABLE", reason:`Runtime mode ${mode} selected.` };
+  }
+
+  const returnData = body.returnData ?? {};
+  const returnContext = body.returnContext ?? {};
+  const claimRuleIds = Array.isArray(body.claimRuleIds) ? body.claimRuleIds.map(String) : [];
+  const transactionRuleIds = Array.isArray(body.transactionRuleIds) ? body.transactionRuleIds.map(String) : [];
+  const paymentRuleIds = Array.isArray(body.paymentRuleIds) ? body.paymentRuleIds.map(String) : [];
+
+  if (mode === "BENEFIT_CLAIM") {
+    if (ruleId === "S78-GENERAL-REBATE-FA2026" && totalPositive(returnData.taxRebates ?? {})) {
+      return { state:"APPLICABLE", reason:"A general-rebate claim exists in the return." };
+    }
+    if (claimRuleIds.includes(ruleId) || body.benefitClaims?.[ruleId] || hasSuppliedRuleFacts) {
+      return { state:"APPLICABLE", reason:"A matching benefit/exemption claim exists." };
+    }
+    return { state:"NOT_TRIGGERED", reason:"No matching benefit/exemption claim was supplied; no benefit is granted." };
+  }
+
+  if (mode === "TRANSACTION_EVENT") {
+    if (transactionRuleIds.includes(ruleId) || body.transactions?.[ruleId] || hasSuppliedRuleFacts) {
+      return { state:"APPLICABLE", reason:"A matching withholding/source-tax transaction was supplied." };
+    }
+    return { state:"NOT_TRIGGERED", reason:"No matching withholding/source-tax transaction was supplied." };
+  }
+
+  if (mode === "PAYMENT_EVENT") {
+    if (paymentRuleIds.includes(ruleId) || body.paymentEvents?.[ruleId] || hasSuppliedRuleFacts) {
+      return { state:"APPLICABLE", reason:"A matching payment/credit/refund event was supplied." };
+    }
+    return { state:"NOT_TRIGGERED", reason:"No matching payment/credit/refund event was supplied." };
+  }
+
+  if (mode === "RETURN_EVENT") {
+    if (ruleId === "IND-BIZ-001") {
+      const businessIncome = returnData.incomeHeads?.businessProfession;
+      try {
+        return decimal(businessIncome ?? 0) > 0n
+          ? { state:"APPLICABLE", reason:"Business/profession income is present." }
+          : { state:"NOT_TRIGGERED", reason:"No business/profession income is present." };
+      } catch {
+        return { state:"NEEDS_FACTS", missingFacts:["businessProfession"], reason:"Business/profession income is required to determine applicability." };
+      }
+    }
+    if (["RET-REQUIRED-166-001","ROUTE-NAT-001","ROUTE-SHORT-001"].includes(ruleId) && entityType === "individual") {
+      return { state:"APPLICABLE", reason:"Core individual return routing/requiredness rule." };
+    }
+    if (returnContext.ruleIds?.includes?.(ruleId) || returnContext.events?.[ruleId] || hasSuppliedRuleFacts) {
+      return { state:"APPLICABLE", reason:"A matching return/workflow event was supplied." };
+    }
+    return { state:"NOT_TRIGGERED", reason:"No matching return/workflow event was supplied." };
+  }
+
+  if (mode === "MANUAL_FACT_GATE" && hasSuppliedRuleFacts) {
+    return {
+      state:"APPLICABLE",
+      reason:"Structured facts were supplied for this canonical rule.",
+    };
+  }
+
+  return {
+    state:"NOT_TRIGGERED",
+    reason:"Rule remains available as a runtime node but requires a matching event, claim, transaction or structured fact payload before it can affect a return.",
+  };
+}
+
+function ruleRuntimeKind(status: string, rule: Record<string, unknown>): string {
+  if (status === "FAIL_CLOSED" || status === "FAIL_CLOSED_PUBLIC_EVIDENCE" || status === "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE") return "FAIL_CLOSED";
+  if (status === "HISTORICAL_ONLY") return "HISTORICAL_ONLY";
+  if (status === "NOT_APPLICABLE") return "NOT_APPLICABLE";
+  if (status === "FACT_GATED") return "FACT_GATE";
+  const rate = parseNumericRate(rule.rate_primary ?? rule.rate ?? rule.domestic_default);
+  if (rate !== null) return "CALCULATION";
+  if (rule.formula_condition || rule.tax_base || rule.cap_formula) return "CALCULATION_OR_DECISION";
+  return "DECISION";
+}
+
+function evaluateRule(
+  ruleRow: Record<string, any>,
+  binding: Record<string, any> | null,
+  body: Record<string, any>,
+  suppliedRuleFacts: Record<string, any> = {},
+) {
+  const rule = (ruleRow.rule_data ?? {}) as Record<string, unknown>;
+  const ruleId = String(ruleRow.rule_key);
+  const status = String(ruleRow.execution_status ?? rule.canonical_execution_status ?? "FAIL_CLOSED");
+  const kind = ruleRuntimeKind(status, rule);
+  const facts = suppliedRuleFacts[ruleId] ?? {};
+  const applicability = resolveApplicability(ruleRow, binding, body, suppliedRuleFacts);
+  const req = requiredFacts(rule);
+  const provided = facts.providedFacts && typeof facts.providedFacts === "object" ? facts.providedFacts : {};
+  const missing = req.filter((label) => !(label in provided) && !(label in facts));
+
+  const base = facts.baseAmount !== undefined ? decimal(facts.baseAmount) : null;
+  const quantity = facts.quantity !== undefined ? decimal(facts.quantity) : null;
+  const branch = facts.branch === "alternate" ? "alternate" : "primary";
+  const rateRaw = branch === "alternate"
+    ? rule.rate_alternate
+    : (rule.rate_primary ?? rule.rate ?? rule.domestic_default);
+  const rateOptions = canonicalRateOptions(rateRaw);
+  let rate = parseNumericRate(rateRaw);
+  if (rate === null && rateOptions.length > 0) {
+    const requestedRateKey = String(facts.rateOptionKey ?? "");
+    const requestedRateIndex =
+      facts.rateOptionIndex === undefined || facts.rateOptionIndex === null
+        ? null
+        : Number(facts.rateOptionIndex);
+    const selected =
+      (requestedRateKey ? rateOptions.find((option) => option.key === requestedRateKey) : undefined) ??
+      (requestedRateIndex !== null && Number.isInteger(requestedRateIndex)
+        ? rateOptions[requestedRateIndex]
+        : undefined);
+    if (selected) rate = decimal(selected.rate);
+  }
+
+  const traceBase = {
+    ruleId,
+    revision: ruleRow.revision_no,
+    sourceAssessmentYear: ruleRow.source_assessment_year,
+    yearApplicabilityStatus: ruleRow.year_applicability_status,
+    executionStatus: status,
+    runtimeKind: kind,
+    runtimeMode: binding?.runtime_mode ?? "MANUAL_FACT_GATE",
+    affectsCalculation: Boolean(binding?.affects_calculation),
+    affectsSubmission: Boolean(binding?.affects_submission),
+    legalSource: rule.legal_source ?? rule.evidence_references ?? rule.authority ?? null,
+    sourceRef: rule.canonical_source_ref ?? null,
+    requiredFacts: req,
+    rateOptions,
+  };
+
+  if (applicability.state === "NOT_APPLICABLE") {
+    return { ...traceBase, state:"NOT_APPLICABLE", reason:applicability.reason };
+  }
+  if (applicability.state === "NOT_TRIGGERED") {
+    return { ...traceBase, state:"NOT_TRIGGERED", reason:applicability.reason };
+  }
+  if (applicability.state === "NEEDS_FACTS") {
+    return { ...traceBase, state:"NEEDS_FACTS", missingFacts:applicability.missingFacts ?? ["applicability"], reason:applicability.reason };
+  }
+
+  if (ruleId === "S78-GENERAL-REBATE-FA2026") {
+    return {
+      ...traceBase,
+      state:"APPLIED",
+      reason:"Section 78 is evaluated by the central individual rebate pipeline using this canonical rule.",
+      output:rule.benefit_type ?? rule.output ?? null,
+    };
+  }
+
+  if (kind === "FAIL_CLOSED") {
+    return { ...traceBase, state: "FAIL_CLOSED", reason: rule.blocker ?? rule.conflict_blocker ?? rule.failure_behavior ?? "Execution blocked by certified rule state." };
+  }
+  if (kind === "HISTORICAL_ONLY") return { ...traceBase, state: "HISTORICAL_ONLY" };
+  if (kind === "NOT_APPLICABLE") return { ...traceBase, state: "NOT_APPLICABLE" };
+
+  if (facts.branch !== undefined && facts.branch !== "primary" && facts.branch !== "alternate") {
+    return { ...traceBase, state: "FAIL_CLOSED", reason: "Unknown rate branch; an unrecognized branch cannot fall back to primary." };
+  }
+  if (branch === "alternate" && (rateRaw === undefined || rateRaw === null || rateRaw === "")) {
+    return { ...traceBase, state: "FAIL_CLOSED", reason: "The requested alternate rate is not encoded in the legally reviewed rule." };
+  }
+
+  if (
+    rate === null && typeof rateRaw === "string" &&
+    /\d+(?:\.\d+)?\s*%/.test(rateRaw) &&
+    (binding?.affects_calculation || binding?.affects_submission)
+  ) {
+    return {
+      ...traceBase,
+      state: "FAIL_CLOSED",
+      reason: "Unstructured legal percentage text is not an executable rate contract; the conditional branches require separate verified encoding.",
+    };
+  }
+
+  if (kind === "FACT_GATE" && req.length === 0) {
+    const suppliedKeys = Object.keys(facts).filter(
+      (key) => !["applicable", "triggered", "rateOptionKey", "rateOptionIndex"].includes(key),
+    );
+    const hasOperationalFacts =
+      suppliedKeys.length > 0 ||
+      base !== null ||
+      quantity !== null ||
+      (facts.variables && typeof facts.variables === "object");
+
+    if (!hasOperationalFacts) {
+      return {
+        ...traceBase,
+        state: "NEEDS_FACTS",
+        missingFacts: ["structuredFactGate"],
+        reason: "This certified FACT_GATED rule is active only when its transaction/claim facts are supplied. No legal predicate is inferred by the engine.",
+      };
+    }
+
+    if (rate === null && rateOptions.length > 1 && (base !== null || quantity !== null)) {
+      return {
+        ...traceBase,
+        state: "NEEDS_FACTS",
+        missingFacts: ["rateOptionKey"],
+        reason: "The canonical rule contains multiple explicit rate branches. Select the branch supported by the transaction facts; the engine will not infer a branch.",
+        rateOptions,
+      };
+    }
+  }
+
+  if ((kind === "FACT_GATE" || req.length > 0) && missing.length > 0) {
+    return { ...traceBase, state: "NEEDS_FACTS", missingFacts: missing };
+  }
+
+  if (rate !== null && (base !== null || quantity !== null)) {
+    const operand = base ?? quantity!;
+    const amount = mul(operand, rate);
+    return {
+      ...traceBase,
+      state: "CALCULATED",
+      branch,
+      rate: decimalString(rate),
+      rateOptions,
+      operand: decimalString(operand),
+      amount: decimalString(amount),
+      output: rule.output ?? null,
+    };
+  }
+
+  const formulaText = String(rule.formula_condition ?? rule.rate_primary ?? "").replace(/−/g, "-").trim();
+  if (/^B\s*-\s*A$/i.test(formulaText) && facts.variables) {
+    const A = decimal(facts.variables.A ?? 0);
+    const B = decimal(facts.variables.B ?? 0);
+    return { ...traceBase, state: "CALCULATED", formula: "B-A", amount: decimalString(sub(B, A)), output: rule.output ?? null };
+  }
+
+  return {
+    ...traceBase,
+    state: kind === "FACT_GATE" ? "FACTS_SATISFIED" : "APPLIED",
+    output: rule.output ?? rule.logic ?? null,
+  };
+}
+
+function sumObjectValues(input: Record<string, unknown> | undefined): bigint {
+  if (!input) return 0n;
+  return Object.values(input).reduce((acc, value) => acc + decimal(value ?? 0), 0n);
+}
+
+// This is a reviewed, version-linked *evidence overlay*, never a percentage
+// scraped from canonical legal prose. Missing or malformed data means no rebate.
+function parseRebateFormula(verification: unknown) {
+  const values = objectRecord(verification) && objectRecord(verification.rebate_calculation)
+    ? verification.rebate_calculation : null;
+  if (!values || !nonnegativeMoney(values.income_rate) ||
+      !nonnegativeMoney(values.investment_rate) || !nonnegativeMoney(values.cap_bdt)) return null;
+  const incomeRate = decimal(values.income_rate);
+  const investmentRate = decimal(values.investment_rate);
+  const cap = decimal(values.cap_bdt);
+  if (incomeRate > SCALE || investmentRate > SCALE) return null;
+  return { incomeRate, investmentRate, cap, evidence: "VERSION_LINKED_LEGAL_REVIEW" };
+}
+
+function thresholdFor(schedule: Record<string, any>, taxpayer: Record<string, any>): { threshold: bigint | null; missingFacts: string[]; category: string } {
+  const thresholds = schedule.thresholds ?? {};
+  const special = String(taxpayer.specialCategory ?? "none");
+  let category = "general";
+  if (special === "female") category = "female";
+  else if (special === "senior_citizen") category = "senior_citizen";
+  else if (special === "person_with_disability") category = "person_with_disability";
+  else if (special === "third_gender") category = "third_gender";
+  else if (special === "gazetted_freedom_fighter") category = "gazetted_freedom_fighter";
+  else if (special === "july_warrior") category = "july_warrior";
+
+  let threshold = thresholds[category] !== undefined ? decimal(thresholds[category]) : null;
+  const missingFacts: string[] = [];
+
+  if (special === "parent_of_disabled") {
+    if (taxpayer.disabledChildCount === undefined || taxpayer.disabledChildCount === null) {
+      missingFacts.push("disabledChildCount");
+    } else {
+      const increment = decimal(thresholds.disabled_child_guardian_increment ?? "0");
+      threshold = add(decimal(thresholds.general ?? "0"), mul(decimal(String(taxpayer.disabledChildCount)), increment));
+      category = "parent_of_disabled";
+    }
+  }
+  return { threshold, missingFacts, category };
+}
+
+function computeIndividual(schedule: Record<string, any>, rebateVerification: Record<string, any> | null, body: Record<string, any>) {
+  const taxpayer = body.taxpayer ?? {};
+  const returnData = body.returnData ?? {};
+  const incomeHeads = returnData.incomeHeads ?? {};
+  const totalIncome = sumObjectValues(incomeHeads);
+  const thresholdResult = thresholdFor(schedule, taxpayer);
+  const missingFacts = [...thresholdResult.missingFacts];
+
+  if (thresholdResult.threshold === null) {
+    return { status: "FAIL_CLOSED", missingFacts: ["taxFreeThreshold"], trace: [] };
+  }
+
+  let remainder = max(0n, sub(totalIncome, thresholdResult.threshold));
+  let grossTax = 0n;
+  const slabTrace: Array<Record<string, string | null>> = [];
+  for (const slab of schedule.slabs ?? []) {
+    const rate = decimal(slab.rate);
+    const limit = slab.amount === null ? null : decimal(slab.amount);
+    if (remainder <= 0n) break;
+    const taxableAtRate = limit === null ? remainder : min(remainder, limit);
+    const taxAtRate = mul(taxableAtRate, rate);
+    grossTax = add(grossTax, taxAtRate);
+    remainder = sub(remainder, taxableAtRate);
+    slabTrace.push({
+      taxableAmount: decimalString(taxableAtRate),
+      rate: decimalString(rate),
+      tax: decimalString(taxAtRate),
+      slabLimit: limit === null ? null : decimalString(limit),
+    });
+  }
+
+  if (totalIncome > thresholdResult.threshold) {
+    if (taxpayer.isNewTaxpayer === undefined) missingFacts.push("isNewTaxpayer");
+    const minTax = taxpayer.isNewTaxpayer === true
+      ? decimal(schedule.minimum_tax?.new_taxpayer ?? "0")
+      : decimal(schedule.minimum_tax?.standard ?? "0");
+    if (grossTax < minTax && taxpayer.isNewTaxpayer !== undefined) grossTax = minTax;
+  }
+
+  let rebate = 0n;
+  let rebateStatus = "NOT_CLAIMED";
+  const rawInvestmentClaim = sumObjectValues(returnData.taxRebates ?? {});
+  const rebateTrace: Record<string, unknown> = {};
+
+  if (rawInvestmentClaim > 0n) {
+    if (!rebateVerification) {
+      rebateStatus = "FAIL_CLOSED";
+      missingFacts.push("section78Rule");
+    } else if (returnData.adjustedTotalIncomeForRebate === undefined || returnData.eligibleInvestmentAmount === undefined) {
+      rebateStatus = "NEEDS_FACTS";
+      if (returnData.adjustedTotalIncomeForRebate === undefined) missingFacts.push("adjustedTotalIncomeForRebate");
+      if (returnData.eligibleInvestmentAmount === undefined) missingFacts.push("eligibleInvestmentAmount");
+    } else {
+      const parsed = parseRebateFormula(rebateVerification);
+      if (!parsed) {
+        rebateStatus = "FAIL_CLOSED";
+        missingFacts.push("section78StructuredFormula");
+      } else {
+        const adjustedIncome = decimal(returnData.adjustedTotalIncomeForRebate);
+        const eligibleInvestment = decimal(returnData.eligibleInvestmentAmount);
+        const incomeLimb = mul(adjustedIncome, parsed.incomeRate);
+        const investmentLimb = mul(eligibleInvestment, parsed.investmentRate);
+        rebate = min(incomeLimb, investmentLimb, parsed.cap);
+        rebateStatus = "CALCULATED";
+        Object.assign(rebateTrace, {
+          formula: parsed.evidence,
+          adjustedIncome: decimalString(adjustedIncome),
+          eligibleInvestment: decimalString(eligibleInvestment),
+          incomeLimb: decimalString(incomeLimb),
+          investmentLimb: decimalString(investmentLimb),
+          cap: decimalString(parsed.cap),
+          rebate: decimalString(rebate),
+        });
+      }
+    }
+  }
+
+  const netTax = max(0n, sub(grossTax, rebate));
+  const taxPaid = add(add(decimal(returnData.taxDeductedAtSource ?? 0), decimal(returnData.advanceTaxPaid ?? 0)), decimal(returnData.selfAssessmentTaxPaid ?? 0));
+  const balanceDue = max(0n, sub(netTax, taxPaid));
+
+  return {
+    status: rebateStatus === "FAIL_CLOSED" ? "FAIL_CLOSED" : missingFacts.length ? "NEEDS_FACTS" : "CALCULATED",
+    missingFacts: [...new Set(missingFacts)],
+    values: {
+      totalIncome: decimalString(totalIncome),
+      taxFreeThreshold: decimalString(thresholdResult.threshold),
+      grossTax: decimalString(grossTax),
+      rebate: decimalString(rebate),
+      netTax: decimalString(netTax),
+      taxPaid: decimalString(taxPaid),
+      balanceDue: decimalString(balanceDue),
+    },
+    trace: {
+      thresholdCategory: thresholdResult.category,
+      slabs: slabTrace,
+      rebateStatus,
+      rebate: rebateTrace,
+    },
+  };
+}
+
+function computeIndividualFromSqlBase(
+  baseTax: Record<string, any>,
+  rebateVerification: Record<string, any> | null,
+  body: Record<string, any>,
+) {
+  const returnData = body.returnData ?? {};
+  const totalIncome = sumObjectValues(returnData.incomeHeads ?? {});
+  const missingFacts: string[] = Array.isArray(baseTax?.missingFacts)
+    ? baseTax.missingFacts.map((value: unknown) => String(value))
+    : [];
+
+  if (!baseTax || baseTax.status === "FAIL_CLOSED") {
+    return {
+      status: "FAIL_CLOSED",
+      missingFacts: missingFacts.length ? missingFacts : ["INDIVIDUAL_TAX_SCHEDULE"],
+      trace: { baseTax },
+    };
+  }
+
+  if (baseTax.status === "NEEDS_FACTS") {
+    return {
+      status: "NEEDS_FACTS",
+      missingFacts,
+      trace: { baseTax },
+    };
+  }
+
+  const grossTax = decimal(baseTax.grossTax ?? "0");
+
+  let rebate = 0n;
+  let rebateStatus = "NOT_CLAIMED";
+  const rawInvestmentClaim = sumObjectValues(returnData.taxRebates ?? {});
+  const rebateTrace: Record<string, unknown> = {};
+
+  if (rawInvestmentClaim > 0n) {
+    if (!rebateVerification) {
+      rebateStatus = "FAIL_CLOSED";
+      missingFacts.push("section78Rule");
+    } else if (returnData.adjustedTotalIncomeForRebate === undefined || returnData.eligibleInvestmentAmount === undefined) {
+      rebateStatus = "NEEDS_FACTS";
+      if (returnData.adjustedTotalIncomeForRebate === undefined) missingFacts.push("adjustedTotalIncomeForRebate");
+      if (returnData.eligibleInvestmentAmount === undefined) missingFacts.push("eligibleInvestmentAmount");
+    } else {
+      const parsed = parseRebateFormula(rebateVerification);
+      if (!parsed) {
+        rebateStatus = "FAIL_CLOSED";
+        missingFacts.push("section78StructuredFormula");
+      } else {
+        const adjustedIncome = decimal(returnData.adjustedTotalIncomeForRebate);
+        const eligibleInvestment = decimal(returnData.eligibleInvestmentAmount);
+        const incomeLimb = mul(adjustedIncome, parsed.incomeRate);
+        const investmentLimb = mul(eligibleInvestment, parsed.investmentRate);
+        rebate = min(incomeLimb, investmentLimb, parsed.cap);
+        rebateStatus = "CALCULATED";
+        Object.assign(rebateTrace, {
+          formula: parsed.evidence,
+          adjustedIncome: decimalString(adjustedIncome),
+          eligibleInvestment: decimalString(eligibleInvestment),
+          incomeLimb: decimalString(incomeLimb),
+          investmentLimb: decimalString(investmentLimb),
+          cap: decimalString(parsed.cap),
+          rebate: decimalString(rebate),
+        });
+      }
+    }
+  }
+
+  const netTax = max(0n, sub(grossTax, rebate));
+  const taxPaid = add(
+    add(decimal(returnData.taxDeductedAtSource ?? 0), decimal(returnData.advanceTaxPaid ?? 0)),
+    decimal(returnData.selfAssessmentTaxPaid ?? 0),
+  );
+  const balanceDue = max(0n, sub(netTax, taxPaid));
+
+  return {
+    status: rebateStatus === "FAIL_CLOSED" ? "FAIL_CLOSED" : missingFacts.length ? "NEEDS_FACTS" : "CALCULATED",
+    missingFacts: [...new Set(missingFacts)],
+    values: {
+      totalIncome: decimalString(totalIncome),
+      taxFreeThreshold: String(baseTax.taxFreeThreshold ?? "0"),
+      grossTax: decimalString(grossTax),
+      rebate: decimalString(rebate),
+      netTax: decimalString(netTax),
+      taxPaid: decimalString(taxPaid),
+      balanceDue: decimalString(balanceDue),
+    },
+    trace: {
+      baseTax,
+      rebateStatus,
+      rebate: rebateTrace,
+    },
+  };
+}
+
+Deno.serve(async (req) => {
+  // Fail closed on cross-origin callers; allow only exact, configured HTTPS origins.
+  const origin = req.headers.get("origin");
+  const allowedOrigins = (Deno.env.get("NBR_TAX_ALLOWED_ORIGINS") ?? "")
+    .split(",").map((item) => item.trim()).filter((item) => /^https:\/\/[^/]+$/.test(item));
+  if (origin && !allowedOrigins.includes(origin)) return new Response(null, { status: 403 });
+  const responseHeaders = { ...corsHeaders, ...(origin ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : {}) };
+  // Request-scoped JSON ensures the same exact-origin policy on error paths.
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+    status, headers: { ...responseHeaders, "Content-Type": "application/json" },
+  });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: responseHeaders });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false } });
+
+  try {
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const functionIndex = pathParts.lastIndexOf("nbr-tax-engine");
+    const route = functionIndex >= 0 ? pathParts.slice(functionIndex + 1) : pathParts.slice(-1);
+
+    if (req.method === "GET" && route[0] === "health") {
+      return json({ ok: true, engineVersion: ENGINE_VERSION });
+    }
+
+    if (req.method === "GET" && route[0] === "years") {
+      const { data:years, error:yearsError } = await supabase
+        .from("nbr_tax_years")
+        .select("assessment_year,income_year,state,is_executable,is_immutable,source_registry_version,legal_cutoff")
+        .order("assessment_year", { ascending:false });
+      if (yearsError) throw yearsError;
+      return json({
+        engineVersion: ENGINE_VERSION,
+        years: (years ?? []).map((year:any)=>({
+          assessmentYear: year.assessment_year,
+          incomeYear: year.income_year,
+          state: year.state,
+          executable: year.is_executable,
+          immutable: year.is_immutable,
+          sourceRegistryVersion: year.source_registry_version,
+          legalCutoff: year.legal_cutoff,
+        })),
+      });
+    }
+
+    if (req.method === "GET" && route[0] === "status") {
+      const { data:year, error:yearError } = await supabase
+        .from("nbr_tax_years")
+        .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
+        .eq("state","active")
+        .eq("is_executable",true)
+        .maybeSingle();
+      if (yearError) throw yearError;
+      if (!year) return json({ ok:false, error:"No active executable tax year" }, 503);
+
+      const { data:statusRows, error:countError } = await supabase
+        .from("nbr_rule_versions")
+        .select("rule_key,revision_no,execution_status,group_id")
+        .eq("tax_year_id",year.id)
+        .eq("is_current",true)
+        .order("rule_key");
+      if (countError) throw countError;
+
+      const executionStateCounts:Record<string,number> = {};
+      for (const row of statusRows ?? []) {
+        const key = String(row.execution_status ?? "UNSPECIFIED");
+        executionStateCounts[key] = (executionStateCounts[key] ?? 0) + 1;
+      }
+      const recognizedStatuses = new Set([
+        "CURRENT_EXECUTABLE","EXECUTABLE_AS_RECORDED","EXECUTABLE_CURRENT","EXECUTABLE_WITH_GUARD",
+        "FACT_GATED","FAIL_CLOSED","FAIL_CLOSED_PUBLIC_EVIDENCE","HISTORICAL_ONLY",
+        "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE","NOT_APPLICABLE"
+      ]);
+      const unhandledRuleCount = (statusRows ?? []).filter((row:any)=>!recognizedStatuses.has(String(row.execution_status ?? ""))).length;
+
+      const { data:bindingRows, error:bindingError } = await supabase
+        .from("nbr_rule_runtime_bindings")
+        .select("rule_key,runtime_mode,affects_calculation,affects_submission")
+        .eq("tax_year_id",year.id)
+        .order("rule_key");
+      if (bindingError) throw bindingError;
+      const bindingCoverageCount = (bindingRows ?? []).length;
+      const missingBindingCount = (statusRows ?? []).filter(
+        (row:any)=>!(bindingRows ?? []).some((binding:any)=>binding.rule_key===row.rule_key)
+      ).length;
+
+      const { data:parameters, error:paramError } = await supabase
+        .from("nbr_engine_parameter_sets")
+        .select("parameter_key,revision_no,status,legal_source")
+        .eq("assessment_year",year.assessment_year)
+        .eq("is_current",true)
+        .order("parameter_key");
+      if (paramError) throw paramError;
+
+      const syncFingerprint = await sha256(canonical({
+        rules:(statusRows ?? []).map((row:any)=>({
+          ruleKey:row.rule_key,
+          revision:row.revision_no,
+          executionStatus:row.execution_status,
+          groupId:row.group_id,
+        })),
+        bindings:(bindingRows ?? []).map((binding:any)=>({
+          ruleKey:binding.rule_key,
+          runtimeMode:binding.runtime_mode,
+          affectsCalculation:binding.affects_calculation,
+          affectsSubmission:binding.affects_submission,
+        })),
+        parameters:(parameters ?? []).map((parameter:any)=>({
+          key:parameter.parameter_key,
+          revision:parameter.revision_no,
+          status:parameter.status,
+        })),
+      }));
+
+      return json({
+        ok:true,
+        engineVersion:ENGINE_VERSION,
+        activeYear:year.assessment_year,
+        incomeYear:year.income_year,
+        coverage:year.coverage,
+        immutable:year.is_immutable,
+        ruleCount:(statusRows ?? []).length,
+        handledRuleCount:(statusRows ?? []).length - unhandledRuleCount,
+        unhandledRuleCount,
+        allRuleNodesMapped:unhandledRuleCount === 0 && missingBindingCount === 0,
+        runtimeBindingCount:bindingCoverageCount,
+        missingRuntimeBindingCount:missingBindingCount,
+        executionStateCounts,
+        sourceRegistryVersion:year.source_registry_version,
+        legalCutoff:year.legal_cutoff,
+        arithmetic:"SQL NUMERIC + fixed decimal(10) edge arithmetic",
+        ruleAuthority:"Current SQL rule versions; no citizen-side tax constants",
+        syncFingerprint,
+        parameters:parameters ?? [],
+      });
+    }
+
+    if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+    const token = verifiedBearer(req);
+    if (!token || token === serviceRole) {
+      return json({ error: "Authenticated taxpayer session required" }, 401);
+    }
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user?.id) {
+      return json({ error: "Authenticated taxpayer session required" }, 401);
+    }
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body) || !validAssessmentYear(body.assessmentYear)) {
+      return json({ error: "An explicit, valid assessmentYear is required" }, 400);
+    }
+    const invalidFacts = invalidCalculationFacts(body);
+    if (invalidFacts.length > 0) {
+      return json({ error: "Taxpayer or income inputs are missing or invalid", status: "FAIL_CLOSED", invalidFacts }, 422);
+    }
+    // A user JWT alone is not evidence of ownership of this taxpayer return.
+    // WS02 must implement and certify this owner-checked SQL RPC; until then,
+    // the missing function produces a 503 and evaluation cannot use service-role data.
+    const taxpayerRecordId = body.taxpayerRecordId;
+    if (typeof taxpayerRecordId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(taxpayerRecordId)) {
+      return json({ error:"An owned taxpayer record identifier is required", status:"FAIL_CLOSED", code:"TAXPAYER_RECORD_REQUIRED" }, 422);
+    }
+    const assessmentYear = body.assessmentYear;
+    if (typeof body.incomeYear !== "string" || !validAssessmentYear(body.incomeYear)) {
+      return json({ error:"An explicit incomeYear is required", status:"FAIL_CLOSED", code:"INCOME_YEAR_REQUIRED" }, 422);
+    }
+
+    const { data: year, error: yearError } = await supabase
+      .from("nbr_tax_years")
+      .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
+      .eq("assessment_year", assessmentYear)
+      .maybeSingle();
+    if (yearError) throw yearError;
+    if (!year) return json({ error: "Assessment year not found" }, 404);
+    if (!year.is_executable || year.state !== "active") {
+      return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
+    }
+    if (year.income_year !== body.incomeYear) {
+      return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
+    }
+    // This RPC must check immutable owner/tenant mapping, not caller-submitted
+    // identity or client metadata. User UUID comes only from auth.getUser(token).
+    const { data: ownership, error: ownershipError } = await supabase.rpc(
+      "nbr_authorize_citizen_evaluation", {
+        p_auth_user_id: authData.user.id,
+        p_taxpayer_record_id: taxpayerRecordId,
+        p_assessment_year: assessmentYear,
+      });
+    if (ownershipError || typeof ownership !== "boolean") {
+      return json({ error:"Taxpayer ownership authorization is unavailable", status:"FAIL_CLOSED", code:"OWNERSHIP_GATE_UNAVAILABLE" }, 503);
+    }
+    if (ownership !== true) {
+      return json({ error:"Taxpayer record access denied", status:"FAIL_CLOSED", code:"TAXPAYER_ACCESS_DENIED" }, 403);
+    }
+
+    const { data: rows, error: ruleError } = await supabase
+      .from("nbr_rule_versions")
+      .select("id,rule_key,revision_no,source_assessment_year,year_applicability_status,execution_status,group_id,rule_data")
+      .eq("tax_year_id", year.id)
+      .eq("is_current", true)
+      .order("rule_key");
+    if (ruleError) throw ruleError;
+    if (!Array.isArray(rows) || rows.length !== FROZEN_BASELINE_RULE_COUNT ||
+        new Set(rows.map((row: any) => row.rule_key)).size !== rows.length) {
+      return json({ error: "Canonical rule coverage is incomplete or duplicated", status: "FAIL_CLOSED" }, 503);
+    }
+    const identityHash = await sha256(rows.map((row: any) => String(row.rule_key)).sort().join("\n"));
+    if (identityHash !== FROZEN_RULE_IDENTITY_SHA256) {
+      return json({ error: "Current rule identities do not match the frozen certified registry", status: "FAIL_CLOSED" }, 503);
+    }
+
+    const { data: scheduleRow, error: scheduleError } = await supabase
+      .from("nbr_engine_parameter_sets")
+      .select("id,revision_no,parameter_data,legal_source,status")
+      .eq("assessment_year", assessmentYear)
+      .eq("parameter_key", "INDIVIDUAL_TAX_SCHEDULE")
+      .eq("is_current", true)
+      .eq("status", "ACTIVE")
+      .maybeSingle();
+    if (scheduleError) throw scheduleError;
+
+    const { data:bindingRows, error:bindingError } = await supabase
+      .from("nbr_rule_runtime_bindings")
+      .select("rule_key,runtime_mode,entity_types,trigger_key,affects_calculation,affects_submission,source_basis")
+      .eq("tax_year_id",year.id);
+    if (bindingError) throw bindingError;
+    const bindingMap = new Map((bindingRows ?? []).map((binding:any)=>[binding.rule_key,binding]));
+    if (!Array.isArray(bindingRows) || bindingRows.length !== rows.length ||
+        bindingMap.size !== rows.length) {
+      return json({ error:"Tax engine runtime binding identities are missing, duplicated, or unreviewed.", status:"FAIL_CLOSED" }, 503);
+    }
+    const missingBindings = (rows ?? []).filter((row:any)=>!bindingMap.has(row.rule_key)).map((row:any)=>row.rule_key);
+    if (missingBindings.length > 0) {
+      return json({ error:"Tax engine runtime binding coverage is incomplete.", missingRuleIds:missingBindings }, 503);
+    }
+
+    // The calculation schedule is as consequential as the 366 rule versions.
+    // Changes in tax slabs/thresholds/minimum-tax parameters revoke an older
+    // approval even when the rule IDs and runtime bindings remain unchanged.
+    const ruleSetHash = await sha256(canonical({
+      rules: (rows ?? []).map((row: any) => ({
+        rule_key: row.rule_key,
+        revision_no: row.revision_no,
+        execution_status: row.execution_status,
+        year_applicability_status: row.year_applicability_status,
+        group_id: row.group_id,
+        rule_data: row.rule_data,
+        runtime_binding: bindingMap.get(row.rule_key) ?? null,
+      })),
+      individual_tax_schedule: scheduleRow ? {
+        revision_no: scheduleRow.revision_no,
+        parameter_data: scheduleRow.parameter_data,
+        legal_source: scheduleRow.legal_source,
+        status: scheduleRow.status,
+      } : null,
+    }));
+
+    const { data: releaseGates, error: releaseGateError } = await supabase
+      .from("nbr_tax_year_gate_results")
+      .select("gate_code,status,evidence_ref,evidence_detail,evaluated_at,evaluated_by")
+      .eq("tax_year_id", year.id)
+      .in("gate_code", [...RELEASE_GATES]);
+    if (releaseGateError) {
+      return json({ error:"Engine release certification lookup failed", status:"FAIL_CLOSED" }, 503);
+    }
+    const pendingGates = missingReleaseGates(releaseGates ?? [], ruleSetHash);
+    if (pendingGates.length > 0) {
+      return json({ error:"Current legal/security/QA acceptance is pending", status:"FAIL_CLOSED", pendingGates }, 409);
+    }
+
+    // Per-rule legal attestations belong to the separate release-evidence
+    // overlay. Never rewrite the immutable canonical rule_data to add them.
+    const legalReleaseGate = (releaseGates ?? []).find((gate: any) => gate.gate_code === "LEGAL_SOURCE_V2_1");
+    const attestations = legalReleaseGate?.evidence_detail?.rule_verifications ?? {};
+    const unverifiedRuleIds = (rows ?? []).filter((row: any) => {
+      const binding = bindingMap.get(row.rule_key);
+      if (!binding?.affects_calculation && !binding?.affects_submission) return false;
+      const verification = attestations[row.rule_key];
+      return verification?.status !== "VERIFIED" ||
+        verification?.revision_no !== row.revision_no ||
+        typeof verification?.source_sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/i.test(verification.source_sha256) ||
+        !verification?.provision_locator ||
+        !verification?.effective_from ||
+        !verification?.reviewed_by;
+    }).map((row: any) => row.rule_key);
+    if (unverifiedRuleIds.length > 0) {
+      return json({
+        error:"Current rule-level legal verification is incomplete",
+        status:"FAIL_CLOSED",
+        unverifiedCount:unverifiedRuleIds.length,
+      }, 409);
+    }
+
+    const ruleFacts = body.ruleFacts ?? {};
+    const results = (rows ?? []).map((row) =>
+      evaluateRule(
+        row as Record<string, any>,
+        bindingMap.get((row as Record<string, any>).rule_key) as Record<string, any> | null,
+        body,
+        ruleFacts,
+      )
+    );
+
+    const rebateRow = (rows ?? []).find((row: any) => row.rule_key === "S78-GENERAL-REBATE-FA2026");
+    const rebateVerification = rebateRow && attestations[rebateRow.rule_key];
+    const totalIncomeForBaseTax = decimalString(sumObjectValues(body.returnData?.incomeHeads ?? {}));
+    const { data:baseTaxResult, error:baseTaxError } = await supabase.rpc(
+      "nbr_engine_calculate_individual_base_tax",
+      {
+        p_assessment_year: assessmentYear,
+        p_total_income: totalIncomeForBaseTax,
+        p_special_category: String(body.taxpayer?.specialCategory ?? "none"),
+        p_is_new_taxpayer:
+          body.taxpayer?.isNewTaxpayer === undefined || body.taxpayer?.isNewTaxpayer === null
+            ? null
+            : body.taxpayer.isNewTaxpayer,
+        p_disabled_child_count:
+          body.taxpayer?.disabledChildCount === undefined || body.taxpayer?.disabledChildCount === null
+            ? null
+            : Number(body.taxpayer?.disabledChildCount),
+      },
+    );
+    if (baseTaxError) throw baseTaxError;
+
+    const individual = scheduleRow
+      ? computeIndividualFromSqlBase(
+          (baseTaxResult ?? {}) as Record<string, any>,
+          (rebateVerification ?? null) as Record<string, any> | null,
+          body,
+        )
+      : { status: "FAIL_CLOSED", missingFacts: ["INDIVIDUAL_TAX_SCHEDULE"], trace: [] };
+
+    const applied = results.filter((r: any) => ["APPLIED","CALCULATED","FACTS_SATISFIED"].includes(r.state)).length;
+    const needsFacts = results.filter((r: any) => r.state === "NEEDS_FACTS").length;
+    const blocked = results.filter((r: any) => r.state === "FAIL_CLOSED").length;
+    const historical = results.filter((r: any) => r.state === "HISTORICAL_ONLY").length;
+    const notApplicable = results.filter((r: any) => r.state === "NOT_APPLICABLE").length;
+    const notTriggered = results.filter((r: any) => r.state === "NOT_TRIGGERED").length;
+    const recognizedRuntimeStates = new Set([
+      "APPLIED","CALCULATED","FACTS_SATISFIED","NEEDS_FACTS","FAIL_CLOSED",
+      "HISTORICAL_ONLY","NOT_APPLICABLE","NOT_TRIGGERED"
+    ]);
+    const unhandled = results.filter((r:any)=>!recognizedRuntimeStates.has(String(r.state))).length;
+    const inputHash = await sha256(canonical(body));
+
+    const relevantBlocked = results.filter((r:any)=>
+      r.state === "FAIL_CLOSED" && (r.affectsCalculation || r.affectsSubmission)
+    ).length;
+    const relevantNeedsFacts = results.filter((r:any)=>
+      r.state === "NEEDS_FACTS" && (r.affectsCalculation || r.affectsSubmission)
+    ).length;
+
+    const fullReturnStatus =
+      individual.status === "FAIL_CLOSED" || relevantBlocked > 0 || unhandled > 0
+        ? "FAIL_CLOSED"
+        : individual.status === "NEEDS_FACTS" || relevantNeedsFacts > 0
+          ? "NEEDS_FACTS"
+          : "CALCULATED";
+    const submissionReady =
+      fullReturnStatus === "CALCULATED" &&
+      results.length === (rows ?? []).length &&
+      unhandled === 0;
+
+    const { error: logError } = await supabase.from("nbr_engine_evaluation_log").insert({
+      assessment_year: assessmentYear,
+      engine_version: ENGINE_VERSION,
+      input_hash: inputHash,
+      rule_set_hash: ruleSetHash,
+      result_status: fullReturnStatus,
+      applied_rule_count: applied,
+      needs_fact_count: needsFacts,
+      blocked_rule_count: blocked,
+      calculation_trace: {
+        individual: individual.trace,
+        parameter_revision: scheduleRow?.revision_no ?? null,
+        actor_user_id: authData.user.id,
+        taxpayer_record_id: taxpayerRecordId,
+      },
+    });
+    if (logError) {
+      return json({ error:"Engine evaluation could not be persisted", status:"FAIL_CLOSED" }, 503);
+    }
+
+    return json({
+      engineVersion: ENGINE_VERSION,
+      status: fullReturnStatus,
+      submissionReady,
+      assessmentYear,
+      incomeYear: year.income_year,
+      sourceRegistryVersion: year.source_registry_version,
+      legalCutoff: year.legal_cutoff,
+      ruleSetHash,
+      taxpayerRecordId,
+      ruleCount: (rows ?? []).length,
+      ruleSummary: {
+        applied,
+        needsFacts,
+        blocked,
+        relevantBlocked,
+        historical,
+        notApplicable,
+        notTriggered,
+        relevantNeedsFacts,
+        unhandled,
+        total: (rows ?? []).length,
+        allRuleNodesEvaluated: results.length === (rows ?? []).length && unhandled === 0,
+        submissionReady,
+      },
+      individual,
+      rules: results,
+      parameterSet: scheduleRow ? {
+        revision: scheduleRow.revision_no,
+        legalSource: scheduleRow.legal_source,
+      } : null,
+    });
+  } catch (error) {
+    console.error(error);
+    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+  }
+});
+
