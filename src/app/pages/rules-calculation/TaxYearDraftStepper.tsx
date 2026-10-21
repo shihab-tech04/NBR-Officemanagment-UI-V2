@@ -99,12 +99,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : String(error)); }
   };
 
-  return <AppModal open={true} onClose={onClose} size="xl" title={tr("Prepare Tax Year", "করবর্ষের খসড়া প্রস্তুতি")}><section className="rules-engine__stepper" aria-labelledby="draft-stepper-title">
-    <div className="rules-engine__stepper-heading">
-      <div><h1 id="draft-stepper-title">{tr("Tax-Year Draft Preparation", "করবর্ষের খসড়া প্রস্তুতি")}</h1>
-        <p>{tr("Prepare an assessment year from the controlled baseline.", "নিয়ন্ত্রিত ভিত্তি থেকে নতুন করবর্ষের খসড়া প্রস্তুত করুন।")}</p></div>
-      <SecondaryButton size="lg" icon={ArrowLeft} onClick={onClose}>{tr("Return to Tax Years", "করবর্ষে ফিরুন")}</SecondaryButton>
-    </div>
+  return <AppModal open={true} onClose={onClose} size="xl" title={tr("Prepare Tax Year", "করবর্ষের খসড়া প্রস্তুতি")}><section className="rules-engine__stepper" >
     <p className="rules-engine__scope" role="status">{tr("Draft only. Files stay in your browser; nothing is saved, legally approved or activated.", "শুধু খসড়া। ফাইল ব্রাউজারেই থাকে; SQL সংরক্ষণ, আইনি অনুমোদন বা হিসাব চালু হয় না।")}</p>
     <nav className="rules-engine__steps" aria-label={tr("Tax-year preparation steps", "করবর্ষ প্রস্তুতির ধাপ")}>
       {stepLabels.map(([en,bengali],i) => <button key={en} type="button" aria-current={stage === i ? "step" : undefined} disabled={i > stage} className={stage === i ? "rules-engine__step rules-engine__step--current" : "rules-engine__step"} onClick={() => setStage(i)}><span className="rules-engine__step-no">{i + 1}</span><p>{bn ? bengali : en}</p></button>)}
