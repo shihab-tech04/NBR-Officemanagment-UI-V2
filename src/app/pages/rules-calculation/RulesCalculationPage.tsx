@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
+import { RuleYearComparisonPanel } from "./RuleYearComparisonPanel";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { BookOpen, CalendarRange, History, ShieldCheck } from "lucide-react";
@@ -32,7 +33,7 @@ const RULES: RuleObservation[] = catalog.rules.map((item) => ({
 }));
 const BASE_YEAR = "2026-27";
 const DRAFT_YEAR = "2027-28";
-const TABS = new Set(["tax-years", "rule-library", "calculation-controls", "validation-publish"]);
+const TABS = new Set(["tax-years", "year-comparison", "rule-library", "calculation-controls", "validation-publish"]);
 const statusLabel = (status: string | null | undefined) => status ? status.replaceAll("_", " ") : "Not recorded";
 
 function ScopeNote({ text }: { text: string }) {
@@ -100,10 +101,10 @@ export function RulesCalculationPage() {
     certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
   }));
   const titles: Record<string, string> = bn ? {
-    "tax-years": "করবর্ষ", "rule-library": "বিধি লাইব্রেরি",
+    "tax-years": "করবর্ষ", "year-comparison": "বর্ষ তুলনা", "rule-library": "বিধি লাইব্রেরি",
     "calculation-controls": "হিসাব নিয়ন্ত্রণ", "validation-publish": "যাচাই ও প্রকাশ",
   } : {
-    "tax-years": "Tax Years", "rule-library": "Rule Library",
+    "tax-years": "Tax Years", "year-comparison": "Year Comparison", "rule-library": "Rule Library",
     "calculation-controls": "Calculation Controls", "validation-publish": "Validation & Publish",
   };
 
@@ -159,6 +160,8 @@ export function RulesCalculationPage() {
           </div>
         </section>
       )}
+
+      {section === "year-comparison" && <RuleYearComparisonPanel />}
 
       {section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
