@@ -159,23 +159,23 @@ export function RulesCalculationPage() {
 
   return (
     <div className="table-page rules-engine-page">
-      <div className="table-page__header">
+      <div className="table-page__header rules-engine__header">
         <div>
-          <h1 className="table-page__title">{titles[section]}</h1>
-          <p className="table-page__desc">{bn ? "কর আইন, SQL সংস্করণ ও অনুমোদন অবস্থার তুলনা" : "Legal-source, SQL-version and authorization crosswalk"}</p>
+          <h1 className="table-page__title">{section === "rule-library" ? tr("Rules", "বিধিসমূহ") + " · AY " + year : titles[section]}</h1>
+          <p className="table-page__desc">{section === "tax-years"
+            ? tr("Select a tax year to explore its recorded rules.", "করবর্ষ নির্বাচন করে সংশ্লিষ্ট নথিভুক্ত বিধি দেখুন।")
+            : section === "rule-library"
+              ? tr("Select a rule to inspect its legal references and status.", "আইনি রেফারেন্স ও অবস্থা দেখতে বিধি নির্বাচন করুন।")
+              : section === "year-comparison"
+                ? tr("Compare the recorded identities of two years.", "দুই করবর্ষের বিধির পরিচয় তুলনা করুন।")
+                : tr("Controlled rules inventory and review status.", "নিয়ন্ত্রিত বিধি ও পর্যালোচনার অবস্থা।")}</p>
         </div>
-        <p className="rules-engine__snapshot-label">{bn ? "যাচাইকৃত SQL পর্যবেক্ষণ" : "SQL observation"} · {RULES_SNAPSHOT_DATE}</p>
+        {section === "tax-years" ? <PrimaryButton size="lg" icon={Plus} onClick={() => setDraftWizardOpen(true)}>
+          {tr("Prepare tax year", "করবর্ষের খসড়া")}
+        </PrimaryButton> : <p className="rules-engine__snapshot-label">
+          {tr("Read-only snapshot", "পাঠযোগ্য স্ন্যাপশট")} · {RULES_SNAPSHOT_DATE}
+        </p>}
       </div>
-      {section !== "year-comparison" && <ScopeNote text={bn
-        ? "এই তথ্য ১০ অক্টোবর ২০২৬-এ নেওয়া SQL স্ন্যাপশট; এটি সরাসরি ডেটাবেস সংযোগ বা হিসাবের আইনগত অনুমোদন নয়।"
-        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />}
-
-      {section !== "year-comparison" && !(section === "rule-library" && requestedYear) && <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
-        <StatCard icon={BookOpen} label={bn ? "বিধির পরিচয়" : "Canonical rule identities"} value="366" subInfo={RULES_BASELINE} />
-        <StatCard icon={History} label={bn ? "নথিভুক্ত সংস্করণ" : "SQL rule-version records"} value="733" tone="neutral" />
-        <StatCard icon={CalendarRange} label={bn ? "করবর্ষ" : "Year records"} value="4" tone="neutral" />
-        <StatCard icon={ShieldCheck} label={bn ? "ইঞ্জিন সার্টিফিকেশন" : "Engine certification"} value="Pending" tone="warning" />
-      </div>}
 
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
