@@ -101,10 +101,10 @@ export function TaxYearDraftStepper({ onClose }: Props) {
   return <section className="rules-engine__stepper" aria-labelledby="draft-stepper-title">
     <div className="rules-engine__stepper-heading">
       <div><h1 id="draft-stepper-title">{tr("Tax-Year Draft Preparation", "করবর্ষের খসড়া প্রস্তুতি")}</h1>
-        <p>{tr("Controlled source and rule review. Existing SQL draft — not a new database record.", "নিয়ন্ত্রিত উৎস ও বিধি পর্যালোচনা। বিদ্যমান SQL খসড়া — নতুন ডাটাবেস রেকর্ড নয়।")}</p></div>
+        <p>{tr("Prepare an assessment year from the controlled baseline.", "নিয়ন্ত্রিত ভিত্তি থেকে নতুন করবর্ষের খসড়া প্রস্তুত করুন।")}</p></div>
       <SecondaryButton size="lg" icon={ArrowLeft} onClick={onClose}>{tr("Return to Tax Years", "করবর্ষে ফিরুন")}</SecondaryButton>
     </div>
-    <p className="rules-engine__scope" role="status">{tr("LOCAL REVIEW ONLY • Source documents are hashed in this browser, not uploaded or verified as law. No SQL save, approval or calculation execution is possible in this workflow.", "শুধু স্থানীয় পর্যালোচনা • নথির হ্যাশ ব্রাউজারে তৈরি হয়; আপলোড বা আইন হিসেবে অনুমোদন হয় না। SQL সংরক্ষণ, অনুমোদন বা হিসাব চালু করা সম্ভব নয়।")}</p>
+    <p className="rules-engine__scope" role="status">{tr("Draft only. Files stay in your browser; nothing is saved, legally approved or activated.", "শুধু খসড়া। ফাইল ব্রাউজারেই থাকে; SQL সংরক্ষণ, আইনি অনুমোদন বা হিসাব চালু হয় না।")}</p>
     <nav className="rules-engine__steps" aria-label={tr("Tax-year preparation steps", "করবর্ষ প্রস্তুতির ধাপ")}>
       {stepLabels.map(([en,bengali],i) => <button key={en} type="button" aria-current={stage === i ? "step" : undefined} disabled={i > stage} className={stage === i ? "rules-engine__step rules-engine__step--current" : "rules-engine__step"} onClick={() => setStage(i)}><span className="rules-engine__step-no">{i + 1}</span><p>{bn ? bengali : en}</p></button>)}
     </nav>
