@@ -186,7 +186,8 @@ test("Tax-year wizard uses Office fields and compact back/next controls on deskt
   const steps = page.getByRole("navigation", { name: "Tax-year preparation steps" });
   await expect(steps).toBeVisible();
   expect(await steps.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(82);
-  expect(await steps.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  const widths = await steps.evaluate((element) => ({ scroll:element.scrollWidth, client:element.clientWidth }));
+  expect(widths.scroll, "six wizard steps should scroll inside the mobile viewport").toBeGreaterThan(widths.client);
   await page.screenshot({ path: "test-results/rules-tax-year-wizard-mobile.png", animations: "disabled", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
 });
