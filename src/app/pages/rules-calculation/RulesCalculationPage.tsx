@@ -119,16 +119,16 @@ export function RulesCalculationPage() {
         </div>
         <p className="rules-engine__snapshot-label">{bn ? "যাচাইকৃত SQL পর্যবেক্ষণ" : "SQL observation"} · {RULES_SNAPSHOT_DATE}</p>
       </div>
-      <ScopeNote text={bn
+      {section !== "year-comparison" && <ScopeNote text={bn
         ? "এই তথ্য ১০ অক্টোবর ২০২৬-এ নেওয়া SQL স্ন্যাপশট; এটি সরাসরি ডেটাবেস সংযোগ বা হিসাবের আইনগত অনুমোদন নয়।"
-        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />
+        : "Dated, read-only SQL snapshot. Not a live database session or statutory calculation approval."} />}
 
-      <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
+      {section !== "year-comparison" && <div className="rules-engine__kpis" aria-label="Rules and calculation inventory">
         <StatCard icon={BookOpen} label={bn ? "বিধির পরিচয়" : "Canonical rule identities"} value="366" subInfo={RULES_BASELINE} />
         <StatCard icon={History} label={bn ? "নথিভুক্ত সংস্করণ" : "SQL rule-version records"} value="733" tone="neutral" />
         <StatCard icon={CalendarRange} label={bn ? "করবর্ষ" : "Year records"} value="4" tone="neutral" />
         <StatCard icon={ShieldCheck} label={bn ? "ইঞ্জিন সার্টিফিকেশন" : "Engine certification"} value="Pending" tone="warning" />
-      </div>
+      </div>}
 
       {(section === "rule-library" || section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
