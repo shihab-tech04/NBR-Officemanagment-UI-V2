@@ -89,7 +89,7 @@ test("Tax Years opens selected-year Rules then source-backed Rule Details", asyn
   await row.click();
   await expect(page).toHaveURL(/\/administration\/rules-calculation\/rule-library\?year=2026-27/);
   await expect(page.getByRole("heading", { name: /Rules.*2026-27/ })).toBeVisible();
-  const back = page.getByRole("button", { name: "Tax Years" });
+  const back = page.locator(".rules-engine__list-actions").getByRole("button", { name: "Tax Years" });
   await expect(back).toHaveClass(/app-btn--sm/);
   const backWidth = await back.evaluate((element) => element.getBoundingClientRect().width);
   expect(backWidth, "back action must not be a full-width banner").toBeLessThan(300);
@@ -115,7 +115,7 @@ test("Tax Years does not populate unknown historical rules and allows return nav
   await expect(page.getByText(/Historical rules have not been reconstructed/)).toBeVisible();
   await expect(page.locator(".card-table__empty")).toBeVisible();
   await expect(page.locator(".card-table__table tbody tr").filter({ hasText: "ACK-1695-001" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Tax Years" }).click();
+  await page.locator(".rules-engine__list-actions").getByRole("button", { name: "Tax Years" }).click();
   await expect(page).toHaveURL(/rules-calculation\/tax-years$/);
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(4);
 });
@@ -152,7 +152,7 @@ test("Bangla year-to-rule navigation reuses existing Office labels and layout", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/administration/rules-calculation/tax-years");
   await page.locator(".mobile-table-card-list .mobile-table-card").nth(2).click();
-  await expect(page.getByRole("button", { name: "করবর্ষ" })).toBeVisible();
+  await expect(page.locator(".rules-engine__list-actions").getByRole("button", { name: "করবর্ষ" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /বিধিসমূহ.*2026-27/ })).toBeVisible();
   await page.screenshot({ path: "test-results/rules-year-rule-list-mobile-bn.png", fullPage: true, animations: "disabled" });
 });
