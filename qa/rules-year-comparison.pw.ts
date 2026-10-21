@@ -106,7 +106,8 @@ test("Tax Years does not populate unknown historical rules and allows return nav
   await page.locator(".card-table__table tbody tr").first().click();
   await expect(page).toHaveURL(/rule-library\?year=2024-25/);
   await expect(page.getByText(/Historical year detail is incomplete/)).toBeVisible();
-  await expect(page.locator(".card-table__table tbody tr")).toHaveCount(0);
+  await expect(page.locator(".card-table__empty")).toBeVisible();
+  await expect(page.locator(".card-table__table tbody tr").filter({ hasText: "ACK-1695-001" })).toHaveCount(0);
   await page.getByRole("button", { name: "Back to Tax Years" }).click();
   await expect(page).toHaveURL(/rules-calculation\/tax-years$/);
   await expect(page.locator(".card-table__table tbody tr")).toHaveCount(4);
