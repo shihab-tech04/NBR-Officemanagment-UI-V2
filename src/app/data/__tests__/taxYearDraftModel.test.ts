@@ -55,9 +55,10 @@ describe("NBR tax-year draft intake hard legal gates", () => {
   it("marks all impacts OPEN, including selected candidates", () => {
     const input=freshDraftInput();input.proposedImpacts=["eledger","calculation"];
     const x=createDraftReviewPackage(input,canonical);
-    expect(x.impactReview).toHaveLength(8);
+    expect(x.impactReview).toHaveLength(12);
     expect(x.impactReview.every(i => i.status === "OPEN")).toBe(true);
     expect(x.impactReview.find(i=>i.target==="eledger")?.candidate).toBe(true);
+    expect(["office","ereturn","sql","validation"].every(target=>x.impactReview.some(i=>i.target===target&&i.status==="OPEN"))).toBe(true);
   });
   it("proposed repeal does not become confirmed repeal", () => {
     const x=createDraftReviewPackage({...freshDraftInput(),legalEffect:"REPEAL"},canonical);
