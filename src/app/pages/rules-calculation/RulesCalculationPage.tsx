@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, Plus } from "lucide-react";
 import { RuleDetailsPanel, type RuleDetailRecord } from "./RuleDetailsPanel";
 import { RulesAuthenticatedSqlView, type RulesAuthenticatedReadClient } from "./RulesAuthenticatedSqlView";
+import { RulesAuthenticatedYearComparison } from "./RulesAuthenticatedYearComparison";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -219,7 +220,9 @@ export function RulesCalculationPage({ rulesAdminClient }: { rulesAdminClient?: 
           year={year} bn={bn}
           onOpenYear={assessmentYear=>navigate("/administration/rules-calculation/rule-library?year="+encodeURIComponent(assessmentYear))}/>
       )}
-      {section === "year-comparison" && <RuleYearComparisonPanel />}
+      {section === "year-comparison" && (rulesAdminClient
+        ? <RulesAuthenticatedYearComparison client={rulesAdminClient}/>
+        : <RuleYearComparisonPanel />)}
 
       {!rulesAdminClient && section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
