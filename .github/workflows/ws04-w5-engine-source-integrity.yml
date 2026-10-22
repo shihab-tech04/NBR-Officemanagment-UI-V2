@@ -23,8 +23,14 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo '14325400233075c8ba590208ee1251fc5ff80f76f5403c1f0218707b9e064a02  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '04af767fb4ceb635ee21f05129c4245281be41044b12fa0bbcce0646d6865ecc  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo 'e2573760653e1239757ab29be0784a2f32898f26af2620cf3234ecb98e74765a  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
+          echo '2b1d3d05b3b29da336bbacba9b92d7fe8ba1d31e6986800ef7d795b9826147af  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+      - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
+        shell: bash
+        run: |
+          node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
+          echo 'Only five isolated negative guard cases. NOT source-law, 89-case harness, PostgreSQL/Auth or Agent certification.'
       - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
         shell: bash
         run: |
