@@ -1,0 +1,32 @@
+name: Office All Navigation Routes Responsive Audit
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  all-office-routes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Every Office navigation leaf / 375, 768, 1280, 1920 / EN and BN
+        run: npx playwright test --config playwright.config.ts qa/office-all-routes.pw.ts
+      - name: Keep exact-head browser errors and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-all-route-audit-evidence
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
