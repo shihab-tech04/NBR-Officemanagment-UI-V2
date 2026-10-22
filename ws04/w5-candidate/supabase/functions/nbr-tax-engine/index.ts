@@ -100,6 +100,19 @@ function invalidCalculationFacts(body: Record<string, any>): string[] {
           !nonnegativeMoney(returnData[key])) invalid.push(key);
     }
   }
+  // Never coerce malformed caller-selected rule identifiers to strings or
+  // silently discard a non-array transaction claim. Either behavior could
+  // defeat a transaction-period guard before legal rule selection.
+  for (const selector of ["claimRuleIds", "transactionRuleIds", "paymentRuleIds"]) {
+    const ids = body[selector];
+    if (ids === undefined) continue;
+    if (!Array.isArray(ids) || ids.length > FROZEN_BASELINE_RULE_COUNT ||
+        ids.some((id: unknown) =>
+          typeof id !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(id)) ||
+        new Set(ids).size !== ids.length) {
+      invalid.push(selector);
+    }
+  }
   if (body.ruleFacts !== undefined) {
     if (!objectRecord(body.ruleFacts)) invalid.push("ruleFacts");
     else for (const [key, facts] of Object.entries(body.ruleFacts)) {

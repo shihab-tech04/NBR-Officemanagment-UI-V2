@@ -216,3 +216,22 @@ test('malformed transaction map cannot be silently disregarded',async()=>{
   assert.equal(r.body.code,'TRANSACTION_FACTS_UNVERIFIED');
   assert.equal(h.seen.ruleReads,0);
 });
+
+for (const [field, invalidSelection] of [
+  ['transactionRuleIds', 'WH-R4-04'],
+  ['transactionRuleIds', [null]],
+  ['transactionRuleIds', ['WH-R4-04', 'WH-R4-04']],
+  ['claimRuleIds', [{}]],
+  ['paymentRuleIds', { 0: 'WH-R4-04' }],
+]) {
+  test('malformed ' + field + ' is rejected before privileged reads: ' +
+    JSON.stringify(invalidSelection), async () => {
+    const h = harness();
+    const r = await h.request({ [field]: invalidSelection });
+    assert.equal(r.code, 422);
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.ok(r.body.invalidFacts.includes(field));
+    assert.equal(h.seen.ruleReads, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+  });
+}
