@@ -723,9 +723,16 @@ function AuditOverviewPage() {
         </span>
       </div>
 
+      <p className="audit-data-source-note">
+        {t("overview.localDatasetScope")}
+        {" · "}
+        <a href="https://nbr.gov.bd/information-library/publicnotice-details/income-tax/20/ban"
+           target="_blank" rel="noopener noreferrer">{t("overview.officialSourceContext")}</a>
+      </p>
+
       <div className="dashboard-kpi-section audit-overview__kpis">
         <div className="dashboard-kpi-grid">
-          <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} subInfo={t("overview.officialSelectionBaseline")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
+          <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} subInfo={t("overview.loadedCandidateNote")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
           <StatCard icon={ShieldAlert} value={formatDashboardNumber(countActiveCases)} label={t("overview.activeAuditCases")} tone="warning" onClick={() => navigate("/audit/risk-cases")} />
           <StatCard icon={FileSearch} value={formatDashboardNumber(countPendingEvidence)} label={t("overview.evidenceToResolve")} tone="warning" onClick={() => navigate("/audit/risk-cases?q=Pending")} />
           <StatCard icon={Activity} value={formatDashboardNumber(countOpenControls)} label={t("overview.openControlItems")} tone="primary" onClick={() => navigate("/audit/control-data-quality")} />
@@ -754,8 +761,8 @@ function AuditOverviewPage() {
               <div className="audit-overview-v5__panel-head">
                 <div>
                   <strong>{t("overview.riskDistribution")}</strong>
-                  <span title={`${formatDashboardNumber(LOADED_RETURN_COUNT)}+ ${t("overview.returnsShort")}`}>
-                    {formatDashboardCompact(LOADED_RETURN_COUNT)}+ {t("overview.returnsShort")}
+                  <span title={`${formatDashboardNumber(LOADED_RETURN_COUNT)} ${t("overview.returnsShort")}`}>
+                    {formatDashboardNumber(LOADED_RETURN_COUNT)} {t("overview.returnsShort")}
                   </span>
                 </div>
                 <button type="button" onClick={() => navigate("/audit/all-taxpayers")}>{t("overview.openTable")}</button>
@@ -780,8 +787,8 @@ function AuditOverviewPage() {
                     ))}
                   </svg>
                   <div>
-                    <strong title={`${formatDashboardNumber(LOADED_RETURN_COUNT)}+`}>
-                      {formatDashboardCompact(LOADED_RETURN_COUNT)}+
+                    <strong title={formatDashboardNumber(LOADED_RETURN_COUNT)}>
+                      {formatDashboardNumber(LOADED_RETURN_COUNT)}
                     </strong>
                     <span>{t("overview.screenedPopulation")}</span>
                   </div>
@@ -992,6 +999,9 @@ function AuditOverviewPage() {
                 )}
               </div>
 
+              {groupMetric === "signals" && (
+                <p className="audit-data-source-note">{t("overview.overlapNote")}</p>
+              )}
               <div className="audit-overview-v5__horizontal-chart" role="list" aria-label={exploreDefinitions[groupMetric].label}>
                 {exploreItems.map((item) => (
                   <div
@@ -1166,7 +1176,7 @@ function AuditOverviewPage() {
                       />
                     </div>
                   ) : (
-                    <strong>{workloadZone || t("overview.allVerifiedCircles")}</strong>
+                    <strong>{workloadZone || t("overview.unmappedCircles")}</strong>
                   )}
                   <small>{formatDashboardNumber(workloadCircles.length)} {t("overview.circlesShort")}</small>
                 </div>
@@ -1232,7 +1242,7 @@ function AuditOverviewPage() {
 
           <DashSection title={t("overview.systemAssurance")} icon={BadgeCheck}>
             <div className="audit-overview__assurance">
-              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(LOADED_RETURN_COUNT)}+`}>{formatDashboardCompact(completeQuality)}/{formatDashboardCompact(LOADED_RETURN_COUNT)}+</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(LOADED_RETURN_COUNT)}`}>{formatDashboardNumber(completeQuality)}/{formatDashboardNumber(LOADED_RETURN_COUNT)}</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
               <button type="button" onClick={() => navigate("/audit/rules-governance")}><span>{t("overview.ruleGovernance")}</span><strong>{formatDashboardNumber(liveRules)} {t("overview.live")}</strong><small>{t("overview.ruleMix", { staged: formatDashboardNumber(stagedRules), shadow: formatDashboardNumber(shadowRules), draft: formatDashboardNumber(draftRules), pending: formatDashboardNumber(pendingGovernance) })}</small></button>
               <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{formatDashboardNumber(AUDIT_TRAIL_ROWS.length)}</strong><small>{t("overview.auditTrailSummary", { sensitive: formatDashboardNumber(sensitiveAccessEvents) })}</small></button>
             </div>
