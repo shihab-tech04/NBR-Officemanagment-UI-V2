@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   push:
@@ -56,6 +57,11 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_pg17_capability_smoke.sql
+      - name: Verify isolated ownership, atomic replay and receipt finalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_owner_receipt_contract.sql
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
