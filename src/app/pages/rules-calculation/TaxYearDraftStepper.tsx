@@ -11,9 +11,9 @@ import { AppDateField } from "../../components/forms/AppDateField";
 import { AppTextArea } from "../../components/forms/AppTextArea";
 import { SQL_RULE_GROUPS, TAX_YEAR_SNAPSHOT } from "../../data/rulesEngineSnapshot";
 import {
-  CANDIDATE_IMPACTS, LEGAL_EFFECTS, createDraftReviewPackage, freshDraftInput,
+  CANDIDATE_IMPACTS, LEGAL_EFFECTS, createDraftReviewPackage, freshDraftInput, freshProvisionCandidate,
   isValidCustomRuleId, type CandidateImpact, type CandidateLegalEffect,
-  type DraftDocumentEvidence, type TaxYearDraftInput,
+  type DraftDocumentEvidence, type TaxYearDraftInput, type DraftProvisionCandidate, type DraftRuleLevel, type DraftHierarchyBasis,
 } from "../../data/taxYearDraftModel";
 import ruleSnapshot from "../../data/rulesSqlSnapshot.json";
 
@@ -37,6 +37,8 @@ export function TaxYearDraftStepper({ onClose }: Props) {
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("");
   const [candidateId, setCandidateId] = useState("");
+  const [provision, setProvision] = useState<DraftProvisionCandidate>(freshProvisionCandidate);
+  const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [candidatePurpose, setCandidatePurpose] = useState("");
   const [url, setUrl] = useState("");
   const [issueDate, setIssueDate] = useState("");
@@ -56,6 +58,43 @@ export function TaxYearDraftStepper({ onClose }: Props) {
   };
   const switchImpact = (id: CandidateImpact, enabled: boolean) => {
     update({ proposedImpacts: enabled ? Array.from(new Set([...draft.proposedImpacts, id])) : draft.proposedImpacts.filter(x => x !== id) });
+  };
+  const patchProvision = (patch: Partial<DraftProvisionCandidate>) =>
+    setProvision(previous => ({ ...previous, ...patch }));
+  const addProvisionCandidate = () => {
+    try {
+      const prior = editingProposalId
+        ? draft.proposedProvisions.find(item => item.proposalId === editingProposalId)
+        : null;
+      if (editingProposalId && (!prior || editingProposalId !== provision.proposalId))
+        throw new Error("A proposed rule identity cannot be renamed or replaced during editing.");
+      const revised: DraftProvisionCandidate = {
+        ...provision, impacts: [...provision.impacts],
+        localReviewRevision: prior ? prior.localReviewRevision + 1 : 1,
+      };
+      const next: TaxYearDraftInput = {
+        ...draft,
+        proposedProvisions: prior
+          ? draft.proposedProvisions.map(item => item.proposalId === editingProposalId ? revised : item)
+          : [...draft.proposedProvisions, revised],
+        priorLocalProvisionRevisions: prior
+          ? [...draft.priorLocalProvisionRevisions, {...prior, impacts:[...prior.impacts]}]
+          : draft.priorLocalProvisionRevisions,
+      };
+      createDraftReviewPackage(next, canonicalIds);
+      update({ proposedProvisions: next.proposedProvisions,
+        priorLocalProvisionRevisions: next.priorLocalProvisionRevisions,
+        selectedRuleIds: Array.from(new Set([...draft.selectedRuleIds, revised.ruleId])) });
+      setProvision(freshProvisionCandidate());
+      setEditingProposalId(null);
+      setStatusMessage(tr("Local review revision saved. Previous draft retained; SQL unchanged.",
+        "স্থানীয় পর্যালোচনা সংস্করণ সংরক্ষিত। পূর্ববর্তী খসড়া রাখা হয়েছে; SQL অপরিবর্তিত।"));
+    } catch (error) { setStatusMessage(error instanceof Error ? error.message : String(error)); }
+  };
+  const editProvisionCandidate = (item: DraftProvisionCandidate) => {
+    setProvision({...item,impacts:[...item.impacts]});
+    setEditingProposalId(item.proposalId);
+    setStatusMessage("");
   };
   const addCustomRule = () => {
     const id = candidateId.trim().toUpperCase();
@@ -107,13 +146,17 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     </nav>
     <div className="rules-engine__panel rules-engine__wizard-panel">
       <h2 className="rules-engine__heading">{bn ? stepLabels[stage][1] : stepLabels[stage][0]}</h2>
-      {stage === 0 && <div className="rules-engine__wizard-grid">
-        <AppTextField compact id="tax-year-target" label={tr("Target assessment year", "প্রস্তাবিত করবর্ষ")} readOnly value={draft.targetYear} onChange={() => undefined}/>
-        <AppTextField compact id="tax-year-income" label={tr("Income year", "আয়বর্ষ")} readOnly value={draft.incomeYear} onChange={() => undefined}/>
+      {stage === 0 && <><div className="rules-engine__wizard-grid">
+        <AppTextField compact id="tax-year-target" label={tr("Target assessment year (local draft)", "প্রস্তাবিত করবর্ষ (স্থানীয় খসড়া)")} value={draft.targetYear} onChange={v=>update({targetYear:v})}/>
+        <AppTextField compact id="tax-year-income" label={tr("Income year (local draft)", "আয়বর্ষ (স্থানীয় খসড়া)")} value={draft.incomeYear} onChange={v=>update({incomeYear:v})}/>
         <AppTextField compact id="tax-year-base" label={tr("Controlled source AY", "নিয়ন্ত্রিত উৎস করবর্ষ")} readOnly value={draft.baseYear} onChange={() => undefined}/>
         <AppDateField compact id="tax-year-cutoff" label={tr("Proposed legal cutoff (unverified)", "প্রস্তাবিত আইনি কাটঅফ (অযাচাইকৃত)")} value={draft.legalCutoff} onChange={(v) => update({ legalCutoff: v })}/>
-        <div className="rules-engine__wide"><p>{tr(`Existing SQL year state: ${existingDraft?.dbState ?? "UNKNOWN"}. All 366 inherited versions remain pending review.`, `বিদ্যমান SQL বর্ষ: ${existingDraft?.dbState ?? "অজানা"}। ৩৬৬টি উত্তরাধিকারী সংস্করণ পর্যালোচনাধীন।`)}</p></div>
-      </div>}
+        <div className="rules-engine__wide"><p>{tr(`2026-10-10 snapshot year state: ${existingDraft?.dbState ?? "NOT IN SNAPSHOT — NEW LOCAL DRAFT"}. The 366 baseline identities are only review candidates; no new SQL year is created.`, `১০ অক্টোবর ২০২৬-এর স্ন্যাপশট বর্ষ: ${existingDraft?.dbState ?? "স্ন্যাপশটে নেই — নতুন স্থানীয় খসড়া"}। ৩৬৬টি মূল পরিচয় শুধু পর্যালোচনামূলক প্রার্থী; নতুন SQL বর্ষ তৈরি হয়নি।`)}</p></div>
+      </div>
+      <AppTextArea id="tax-year-taxpayer-scope" rows={2}
+        label={tr("Proposed taxpayer scope and exclusions (unverified)", "প্রস্তাবিত করদাতা ও বর্জনের পরিধি (অযাচাইকৃত)")}
+        value={draft.taxpayerScope} onChange={v=>update({taxpayerScope:v})}/>
+      </>}
       {stage === 1 && <>
         <p>{tr("Select the canonical IDs needing legal comparison. Selecting a rule does not authorize execution.", "যেসব মূল বিধির আইনি তুলনা দরকার সেগুলো নির্বাচন করুন। নির্বাচনে হিসাব অনুমোদিত হয় না।")}</p>
         <div className="rules-engine__filters"><AppSearchField label={tr("Search canonical rules", "মূল বিধি খুঁজুন")} value={search} onChange={setSearch}/>
@@ -136,6 +179,53 @@ export function TaxYearDraftStepper({ onClose }: Props) {
       {stage === 3 && <>
         <p>{tr("The software has not extracted, compared, or approved legal text. Categorize a proposed change for later human review only.", "সফটওয়্যার আইনের পাঠ তুলনা বা অনুমোদন করেনি। ভবিষ্যৎ মানবিক পর্যালোচনার জন্য প্রস্তাবের ধরন নির্ধারণ করুন।")}</p>
         <div className="rules-engine__wizard-grid"><AppSelectField id="proposed-effect" label={tr("Proposed legal effect", "প্রস্তাবিত আইনি প্রভাব")} value={draft.legalEffect} onChange={v=>update({legalEffect:v as CandidateLegalEffect})} options={LEGAL_EFFECTS.map(v=>({value:v,label:v}))}/><AppTextArea id="change-notes" rows={5} label={tr("Legal comparison review notes", "আইনি তুলনার পর্যালোচনা মন্তব্য")} value={draft.changeNote} onChange={(v)=>update({changeNote:v})}/></div>
+
+        <h3>{tr("Propose source-linked parent / subrule / child", "উৎস-সংযুক্ত মূল / উপবিধি / অধীন বিধি প্রস্তাব")}</h3>
+        <p className="rules-engine__scope">{tr("Original PDF required. Every proposed value remains UNVERIFIED; JSON/OCR cannot certify law. No SQL writes.", "মূল PDF আবশ্যক। সব প্রস্তাবিত তথ্য অযাচাইকৃত; JSON/OCR আইন অনুমোদন করে না। SQL অপরিবর্তিত।")}</p>
+        <div className="rules-engine__wizard-grid">
+          <AppTextField compact id="candidate-change-id" label={tr("Unique proposal ID", "অনন্য প্রস্তাব আইডি")} value={provision.proposalId} onChange={v=>patchProvision({proposalId:v.trim().toUpperCase()})}/>
+          <AppSelectField compact id="candidate-rule-id" label={tr("Linked rule ID", "সংযুক্ত বিধি আইডি")} value={provision.ruleId} onChange={v=>patchProvision({ruleId:v})} searchableAfter={5} options={[{value:"",label:tr("Choose a rule", "বিধি বাছুন")},...catalog.map(r=>({value:r.id,label:r.id})),...draft.customRules.map(r=>({value:r.candidateId,label:r.candidateId}))]}/>
+          <AppSelectField compact id="candidate-parent-id" label={tr("Parent rule", "মূল বিধি")} value={provision.parentRuleId} onChange={v=>patchProvision({parentRuleId:v})} searchableAfter={5} options={[{value:"",label:tr("No parent", "মূল বিধি নেই")},...catalog.map(r=>({value:r.id,label:r.id})),...draft.customRules.map(r=>({value:r.candidateId,label:r.candidateId}))]}/>
+          <AppSelectField compact id="candidate-level" label={tr("Rule hierarchy", "বিধি শ্রেণি")} value={provision.level} onChange={v=>patchProvision({level:v as DraftRuleLevel})} options={["PARENT","SUBRULE","CHILD"].map(v=>({value:v,label:v}))}/>
+          <AppSelectField compact id="candidate-hierarchy-basis" label={tr("Hierarchy basis", "শ্রেণিবিন্যাসের ভিত্তি")} value={provision.hierarchyBasis} onChange={v=>patchProvision({hierarchyBasis:v as DraftHierarchyBasis})} options={[{value:"STATUTORY",label:tr("Statutory", "আইনি")},{value:"ADMINISTRATIVE",label:tr("Administrative (not law)", "প্রশাসনিক (আইন নয়)")}]}/>
+          <AppSelectField compact id="candidate-pdf" label={tr("Original PDF evidence", "মূল PDF প্রমাণ")} value={provision.sourcePdfSha256} onChange={v=>patchProvision({sourcePdfSha256:v})} searchableAfter={5} options={[{value:"",label:tr("Select an attached PDF", "সংযুক্ত PDF বাছুন")},...draft.documents.filter(d=>d.type==="PDF").map(d=>({value:d.sha256,label:d.name+" / "+d.sha256.slice(0,12)}))]}/>
+          <AppTextField compact id="candidate-source-id" label={tr("Official source ID", "সরকারি উৎস আইডি")} value={provision.sourceId} onChange={v=>patchProvision({sourceId:v})}/>
+          <AppTextField compact id="candidate-locator" label={tr("Page, clause and locator", "পৃষ্ঠা, ধারা ও অবস্থান")} value={provision.provisionLocator} onChange={v=>patchProvision({provisionLocator:v})}/>
+          <AppDateField compact id="candidate-issued" label={tr("Issue date (unverified)", "প্রকাশের তারিখ (অযাচাইকৃত)")} value={provision.issueDate} onChange={v=>patchProvision({issueDate:v})}/>
+          <AppDateField compact id="candidate-effective" label={tr("Effective date (unverified)", "কার্যকারিতা (অযাচাইকৃত)")} value={provision.effectiveDate} onChange={v=>patchProvision({effectiveDate:v})}/>
+        </div>
+        <div className="rules-engine__comparison">
+          <article className="rules-engine__panel"><h3>{tr("Original / old legal text", "মূল / পূর্ববর্তী আইনি পাঠ")}</h3><AppTextArea id="candidate-old-text" rows={5} label={tr("Unverified transcription", "অযাচাইকৃত প্রতিলিপি")} value={provision.previousText} onChange={v=>patchProvision({previousText:v})}/></article>
+          <article className="rules-engine__panel"><h3>{tr("New / amended legal text", "নতুন / সংশোধিত আইনি পাঠ")}</h3><AppTextArea id="candidate-new-text" rows={5} label={tr("Proposed text", "প্রস্তাবিত পাঠ")} value={provision.proposedText} onChange={v=>patchProvision({proposedText:v})}/></article>
+        </div>
+        <div className="rules-engine__wizard-grid">
+          <AppTextArea id="candidate-savings" rows={3} label={tr("Savings / transition", "সংরক্ষণ / অন্তর্বর্তী বিধান")} value={provision.savingsText} onChange={v=>patchProvision({savingsText:v})}/>
+          <AppTextArea id="candidate-taxpayers" rows={3} label={tr("Taxpayer and AY/IY scope", "করদাতা ও করবর্ষ/আয়বর্ষ")} value={provision.taxpayerScope} onChange={v=>patchProvision({taxpayerScope:v})}/>
+          <AppTextArea id="candidate-facts" rows={3} label={tr("Applicability facts / exclusions", "প্রযোজ্যতা / বর্জন")} value={provision.triggeringFacts} onChange={v=>patchProvision({triggeringFacts:v})}/>
+          <AppTextArea id="candidate-formula" rows={3} label={tr("Proposed rate / formula (not executable)", "প্রস্তাবিত হার / সূত্র (কার্যকর নয়)")} value={provision.rateOrFormula} onChange={v=>patchProvision({rateOrFormula:v})}/>
+          <AppTextArea id="candidate-exemptions" rows={3} label={tr("Exception / exemption", "ব্যতিক্রম / অব্যাহতি")} value={provision.exemptionOrException} onChange={v=>patchProvision({exemptionOrException:v})}/>
+          <AppSelectField compact id="candidate-review-state" label={tr("Review state", "পর্যালোচনার অবস্থা")} value={provision.reviewState} onChange={v=>patchProvision({reviewState:v as "PROPOSED"|"CONFLICT"})} options={[{value:"PROPOSED",label:"PROPOSED / OPEN"},{value:"CONFLICT",label:"CONFLICT / BLOCKED"}]}/>
+        </div>
+        <p>{tr("Possible downstream impacts (always OPEN)", "সম্ভাব্য প্রভাব (সব সময় OPEN)")}</p>
+        <div className="rules-engine__impact-grid">{CANDIDATE_IMPACTS.map(id=><label key={id} className="rules-engine__impact-row"><input type="checkbox" checked={provision.impacts.includes(id)} onChange={e=>patchProvision({impacts:e.target.checked?[...provision.impacts,id]:provision.impacts.filter(x=>x!==id)})}/><span>{id.toUpperCase()} · OPEN</span></label>)}</div>
+        <SecondaryButton size="lg" onClick={addProvisionCandidate}>{editingProposalId
+          ? tr("Save new local review revision", "নতুন স্থানীয় সংস্করণ সংরক্ষণ")
+          : tr("Add proposed provision (local only)", "প্রস্তাবিত বিধান যোগ (শুধু স্থানীয়)")}</SecondaryButton>
+        {editingProposalId && <SecondaryButton size="lg" onClick={()=>{setProvision(freshProvisionCandidate());setEditingProposalId(null);}}>
+          {tr("Cancel proposal edit", "প্রস্তাব সম্পাদনা বাতিল")}</SecondaryButton>}
+        {[...draft.proposedProvisions].sort((a,b)=>
+          a.parentRuleId.localeCompare(b.parentRuleId)||a.ruleId.localeCompare(b.ruleId))
+          .map(p=><article className="rules-engine__evidence" key={p.proposalId}>
+            <h3>{p.proposalId} · {p.reviewState} · LOCAL REV {p.localReviewRevision}</h3>
+            <p>{tr("Rule hierarchy", "বিধি শ্রেণি")}: {p.parentRuleId || tr("Tax-year root", "করবর্ষ মূল")} → {p.ruleId} ({p.level})</p>
+            <p>{p.hierarchyBasis} · {p.sourceId} / {p.provisionLocator}</p>
+            <p>{tr("PDF SHA-256", "PDF SHA-256")}: {p.sourcePdfSha256} · {tr("UNVERIFIED / SQL NOT PERSISTED", "অযাচাইকৃত / SQL-এ সংরক্ষিত নয়")}</p>
+            <div className="rules-engine__wizard-actions">
+              <SecondaryButton size="lg" onClick={()=>editProvisionCandidate(p)}>{tr("Edit proposed rule", "প্রস্তাবিত বিধি সম্পাদনা")}</SecondaryButton>
+              <SecondaryButton size="lg" onClick={()=>update({proposedProvisions:draft.proposedProvisions.filter(x=>x.proposalId!==p.proposalId)})}>{tr("Remove proposal", "প্রস্তাব বাদ দিন")}</SecondaryButton>
+            </div>
+          </article>)}
+        {draft.priorLocalProvisionRevisions.length>0&&<p>{tr("Retained previous local draft revisions", "সংরক্ষিত পূর্ববর্তী স্থানীয় খসড়া")}: {draft.priorLocalProvisionRevisions.length} · SQL NOT PERSISTED</p>}
         <p>{tr(`Evidence attached: ${draft.documents.length}; selected rule candidates: ${draft.selectedRuleIds.length}. Actual original-versus-amended text verification remains OPEN.`, `প্রমাণ: ${draft.documents.length}; বিধি প্রার্থী: ${draft.selectedRuleIds.length}। মূল ও সংশোধিত পাঠের প্রকৃত যাচাই এখনও বাকি।`)}</p>
       </>}
       {stage === 4 && <>
@@ -144,7 +234,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
       </>}
       {stage === 5 && <>
         <p>{tr("Review the immutable baseline and your draft before exporting a local review package. SQL is not changed.", "স্থানীয় খসড়া রপ্তানির আগে মূল ভিত্তি ও প্রস্তাব যাচাই করুন। SQL অপরিবর্তিত।")}</p>
-        <div className="rules-engine__comparison"><article className="rules-engine__panel"><h3>{tr("Version & selection", "সংস্করণ ও নির্বাচন")}</h3><p>AY {draft.targetYear} / IY {draft.incomeYear}</p><p>{tr("Selected canonical IDs", "নির্বাচিত মূল বিধি")}: {draft.selectedRuleIds.length} / 366</p><p>{tr("Custom proposals", "কাস্টম প্রস্তাব")}: {draft.customRules.length}</p><p>{tr("Source evidence", "উৎস প্রমাণ")}: {draft.documents.length}</p></article>
+        <div className="rules-engine__comparison"><article className="rules-engine__panel"><h3>{tr("Version & selection", "সংস্করণ ও নির্বাচন")}</h3><p>AY {draft.targetYear} / IY {draft.incomeYear}</p><p>{tr("Selected canonical IDs", "নির্বাচিত মূল বিধি")}: {draft.selectedRuleIds.length} / 366</p><p>{tr("Custom proposals", "কাস্টম প্রস্তাব")}: {draft.customRules.length}</p><p>{tr("Proposed taxpayer scope", "প্রস্তাবিত করদাতার পরিধি")}: {draft.taxpayerScope.trim()||"NOT VERIFIED"}</p><p>{tr("Source evidence", "উৎস প্রমাণ")}: {draft.documents.length}</p><p>{tr("Provision proposals (OPEN)", "বিধান প্রস্তাব (OPEN)")}: {draft.proposedProvisions.length}</p></article>
           <article className="rules-engine__panel"><h3>{tr("Fail-closed disposition", "নিরাপদ অবরুদ্ধ অবস্থা")}</h3><p>DRAFT / INHERITED_PENDING_REVIEW</p><p>UNVERIFIED / NOT_CERTIFIED</p><p>{tr("Impacts requiring review", "পর্যালোচনাধীন প্রভাব")}: {draft.proposedImpacts.length}</p><p>{tr("SQL writes", "SQL পরিবর্তন")}: 0</p></article></div>
         <PrimaryButton size="lg" icon={Download} onClick={exportDraft}>{tr("Export review-only DRAFT JSON", "পর্যালোচনামূলক খসড়া JSON রপ্তানি")}</PrimaryButton>
         <p className="rules-engine__scope">{tr("This is not a statutory rule publication, not an official-document upload, and not SQL persistence. A protected service must verify and save reviewed evidence separately.", "এটি বিধি প্রকাশ, সরকারি নথি আপলোড বা SQL সংরক্ষণ নয়। সুরক্ষিত সেবা পৃথকভাবে প্রমাণ যাচাই ও সংরক্ষণ করবে।")}</p>

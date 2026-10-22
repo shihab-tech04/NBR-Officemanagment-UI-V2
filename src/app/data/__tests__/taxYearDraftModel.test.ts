@@ -9,6 +9,13 @@ describe("NBR tax-year draft intake hard legal gates", () => {
     expect(isSupportedDraftYear(freshDraftInput())).toBe(true);
     expect(isSupportedDraftYear({ ...freshDraftInput(), incomeYear: "2025-26" })).toBe(false);
     expect(isSupportedDraftYear({ ...freshDraftInput(), targetYear: "2028-29" })).toBe(false);
+    expect(isSupportedDraftYear({ ...freshDraftInput(), targetYear:"2028-29", incomeYear:"2027-28" })).toBe(true);
+    expect(isSupportedDraftYear({ ...freshDraftInput(), targetYear:"2029-99", incomeYear:"2028-29" })).toBe(false);
+    expect(isSupportedDraftYear({ ...freshDraftInput(), targetYear:"2028-29", incomeYear:"2027-28", baseYear:"2025-26" })).toBe(false);
+    const future = freshDraftInput();future.targetYear="2028-29";future.incomeYear="2027-28";
+    const exported = createDraftReviewPackage(future,canonical);
+    expect(exported.yearState).toBe("DRAFT");
+    expect(exported.persistentSqlWritePerformed).toBe(false);
   });
   it("always exports non-executable draft and preserves canonical SHA", () => {
     const d = createDraftReviewPackage(freshDraftInput(), canonical);
@@ -55,9 +62,10 @@ describe("NBR tax-year draft intake hard legal gates", () => {
   it("marks all impacts OPEN, including selected candidates", () => {
     const input=freshDraftInput();input.proposedImpacts=["eledger","calculation"];
     const x=createDraftReviewPackage(input,canonical);
-    expect(x.impactReview).toHaveLength(8);
+    expect(x.impactReview).toHaveLength(12);
     expect(x.impactReview.every(i => i.status === "OPEN")).toBe(true);
     expect(x.impactReview.find(i=>i.target==="eledger")?.candidate).toBe(true);
+    expect(["office","ereturn","sql","validation"].every(target=>x.impactReview.some(i=>i.target===target&&i.status==="OPEN"))).toBe(true);
   });
   it("proposed repeal does not become confirmed repeal", () => {
     const x=createDraftReviewPackage({...freshDraftInput(),legalEffect:"REPEAL"},canonical);

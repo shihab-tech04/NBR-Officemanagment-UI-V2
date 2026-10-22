@@ -7,6 +7,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Plus } from "lucide-react";
 import { RuleDetailsPanel, type RuleDetailRecord } from "./RuleDetailsPanel";
+import { RulesAuthenticatedSqlView, type RulesAuthenticatedReadClient } from "./RulesAuthenticatedSqlView";
+import { RulesAuthenticatedYearComparison } from "./RulesAuthenticatedYearComparison";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -54,14 +56,15 @@ function ScopeNote({ text }: { text: string }) {
 function YearStatus({ year }: { year: TaxYearObservation }) {
   return (
     <div className="rules-engine__status">
-      <p><strong>Stored SQL state:</strong> {statusLabel(year.dbState)}</p>
+      <p><strong>Observed SQL state (10 Oct 2026 snapshot):</strong> {statusLabel(year.dbState)}</p>
       <p><strong>Lifecycle:</strong> {statusLabel(year.lifecycle)}</p>
       <p><strong>Agent/engine certification:</strong> {isCertifiedForEngineExecution(year) ? "VERIFIED" : "NOT CERTIFIED"}</p>
     </div>
   );
 }
 
-export function RulesCalculationPage() {
+/** Protected Office auth integration may inject a verified Rules API read client; no tokens stored here. */
+export function RulesCalculationPage({ rulesAdminClient }: { rulesAdminClient?: RulesAuthenticatedReadClient } = {}) {
   const { thirdNav } = useParams<{ thirdNav: string }>();
   const section = thirdNav && TABS.has(thirdNav) ? thirdNav : "tax-years";
   const { i18n } = useTranslation();
@@ -69,7 +72,9 @@ export function RulesCalculationPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedYear = searchParams.get("year");
-  const year = TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === requestedYear) ? requestedYear! : BASE_YEAR;
+  const year = (rulesAdminClient && /^\d{4}-\d{2}$/.test(requestedYear || ""))
+    ? requestedYear!
+    : TAX_YEAR_SNAPSHOT.some(item => item.assessmentYear === requestedYear) ? requestedYear! : BASE_YEAR;
   const selectedRuleKey = searchParams.get("rule");
   const tr = (en: string, bnText: string) => bn ? bnText : en;
   const [search, setSearch] = useState("");
@@ -173,11 +178,11 @@ export function RulesCalculationPage() {
         {section === "tax-years" ? <PrimaryButton size="lg" icon={Plus} onClick={() => setDraftWizardOpen(true)}>
           {tr("Prepare tax year", "করবর্ষের খসড়া")}
         </PrimaryButton> : <p className="rules-engine__snapshot-label">
-          {tr("Read-only snapshot", "পাঠযোগ্য স্ন্যাপশট")} · {RULES_SNAPSHOT_DATE}
+          {rulesAdminClient ? tr("Authenticated Rules API read", "অনুমোদিত Rules API পাঠ") : tr("Historical read-only snapshot", "ঐতিহাসিক স্ন্যাপশট")} {rulesAdminClient ? "" : "· "+RULES_SNAPSHOT_DATE}
         </p>}
       </div>
 
-      {(section === "calculation-controls" || section === "validation-publish") && (
+      {!rulesAdminClient && (section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
             compact value={year} onChange={(value) => { setSearchParams({year:value}); setRulePage(1); }}
@@ -185,7 +190,7 @@ export function RulesCalculationPage() {
         </div>
       )}
 
-      {section === "tax-years" && (
+      {!rulesAdminClient && section === "tax-years" && (
         <section className="rules-engine__section" aria-labelledby="tax-years-heading">
           <div className="rules-engine__list-heading">
             <h2 id="tax-years-heading" className="rules-engine__heading">{tr("Assessment years", "করবর্ষসমূহ")}</h2>
@@ -196,7 +201,7 @@ export function RulesCalculationPage() {
             fc("income_year", tr("Income year", "আয়বর্ষ")),
             fc("rule_versions", tr("Recorded identities", "নথিভুক্ত পরিচয়")),
             fc("coverage", tr("Coverage", "কভারেজ")),
-            fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
+            fc("sql_state", tr("10 Oct 2026 snapshot state", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট অবস্থা")),
           ]} rows={yearRows} onRowClick={openYearRules}
             mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
           <p className="rules-engine__meta rules-engine__after-table">
@@ -205,9 +210,21 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      {section === "year-comparison" && <RuleYearComparisonPanel />}
+      {!rulesAdminClient && <p className="rules-engine__scope" role="status">
+        {tr("Authenticated SQL view is unavailable in this session. The tables below are a 10 October 2026 historical snapshot, never proof of current legal approval or synchronization.",
+        "এই সেশনে অনুমোদিত SQL পাঠ নেই। নিচের তথ্য ১০ অক্টোবর ২০২৬-এর ঐতিহাসিক স্ন্যাপশট; হালনাগাদ আইনি অনুমোদন বা SQL মিলের প্রমাণ নয়।")}
+      </p>}
+      {rulesAdminClient && section !== "year-comparison" && (
+        <RulesAuthenticatedSqlView client={rulesAdminClient}
+          view={section as "tax-years" | "rule-library" | "calculation-controls" | "validation-publish"}
+          year={year} bn={bn}
+          onOpenYear={assessmentYear=>navigate("/administration/rules-calculation/rule-library?year="+encodeURIComponent(assessmentYear))}/>
+      )}
+      {section === "year-comparison" && (rulesAdminClient
+        ? <RulesAuthenticatedYearComparison client={rulesAdminClient}/>
+        : <RuleYearComparisonPanel />)}
 
-      {section === "rule-library" && (
+      {!rulesAdminClient && section === "rule-library" && (
         <section className="rules-engine__section" aria-labelledby="rule-library-heading">
           <div className="rules-engine__list-heading">
             <h2 id="rule-library-heading" className="rules-engine__heading">{tr("Recorded rules", "নথিভুক্ত বিধি")}</h2>
@@ -250,7 +267,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      {section === "calculation-controls" && (
+      {!rulesAdminClient && section === "calculation-controls" && (
         <section className="rules-engine__section" aria-labelledby="calc-heading">
           <h2 id="calc-heading" className="rules-engine__heading">{bn ? "হিসাব ইঞ্জিনের নির্ভরতা" : "Calculation engine dependency controls"}</h2>
           <YearStatus year={selectedYear} />
@@ -263,7 +280,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      {section === "validation-publish" && (
+      {!rulesAdminClient && section === "validation-publish" && (
         <section className="rules-engine__section" aria-labelledby="gates-heading">
           <h2 id="gates-heading" className="rules-engine__heading">{bn ? "SQL গেট ও স্বাধীন সার্টিফিকেশন" : "Stored SQL gates vs independent certification"}</h2>
           <YearStatus year={selectedYear} />
@@ -274,7 +291,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>
+      {!rulesAdminClient && <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>}
       {draftWizardOpen && <TaxYearDraftStepper onClose={() => setDraftWizardOpen(false)} />}
     </div>
   );
