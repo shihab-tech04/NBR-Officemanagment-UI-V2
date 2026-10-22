@@ -4140,3 +4140,240 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
+
+/* Audit Overview responsive geometry — use the available dashboard width, not
+   the viewport width (Office keeps two permanent desktop sidebars).
+   Scoped to Audit: do not alter shared cards, shell, tables or tokens. */
+.audit-overview-v5 {
+  width: 100%;
+  min-width: 0;
+  container: audit-dashboard / inline-size;
+}
+.audit-overview-v5 .dashboard-content-stack,
+.audit-overview-v5 .dashboard-section-grid,
+.audit-overview-v5 .dashboard-section-grid > *,
+.audit-overview-v5__analysis,
+.audit-overview-v5__risk,
+.audit-overview-v5__workspace,
+.audit-overview-v6__workload,
+.audit-overview-v7__selection {
+  min-width: 0;
+}
+
+/* Numeric columns are sized from their actual localized values. The previous
+   fixed 36px/38px tracks caused 1,000,000 and 25% to collide at 1366px. */
+.audit-overview-v5__horizontal-chart .audit-overview-v5__chart-detail {
+  grid-template-columns: minmax(100px, 170px) minmax(64px, 1fr) minmax(78px, max-content) minmax(44px, max-content) 14px;
+  column-gap: var(--space-2);
+}
+.audit-overview-v5__horizontal-chart .audit-overview-v5__chart-detail > strong,
+.audit-overview-v5__horizontal-chart .audit-overview-v5__chart-detail > small,
+.audit-overview-v6__workload-row > em,
+.audit-overview-v7__source-list > button > strong,
+.audit-overview-v7__source-list > button > small {
+  min-width: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.audit-overview-v6__workload-row {
+  grid-template-columns: minmax(150px, 1.1fr) minmax(60px, 1.8fr) minmax(78px, max-content) 14px;
+}
+.audit-overview-v6__workload-row > strong {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.audit-overview-v6__workload-summary strong {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.audit-overview-v7__source-list > button {
+  grid-template-columns: minmax(135px, 1.1fr) minmax(65px, 1fr) minmax(78px, max-content) minmax(44px, max-content) 14px;
+}
+.audit-overview-v5__flow-stage > b {
+  min-width: 0;
+  text-align: right;
+}
+.audit-overview-v5__flow-stage > div strong {
+  overflow-wrap: anywhere;
+}
+
+/* The screenshot's 1366px viewport leaves about 1000px of dashboard space.
+   Put the two analytics panels and the two operational panels on full-width
+   rows there, instead of squeezing them into their desktop column widths. */
+@container audit-dashboard (max-width: 1120px) {
+  .audit-overview-v5 .dashboard-section-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v5__analysis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v5__risk {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .audit-overview-v5__panel-head,
+  .audit-overview-v5__quality {
+    grid-column: 1 / -1;
+  }
+  .audit-overview-v5__donut {
+    margin: 0 auto;
+  }
+  .audit-overview-v5__flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .audit-overview-v5__flow-stage:nth-child(2) {
+    border-right: 0;
+  }
+  .audit-overview-v5__flow-stage:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .audit-overview-v6__workload-top {
+    flex-wrap: wrap;
+  }
+  .audit-overview-v6__workload-tabs {
+    width: 100%;
+  }
+}
+
+/* A tablet or side-by-side window should keep action controls readable while
+   the dashboard's remaining content width decreases. */
+@container audit-dashboard (max-width: 780px) {
+  .audit-overview-v5 .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .audit-overview-v5__workspace-head {
+    flex-wrap: wrap;
+  }
+  .audit-overview-v6__analysis-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .audit-overview-v6__filter-controls {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .audit-overview-v6__workload-top {
+    flex-direction: column;
+  }
+  .audit-overview-v6__workload-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .audit-overview-v6__workload-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
+  .audit-overview-v7__selection-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .audit-overview-v7__selection-summary > button {
+    grid-column: 1 / -1;
+    min-height: 36px;
+  }
+}
+
+/* At narrow widths put the bar on its own row; never overlay it with
+   count/percentage text, and keep the drill-down arrow reachable. */
+@container audit-dashboard (max-width: 660px) {
+  /* Preserve the existing one-card-per-row mobile contract. */
+  .audit-overview-v5 .dashboard-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v5__risk {
+    display: block;
+  }
+  .audit-overview-v5__flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v5__flow-stage {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .audit-overview-v5__flow-stage:last-child {
+    border-bottom: 0;
+  }
+  .audit-overview-v5__builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v5__insight {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+  .audit-overview-v5__insight > div:first-child,
+  .audit-overview-v5__insight > button {
+    grid-column: 1 / -1;
+  }
+  .audit-overview-v5__horizontal-chart .audit-overview-v5__chart-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(78px, max-content) minmax(42px, max-content) 14px;
+    row-gap: 7px;
+  }
+  .audit-overview-v5__chart-detail > .audit-overview-v5__bar-label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .audit-overview-v5__chart-detail > .audit-overview-v5__bar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .audit-overview-v5__chart-detail > strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .audit-overview-v5__chart-detail > small {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .audit-overview-v5__chart-detail > svg {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .audit-overview-v6__workload-row {
+    grid-template-columns: minmax(0, 1fr) minmax(78px, max-content) 14px;
+    row-gap: 5px;
+  }
+  .audit-overview-v6__workload-row > strong { grid-column: 1; grid-row: 1; }
+  .audit-overview-v6__workload-row > span { grid-column: 1 / -1; grid-row: 2; }
+  .audit-overview-v6__workload-row > em { grid-column: 2; grid-row: 1; }
+  .audit-overview-v6__workload-row > svg { grid-column: 3; grid-row: 1; }
+  .audit-overview-v7__source-list > button {
+    grid-template-columns: minmax(0, 1fr) minmax(78px, max-content) minmax(42px, max-content) 14px;
+    row-gap: 6px;
+  }
+  .audit-overview-v7__source-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .audit-overview-v7__selection-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v6__workload-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v6__workload-summary > div:last-child {
+    grid-column: auto;
+  }
+  .audit-overview-v6__workload-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-overview-v6__scope,
+  .audit-overview-v6__scope-select {
+    width: 100%;
+    min-width: 0;
+  }
+  .audit-overview-v6__filter-controls .audit-overview-v6__filter-field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .audit-overview-v5__workspace,
+  .audit-overview-v6__workload,
+  .audit-overview-v7__selection {
+    padding: var(--space-3);
+  }
+}

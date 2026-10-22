@@ -1,0 +1,36 @@
+name: Audit dashboard responsive browser QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/styles/audit.css'
+      - 'qa/audit-responsive.pw.ts'
+      - '.github/workflows/audit-responsive-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-responsive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Build Audit dashboard
+        run: npm run build
+      - name: Check Audit Overview at eight widths and five parameter modes
+        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts
+      - name: Preserve screenshots and trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-dashboard-responsive-evidence
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30

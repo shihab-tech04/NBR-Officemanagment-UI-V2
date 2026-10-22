@@ -1,0 +1,46 @@
+name: Audit release pre-merge recovery snapshot
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-release-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pre-release-source-backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout full authoritative pre-merge main history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build source/history snapshot and verify an isolated restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git rev-parse HEAD)"
+          mkdir -p release-backup
+          git archive --format=tar "$BASE_SHA" | gzip -n > release-backup/pre-release-source.tar.gz
+          git bundle create release-backup/pre-release-history.bundle --all
+          git bundle verify release-backup/pre-release-history.bundle
+          printf 'repo=%s\npre_release_main=%s\ncreated_utc=%s\n' "shihab-tech04/NBR-Officemanagment-UI-V2" "$BASE_SHA" "$(date -u +%FT%TZ)" > release-backup/manifest.txt
+          (cd release-backup && sha256sum pre-release-source.tar.gz pre-release-history.bundle > SHA256SUMS)
+          mkdir -p "$RUNNER_TEMP/restore-source" "$RUNNER_TEMP/restore-git"
+          tar -xzf release-backup/pre-release-source.tar.gz -C "$RUNNER_TEMP/restore-source"
+          git clone --no-checkout release-backup/pre-release-history.bundle "$RUNNER_TEMP/restore-git"
+          git -C "$RUNNER_TEMP/restore-git" cat-file -e "${BASE_SHA}^{commit}"
+          git -C "$RUNNER_TEMP/restore-git" checkout --detach "$BASE_SHA"
+          diff -qr --exclude=.git "$RUNNER_TEMP/restore-source" "$RUNNER_TEMP/restore-git"
+          (cd release-backup && sha256sum -c SHA256SUMS)
+          echo "RESTORE_PASS sha=$BASE_SHA complete_tracked_source=1 history_bundle=1"
+      - name: Upload recovery backup for independent transfer outside GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: NBR-Office-pre-release-main-history-and-source
+          path: release-backup/
+          if-no-files-found: error
+          retention-days: 30
