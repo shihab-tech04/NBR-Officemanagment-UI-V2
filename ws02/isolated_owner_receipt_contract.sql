@@ -23,11 +23,28 @@ CREATE TABLE ws02_owner.slots(
  PRIMARY KEY(actor_id,record_id,assessment_year,idem_key),
  FOREIGN KEY(record_id,assessment_year) REFERENCES ws02_owner.owners(record_id,assessment_year)
 );
+-- Disposable persisted evaluation proof; no production migration or legal authority.
+CREATE TABLE ws02_owner.evaluation_logs(
+ actor_id uuid NOT NULL,record_id uuid NOT NULL,assessment_year text NOT NULL,
+ idem_key text NOT NULL,request_hash text NOT NULL CHECK(request_hash ~ '^[a-f0-9]{64}$'),
+ receipt_hash text NOT NULL CHECK(receipt_hash ~ '^[a-f0-9]{64}$'),
+ trace_hash text NOT NULL CHECK(trace_hash ~ '^[a-f0-9]{64}$'),
+ result_state text NOT NULL CHECK(result_state='CALCULATED'),
+ PRIMARY KEY(actor_id,record_id,assessment_year,idem_key),
+ FOREIGN KEY(actor_id,record_id,assessment_year,idem_key)
+ REFERENCES ws02_owner.slots(actor_id,record_id,assessment_year,idem_key)
+);
+ALTER TABLE ws02_owner.evaluation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.owners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.slots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ALL TABLES IN SCHEMA ws02_owner FROM PUBLIC;
 GRANT SELECT ON ws02_owner.owners TO ws02_owner_engine;
 GRANT SELECT,INSERT,UPDATE ON ws02_owner.slots TO ws02_owner_engine;
+GRANT SELECT,INSERT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
+CREATE POLICY logs_engine_read ON ws02_owner.evaluation_logs FOR SELECT
+ TO ws02_owner_engine USING (true);
+CREATE POLICY logs_engine_insert ON ws02_owner.evaluation_logs FOR INSERT
+ TO ws02_owner_engine WITH CHECK (true);
 CREATE POLICY owners_engine_read ON ws02_owner.owners FOR SELECT
   TO ws02_owner_engine USING (true);
 CREATE POLICY slots_engine_read ON ws02_owner.slots FOR SELECT
@@ -88,7 +105,14 @@ BEGIN
  UPDATE ws02_owner.slots SET state='FINALIZED',receipt_hash=p_receipt_hash
  WHERE actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
  AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
- AND request_hash=p_request_hash AND state='RESERVED';
+ AND request_hash=p_request_hash AND state='RESERVED'
+ AND EXISTS(
+  SELECT 1 FROM ws02_owner.evaluation_logs e
+  WHERE e.actor_id=p_auth_user_id AND e.record_id=p_taxpayer_record_id
+    AND e.assessment_year=p_assessment_year AND e.idem_key=p_idempotency_key
+    AND e.request_hash=p_request_hash AND e.receipt_hash=p_receipt_hash
+    AND e.result_state='CALCULATED'
+ );
  GET DIAGNOSTICS n=ROW_COUNT;
  RETURN n=1;
 END $fn$;
@@ -109,7 +133,9 @@ BEGIN
  'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)','EXECUTE') OR
  has_function_privilege('ws02_owner_auth',
  'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') OR
- has_table_privilege('ws02_owner_auth','ws02_owner.owners','SELECT') THEN
+ has_table_privilege('ws02_owner_auth','ws02_owner.owners','SELECT') OR
+ has_table_privilege('ws02_owner_auth','ws02_owner.evaluation_logs','SELECT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') THEN
  RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
 END $test$;
 SET LOCAL ROLE ws02_owner_engine;
@@ -157,10 +183,22 @@ BEGIN
  ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) OR
  ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,'bad') THEN
   RAISE EXCEPTION 'INVALID_FINALIZATION_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITHOUT_EVALUATION_LOG_ACCEPTED'; END IF;
+ INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
+   idem_key,request_hash,receipt_hash,trace_hash,result_state)
+ VALUES(a,x,'2026-27',k,h,receipt,repeat('d',64),'CALCULATED');
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,h2) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_RECEIPT_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_REQUEST_ACCEPTED'; END IF;
  IF NOT ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
   RAISE EXCEPTION 'VALID_FINALIZATION_DENIED'; END IF;
  IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
   RAISE EXCEPTION 'DUPLICATE_FINALIZATION_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs) <> 1 OR
+ (SELECT receipt_hash FROM ws02_owner.evaluation_logs) IS DISTINCT FROM receipt THEN
+  RAISE EXCEPTION 'EVALUATION_LOG_READBACK_MISMATCH'; END IF;
  IF (SELECT count(*) FROM ws02_owner.slots) <> 1 OR
  (SELECT state FROM ws02_owner.slots) IS DISTINCT FROM 'FINALIZED' OR
  (SELECT receipt_hash FROM ws02_owner.slots) IS DISTINCT FROM receipt THEN
@@ -168,4 +206,4 @@ BEGIN
 END $test$;
 RESET ROLE;
 ROLLBACK;
-SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_FINALIZE_PASS_ONLY' AS result;
+SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
