@@ -147,14 +147,14 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     <div className="rules-engine__panel rules-engine__wizard-panel">
       <h2 className="rules-engine__heading">{bn ? stepLabels[stage][1] : stepLabels[stage][0]}</h2>
       {stage === 0 && <div className="rules-engine__wizard-grid">
-        <AppTextField compact id="tax-year-target" label={tr("Target assessment year", "প্রস্তাবিত করবর্ষ")} readOnly value={draft.targetYear} onChange={() => undefined}/>
-        <AppTextField compact id="tax-year-income" label={tr("Income year", "আয়বর্ষ")} readOnly value={draft.incomeYear} onChange={() => undefined}/>
+        <AppTextField compact id="tax-year-target" label={tr("Target assessment year (local draft)", "প্রস্তাবিত করবর্ষ (স্থানীয় খসড়া)")} value={draft.targetYear} onChange={v=>update({targetYear:v})}/>
+        <AppTextField compact id="tax-year-income" label={tr("Income year (local draft)", "আয়বর্ষ (স্থানীয় খসড়া)")} value={draft.incomeYear} onChange={v=>update({incomeYear:v})}/>
         <AppTextField compact id="tax-year-base" label={tr("Controlled source AY", "নিয়ন্ত্রিত উৎস করবর্ষ")} readOnly value={draft.baseYear} onChange={() => undefined}/>
         <AppDateField compact id="tax-year-cutoff" label={tr("Proposed legal cutoff (unverified)", "প্রস্তাবিত আইনি কাটঅফ (অযাচাইকৃত)")} value={draft.legalCutoff} onChange={(v) => update({ legalCutoff: v })}/>
         <div className="rules-engine__wide"><AppTextArea id="tax-year-taxpayer-scope" rows={2}
           label={tr("Proposed taxpayer scope and exclusions (unverified)", "প্রস্তাবিত করদাতা ও বর্জনের পরিধি (অযাচাইকৃত)")}
           value={draft.taxpayerScope} onChange={v=>update({taxpayerScope:v})}/></div>
-        <div className="rules-engine__wide"><p>{tr(`2026-10-10 snapshot year state: ${existingDraft?.dbState ?? "UNKNOWN"}. All 366 inherited versions remain pending review.`, `১০ অক্টোবর ২০২৬-এর স্ন্যাপশট বর্ষ: ${existingDraft?.dbState ?? "অজানা"}। ৩৬৬টি উত্তরাধিকারী সংস্করণ পর্যালোচনাধীন।`)}</p></div>
+        <div className="rules-engine__wide"><p>{tr(`2026-10-10 snapshot year state: ${existingDraft?.dbState ?? "NOT IN SNAPSHOT — NEW LOCAL DRAFT"}. All 366 inherited versions remain pending review.`, `১০ অক্টোবর ২০২৬-এর স্ন্যাপশট বর্ষ: ${existingDraft?.dbState ?? "স্ন্যাপশটে নেই — নতুন স্থানীয় খসড়া"}। ৩৬৬টি উত্তরাধিকারী সংস্করণ পর্যালোচনাধীন।`)}</p></div>
       </div>}
       {stage === 1 && <>
         <p>{tr("Select the canonical IDs needing legal comparison. Selecting a rule does not authorize execution.", "যেসব মূল বিধির আইনি তুলনা দরকার সেগুলো নির্বাচন করুন। নির্বাচনে হিসাব অনুমোদিত হয় না।")}</p>
