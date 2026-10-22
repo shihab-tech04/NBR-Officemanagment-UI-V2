@@ -78,6 +78,30 @@ export interface PagedSqlRules {
   rules: SqlRuleRecord[];
 }
 
+/** Compare the complete returned JSON rule body and exact revision metadata, not only its ID/count. */
+export function compareAuthenticatedRuleDetail(
+  listed: SqlRuleRecord, detailed: SqlRuleDetail, assessmentYear: string,
+): string[] {
+  const errors: string[] = [];
+  if (detailed.year.assessment_year !== assessmentYear) errors.push("assessment_year");
+  if (listed.rule_id !== detailed.version.rule_key) errors.push("rule_key");
+  if (listed._backend.versionId !== detailed.version.id) errors.push("versionId");
+  if (listed._backend.revisionNo !== detailed.version.revision_no) errors.push("revisionNo");
+  if (listed._backend.groupId !== detailed.version.group_id) errors.push("groupId");
+  if (listed._backend.yearApplicabilityStatus !== detailed.version.year_applicability_status) errors.push("yearApplicabilityStatus");
+  if (listed._backend.executionStatus !== detailed.version.execution_status) errors.push("executionStatus");
+  const body: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(listed)) if (key !== "_backend") body[key] = value;
+  const expectedKeys = Object.keys(body).sort();
+  const actualKeys = Object.keys(detailed.version.rule_data).sort();
+  if (JSON.stringify(expectedKeys) !== JSON.stringify(actualKeys)) errors.push("ruleData.keys");
+  for (const key of expectedKeys) {
+    if (JSON.stringify(body[key]) !== JSON.stringify(detailed.version.rule_data[key]))
+      errors.push("ruleData." + key);
+  }
+  return errors;
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
