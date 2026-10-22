@@ -26,16 +26,16 @@ export function buildAuditQuickSummary(
   t: Translator,
   language: string,
 ): string {
-  const signalIds = Array.from(new Set(String(candidate.signals ?? "").match(/R-[A-E]\d/g) ?? []));
+  const prefix = "candidates.detail.quickSummary";
+  const signalIds = Array.from(new Set(String(candidate.signals ?? "").match(/R-[A-E]\\d/g) ?? []));
   const firstSignals = signalIds.slice(0, 2);
   const signalDescriptions = firstSignals.map((code) =>
-    `${code} (${t(`candidates.detail.signalLabels.${code}`)})`,
+    `${code} (${t(prefix + ".signalShort." + code)})`,
   );
   const listedSignals = signalDescriptions.join(", ") +
     (signalIds.length > 2
       ? t("candidates.detail.quickSummary.moreSignals", { count: signalIds.length - 2 })
       : "");
-  const prefix = "candidates.detail.quickSummary";
   const lead = t(prefix + ".lead", {
     name: clipped(candidate.taxpayer_name, 48),
     year: clipped(candidate.assessment_year, 12),
@@ -49,13 +49,10 @@ export function buildAuditQuickSummary(
   const shortIndicators = signalIds.length
     ? t(prefix + ".shortIndicators", { codes: signalIds.join(", ") })
     : t(prefix + ".noIndicators");
-  const actionEvidence = firstSignals.map((id) =>
-    t(`candidates.detail.auditNote.actions.${id}`),
-  );
-  const action = t(prefix + ".action", {
-    evidence: clipped(actionEvidence.join("; ") ||
-      t("candidates.detail.auditNote.defaultEvidence"), 90),
-  });
+  const actionEvidence = firstSignals.length
+    ? t(`candidates.detail.auditNote.actions.${firstSignals[0]}`)
+    : t("candidates.detail.auditNote.defaultEvidence");
+  const action = t(prefix + ".action", { evidence: clipped(actionEvidence, 65) });
   const coverage = t(prefix + ".coverage", {
     quality: clipped(source?.data_quality ?? candidate.data_quality, 22),
     tier: clipped(candidate.coverage_tier, 12),
