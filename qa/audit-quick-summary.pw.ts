@@ -9,14 +9,17 @@ const cases = [
   { width: 360, height: 800 },
 ];
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
+test.beforeEach(async ({ page }, testInfo) => {
+  // i18next detects from its own saved language key, not gov_ui_settings.
+  const language = testInfo.title.startsWith('Bengali') ? 'bn' : 'en';
+  await page.addInitScript((lang) => {
     localStorage.setItem('gov_ui_auth', JSON.stringify({ isAuthenticated: true, userId: 'admin' }));
     localStorage.setItem('gov_ui_settings', JSON.stringify({
       assessmentYear: '2024-25', themeId: 'indigo-blue',
-      fontId: 'poppins', fontSizeId: 'standard', languageId: 'en',
+      fontId: 'poppins', fontSizeId: 'standard', languageId: lang,
     }));
-  });
+    localStorage.setItem('i18nextLng', lang);
+  }, language);
 });
 
 for (const viewport of cases) {
@@ -66,12 +69,6 @@ test('switching candidate updates the insight and never leaks prior selection', 
 });
 
 test('Bengali Quick summary is localized and remains under 350 characters', async({page}) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('gov_ui_settings', JSON.stringify({
-      assessmentYear: '2024-25', themeId: 'indigo-blue',
-      fontId: 'poppins', fontSizeId: 'standard', languageId: 'bn',
-    }));
-  });
   await page.setViewportSize({width:390,height:844});
   await page.goto(first);
   const control = page.locator('.audit-detail-back-row').getByRole('button', { name: 'সংক্ষিপ্ত সারাংশ' });
