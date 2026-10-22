@@ -8,7 +8,6 @@ import {
   Printer,
   ShieldAlert,
   Sparkles,
-  X,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
 import { useTranslation } from "react-i18next";
@@ -35,7 +34,7 @@ import {
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
-import { buildAuditQuickSummary } from "./auditQuickSummary";
+import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
 
 const PER_PAGE = 10;
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -1419,7 +1418,6 @@ export function AuditCandidatesPage({
   if (selectedCandidate && selectedBatch) {
     const selectionReason = getCandidateReason(selectedCandidate, t);
     const quickSummaryOpen = quickSummaryCandidateId === selectedCandidate.candidate_id;
-    const quickSummary = buildAuditQuickSummary(selectedCandidate, sourceTaxpayer, t, i18n.resolvedLanguage ?? "en");
     const selectionCircles = Array.from(
       new Set(selectedCandidate.selection_basis.match(/Circle-\d+/g) ?? []),
     );
@@ -1562,39 +1560,12 @@ export function AuditCandidatesPage({
             size="sm"
             icon={Sparkles}
             className="audit-quick-summary__toggle"
-            onClick={() => setQuickSummaryCandidateId(quickSummaryOpen ? null : selectedCandidate.candidate_id)}
+            onClick={() => setQuickSummaryCandidateId(selectedCandidate.candidate_id)}
           >
-            {t(quickSummaryOpen ? "candidates.detail.quickSummary.hide" : "candidates.detail.quickSummary.title")}
+            {t("candidates.detail.quickSummary.title")}
           </SecondaryButton>
         </div>
 
-        {quickSummaryOpen && (
-          <section
-            id="audit-quick-summary"
-            className="audit-quick-summary"
-            aria-labelledby="audit-quick-summary-title"
-            role="region"
-          >
-            <div className="audit-quick-summary__header">
-              <div className="audit-quick-summary__heading">
-                <Sparkles size={16} aria-hidden="true" />
-                <strong id="audit-quick-summary-title">{t("candidates.detail.quickSummary.title")}</strong>
-                <span>{t("candidates.detail.quickSummary.insightLabel")}</span>
-              </div>
-              <button type="button" className="audit-quick-summary__close"
-                onClick={() => setQuickSummaryCandidateId(null)}
-                aria-label={t("candidates.detail.quickSummary.hide")}>
-                <X size={16} aria-hidden="true" />
-              </button>
-            </div>
-            <p className="audit-quick-summary__text">{quickSummary}</p>
-            <p className="audit-quick-summary__source">
-              {t("candidates.detail.quickSummary.synopsisSource")}
-            </p>
-          </section>
-        )}
-
-        <p className="audit-data-source-note">{t("overview.localDatasetScope")} {t("overview.generatedFinancialScope")}</p>
 
         <div className="audit-candidate-detail__header">
           <div className="audit-candidate-detail__top">
@@ -1823,7 +1794,19 @@ export function AuditCandidatesPage({
               </div>
               <div>
                 <p>{t("candidates.detail.signalsShort")}</p>
-                <strong>{currentSignals.length ? currentSignals.join(", ") : "—"}</strong>
+                {currentSignals.length ? (
+                      <span className="audit-summary-signal-list">
+                        {currentSignals.map((signal) => (
+                          <Tooltip key={signal} title={t(SIGNAL_LABEL_KEYS[signal] ?? signal)} arrow>
+                            <button type="button" className="audit-concept-inline"
+                              aria-label={`${signal}: ${t(SIGNAL_LABEL_KEYS[signal] ?? signal)}`}
+                              onClick={() => explain("signals", signal, profileExplanationRow)}>
+                              {signal}
+                            </button>
+                          </Tooltip>
+                        ))}
+                      </span>
+                    ) : "—"}
               </div>
               <div>
                 <p>{t("candidates.detail.funnelRule")}</p>
@@ -2077,6 +2060,78 @@ export function AuditCandidatesPage({
               </table>
             </div>
         </section>
+        <ResponsiveOverlay
+          open={quickSummaryOpen}
+          onClose={() => setQuickSummaryCandidateId(null)}
+          title={t("candidates.detail.quickSummary.title")}
+          closeLabel={tc("accessibility.closeDrawer")}
+          desktopWidth="560px"
+          className="audit-summary-drawer"
+        >
+          <div className="form-stack audit-summary-drawer__content">
+            <section className="detail-section">
+              <h3 className="detail-section__head detail-section__head--static">{selectedCandidate.taxpayer_name}</h3>
+              <p className="audit-summary-drawer__meta">
+                {t("candidates.detail.labels.returnId")}: {selectedCandidate.return_id}
+                {" · "}{selectedCandidate.circle}
+                {" · "}{selectedCandidate.assessment_year}
+              </p>
+              <div className="drawer-field-grid">
+                <div className="drawer-field">
+                  <span className="drawer-field__label">{t("columns.riskLevel")}</span>
+                  <div className="drawer-field__value"><strong>{selectedCandidate.risk_level}</strong></div>
+                </div>
+                <div className="drawer-field">
+                  <span className="drawer-field__label">{t("candidates.columns.auditStatus")}</span>
+                  <div className="drawer-field__value"><strong>{selectedCandidate.audit_status}</strong></div>
+                </div>
+              </div>
+            </section>
+            <section className="detail-section">
+              <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.selectionReason")}</h3>
+              <p className="audit-summary-drawer__copy">{selectionReason}</p>
+            </section>
+            {currentSignals.length > 0 && (
+              <section className="detail-section">
+                <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.signalsShort")}</h3>
+                <div className="audit-summary-drawer__signals">
+                  {currentSignals.map((signal) => (
+                    <Tooltip key={signal} title={t(SIGNAL_LABEL_KEYS[signal] ?? signal)} arrow placement="top">
+                      <button type="button" className="audit-summary-drawer__signal"
+                        aria-label={`${signal}: ${t(SIGNAL_LABEL_KEYS[signal] ?? signal)}`}
+                        onClick={() => {
+                          setQuickSummaryCandidateId(null);
+                          explain("signals", signal, profileExplanationRow);
+                        }}>
+                        <strong>{signal}</strong>
+                        <span>{t(SIGNAL_LABEL_KEYS[signal] ?? signal)}</span>
+                      </button>
+                    </Tooltip>
+                  ))}
+                </div>
+              </section>
+            )}
+            {auditNoteIndicator && (
+              <section className="detail-section">
+                <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.auditNote.issue")}</h3>
+                <div className="drawer-field-grid">
+                  <div className="drawer-field drawer-field--wide">
+                    <span className="drawer-field__label">{auditNoteIndicator.label}</span>
+                    <div className="drawer-field__value">
+                      <strong>{formatMoney(auditNoteIndicator.values[2], language)}</strong>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+            <section className="detail-section">
+              <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.auditNote.nextActionLabel")}</h3>
+              <p className="audit-summary-drawer__copy">{auditNextAction}</p>
+            </section>
+            <p className="audit-summary-drawer__caution">{t("candidates.detail.guardrailShort")}</p>
+          </div>
+        </ResponsiveOverlay>
+        <AuditExplainerDrawer explanation={explanation} onClose={() => setExplanation(null)} />
       </div>
     );
   }
@@ -2119,8 +2174,6 @@ export function AuditCandidatesPage({
           </div>
         )}
       </div>
-
-      <p className="audit-data-source-note">{t("overview.localDatasetScope")}</p>
 
       <MobileSearchFilter
         searchValue={q}

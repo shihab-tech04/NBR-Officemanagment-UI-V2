@@ -26,11 +26,11 @@ for (const viewport of viewports) {
     for (const tab of tabs) {
       await page.goto('/audit/' + tab);
       await expect(page.locator('.dashboard-page,.table-page').first(), tab).toBeVisible({timeout:18000});
-      if (tab !== 'audit-manual') {
-        await expect(page.locator('.audit-data-source-note').first(), `source note on ${tab}`).toBeVisible();
-        const text = await page.locator('.audit-data-source-note').first().innerText();
-        expect(text).toContain('2025');
-      }
+      // Source-truth remains tested through record counts and filters, not
+      // through unwanted reference paragraphs inserted into every screen.
+      const visiblePage = await page.locator('.dashboard-page,.table-page').first().innerText();
+      expect(visiblePage).not.toContain('Illustrative AY 2025');
+      expect(visiblePage).not.toContain('72,341 selections');
       if (tab === 'audit-overview') {
         const overview = await page.locator('.audit-overview-v5').innerText();
         expect(overview).not.toContain('333,333');
@@ -38,9 +38,7 @@ for (const viewport of viewports) {
         expect(overview).not.toContain('1,000,000');
         expect(overview).not.toContain('4M+');
         await expect(page.locator('.audit-overview-v5 .audit-overview-v5__donut')).toContainText('36');
-        const published = page.locator('.audit-data-source-note a');
-        await expect(published).toContainText('2023');
-        expect(await published.getAttribute('href')).toContain('nbr.gov.bd');
+        await expect(page.locator('.audit-overview__scope-badge')).toHaveCount(0);
       }
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth-innerWidth);
       expect(overflow, `no page horizontal overflow in ${tab}`).toBeLessThanOrEqual(2);
