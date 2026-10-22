@@ -997,7 +997,8 @@ Deno.serve(async (req) => {
     }
     if (body.contractVersion !== CONTRACT_VERSION ||
         typeof body.legalEventDate !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(body.legalEventDate) ||        !Number.isFinite(Date.parse(body.legalEventDate + "T00:00:00Z")) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(body.legalEventDate) ||
+        !Number.isFinite(Date.parse(body.legalEventDate + "T00:00:00Z")) ||
         new Date(body.legalEventDate + "T00:00:00Z").toISOString().slice(0,10) !== body.legalEventDate ||
         typeof body.expectedSourceCutoff !== "string" ||
         !/^\d{4}-\d{2}-\d{2}$/.test(body.expectedSourceCutoff) ||
@@ -1392,3 +1393,4 @@ Deno.serve(async (req) => {
     return json({ status:"FAIL_CLOSED", code:"EVALUATOR_EXCEPTION", error:"Evaluation refused; no tax amount is authorized" }, 503);
   }
 });
+
