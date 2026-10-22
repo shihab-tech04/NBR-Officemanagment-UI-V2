@@ -58,7 +58,7 @@ test('risk signal totals come from all 36 loaded records, including overlapping 
   const rows=page.locator('.audit-overview-v5__chart-detail');
   expect(await rows.count()).toBeGreaterThan(9);
   const seen=await rows.locator(':scope > strong').allTextContents();
-  expect(seen.every(value=>/^\\d+$/.test(value.trim()))).toBeTruthy();
+  expect(seen.every(value=>/^\d+$/.test(value.trim()))).toBeTruthy();
   expect(seen.every(value=>Number(value)<=36)).toBeTruthy();
   await page.locator('.audit-overview-v5__parameters').getByRole('button',{name:'Circle',exact:true}).click();
   await expect(page.locator('.audit-overview-v5__chart-detail').first()).toContainText('Circle-');
