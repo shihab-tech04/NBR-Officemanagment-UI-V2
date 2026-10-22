@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRulesAdminReadClient } from "../nbrRulesAdminReadClient";
+import { createRulesAdminReadClient, compareAuthenticatedRuleDetail, type SqlRuleDetail } from "../nbrRulesAdminReadClient";
 
 const baseUrl="https://example.supabase.co/functions/v1/nbr-rules-api";
 const auth={baseUrl,bearerToken:"verified-fixture-token",ruleSessionToken:"fixture-session"};
@@ -84,6 +84,27 @@ describe("WS03 protected v15 SQL version readback, no write capability",()=>{
     const malicious={...good,version:{...good.version,rule_key:"OTHER-RULE"}};
     const bad=createRulesAdminReadClient({...auth,fetcher:vi.fn(async()=>new Response(JSON.stringify(malicious),{status:200})) as unknown as typeof fetch});
     await expect(bad.getRule("2027-28","ACK-1695-001")).rejects.toThrow("identity/version/year");
+  });
+  it("rejects mismatched full rule details even when identity and revision match",()=>{
+    const list={rule_id:"TEST-A",logic:"Synthetic formula A",facts:{required:true},
+      _backend:{versionId:"v-one",revisionNo:1,groupId:"other",yearApplicabilityStatus:"FACT_GATED",
+        executionStatus:"FACT_GATED"}};
+    const detailed={
+      year:{assessment_year:"2026-27"},
+      version:{id:"v-one",rule_key:"TEST-A",revision_no:1,
+        group_id:"other",year_applicability_status:"FACT_GATED",execution_status:"FACT_GATED",
+        rule_data:{rule_id:"TEST-A",logic:"Synthetic formula A",facts:{required:true}}},
+      identity:null,changes:[],audit:[],
+    } as unknown as SqlRuleDetail;
+    expect(compareAuthenticatedRuleDetail(list,detailed,"2026-27")).toEqual([]);
+    detailed.version.rule_data.logic="Synthetic changed formula B";
+    expect(compareAuthenticatedRuleDetail(list,detailed,"2026-27")).toContain("ruleData.logic");
+    detailed.version.rule_data.logic="Synthetic formula A";
+    detailed.version.revision_no=2;
+    expect(compareAuthenticatedRuleDetail(list,detailed,"2026-27")).toContain("revisionNo");
+    detailed.version.revision_no=1;
+    detailed.version.rule_data.unapproved_provision="added without list update";
+    expect(compareAuthenticatedRuleDetail(list,detailed,"2026-27")).toContain("ruleData.keys");
   });
   it("requires bearer and rule session; denied reads never fall back to snapshots",async()=>{
     expect(()=>createRulesAdminReadClient({...auth,bearerToken:""})).toThrow("verified bearer");
