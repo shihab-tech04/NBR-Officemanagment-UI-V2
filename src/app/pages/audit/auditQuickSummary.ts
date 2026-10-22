@@ -27,7 +27,7 @@ export function buildAuditQuickSummary(
   language: string,
 ): string {
   const prefix = "candidates.detail.quickSummary";
-  const signalIds = Array.from(new Set(String(candidate.signals ?? "").match(/R-[A-E]\\d/g) ?? []));
+  const signalIds = Array.from(new Set(String(candidate.signals ?? "").match(/R-[A-E]\d/g) ?? []));
   const firstSignals = signalIds.slice(0, 2);
   const signalDescriptions = firstSignals.map((code) =>
     `${code} (${t(prefix + ".signalShort." + code)})`,
