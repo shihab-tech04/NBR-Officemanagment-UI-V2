@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/audit-release-recovery.yml'
+      - 'src/app/pages/audit/**'
+      - 'src/app/locales/en/audit.json'
+      - 'src/app/locales/bn/audit.json'
+      - 'src/styles/audit.css'
   workflow_dispatch:
 permissions:
   contents: read

@@ -23,7 +23,7 @@ import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
 import {
   ALL_TAXPAYER_ROWS, AUDIT_TRAIL_ROWS, CONTROL_ROWS,
-  RECONCILIATION_ROWS, RISK_CASE_ROWS, RISK_DISTRIBUTION_ROWS,
+  RISK_CASE_ROWS,
   RULE_ROWS, SECOND_REVIEW_ROWS,
 } from "./auditData";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
@@ -33,7 +33,6 @@ import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge
 import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
-import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../data/taxJurisdictions";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
 
@@ -68,6 +67,28 @@ function uniqueValues(rows: TableRow[], field: string): string[] {
   return Array.from(new Set(
     rows.map(row => String(row[field] ?? "").trim()).filter(Boolean)
   )).sort((a, b) => a.localeCompare(b));
+}
+
+/** Cross-link only records that exist in the loaded, illustrative sources. */
+function buildLoadedReconciliation(candidates: TableRow[], cases: TableRow[]): TableRow[] {
+  const caseKeys = new Set(cases.map((row) =>
+    [String(row.assessment_year ?? ""), String(row.return_id ?? "")].join("|")));
+  const highRisk = candidates.filter((row) => ["High", "Very High"].includes(String(row.risk_level ?? "")));
+  const circles = Array.from(new Set(highRisk.map((row) => String(row.circle ?? "").trim()).filter(Boolean))).sort();
+  const groups = [{ label: "Loaded selection", rows: highRisk }, ...circles.map((circle) => ({
+    label: circle, rows: highRisk.filter((row) => String(row.circle) === circle),
+  }))];
+  return groups.map(({ label, rows }, index) => {
+    const linked = rows.filter((row) => caseKeys.has(
+      [String(row.assessment_year ?? ""), String(row.return_id ?? "")].join("|"))).length;
+    const missing = rows.length - linked;
+    return {
+      id: String(index + 1), reconciliation_date: "—", scope: label,
+      high_risk_returns: String(rows.length), matching_cases: String(linked),
+      missing_case_count: String(missing),
+      reconciliation_status: missing ? "Missing Case" : "Matched", supervisor_view: "—",
+    };
+  });
 }
 
 function AuditTablePage({ config }: { config: AuditTableConfig }) {
@@ -153,6 +174,8 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         </div>
         {config.readOnly && <StatusBadge value="Read only" />}
       </div>
+
+      <p className="audit-data-source-note">{t("overview.localDatasetScope")}</p>
 
       <MobileSearchFilter
         searchValue={q}
@@ -282,7 +305,8 @@ function AuditOverviewPage() {
   type WorkloadMetric = "candidates" | "active" | "evidence" | "controls" | "secondReview" | "closed";
   type WorkloadSort = "circle" | "highest";
 
-  const verifiedWorkloadZones = Object.keys(VERIFIED_TAX_JURISDICTIONS);
+  // No verified Zone-to-fixture Circle mapping is present.
+  const verifiedWorkloadZones: string[] = [];
   const [groupMetric, setGroupMetric] = useState<ExploreMetric>("risk_level");
   const [filterMetric, setFilterMetric] = useState<ExploreMetric | null>(null);
   const [filterValue, setFilterValue] = useState("all");
@@ -299,12 +323,10 @@ function AuditOverviewPage() {
   const candidates = getAuditCandidates();
   const population = ALL_TAXPAYER_ROWS;
 
-  // National-scale prototype baselines.
-  // 4.0M+ is used as the screened-population floor; 72,341 is the published
-  // automatic-audit selection baseline. All other large dashboard figures are
-  // proportional projections from the representative prototype records.
-  const NATIONAL_SCREENED_POPULATION = 4_000_000;
-  const NATIONAL_AUDIT_CANDIDATES = 72_341;
+  // Live dashboard controls are derived from the exact locally loaded records.
+  // Published NBR national numbers are historical context, never scaling factors.
+  const LOADED_RETURN_COUNT = population.length;
+  const LOADED_CANDIDATE_COUNT = candidates.length;
 
   const formatDashboardNumber = (value: number) =>
     new Intl.NumberFormat(i18n.resolvedLanguage === "bn" ? "bn-BD" : "en-US").format(Math.max(0, Math.round(value)));
@@ -324,31 +346,6 @@ function AuditOverviewPage() {
     }).format(rounded);
   };
 
-  const projectCount = (sampleCount: number, sampleTotal: number, targetTotal: number) =>
-    sampleTotal > 0 ? Math.round((sampleCount / sampleTotal) * targetTotal) : 0;
-
-  function scaleDistribution<T extends { value: number }>(items: T[], targetTotal: number): T[] {
-    const sampleTotal = items.reduce((sum, item) => sum + item.value, 0);
-    if (!sampleTotal || items.length === 0) return items.map((item) => ({ ...item, value: 0 }));
-    const projected = items.map((item) => ({
-      ...item,
-      value: Math.round((item.value / sampleTotal) * targetTotal),
-    }));
-    const projectedTotal = projected.reduce((sum, item) => sum + item.value, 0);
-    const difference = targetTotal - projectedTotal;
-    if (difference !== 0) {
-      const largestIndex = projected.reduce(
-        (best, item, index, list) => item.value > list[best].value ? index : best,
-        0,
-      );
-      projected[largestIndex] = {
-        ...projected[largestIndex],
-        value: Math.max(0, projected[largestIndex].value + difference),
-      };
-    }
-    return projected;
-  }
-
   const activeCases = RISK_CASE_ROWS.filter((row) => String(row.case_status ?? "") !== "Closed");
   const closedCases = RISK_CASE_ROWS.filter((row) => String(row.case_status ?? "") === "Closed");
   const pendingEvidence = RISK_CASE_ROWS.filter((row) =>
@@ -362,38 +359,18 @@ function AuditOverviewPage() {
     ["Ready for Review", "Second Review", "Rework Requested"].includes(String(row.case_status ?? ""))
   );
 
-  const caseSampleTotal = Math.max(1, RISK_CASE_ROWS.length);
-  const controlSampleTotal = Math.max(1, CONTROL_ROWS.length);
-  const projectedActiveCases = projectCount(activeCases.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedPendingEvidence = projectCount(pendingEvidence.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedOpenControls = projectCount(openControls.length, controlSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedSecondReview = projectCount(SECOND_REVIEW_ROWS.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedVerificationCases = projectCount(verificationCases.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedAuditReviewCases = projectCount(auditReviewCases.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-  const projectedClosedCases = projectCount(closedCases.length, caseSampleTotal, NATIONAL_AUDIT_CANDIDATES);
-
-  const latestZoneReconciliation = [...RECONCILIATION_ROWS]
-    .filter((row) => String(row.scope ?? "") === "Zone summary")
-    .sort((a, b) => String(b.reconciliation_date ?? "").localeCompare(String(a.reconciliation_date ?? "")))[0]
-    ?? [...RECONCILIATION_ROWS]
-      .sort((a, b) => String(b.reconciliation_date ?? "").localeCompare(String(a.reconciliation_date ?? "")))[0];
-
-  const reconciliationMissing = Number(latestZoneReconciliation?.missing_case_count ?? 0);
-  const reconciliationHighRisk = Number(latestZoneReconciliation?.high_risk_returns ?? 0);
-  const reconciliationMatched = Number(latestZoneReconciliation?.matching_cases ?? 0);
-  const reconciliationRate = reconciliationHighRisk > 0
-    ? Math.round((reconciliationMatched / reconciliationHighRisk) * 100)
-    : 100;
-  const highRiskCandidateSample = candidates.filter((row) =>
-    ["High", "Very High"].includes(String(row.risk_level ?? "")),
-  ).length;
-  const projectedHighRiskReturns = projectCount(
-    highRiskCandidateSample,
-    Math.max(1, candidates.length),
-    NATIONAL_AUDIT_CANDIDATES,
-  );
-  const projectedReconciliationMatched = Math.round(projectedHighRiskReturns * (reconciliationRate / 100));
-  const projectedReconciliationMissing = Math.max(0, projectedHighRiskReturns - projectedReconciliationMatched);
+  const countActiveCases = activeCases.length;
+  const countPendingEvidence = pendingEvidence.length;
+  const countOpenControls = openControls.length;
+  const countSecondReview = SECOND_REVIEW_ROWS.length;
+  const countVerificationCases = verificationCases.length;
+  const countAuditReviewCases = auditReviewCases.length;
+  const countClosedCases = closedCases.length;
+  const linkedReconciliation = buildLoadedReconciliation(candidates, RISK_CASE_ROWS);
+  const reconciliationSummary = linkedReconciliation[0];
+  const countHighRiskReturns = Number(reconciliationSummary?.high_risk_returns ?? 0);
+  const countReconciliationMatched = Number(reconciliationSummary?.matching_cases ?? 0);
+  const countReconciliationMissing = Number(reconciliationSummary?.missing_case_count ?? 0);
 
   const countBy = (rows: TableRow[], key: string) => {
     const counts = new Map<string, number>();
@@ -408,19 +385,13 @@ function AuditOverviewPage() {
   const coverageOrder = ["DT0", "DT1", "DT1+H", "DT2", "DT3"];
   const qualityOrder = ["Complete", "Incomplete", "Invalid"];
   const riskCounts = countBy(population, "risk_level");
-  const riskItems = scaleDistribution(
-    riskOrder.map((label) => ({ label, value: riskCounts.get(label) ?? 0 })),
-    NATIONAL_SCREENED_POPULATION,
-  );
+  const riskItems = riskOrder.map((label) => ({ label, value: riskCounts.get(label) ?? 0 }));
   const qualityCountsSample = countBy(population, "data_quality");
-  const qualityItems = scaleDistribution(
-    qualityOrder.map((label) => ({ label, value: qualityCountsSample.get(label) ?? 0 })),
-    NATIONAL_SCREENED_POPULATION,
-  );
+  const qualityItems = qualityOrder.map((label) => ({ label, value: qualityCountsSample.get(label) ?? 0 }));
   const qualityCounts = new Map(qualityItems.map((item) => [item.label, item.value]));
   const completeQuality = qualityCounts.get("Complete") ?? 0;
-  const completeQualityRate = NATIONAL_SCREENED_POPULATION
-    ? Math.round((completeQuality / NATIONAL_SCREENED_POPULATION) * 100)
+  const completeQualityRate = LOADED_RETURN_COUNT
+    ? Math.round((completeQuality / LOADED_RETURN_COUNT) * 100)
     : 0;
 
   const riskColorMap: Record<string, string> = {
@@ -433,7 +404,7 @@ function AuditOverviewPage() {
 
   let riskDonutOffset = 0;
   const riskDonutSegments = riskItems.map((item) => {
-    const pct = NATIONAL_SCREENED_POPULATION ? (item.value / NATIONAL_SCREENED_POPULATION) * 100 : 0;
+    const pct = LOADED_RETURN_COUNT ? (item.value / LOADED_RETURN_COUNT) * 100 : 0;
     const segment = { ...item, pct, offset: riskDonutOffset };
     riskDonutOffset += pct;
     return segment;
@@ -483,17 +454,8 @@ function AuditOverviewPage() {
   const filteredPopulation = filterMetric && filterValue !== "all"
     ? population.filter((row) => rowMatchesMetric(row, filterMetric, filterValue))
     : population;
-  const projectedFilteredPopulation = projectCount(
-    filteredPopulation.length,
-    Math.max(1, population.length),
-    NATIONAL_SCREENED_POPULATION,
-  );
-  const exploreItems = metricValues(groupMetric, filteredPopulation)
-    .slice(0, 12)
-    .map((item) => ({
-      ...item,
-      value: projectCount(item.value, Math.max(1, population.length), NATIONAL_SCREENED_POPULATION),
-    }));
+  const projectedFilteredPopulation = filteredPopulation.length;
+  const exploreItems = metricValues(groupMetric, filteredPopulation);
   const filterOptions = filterMetric ? metricValues(filterMetric).map((item) => item.label) : [];
   const maxExploreValue = Math.max(1, ...exploreItems.map((item) => item.value));
   const highlightedItem = exploreItems.find((item) => item.label === highlightedValue) ?? exploreItems[0] ?? null;
@@ -598,33 +560,20 @@ function AuditOverviewPage() {
   const selectionItemsSample = Object.values(trackBuckets)
     .filter((item) => item.count > 0)
     .sort((a, b) => b.count - a.count);
-  const selectionCountProjection = scaleDistribution(
-    selectionItemsSample.map((item) => ({ value: item.count })),
-    NATIONAL_AUDIT_CANDIDATES,
-  );
-  const selectionItems = selectionItemsSample.map((item, index) => ({
-    ...item,
-    count: selectionCountProjection[index]?.value ?? 0,
-  }));
+  const selectionItems = selectionItemsSample;
   const maxSelectionCount = Math.max(1, ...selectionItems.map((item) => item.count));
   const selectionTotal = selectionItems.reduce((sum, item) => sum + item.count, 0);
 
   const selectionByDate = new Map<string, number>();
-  const seenCandidateBatches = new Set<string>();
   candidates.forEach((candidate) => {
-    const batchId = String(candidate.batch_id ?? candidate.selected_on ?? candidate.candidate_id ?? "");
-    if (seenCandidateBatches.has(batchId)) return;
-    seenCandidateBatches.add(batchId);
     const date = String(candidate.selected_on ?? "");
-    if (!date) return;
-    const batchCount = candidates.filter((row) => String(row.batch_id ?? row.selected_on ?? row.candidate_id ?? "") === batchId).length;
-    selectionByDate.set(date, (selectionByDate.get(date) ?? 0) + batchCount);
+    if (date) selectionByDate.set(date, (selectionByDate.get(date) ?? 0) + 1);
   });
 
   const selectionTimelineSample = Array.from(selectionByDate.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, selected]) => ({ date, value: selected }));
-  const selectionTimelineProjected = scaleDistribution(selectionTimelineSample, NATIONAL_AUDIT_CANDIDATES);
+  const selectionTimelineProjected = selectionTimelineSample;
 
   let runningCandidates = 0;
   const selectionTimeline = selectionTimelineProjected.map(({ date, value }) => {
@@ -670,50 +619,29 @@ function AuditOverviewPage() {
   };
 
   const queueItems = [
-    { label: t("overview.queues.risk"), count: projectedActiveCases, detail: t("overview.queueWaiting.risk"), status: t("overview.queueStatus.inProgress"), tone: "warning", route: "/audit/risk-cases" },
-    { label: t("overview.queues.control"), count: projectedOpenControls, detail: t("overview.queueWaiting.control"), status: t("overview.queueStatus.inProgress"), tone: "primary", route: "/audit/control-data-quality" },
-    { label: t("overview.queues.secondReview"), count: projectedSecondReview, detail: t("overview.queueWaiting.secondReview"), status: t("overview.queueStatus.pendingReview"), tone: "primary", route: "/audit/second-review" },
-    { label: t("overview.queues.reconciliation"), count: projectedReconciliationMissing, detail: t("overview.queueWaiting.reconciliation"), status: projectedReconciliationMissing ? t("overview.queueStatus.needsAttention") : t("overview.queueStatus.matched"), tone: projectedReconciliationMissing ? "error" : "success", route: "/audit/reconciliation" },
+    { label: t("overview.queues.risk"), count: countActiveCases, detail: t("overview.queueWaiting.risk"), status: t("overview.queueStatus.inProgress"), tone: "warning", route: "/audit/risk-cases" },
+    { label: t("overview.queues.control"), count: countOpenControls, detail: t("overview.queueWaiting.control"), status: t("overview.queueStatus.inProgress"), tone: "primary", route: "/audit/control-data-quality" },
+    { label: t("overview.queues.secondReview"), count: countSecondReview, detail: t("overview.queueWaiting.secondReview"), status: t("overview.queueStatus.pendingReview"), tone: "primary", route: "/audit/second-review" },
+    { label: t("overview.queues.reconciliation"), count: countReconciliationMissing, detail: t("overview.queueWaiting.reconciliation"), status: countReconciliationMissing ? t("overview.queueStatus.needsAttention") : t("overview.queueStatus.matched"), tone: countReconciliationMissing ? "error" : "success", route: "/audit/reconciliation" },
   ];
 
-  const verifiedWorkloadCircles = getVerifiedCirclesForZone(workloadZone);
-  const fallbackCircles = Array.from(new Set([
-    ...population.map((row) => String(row.circle ?? "")),
-    ...candidates.map((row) => String(row.circle ?? "")),
-  ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const workloadCircles = verifiedWorkloadCircles.length ? verifiedWorkloadCircles : fallbackCircles;
-
-  const normalizeWorkloadCircle = (value: unknown) => {
-    const raw = String(value ?? "").trim();
-    const legacy = raw.match(/^Circle-(\d{1,2})$/i);
-    if (legacy && verifiedWorkloadCircles.length) {
-      const mapped = verifiedWorkloadCircles[Number(legacy[1]) - 1];
-      if (mapped) return mapped;
-    }
-    return raw;
-  };
-
-  const rowBelongsToWorkloadZone = (row: TableRow) => {
-    const zone = String(row.zone ?? "").trim();
-    return !workloadZone || !zone || zone === "—" || zone === workloadZone;
-  };
-
+  // The four sample Circle labels are unmapped. Never display them as
+  // verified field-office jurisdictions or duplicate totals across zones.
+  const workloadCircles = Array.from(new Set([
+    ...population.map((row) => String(row.circle ?? "").trim()),
+    ...candidates.map((row) => String(row.circle ?? "").trim()),
+    ...RISK_CASE_ROWS.map((row) => String(row.circle ?? "").trim()),
+    ...CONTROL_ROWS.map((row) => String(row.circle ?? "").trim()),
+  ].filter((circle) => circle && circle !== "—"))).sort((a, b) => a.localeCompare(b));
   const countCircleRows = (rows: TableRow[], circle: string) =>
-    rows.filter((row) => rowBelongsToWorkloadZone(row) && normalizeWorkloadCircle(row.circle) === circle).length;
-
-  // Project the selected-zone distribution as one set so independent rounding
-  // cannot make the circle total disagree with the dashboard candidate total.
-  const candidateSamples = workloadCircles.map((circle) => countCircleRows(candidates, circle));
-  const projectedZoneCandidates = projectCount(candidateSamples.reduce((sum, count) => sum + count, 0), Math.max(1, candidates.length), NATIONAL_AUDIT_CANDIDATES);
-  const projectedCircleCandidates = scaleDistribution(candidateSamples.map((value) => ({ value })), projectedZoneCandidates);
-  const circleItems = workloadCircles.map((circle, index) => ({
-    circle,
-    candidates: projectedCircleCandidates[index]?.value ?? 0,
-    active: projectCount(countCircleRows(activeCases, circle), caseSampleTotal, projectedActiveCases),
-    evidence: projectCount(countCircleRows(pendingEvidence, circle), caseSampleTotal, projectedPendingEvidence),
-    controls: projectCount(countCircleRows(openControls, circle), controlSampleTotal, projectedOpenControls),
-    secondReview: projectCount(countCircleRows(SECOND_REVIEW_ROWS, circle), caseSampleTotal, projectedSecondReview),
-    closed: projectCount(countCircleRows(closedCases, circle), caseSampleTotal, projectedClosedCases),
+    rows.filter((row) => String(row.circle ?? "").trim() === circle).length;
+  const circleItems = workloadCircles.map((circle) => ({
+    circle, candidates: countCircleRows(candidates, circle),
+    active: countCircleRows(activeCases, circle),
+    evidence: countCircleRows(pendingEvidence, circle),
+    controls: countCircleRows(openControls, circle),
+    secondReview: countCircleRows(SECOND_REVIEW_ROWS, circle),
+    closed: countCircleRows(closedCases, circle),
   }));
 
   const workloadLabels: Record<WorkloadMetric, string> = {
@@ -744,16 +672,7 @@ function AuditOverviewPage() {
     return candidates;
   };
 
-  const routeCircleValue = (circle: string) => {
-    const sourceRows = sourceRowsForWorkloadMetric();
-    if (sourceRows.some((row) => String(row.circle ?? "") === circle)) return circle;
-    const verifiedIndex = verifiedWorkloadCircles.indexOf(circle);
-    if (verifiedIndex >= 0) {
-      const legacy = `Circle-${verifiedIndex + 1}`;
-      if (sourceRows.some((row) => String(row.circle ?? "") === legacy)) return legacy;
-    }
-    return circle;
-  };
+  const routeCircleValue = (circle: string) => circle;
 
   const workloadRoute = (circle: string) => {
     const routeCircle = routeCircleValue(circle);
@@ -773,10 +692,10 @@ function AuditOverviewPage() {
   const recentEvents = [...AUDIT_TRAIL_ROWS].reverse().slice(0, 3);
 
   const operations = [
-    { step: "01", title: t("overview.operations.screening"), value: NATIONAL_AUDIT_CANDIDATES, detail: t("overview.operations.screeningDetail"), route: "/audit/audit-candidates" },
-    { step: "02", title: t("overview.operations.verification"), value: projectedVerificationCases, detail: t("overview.operations.verificationDetail"), route: "/audit/risk-cases" },
-    { step: "03", title: t("overview.operations.audit"), value: projectedAuditReviewCases, detail: t("overview.operations.auditDetail"), route: "/audit/second-review" },
-    { step: "04", title: t("overview.operations.finalDetermination"), value: projectedClosedCases, detail: t("overview.operations.finalDeterminationDetail"), route: "/audit/risk-cases?filterKey=case_status&filterValue=Closed" },
+    { step: "01", title: t("overview.operations.screening"), value: LOADED_CANDIDATE_COUNT, detail: t("overview.operations.screeningDetail"), route: "/audit/audit-candidates" },
+    { step: "02", title: t("overview.operations.verification"), value: countVerificationCases, detail: t("overview.operations.verificationDetail"), route: "/audit/risk-cases" },
+    { step: "03", title: t("overview.operations.audit"), value: countAuditReviewCases, detail: t("overview.operations.auditDetail"), route: "/audit/second-review" },
+    { step: "04", title: t("overview.operations.finalDetermination"), value: countClosedCases, detail: t("overview.operations.finalDeterminationDetail"), route: "/audit/risk-cases?filterKey=case_status&filterValue=Closed" },
   ];
 
   const formatDashboardDate = (value: string) => {
@@ -804,14 +723,21 @@ function AuditOverviewPage() {
         </span>
       </div>
 
+      <p className="audit-data-source-note">
+        {t("overview.localDatasetScope")}
+        {" · "}
+        <a href="https://nbr.gov.bd/information-library/publicnotice-details/income-tax/20/ban"
+           target="_blank" rel="noopener noreferrer">{t("overview.officialSourceContext")}</a>
+      </p>
+
       <div className="dashboard-kpi-section audit-overview__kpis">
         <div className="dashboard-kpi-grid">
-          <StatCard icon={Workflow} value={formatDashboardNumber(NATIONAL_AUDIT_CANDIDATES)} label={t("overview.auditCandidates")} subInfo={t("overview.officialSelectionBaseline")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
-          <StatCard icon={ShieldAlert} value={formatDashboardNumber(projectedActiveCases)} label={t("overview.activeAuditCases")} tone="warning" onClick={() => navigate("/audit/risk-cases")} />
-          <StatCard icon={FileSearch} value={formatDashboardNumber(projectedPendingEvidence)} label={t("overview.evidenceToResolve")} tone="warning" onClick={() => navigate("/audit/risk-cases?q=Pending")} />
-          <StatCard icon={Activity} value={formatDashboardNumber(projectedOpenControls)} label={t("overview.openControlItems")} tone="primary" onClick={() => navigate("/audit/control-data-quality")} />
-          <StatCard icon={Timer} value={formatDashboardNumber(projectedSecondReview)} label={t("overview.secondReviewWorkload")} tone="primary" onClick={() => navigate("/audit/second-review")} />
-          <StatCard icon={Scale} value={projectedHighRiskReturns ? `${formatDashboardNumber(projectedReconciliationMatched)}/${formatDashboardNumber(projectedHighRiskReturns)}` : "—"} label={t("overview.reconciliation")} tone={projectedReconciliationMissing ? "error" : "success"} compactValue onClick={() => navigate("/audit/reconciliation")} />
+          <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} subInfo={t("overview.loadedCandidateNote")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
+          <StatCard icon={ShieldAlert} value={formatDashboardNumber(countActiveCases)} label={t("overview.activeAuditCases")} tone="warning" onClick={() => navigate("/audit/risk-cases")} />
+          <StatCard icon={FileSearch} value={formatDashboardNumber(countPendingEvidence)} label={t("overview.evidenceToResolve")} tone="warning" onClick={() => navigate("/audit/risk-cases?q=Pending")} />
+          <StatCard icon={Activity} value={formatDashboardNumber(countOpenControls)} label={t("overview.openControlItems")} tone="primary" onClick={() => navigate("/audit/control-data-quality")} />
+          <StatCard icon={Timer} value={formatDashboardNumber(countSecondReview)} label={t("overview.secondReviewWorkload")} tone="primary" onClick={() => navigate("/audit/second-review")} />
+          <StatCard icon={Scale} value={countHighRiskReturns ? `${formatDashboardNumber(countReconciliationMatched)}/${formatDashboardNumber(countHighRiskReturns)}` : "—"} label={t("overview.reconciliation")} tone={countReconciliationMissing ? "error" : "success"} compactValue onClick={() => navigate("/audit/reconciliation")} />
         </div>
       </div>
 
@@ -835,8 +761,8 @@ function AuditOverviewPage() {
               <div className="audit-overview-v5__panel-head">
                 <div>
                   <strong>{t("overview.riskDistribution")}</strong>
-                  <span title={`${formatDashboardNumber(NATIONAL_SCREENED_POPULATION)}+ ${t("overview.returnsShort")}`}>
-                    {formatDashboardCompact(NATIONAL_SCREENED_POPULATION)}+ {t("overview.returnsShort")}
+                  <span title={`${formatDashboardNumber(LOADED_RETURN_COUNT)} ${t("overview.returnsShort")}`}>
+                    {formatDashboardNumber(LOADED_RETURN_COUNT)} {t("overview.returnsShort")}
                   </span>
                 </div>
                 <button type="button" onClick={() => navigate("/audit/all-taxpayers")}>{t("overview.openTable")}</button>
@@ -861,8 +787,8 @@ function AuditOverviewPage() {
                     ))}
                   </svg>
                   <div>
-                    <strong title={`${formatDashboardNumber(NATIONAL_SCREENED_POPULATION)}+`}>
-                      {formatDashboardCompact(NATIONAL_SCREENED_POPULATION)}+
+                    <strong title={formatDashboardNumber(LOADED_RETURN_COUNT)}>
+                      {formatDashboardNumber(LOADED_RETURN_COUNT)}
                     </strong>
                     <span>{t("overview.screenedPopulation")}</span>
                   </div>
@@ -876,12 +802,12 @@ function AuditOverviewPage() {
                       type="button"
                       className="audit-overview-v5__concept-detail"
                       title={t("overview.explainer.openDetails")}
-                      onClick={() => openOverviewExplanation("risk_level", item.label, item.value, NATIONAL_SCREENED_POPULATION)}
+                      onClick={() => openOverviewExplanation("risk_level", item.label, item.value, LOADED_RETURN_COUNT)}
                     >
                       <i style={{ background:riskColorMap[item.label] }} />
                       <span>{displayAuditValue(item.label)}</span>
                       <strong>{formatDashboardNumber(item.value)}</strong>
-                      <small>{displayPercent(NATIONAL_SCREENED_POPULATION ? Math.round((item.value / NATIONAL_SCREENED_POPULATION) * 100) : 0)}</small>
+                      <small>{displayPercent(LOADED_RETURN_COUNT ? Math.round((item.value / LOADED_RETURN_COUNT) * 100) : 0)}</small>
                       <Info size={14} aria-hidden="true" />
                     </button>
                     <button
@@ -906,11 +832,11 @@ function AuditOverviewPage() {
                         type="button"
                         className="audit-overview-v5__quality-detail"
                         title={t("overview.explainer.openDetails")}
-                        onClick={() => openOverviewExplanation("data_quality", label, value, NATIONAL_SCREENED_POPULATION)}
+                        onClick={() => openOverviewExplanation("data_quality", label, value, LOADED_RETURN_COUNT)}
                       >
                         <span>{displayAuditValue(label)}</span>
                         <strong>{formatDashboardNumber(value)}</strong>
-                        <small>{displayPercent(NATIONAL_SCREENED_POPULATION ? Math.round((value / NATIONAL_SCREENED_POPULATION) * 100) : 0)}</small>
+                        <small>{displayPercent(LOADED_RETURN_COUNT ? Math.round((value / LOADED_RETURN_COUNT) * 100) : 0)}</small>
                         <Info size={13} aria-hidden="true" />
                       </button>
                       <button
@@ -1073,6 +999,9 @@ function AuditOverviewPage() {
                 )}
               </div>
 
+              {groupMetric === "signals" && (
+                <p className="audit-data-source-note">{t("overview.overlapNote")}</p>
+              )}
               <div className="audit-overview-v5__horizontal-chart" role="list" aria-label={exploreDefinitions[groupMetric].label}>
                 {exploreItems.map((item) => (
                   <div
@@ -1247,7 +1176,7 @@ function AuditOverviewPage() {
                       />
                     </div>
                   ) : (
-                    <strong>{workloadZone || t("overview.allVerifiedCircles")}</strong>
+                    <strong>{workloadZone || t("overview.unmappedCircles")}</strong>
                   )}
                   <small>{formatDashboardNumber(workloadCircles.length)} {t("overview.circlesShort")}</small>
                 </div>
@@ -1313,7 +1242,7 @@ function AuditOverviewPage() {
 
           <DashSection title={t("overview.systemAssurance")} icon={BadgeCheck}>
             <div className="audit-overview__assurance">
-              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(NATIONAL_SCREENED_POPULATION)}+`}>{formatDashboardCompact(completeQuality)}/{formatDashboardCompact(NATIONAL_SCREENED_POPULATION)}+</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(LOADED_RETURN_COUNT)}`}>{formatDashboardNumber(completeQuality)}/{formatDashboardNumber(LOADED_RETURN_COUNT)}</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
               <button type="button" onClick={() => navigate("/audit/rules-governance")}><span>{t("overview.ruleGovernance")}</span><strong>{formatDashboardNumber(liveRules)} {t("overview.live")}</strong><small>{t("overview.ruleMix", { staged: formatDashboardNumber(stagedRules), shadow: formatDashboardNumber(shadowRules), draft: formatDashboardNumber(draftRules), pending: formatDashboardNumber(pendingGovernance) })}</small></button>
               <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{formatDashboardNumber(AUDIT_TRAIL_ROWS.length)}</strong><small>{t("overview.auditTrailSummary", { sensitive: formatDashboardNumber(sensitiveAccessEvents) })}</small></button>
             </div>
@@ -1500,7 +1429,7 @@ export function AuditModulePage() {
   const reconciliationConfig: AuditTableConfig = {
     title:t("pages.reconciliation.title"),
     description:t("pages.reconciliation.description"),
-    rows:RECONCILIATION_ROWS,
+    rows:buildLoadedReconciliation(getAuditCandidates(), RISK_CASE_ROWS),
     columns:[
       fc("reconciliation_date",t("columns.date")),fc("scope",t("columns.scope")),
       fc("high_risk_returns",t("columns.highRiskReturns"),{mono:true}),fc("matching_cases",t("columns.matchingCases"),{mono:true}),

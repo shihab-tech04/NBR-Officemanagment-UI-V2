@@ -4377,3 +4377,23 @@
     padding: var(--space-3);
   }
 }
+
+/* Audit record provenance: an unobtrusive source line, not a fake data banner. */
+.audit-data-source-note {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-body-sm);
+  overflow-wrap: anywhere;
+}
+.audit-data-source-note a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.audit-data-source-note a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

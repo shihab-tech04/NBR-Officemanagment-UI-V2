@@ -4,7 +4,11 @@ on:
     branches: [main]
     paths:
       - 'src/styles/audit.css'
+      - 'src/app/pages/audit/**'
+      - 'src/app/locales/en/audit.json'
+      - 'src/app/locales/bn/audit.json'
       - 'qa/audit-responsive.pw.ts'
+      - 'qa/audit-source-truth.pw.ts'
       - '.github/workflows/audit-responsive-qa.yml'
   workflow_dispatch:
 permissions:
@@ -24,7 +28,7 @@ jobs:
       - name: Build Audit dashboard
         run: npm run build
       - name: Check Audit Overview at eight widths and five parameter modes
-        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts
+        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts qa/audit-source-truth.pw.ts
       - name: Preserve screenshots and trace
         if: always()
         uses: actions/upload-artifact@v4

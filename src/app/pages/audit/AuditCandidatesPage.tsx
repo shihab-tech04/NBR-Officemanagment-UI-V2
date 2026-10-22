@@ -1551,6 +1551,8 @@ export function AuditCandidatesPage({
           </SecondaryButton>
         </div>
 
+        <p className="audit-data-source-note">{t("overview.localDatasetScope")} {t("overview.generatedFinancialScope")}</p>
+
         <div className="audit-candidate-detail__header">
           <div className="audit-candidate-detail__top">
             <div className="audit-candidate-detail__identity">
@@ -2074,6 +2076,8 @@ export function AuditCandidatesPage({
           </div>
         )}
       </div>
+
+      <p className="audit-data-source-note">{t("overview.localDatasetScope")}</p>
 
       <MobileSearchFilter
         searchValue={q}
