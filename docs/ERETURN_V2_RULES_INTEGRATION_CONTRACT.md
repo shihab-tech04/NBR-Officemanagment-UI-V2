@@ -6,13 +6,15 @@
 
 - **New citizen return repository:** `shihab-tech04/eReturn-V2`. Only this repository implements the new public individual/corporate eReturn UI.
 - **Admin UI repository:** `shihab-tech04/NBR-Officemanagment-UI-V2`, under Administration & Requests > Rules & Calculation. Preserve all approved shared UI and responsive design. No new site shell.
-- **Authoritative Rules SQL project:** `Bangladesh-NBR-eReturn`, Supabase ref `ijcbllgjhhkcnbuygwdn`, schema `public`, existing `nbr_*` tables, `nbr-rules-api` and `nbr-tax-engine` Edge Functions. **Do not copy these SQL tables into the separate Office Supabase project** or create a second uncoordinated tax Rules Engine.
+- **Authoritative Rules SQL project (replacement candidate, verified SQL parity 2026-10-22):** `Bangladesh NBR eReturn`, Supabase ref `gtorruuhvohafapctxym`, schema `public`, existing `nbr_*` tables, `nbr-rules-api` and `nbr-tax-engine` Edge Functions. **Do not copy these SQL tables into the separate Office Supabase project** or create a second uncoordinated tax Rules Engine.
 - **Out of scope:** TaxPay, eLedger, Office Audit, HRIS and any future NBR applications. Do not reuse their SQL, migrations, credentials, APIs or form logic for the eReturn reconstruction. eLedger's independent frontend recreation is not an eReturn Rules Engine dependency.
 - ChatGPT Agent v2.1 may propose legal changes and review evidence, but its generated extracts are not law, and cannot certify or publish executable rules.
 
 ## Exact existing API routes (read from deployed nbr-rules-api v15)
 
-API base: `https://ijcbllgjhhkcnbuygwdn.supabase.co/functions/v1/nbr-rules-api` **as observed project reference**, not a validated consumer deployment configuration.
+Replacement API base: `https://gtorruuhvohafapctxym.supabase.co/functions/v1/nbr-rules-api` **as verified with live read-only endpoints**, not yet connected to Office or eReturn-V2.
+
+Original rollback reference (preserve unchanged): `ijcbllgjhhkcnbuygwdn`. Project API keys must never be copied across projects; the replacement receives its own credentials.
 
 - `GET /public/years` — public year catalogue: `{years:[{assessmentYear,incomeYear,state,executable}]}`. This public SQL flag is historical state only; it does not override independent legal certification.
 - Authenticated administrator `GET /years` — year entries with `ruleCount`, `coverage`, `legalCutoff`, etc.
@@ -65,3 +67,13 @@ Required future response semantics: selected **approved** ruleset ID/hash; rule-
 Preserve Golden UI, reusable `ResponsiveTable`, `DynamicDetailsDrawer`, shared filter/search/select, pagination, EN/BN parity, approved colors/typography/layout, row-click mobile cards, semantic headings and accessibility. No new banners, unrelated modules, additional app shells or fake financial content.
 
 **This document is an enforceable repository-side development boundary and PROPOSED contract only. It is not a ChatGPT Project-description change or SQL approval.**
+
+## SQL replacement acceptance checkpoint — 2026-10-22
+
+- The replacement project `gtorruuhvohafapctxym` is active. Original project `ijcbllgjhhkcnbuygwdn` must remain unchanged and available for rollback.
+- Independently compared 14 tables / 1,897 rows using row digests, 22 complete migration records and hashes, 11 SQL functions, 45 constraints, 41 indexes, 10 public RLS policies, 10 total Auth/Public/Storage/Realtime triggers, extensions and SQL privileges; current snapshot matched.
+- All three Edge Functions deployed. Runtime GET routes `nbr-rules-api/public/years`, `nbr-tax-engine/years`, `nbr-tax-engine/status` returned status 200 with equal source/destination response content hashes; unauthenticated Rules Admin access denied 401 on both.
+- These findings **do not** certify the independent legal/numerical Rules Engine or its 137-case suite. They also do not certify an authenticated Office integration or frontend deployment.
+- Office's Rules screen remains on `rulesSqlSnapshot.json`. The protected Admin Rules read client requires a real Supabase Auth bearer and a Rules API session; there are presently zero registered Auth users in this project. Do not silently fall back to the snapshot as live backend data.
+- eReturn-V2's versioned calculation contract remains unimplemented. Do not switch tax computations to unsupported routes or expose the service-role key.
+- This documentation change is a **candidate designation only**. Production cutover must be independently verified via UI/API integration and the authorized release process, with a tested off-GitHub source backup.

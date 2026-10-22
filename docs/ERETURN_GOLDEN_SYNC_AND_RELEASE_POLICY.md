@@ -2,7 +2,7 @@
 
 **Rule ID:** ER-GOLDEN-SYNC-2026-10-21  
 **Status:** Mandatory for all new and modified eReturn reconstruction work, including parallel workstations.  
-**Scope:** Citizen reconstruction `shihab-tech04/eReturn-V2` ↔ controlled NBR Rules SQL (`Bangladesh-NBR-eReturn`, project ref `ijcbllgjhhkcnbuygwdn`) ↔ Office Management `shihab-tech04/NBR-Officemanagment-UI-V2` > Administration & Requests > Rules & Calculation.  
+**Scope:** Citizen reconstruction `shihab-tech04/eReturn-V2` ↔ controlled NBR Rules SQL (`Bangladesh-NBR-eReturn`, production replacement ref `gtorruuhvohafapctxym`; original rollback ref `ijcbllgjhhkcnbuygwdn`) ↔ Office Management `shihab-tech04/NBR-Officemanagment-UI-V2` > Administration & Requests > Rules & Calculation.  
 **Exclusions:** No automatic reuse of TaxPay, eLedger, Office Audit or unrelated NBR projects. Those projects have separate ownership, databases and acceptance.
 
 ## Golden rule 1: 100% synchronized end-to-end, or explicitly NOT COMPLETE
