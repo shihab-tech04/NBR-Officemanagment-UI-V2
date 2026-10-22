@@ -1135,7 +1135,7 @@ Deno.serve(async (req) => {
         const eventDates = ["eventDate", "legalEventDate", "transactionEventDate"]
           .filter((key) => value[key] !== undefined).map((key) => value[key]);
         if (eventDates.length === 0 || eventDates.some((date) =>
-            typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+            typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
             Number.isNaN(Date.parse(date + "T00:00:00Z")) ||
             new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)) {
           return json({ status:"FAIL_CLOSED", code:"TRANSACTION_EVENT_DATE_REQUIRED",
