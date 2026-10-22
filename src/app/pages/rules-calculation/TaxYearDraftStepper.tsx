@@ -38,6 +38,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
   const [group, setGroup] = useState("");
   const [candidateId, setCandidateId] = useState("");
   const [provision, setProvision] = useState<DraftProvisionCandidate>(freshProvisionCandidate);
+  const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [candidatePurpose, setCandidatePurpose] = useState("");
   const [url, setUrl] = useState("");
   const [issueDate, setIssueDate] = useState("");
@@ -62,13 +63,38 @@ export function TaxYearDraftStepper({ onClose }: Props) {
     setProvision(previous => ({ ...previous, ...patch }));
   const addProvisionCandidate = () => {
     try {
-      const next = { ...draft, proposedProvisions: [...draft.proposedProvisions, { ...provision }] };
+      const prior = editingProposalId
+        ? draft.proposedProvisions.find(item => item.proposalId === editingProposalId)
+        : null;
+      if (editingProposalId && (!prior || editingProposalId !== provision.proposalId))
+        throw new Error("A proposed rule identity cannot be renamed or replaced during editing.");
+      const revised: DraftProvisionCandidate = {
+        ...provision, impacts: [...provision.impacts],
+        localReviewRevision: prior ? prior.localReviewRevision + 1 : 1,
+      };
+      const next: TaxYearDraftInput = {
+        ...draft,
+        proposedProvisions: prior
+          ? draft.proposedProvisions.map(item => item.proposalId === editingProposalId ? revised : item)
+          : [...draft.proposedProvisions, revised],
+        priorLocalProvisionRevisions: prior
+          ? [...draft.priorLocalProvisionRevisions, {...prior, impacts:[...prior.impacts]}]
+          : draft.priorLocalProvisionRevisions,
+      };
       createDraftReviewPackage(next, canonicalIds);
       update({ proposedProvisions: next.proposedProvisions,
-        selectedRuleIds: Array.from(new Set([...draft.selectedRuleIds, provision.ruleId])) });
+        priorLocalProvisionRevisions: next.priorLocalProvisionRevisions,
+        selectedRuleIds: Array.from(new Set([...draft.selectedRuleIds, revised.ruleId])) });
       setProvision(freshProvisionCandidate());
-      setStatusMessage(tr("Source-linked draft added. SQL unchanged.", "উৎস-সংযুক্ত খসড়া যোগ হয়েছে। SQL অপরিবর্তিত।"));
+      setEditingProposalId(null);
+      setStatusMessage(tr("Local review revision saved. Previous draft retained; SQL unchanged.",
+        "স্থানীয় পর্যালোচনা সংস্করণ সংরক্ষিত। পূর্ববর্তী খসড়া রাখা হয়েছে; SQL অপরিবর্তিত।"));
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : String(error)); }
+  };
+  const editProvisionCandidate = (item: DraftProvisionCandidate) => {
+    setProvision({...item,impacts:[...item.impacts]});
+    setEditingProposalId(item.proposalId);
+    setStatusMessage("");
   };
   const addCustomRule = () => {
     const id = candidateId.trim().toUpperCase();
@@ -181,11 +207,24 @@ export function TaxYearDraftStepper({ onClose }: Props) {
         </div>
         <p>{tr("Possible downstream impacts (always OPEN)", "সম্ভাব্য প্রভাব (সব সময় OPEN)")}</p>
         <div className="rules-engine__impact-grid">{CANDIDATE_IMPACTS.map(id=><label key={id} className="rules-engine__impact-row"><input type="checkbox" checked={provision.impacts.includes(id)} onChange={e=>patchProvision({impacts:e.target.checked?[...provision.impacts,id]:provision.impacts.filter(x=>x!==id)})}/><span>{id.toUpperCase()} · OPEN</span></label>)}</div>
-        <SecondaryButton size="lg" onClick={addProvisionCandidate}>{tr("Add proposed provision (local only)", "প্রস্তাবিত বিধান যোগ (শুধু স্থানীয়)")}</SecondaryButton>
-        {draft.proposedProvisions.map(p=><article className="rules-engine__evidence" key={p.proposalId}><h3>{p.proposalId} · {p.reviewState}</h3>
-          <p>{p.ruleId} · {p.level} · {p.hierarchyBasis} · {p.sourceId} / {p.provisionLocator}</p>
-          <p>{tr("PDF SHA-256", "PDF SHA-256")}: {p.sourcePdfSha256} · {tr("UNVERIFIED / SQL NOT PERSISTED", "অযাচাইকৃত / SQL-এ সংরক্ষিত নয়")}</p>
-          <SecondaryButton size="lg" onClick={()=>update({proposedProvisions:draft.proposedProvisions.filter(x=>x.proposalId!==p.proposalId)})}>{tr("Remove proposal", "প্রস্তাব বাদ দিন")}</SecondaryButton></article>)}
+        <SecondaryButton size="lg" onClick={addProvisionCandidate}>{editingProposalId
+          ? tr("Save new local review revision", "নতুন স্থানীয় সংস্করণ সংরক্ষণ")
+          : tr("Add proposed provision (local only)", "প্রস্তাবিত বিধান যোগ (শুধু স্থানীয়)")}</SecondaryButton>
+        {editingProposalId && <SecondaryButton size="lg" onClick={()=>{setProvision(freshProvisionCandidate());setEditingProposalId(null);}}>
+          {tr("Cancel proposal edit", "প্রস্তাব সম্পাদনা বাতিল")}</SecondaryButton>}
+        {[...draft.proposedProvisions].sort((a,b)=>
+          a.parentRuleId.localeCompare(b.parentRuleId)||a.ruleId.localeCompare(b.ruleId))
+          .map(p=><article className="rules-engine__evidence" key={p.proposalId}>
+            <h3>{p.proposalId} · {p.reviewState} · LOCAL REV {p.localReviewRevision}</h3>
+            <p>{tr("Rule hierarchy", "বিধি শ্রেণি")}: {p.parentRuleId || tr("Tax-year root", "করবর্ষ মূল")} → {p.ruleId} ({p.level})</p>
+            <p>{p.hierarchyBasis} · {p.sourceId} / {p.provisionLocator}</p>
+            <p>{tr("PDF SHA-256", "PDF SHA-256")}: {p.sourcePdfSha256} · {tr("UNVERIFIED / SQL NOT PERSISTED", "অযাচাইকৃত / SQL-এ সংরক্ষিত নয়")}</p>
+            <div className="rules-engine__wizard-actions">
+              <SecondaryButton size="lg" onClick={()=>editProvisionCandidate(p)}>{tr("Edit proposed rule", "প্রস্তাবিত বিধি সম্পাদনা")}</SecondaryButton>
+              <SecondaryButton size="lg" onClick={()=>update({proposedProvisions:draft.proposedProvisions.filter(x=>x.proposalId!==p.proposalId)})}>{tr("Remove proposal", "প্রস্তাব বাদ দিন")}</SecondaryButton>
+            </div>
+          </article>)}
+        {draft.priorLocalProvisionRevisions.length>0&&<p>{tr("Retained previous local draft revisions", "সংরক্ষিত পূর্ববর্তী স্থানীয় খসড়া")}: {draft.priorLocalProvisionRevisions.length} · SQL NOT PERSISTED</p>}
         <p>{tr(`Evidence attached: ${draft.documents.length}; selected rule candidates: ${draft.selectedRuleIds.length}. Actual original-versus-amended text verification remains OPEN.`, `প্রমাণ: ${draft.documents.length}; বিধি প্রার্থী: ${draft.selectedRuleIds.length}। মূল ও সংশোধিত পাঠের প্রকৃত যাচাই এখনও বাকি।`)}</p>
       </>}
       {stage === 4 && <>
