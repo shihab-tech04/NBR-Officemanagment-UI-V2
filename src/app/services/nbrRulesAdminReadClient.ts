@@ -55,7 +55,7 @@ function record(value: unknown): value is Record<string, unknown> {
 export function createRulesAdminReadClient(config: RulesAdminApiConfig) {
   const root = config.baseUrl.replace(/\/+$/, "");
   if (!/^https:\/\/[^\s/]+\//.test(root) || !(root.endsWith("/nbr-rules-api") || root.endsWith("/nbr-rules-office-gateway"))) {
-    throw new Error("Rules API base must be a verified HTTPS Rules API or gateway endpoint.");
+    throw new Error("Rules API base must be a verified HTTPS nbr-rules-api or nbr-rules-office-gateway endpoint.");
   }
   if (!config.bearerToken.trim() || !config.ruleSessionToken.trim()) {
     throw new Error("A verified bearer identity and Rules Admin session are required.");
