@@ -3,12 +3,14 @@ on:
   pull_request:
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   push:
     branches:
       - 'ws02/disposable-pg17-sql-test-runner-20261022'
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   workflow_dispatch:
 
@@ -54,6 +56,9 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_pg17_capability_smoke.sql
+      - name: Verify read-only candidate overlay integrity (not law approval)
+        shell: bash
+        run: node ws02/evidence/verify-temporal-review.mjs
       - name: Explicit acceptance boundary
         shell: bash
         run: |
