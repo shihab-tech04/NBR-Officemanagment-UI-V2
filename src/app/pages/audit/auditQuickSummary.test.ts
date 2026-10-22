@@ -45,8 +45,9 @@ describe("candidate Quick summary source and length controls", () => {
   });
 
   it("does not infer a positive amount, new signal, or finding from incomplete data", () => {
-    const candidate = getAuditCandidates().find((item) => item.taxpayer_name === "Islam Imports")!;
-    const source = ALL_TAXPAYER_ROWS.find((row) => row.return_id === candidate.return_id)!;
+    const seeded = getAuditCandidates()[0];
+    const candidate = { ...seeded, signals: "—", data_quality: "Incomplete", risk_level: "Not determined" };
+    const source = { ...ALL_TAXPAYER_ROWS.find((row) => row.return_id === candidate.return_id), mismatch_amount: 0 };
     const summary = buildAuditQuickSummary(candidate, source, translator(en), "en");
     expect(summary).toContain("No substantive risk signal");
     expect(summary).not.toContain("fund-flow difference");
