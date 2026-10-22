@@ -175,8 +175,6 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         {config.readOnly && <StatusBadge value="Read only" />}
       </div>
 
-      <p className="audit-data-source-note">{t("overview.localDatasetScope")}</p>
-
       <MobileSearchFilter
         searchValue={q}
         onSearchChange={handleSearchChange}
@@ -717,22 +715,11 @@ function AuditOverviewPage() {
           <h1 className="dashboard-page__title">{t("pages.overview.title")}</h1>
           <p className="dashboard-page__subtitle">{t("pages.overview.description")}</p>
         </div>
-        <span className="audit-overview__scope-badge" title={t("overview.nationalScaleHelp")}>
-          <Scale size={14} aria-hidden="true" />
-          {t("overview.nationalScale")}
-        </span>
       </div>
-
-      <p className="audit-data-source-note">
-        {t("overview.localDatasetScope")}
-        {" · "}
-        <a href="https://nbr.gov.bd/information-library/publicnotice-details/income-tax/20/ban"
-           target="_blank" rel="noopener noreferrer">{t("overview.officialSourceContext")}</a>
-      </p>
 
       <div className="dashboard-kpi-section audit-overview__kpis">
         <div className="dashboard-kpi-grid">
-          <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} subInfo={t("overview.loadedCandidateNote")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
+          <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
           <StatCard icon={ShieldAlert} value={formatDashboardNumber(countActiveCases)} label={t("overview.activeAuditCases")} tone="warning" onClick={() => navigate("/audit/risk-cases")} />
           <StatCard icon={FileSearch} value={formatDashboardNumber(countPendingEvidence)} label={t("overview.evidenceToResolve")} tone="warning" onClick={() => navigate("/audit/risk-cases?q=Pending")} />
           <StatCard icon={Activity} value={formatDashboardNumber(countOpenControls)} label={t("overview.openControlItems")} tone="primary" onClick={() => navigate("/audit/control-data-quality")} />
