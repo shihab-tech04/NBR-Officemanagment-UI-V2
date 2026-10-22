@@ -125,6 +125,9 @@ export function TaxYearDraftStepper({ onClose }: Props) {
         <AppTextField compact id="tax-year-income" label={tr("Income year", "আয়বর্ষ")} readOnly value={draft.incomeYear} onChange={() => undefined}/>
         <AppTextField compact id="tax-year-base" label={tr("Controlled source AY", "নিয়ন্ত্রিত উৎস করবর্ষ")} readOnly value={draft.baseYear} onChange={() => undefined}/>
         <AppDateField compact id="tax-year-cutoff" label={tr("Proposed legal cutoff (unverified)", "প্রস্তাবিত আইনি কাটঅফ (অযাচাইকৃত)")} value={draft.legalCutoff} onChange={(v) => update({ legalCutoff: v })}/>
+        <div className="rules-engine__wide"><AppTextArea id="tax-year-taxpayer-scope" rows={2}
+          label={tr("Proposed taxpayer scope and exclusions (unverified)", "প্রস্তাবিত করদাতা ও বর্জনের পরিধি (অযাচাইকৃত)")}
+          value={draft.taxpayerScope} onChange={v=>update({taxpayerScope:v})}/></div>
         <div className="rules-engine__wide"><p>{tr(`2026-10-10 snapshot year state: ${existingDraft?.dbState ?? "UNKNOWN"}. All 366 inherited versions remain pending review.`, `১০ অক্টোবর ২০২৬-এর স্ন্যাপশট বর্ষ: ${existingDraft?.dbState ?? "অজানা"}। ৩৬৬টি উত্তরাধিকারী সংস্করণ পর্যালোচনাধীন।`)}</p></div>
       </div>}
       {stage === 1 && <>
@@ -191,7 +194,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
       </>}
       {stage === 5 && <>
         <p>{tr("Review the immutable baseline and your draft before exporting a local review package. SQL is not changed.", "স্থানীয় খসড়া রপ্তানির আগে মূল ভিত্তি ও প্রস্তাব যাচাই করুন। SQL অপরিবর্তিত।")}</p>
-        <div className="rules-engine__comparison"><article className="rules-engine__panel"><h3>{tr("Version & selection", "সংস্করণ ও নির্বাচন")}</h3><p>AY {draft.targetYear} / IY {draft.incomeYear}</p><p>{tr("Selected canonical IDs", "নির্বাচিত মূল বিধি")}: {draft.selectedRuleIds.length} / 366</p><p>{tr("Custom proposals", "কাস্টম প্রস্তাব")}: {draft.customRules.length}</p><p>{tr("Source evidence", "উৎস প্রমাণ")}: {draft.documents.length}</p><p>{tr("Provision proposals (OPEN)", "বিধান প্রস্তাব (OPEN)")}: {draft.proposedProvisions.length}</p></article>
+        <div className="rules-engine__comparison"><article className="rules-engine__panel"><h3>{tr("Version & selection", "সংস্করণ ও নির্বাচন")}</h3><p>AY {draft.targetYear} / IY {draft.incomeYear}</p><p>{tr("Selected canonical IDs", "নির্বাচিত মূল বিধি")}: {draft.selectedRuleIds.length} / 366</p><p>{tr("Custom proposals", "কাস্টম প্রস্তাব")}: {draft.customRules.length}</p><p>{tr("Proposed taxpayer scope", "প্রস্তাবিত করদাতার পরিধি")}: {draft.taxpayerScope.trim()||"NOT VERIFIED"}</p><p>{tr("Source evidence", "উৎস প্রমাণ")}: {draft.documents.length}</p><p>{tr("Provision proposals (OPEN)", "বিধান প্রস্তাব (OPEN)")}: {draft.proposedProvisions.length}</p></article>
           <article className="rules-engine__panel"><h3>{tr("Fail-closed disposition", "নিরাপদ অবরুদ্ধ অবস্থা")}</h3><p>DRAFT / INHERITED_PENDING_REVIEW</p><p>UNVERIFIED / NOT_CERTIFIED</p><p>{tr("Impacts requiring review", "পর্যালোচনাধীন প্রভাব")}: {draft.proposedImpacts.length}</p><p>{tr("SQL writes", "SQL পরিবর্তন")}: 0</p></article></div>
         <PrimaryButton size="lg" icon={Download} onClick={exportDraft}>{tr("Export review-only DRAFT JSON", "পর্যালোচনামূলক খসড়া JSON রপ্তানি")}</PrimaryButton>
         <p className="rules-engine__scope">{tr("This is not a statutory rule publication, not an official-document upload, and not SQL persistence. A protected service must verify and save reviewed evidence separately.", "এটি বিধি প্রকাশ, সরকারি নথি আপলোড বা SQL সংরক্ষণ নয়। সুরক্ষিত সেবা পৃথকভাবে প্রমাণ যাচাই ও সংরক্ষণ করবে।")}</p>
