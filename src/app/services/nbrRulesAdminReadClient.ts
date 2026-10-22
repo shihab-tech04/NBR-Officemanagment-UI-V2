@@ -141,7 +141,7 @@ export function createRulesAdminReadClient(config: RulesAdminApiConfig) {
     },
 
     async getGroups(assessmentYear: string): Promise<SqlRuleGroup[]> {
-      if (!/^\\d{4}-\\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
+      if (!/^\d{4}-\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
       const payload = await get("/groups?year=" + encodeURIComponent(assessmentYear));
       if (payload.year !== assessmentYear || !Array.isArray(payload.groups) ||
           !payload.groups.every((g: unknown) => record(g) && typeof g.id === "string" &&
@@ -153,7 +153,7 @@ export function createRulesAdminReadClient(config: RulesAdminApiConfig) {
     },
 
     async getSummary(assessmentYear: string): Promise<SqlSummary> {
-      if (!/^\\d{4}-\\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
+      if (!/^\d{4}-\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
       const payload = await get("/summary?year=" + encodeURIComponent(assessmentYear));
       if (payload.year !== assessmentYear || typeof payload.total !== "number" ||
           !record(payload.executionCounts) || !record(payload.yearStatusCounts) ||
@@ -162,7 +162,7 @@ export function createRulesAdminReadClient(config: RulesAdminApiConfig) {
     },
 
     async getGates(assessmentYear: string): Promise<SqlGate[]> {
-      if (!/^\\d{4}-\\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
+      if (!/^\d{4}-\d{2}$/.test(assessmentYear)) throw new Error("Invalid assessment-year identifier.");
       const payload = await get("/gates?year=" + encodeURIComponent(assessmentYear));
       if (payload.year !== assessmentYear || !Array.isArray(payload.gates) ||
           !payload.gates.every((g: unknown) => record(g) &&
