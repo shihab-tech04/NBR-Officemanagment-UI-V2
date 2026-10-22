@@ -1090,6 +1090,28 @@ Deno.serve(async (req) => {
     if (year.income_year !== body.incomeYear) {
       return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
     }
+    // REVIEW-ONLY safety boundary. A transaction event cannot be assumed to
+    // belong to a prior income year merely because the later legal source
+    // cutoff covers the event. This standard July-June label check is a
+    // conservative denial, NOT a determination of statutory applicability,
+    // savings, special income periods, or return entitlement. A verified
+    // event/cohort selection contract must replace this candidate before release.
+    const transactionClaimed = (
+      (Array.isArray(body.transactionRuleIds) && body.transactionRuleIds.length > 0) ||
+      (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0)
+    );
+    const recordedYearStart = Number(year.income_year.slice(0, 4));
+    const periodStart = `${recordedYearStart}-07-01`;
+    const periodEnd = `${recordedYearStart + 1}-06-30`;
+    const outsideRecordedIncomePeriod =
+      body.legalEventDate < periodStart || body.legalEventDate > periodEnd;
+    if (transactionClaimed && outsideRecordedIncomePeriod) {
+      return json({
+        status:"FAIL_CLOSED",
+        code:"TRANSACTION_PERIOD_REVIEW_REQUIRED",
+        error:"The transaction event is outside the recorded standard income period; reviewed event/year and savings applicability is required",
+      }, 409);
+    }
     const { data: rows, error: ruleError } = await supabase
       .from("nbr_rule_versions")
       .select("id,rule_key,revision_no,source_assessment_year,year_applicability_status,execution_status,group_id,rule_data")
