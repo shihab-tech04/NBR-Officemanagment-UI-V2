@@ -98,8 +98,21 @@ export function freshDraftInput(): TaxYearDraftInput {
   };
 }
 
+function fiscalYearStart(value: string): number | null {
+  const match = /^(\\d{4})-(\\d{2})$/.exec(value);
+  if (!match) return null;
+  const first = Number(match[1]);
+  const last = Number(match[2]);
+  return first >= 2000 && first <= 2098 && (first + 1) % 100 === last ? first : null;
+}
 export function isSupportedDraftYear(input: Pick<TaxYearDraftInput, "targetYear" | "incomeYear" | "baseYear">): boolean {
-  return input.targetYear === DRAFT_YEAR_TARGET && input.incomeYear === DRAFT_INCOME_YEAR && input.baseYear === DRAFT_BASE_YEAR;
+  const target = fiscalYearStart(input.targetYear);
+  const income = fiscalYearStart(input.incomeYear);
+  const controlled = fiscalYearStart(input.baseYear);
+  // Supports future review-only years, not inherited law or executable rates.
+  return input.baseYear === DRAFT_BASE_YEAR &&
+    target !== null && income !== null && controlled !== null &&
+    target > controlled && income === target - 1;
 }
 
 export function isValidCustomRuleId(id: string, existingIds: ReadonlySet<string>, proposed: DraftCustomRule[]): boolean {
@@ -107,7 +120,7 @@ export function isValidCustomRuleId(id: string, existingIds: ReadonlySet<string>
 }
 
 export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds: ReadonlySet<string>) {
-  if (!isSupportedDraftYear(input)) throw new Error("Assessment, income and source-year pair must match the controlled SQL snapshot");
+  if (!isSupportedDraftYear(input)) throw new Error("Assessment/income-year pair must be consecutive and later than the controlled base year");
   if (input.selectedRuleIds.some(id => !canonicalIds.has(id))) throw new Error("Unrecognized canonical rule identity");
   if (new Set(input.selectedRuleIds).size !== input.selectedRuleIds.length) throw new Error("Duplicate canonical rule identity");
   const candidates = new Set<string>();
