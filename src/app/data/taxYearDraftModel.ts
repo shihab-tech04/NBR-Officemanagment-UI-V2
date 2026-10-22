@@ -5,8 +5,8 @@
  */
 import { RULES_BASELINE, RULES_BASELINE_SHA256 } from "./rulesEngineSnapshot";
 
-export type CandidateLegalEffect = "UNVERIFIED" | "ADDITION" | "SUBSTITUTION" | "REPEAL" | "SAVINGS" | "CONFLICT";
-export type CandidateImpact = "rules" | "forms" | "ux" | "calculation" | "api" | "database" | "eledger" | "tests";
+export type CandidateLegalEffect = "UNVERIFIED" | "ADDITION" | "AMENDMENT" | "SUBSTITUTION" | "REPEAL" | "COMMENCEMENT" | "SAVINGS" | "CONFLICT";
+export type CandidateImpact = "rules" | "forms" | "ux" | "calculation" | "api" | "database" | "eledger" | "tests" | "office" | "ereturn" | "sql" | "validation";
 
 export interface DraftDocumentEvidence {
   name: string;
@@ -62,6 +62,7 @@ export interface TaxYearDraftInput {
   incomeYear: string;
   baseYear: string;
   legalCutoff: string;
+  taxpayerScope: string;
   selectedRuleIds: string[];
   customRules: DraftCustomRule[];
   proposedProvisions: DraftProvisionCandidate[];
@@ -74,8 +75,8 @@ export interface TaxYearDraftInput {
 export const DRAFT_YEAR_TARGET = "2027-28";
 export const DRAFT_INCOME_YEAR = "2026-27";
 export const DRAFT_BASE_YEAR = "2026-27";
-export const CANDIDATE_IMPACTS: CandidateImpact[] = ["rules", "forms", "ux", "calculation", "api", "database", "eledger", "tests"];
-export const LEGAL_EFFECTS: CandidateLegalEffect[] = ["UNVERIFIED", "ADDITION", "SUBSTITUTION", "REPEAL", "SAVINGS", "CONFLICT"];
+export const CANDIDATE_IMPACTS: CandidateImpact[] = ["rules", "forms", "ux", "calculation", "api", "database", "eledger", "tests", "office", "ereturn", "sql", "validation"];
+export const LEGAL_EFFECTS: CandidateLegalEffect[] = ["UNVERIFIED", "ADDITION", "AMENDMENT", "SUBSTITUTION", "REPEAL", "COMMENCEMENT", "SAVINGS", "CONFLICT"];
 
 export function freshDraftInput(): TaxYearDraftInput {
   return {
@@ -83,6 +84,7 @@ export function freshDraftInput(): TaxYearDraftInput {
     incomeYear: DRAFT_INCOME_YEAR,
     baseYear: DRAFT_BASE_YEAR,
     legalCutoff: "",
+    taxpayerScope: "",
     selectedRuleIds: [],
     customRules: [],
     proposedProvisions: [],
@@ -148,8 +150,10 @@ export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds:
     artifactKind: "LOCAL_REVIEW_EXPORT_NOT_SQL_RECORD",
     target: { assessmentYear: input.targetYear, incomeYear: input.incomeYear, sourceAssessmentYear: input.baseYear, userSuppliedLegalCutoff: input.legalCutoff || null },
     canonicalParent: { version: RULES_BASELINE, sha256: RULES_BASELINE_SHA256, originalUntouched: true, frozenIdentities: 366 },
+    reviewPackageRevision: "LOCAL_DRAFT_V2",
     yearState: "DRAFT",
     inheritedApplicability: "INHERITED_PENDING_REVIEW",
+    taxpayerScope: input.taxpayerScope.trim() || "NOT_VERIFIED",
     verificationStatus: "UNVERIFIED",
     executionStatus: "NOT_CERTIFIED",
     approvalsInherited: false,
