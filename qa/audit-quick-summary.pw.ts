@@ -43,6 +43,16 @@ for (const viewport of cases) {
     await expect(drawer.getByRole('button', {name:/R-C1: .*fund/i})).toBeVisible();
     await expect(drawer.getByRole('button', {name:/R-E2: .*asset/i})).toBeVisible();
     await expect(drawer.getByText(/Verify fund-flow reconciliation/i)).toBeVisible();
+    for (const paragraph of await drawer.locator('.audit-summary-drawer__copy').all()) {
+      const geometry = await paragraph.evaluate(el => ({
+        fits: el.scrollWidth <= el.clientWidth + 2,
+        padding: parseFloat(getComputedStyle(el).paddingLeft),
+        wraps: getComputedStyle(el).whiteSpace !== 'nowrap',
+      }));
+      expect(geometry.fits, 'summary text must fit inside its card').toBe(true);
+      expect(geometry.padding, 'summary body needs readable horizontal padding').toBeGreaterThanOrEqual(8);
+      expect(geometry.wraps, 'long explanations must be allowed to wrap').toBe(true);
+    }
     expect((await profile.boundingBox())?.y).toBe(originalY);
     expect(await page.evaluate(() => document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
     await page.screenshot({path:`test-results/audit-summary-drawer-${viewport.width}.png`,animations:'disabled'});
