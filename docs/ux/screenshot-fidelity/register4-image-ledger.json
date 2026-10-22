@@ -1,0 +1,513 @@
+{
+  "schema": "screenshot-fidelity/1",
+  "project": "NBR Office Management V2 / Register-4",
+  "source_commit": "0465e90d25e44e9f934b71adaaebdf1d40d2a035",
+  "scope": "Illustrative defect-analysis reference, not an approved implementation baseline",
+  "images": [
+    {
+      "id": "register4-left",
+      "ref": "/UX-UI Design Intelligence Agent/examples/register4-left-scroll-20261014.png",
+      "role": "CURRENT_DEFECT",
+      "state": "LEFT_SCROLL",
+      "viewport_px": {
+        "width": 2048,
+        "height": 1015
+      },
+      "crop_or_scroll": "Left part of table with identity, chronology and left financial group",
+      "full_image_second_pass": {
+        "status": "NOT_VERIFIED",
+        "reviewer": null,
+        "evidence": null
+      },
+      "unreadable_regions": []
+    },
+    {
+      "id": "register4-right",
+      "ref": "/UX-UI Design Intelligence Agent/examples/register4-right-scroll-20261014.png",
+      "role": "CURRENT_DEFECT",
+      "state": "RIGHT_SCROLL",
+      "viewport_px": {
+        "width": 2048,
+        "height": 1018
+      },
+      "crop_or_scroll": "Scrolled-right continuation: penalty, revised demand, remarks, save/discard",
+      "full_image_second_pass": {
+        "status": "NOT_VERIFIED",
+        "reviewer": null,
+        "evidence": null
+      },
+      "unreadable_regions": []
+    }
+  ],
+  "observations": [
+    {
+      "id": "R4-001",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "heading",
+      "observed": "Register-4 page title",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4ListPage.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-002",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "context",
+      "observed": "Register & Stock product shell, breadcrumb and active Register-4 navigation",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4ListPage.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-003",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "toolbar",
+      "observed": "New Entry, Add row and Hide Summary buttons; distinct purposes require approved user story",
+      "intent": "RECONCILE",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4ListPage.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-004",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "summary",
+      "observed": "Four KPIs 8, 0, 0, 0; wording includes Sample/draft records and Local drafts",
+      "intent": "RECONCILE",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-005",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "toolbar",
+      "observed": "Register-4 table toolbar includes Search, Filter, Download, Print",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "GeneratedTablePage.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-006",
+      "image_ids": [
+        "register4-left"
+      ],
+      "kind": "table_column",
+      "observed": "S/N",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-007",
+      "image_ids": [
+        "register4-left"
+      ],
+      "kind": "table_column",
+      "observed": "Circle",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-008",
+      "image_ids": [
+        "register4-left"
+      ],
+      "kind": "table_column",
+      "observed": "Taxpayer Name & TIN",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-009",
+      "image_ids": [
+        "register4-left"
+      ],
+      "kind": "table_column",
+      "observed": "Folio No.",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-010",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Disposal Code (Section)",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-011",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Tax Year",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-012",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Assessment Date",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-013",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Assessed Income",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-014",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "grouped_header",
+      "observed": "Created Demand / Allocation spans Arrear Tax Year and Current Tax Year",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-015",
+      "image_ids": [
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Penalty",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-016",
+      "image_ids": [
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Revised Demand / Allocation",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-017",
+      "image_ids": [
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Remarks (if any)",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-018",
+      "image_ids": [
+        "register4-right"
+      ],
+      "kind": "table_column",
+      "observed": "Actions",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "CardTable.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-019",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "row_state",
+      "observed": "Active Add row spans 14 editable table cells and is significantly taller than reading rows",
+      "intent": "CORRECT_DEFECT",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4InlineRow.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-020",
+      "image_ids": [
+        "register4-left"
+      ],
+      "kind": "field_behavior",
+      "observed": "TIN input shows derived taxpayer name; Circle and Folio are read-only",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4InlineRow.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-021",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "field_group",
+      "observed": "Section selector and Add a section action sit above additional proceeding reference/event date fields",
+      "intent": "RECONCILE",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4SectionField.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-022",
+      "image_ids": [
+        "register4-right"
+      ],
+      "kind": "row_action",
+      "observed": "Save and Discard are tiny check/X icons at far right of horizontally scrolled table",
+      "intent": "CORRECT_DEFECT",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/Register4InlineRow.tsx"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-023",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "scroll_state",
+      "observed": "Left TIN field and right save controls cannot be seen together at captured desktop viewport",
+      "intent": "CORRECT_DEFECT",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4-entry.css"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    },
+    {
+      "id": "R4-024",
+      "image_ids": [
+        "register4-left",
+        "register4-right"
+      ],
+      "kind": "data_presentation",
+      "observed": "Eight displayed rows, horizontal scroll; number/date and grouped financial column alignment require typed schema",
+      "intent": "PRESERVE_INFORMATION",
+      "target": {
+        "route": "/register-stock/register-4",
+        "component_or_source": "src/app/pages/register-stock/register4AssessmentTable.ts"
+      },
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "dom_or_function_evidence": null,
+        "visual_evidence": null
+      }
+    }
+  ],
+  "unrequested_ui_changes": [
+    {
+      "id": "NO-REMOVE-LAST",
+      "forbidden": "Remove last option without authorization",
+      "present": "NOT_VERIFIED"
+    },
+    {
+      "id": "NO-ARBITRARY-FORM",
+      "forbidden": "Unapproved full-record 14-cell form repeated as target design",
+      "present": "NOT_VERIFIED"
+    }
+  ],
+  "approved_visual_comparison": {
+    "status": "NOT_VERIFIED",
+    "baseline_ref": null,
+    "actual_ref": null,
+    "reviewer": null
+  },
+  "acceptance": {
+    "status": "NOT_VERIFIED",
+    "reviewer": null,
+    "evidence": null
+  }
+}
