@@ -4282,6 +4282,10 @@
 /* At narrow widths put the bar on its own row; never overlay it with
    count/percentage text, and keep the drill-down arrow reachable. */
 @container audit-dashboard (max-width: 660px) {
+  /* Preserve the existing one-card-per-row mobile contract. */
+  .audit-overview-v5 .dashboard-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .audit-overview-v5__risk {
     display: block;
   }
