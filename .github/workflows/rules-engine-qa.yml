@@ -19,3 +19,30 @@ jobs:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
       - run: npm test -- --reporter=default
       - run: npx tsx src/app/i18n/validateLocales.ts
+
+  off-github-backup-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create and independently test repository history bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          git fetch --all --tags --prune
+          git bundle create backup/full-history.bundle --all
+          git bundle verify backup/full-history.bundle
+          git clone --quiet --mirror backup/full-history.bundle /tmp/restored-nbr-office.git
+          git --git-dir=/tmp/restored-nbr-office.git fsck --full --no-reflogs
+          git --git-dir=/tmp/restored-nbr-office.git cat-file -e "${GITHUB_SHA}^{commit}"
+          printf '%s\n' "source_repository=${GITHUB_REPOSITORY}" "source_commit=${GITHUB_SHA}" "mirror_restore=PASS" > backup/manifest.txt
+          sha256sum backup/full-history.bundle > backup/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nbr-office-full-history-cutover-backup
+          path: backup/
+          retention-days: 7
