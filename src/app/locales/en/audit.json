@@ -869,6 +869,38 @@
           "R-E2": "external asset-registry evidence",
           "R-E3": "VAT turnover against declared business receipts"
         }
+      },
+      "quickSummary": {
+        "title": "Quick summary",
+        "hide": "Hide summary",
+        "insightLabel": "Record-based insight",
+        "synopsisSource": "Generated from the visible illustrative candidate record; verify evidence before making a finding.",
+        "lead": "{{name}} (AY {{year}}, {{circle}}): {{risk}} priority; audit {{status}}.",
+        "indicators": "Screening flags: {{indicators}}.",
+        "shortIndicators": "Screening flags {{codes}}.",
+        "moreSignals": " +{{count}} more",
+        "noIndicators": "No substantive risk signal recorded; review selection basis and data quality.",
+        "coverage": "Data: {{quality}}, {{tier}}.",
+        "difference": "Illustrative fund-flow difference ৳{{amount}} (not assessed tax).",
+        "action": "Next: Verify {{evidence}} before review.",
+        "disclaimer": "Screening indicators only; no confirmed finding or tax demand.",
+        "signalShort": {
+          "R-A1": "zero income with assets",
+          "R-A2": "zero payable tax",
+          "R-A3": "TDS-income mismatch",
+          "R-B1": "asset growth",
+          "R-B2": "income drop/asset rise",
+          "R-C1": "fund-flow gap",
+          "R-C2": "cumulative gap",
+          "R-C3": "wealth continuity",
+          "R-C4": "low expenditure",
+          "R-D1": "recurring zero returns",
+          "R-D2": "changing declarations",
+          "R-D3": "amended return",
+          "R-E1": "third-party mismatch",
+          "R-E2": "asset registry mismatch",
+          "R-E3": "VAT turnover mismatch"
+        }
       }
     }
   }

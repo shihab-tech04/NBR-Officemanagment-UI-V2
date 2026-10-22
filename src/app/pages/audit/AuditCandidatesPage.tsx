@@ -7,6 +7,8 @@ import {
   Plus,
   Printer,
   ShieldAlert,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
 import { useTranslation } from "react-i18next";
@@ -33,6 +35,7 @@ import {
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
+import { buildAuditQuickSummary } from "./auditQuickSummary";
 
 const PER_PAGE = 10;
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -1128,6 +1131,7 @@ export function AuditCandidatesPage({
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
+  const [quickSummaryCandidateId, setQuickSummaryCandidateId] = useState<string | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const initialDashboardFilters = {
     ...(routeSelectionTrack ? { selection_track: routeSelectionTrack } : {}),
@@ -1368,6 +1372,7 @@ export function AuditCandidatesPage({
   };
 
   const openCandidate = (row: TableRow) => {
+    setQuickSummaryCandidateId(null);
     const candidateId = String(row.candidate_id ?? "");
     setSelectedCandidateId(candidateId);
     setSelectedTrendMetricKey("");
@@ -1382,6 +1387,7 @@ export function AuditCandidatesPage({
   };
 
   const backToBatches = () => {
+    setQuickSummaryCandidateId(null);
     setSelectedBatchId(null);
     setSelectedCandidateId(null);
     setSearchParams({});
@@ -1389,6 +1395,7 @@ export function AuditCandidatesPage({
   };
 
   const backToCandidates = () => {
+    setQuickSummaryCandidateId(null);
     setSelectedCandidateId(null);
     setSelectedTrendMetricKey("");
     setComparisonView("focus");
@@ -1411,6 +1418,8 @@ export function AuditCandidatesPage({
 
   if (selectedCandidate && selectedBatch) {
     const selectionReason = getCandidateReason(selectedCandidate, t);
+    const quickSummaryOpen = quickSummaryCandidateId === selectedCandidate.candidate_id;
+    const quickSummary = buildAuditQuickSummary(selectedCandidate, sourceTaxpayer, t, i18n.resolvedLanguage ?? "en");
     const selectionCircles = Array.from(
       new Set(selectedCandidate.selection_basis.match(/Circle-\d+/g) ?? []),
     );
@@ -1549,7 +1558,41 @@ export function AuditCandidatesPage({
           <SecondaryButton size="sm" icon={ArrowLeft} onClick={backToCandidates}>
             {t("candidates.detail.backToCandidates")}
           </SecondaryButton>
+          <SecondaryButton
+            size="sm"
+            icon={Sparkles}
+            className="audit-quick-summary__toggle"
+            onClick={() => setQuickSummaryCandidateId(quickSummaryOpen ? null : selectedCandidate.candidate_id)}
+          >
+            {t(quickSummaryOpen ? "candidates.detail.quickSummary.hide" : "candidates.detail.quickSummary.title")}
+          </SecondaryButton>
         </div>
+
+        {quickSummaryOpen && (
+          <section
+            id="audit-quick-summary"
+            className="audit-quick-summary"
+            aria-labelledby="audit-quick-summary-title"
+            role="region"
+          >
+            <div className="audit-quick-summary__header">
+              <div className="audit-quick-summary__heading">
+                <Sparkles size={16} aria-hidden="true" />
+                <strong id="audit-quick-summary-title">{t("candidates.detail.quickSummary.title")}</strong>
+                <span>{t("candidates.detail.quickSummary.insightLabel")}</span>
+              </div>
+              <button type="button" className="audit-quick-summary__close"
+                onClick={() => setQuickSummaryCandidateId(null)}
+                aria-label={t("candidates.detail.quickSummary.hide")}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <p className="audit-quick-summary__text">{quickSummary}</p>
+            <p className="audit-quick-summary__source">
+              {t("candidates.detail.quickSummary.synopsisSource")}
+            </p>
+          </section>
+        )}
 
         <p className="audit-data-source-note">{t("overview.localDatasetScope")} {t("overview.generatedFinancialScope")}</p>
 

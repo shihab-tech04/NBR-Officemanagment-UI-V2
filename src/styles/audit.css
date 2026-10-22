@@ -4397,3 +4397,101 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+
+/* Audit Candidate Quick summary: scoped to the detail view, preserving the
+   approved shared button, surface, typography and navigation components. */
+.audit-candidates-page .audit-detail-back-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.audit-quick-summary__toggle {
+  border-color: var(--color-primary-alpha-20);
+  color: var(--color-primary);
+  background: var(--color-primary-alpha-4);
+}
+.audit-quick-summary__toggle:hover,
+.audit-quick-summary__toggle:focus-visible {
+  border-color: var(--color-primary);
+}
+.audit-quick-summary {
+  min-width: 0;
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-primary-alpha-20);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.audit-quick-summary__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.audit-quick-summary__heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-primary);
+  font-size: var(--fs-body-sm);
+}
+.audit-quick-summary__heading strong {
+  font-weight: 700;
+}
+.audit-quick-summary__heading span {
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-alpha-4);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+.audit-quick-summary__close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.audit-quick-summary__close:hover,
+.audit-quick-summary__close:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  outline-offset: 2px;
+}
+.audit-quick-summary__text {
+  margin: 7px 0 0;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-md);
+  overflow-wrap: anywhere;
+}
+.audit-quick-summary__source {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+@media (max-width: 390px) {
+  .audit-candidates-page .audit-detail-back-row {
+    align-items: stretch;
+  }
+  .audit-candidates-page .audit-detail-back-row .app-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .audit-quick-summary__heading span {
+    flex-basis: 100%;
+  }
+}
