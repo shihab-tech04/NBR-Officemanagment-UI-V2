@@ -82,6 +82,11 @@ test("WS03 source-linked proposal is exported locally and never falsely persiste
   await dialog.getByRole("button",{name:"Add proposed provision (local only)"}).click();
   await expect(dialog.getByRole("heading",{name:/TEST-PROVISION-001/})).toBeVisible();
   await expect(dialog.getByText(/SQL NOT PERSISTED/)).toBeVisible();
+  await dialog.getByRole("button",{name:"Edit proposed rule"}).click();
+  await page.locator("#candidate-new-text").fill("Synthetic revised text, not real law");
+  await dialog.getByRole("button",{name:"Save new local review revision"}).click();
+  await expect(dialog.getByRole("heading",{name:/LOCAL REV 2/})).toBeVisible();
+  await expect(dialog.getByText(/Retained previous local draft revisions/)).toBeVisible();
   await advance(page,"en",2);
   await expect(dialog.getByText("Provision proposals (OPEN):")).toBeVisible();
   const downloadEvent = page.waitForEvent("download");
@@ -91,10 +96,33 @@ test("WS03 source-linked proposal is exported locally and never falsely persiste
   const body=JSON.parse(bytes.toString("utf8"));
   expect(body.provisionCandidates).toHaveLength(1);
   expect(body.provisionCandidates[0].proposalId).toBe("TEST-PROVISION-001");
+  expect(body.provisionCandidates[0].localReviewRevision).toBe(2);
+  expect(body.priorLocalProvisionRevisions).toHaveLength(1);
+  expect(body.priorLocalProvisionRevisions[0].localReviewRevision).toBe(1);
   expect(body.provisionCandidates[0].sourcePdfSha256).toMatch(/^[a-f0-9]{64}$/);
   expect(body.provisionCandidates[0].legalVerified).toBe(false);
   expect(body.provisionCandidates[0].persistence).toBe("LOCAL_REVIEW_ONLY");
   expect(body.provisionCandidates[0].gapState).toBe("OPEN");
+  expect(body.persistentSqlWritePerformed).toBe(false);
+  expect(body.releaseGate.result).toBe("BLOCKED");
+});
+
+test("WS03 future local tax-year draft is exported without creating SQL",async({page})=>{
+  await page.setViewportSize({width:768,height:900});
+  const dialog=await startWizard(page,"en");
+  await page.locator("#tax-year-target").fill("2028-29");
+  await page.locator("#tax-year-income").fill("2027-28");
+  await page.locator("#tax-year-taxpayer-scope").fill("Synthetic taxpayer scope, not reviewed law");
+  await advance(page,"en",5);
+  const downloadEvent=page.waitForEvent("download");
+  await dialog.getByRole("button",{name:"Export review-only DRAFT JSON"}).click();
+  const download=await downloadEvent;
+  const body=JSON.parse((await readFile(await download.path() as string)).toString("utf8"));
+  expect(body.target.assessmentYear).toBe("2028-29");
+  expect(body.target.incomeYear).toBe("2027-28");
+  expect(body.taxpayerScope).toBe("Synthetic taxpayer scope, not reviewed law");
+  expect(body.yearState).toBe("DRAFT");
+  expect(body.inheritedApplicability).toBe("INHERITED_PENDING_REVIEW");
   expect(body.persistentSqlWritePerformed).toBe(false);
   expect(body.releaseGate.result).toBe("BLOCKED");
 });
