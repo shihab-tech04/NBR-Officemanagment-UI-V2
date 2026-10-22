@@ -12,6 +12,7 @@ import { usePermissionRegistry } from "../../hooks/usePermissionRegistry";
 import { PermissionsPanel } from "./PermissionsPanel";
 import { RolePreviewCard } from "./RolePreviewCard";
 import { AppModal } from "../modals/AppModal";
+import { resolveStepState } from "../../utils/stepState";
 
 interface CreateEditRoleModalProps {
   open: boolean;
@@ -126,9 +127,7 @@ export function CreateEditRoleModal({
         {/* ── Stepper — connectors are siblings of nodes, not wrappers ── */}
         <div className="crm-stepper" role="list">
           {STEP_LABELS.map((label, i) => {
-            const done   = i < step;
-            const active = i === step;
-            const future = i > step;
+            const { completed: done, current: active, future } = resolveStepState(i, step);
             return (
               <Fragment key={i}>
                 {i > 0 && (
