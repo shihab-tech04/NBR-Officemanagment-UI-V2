@@ -154,3 +154,65 @@ test('in-period structured rule facts do not become approved tax calculation wit
   assert.equal(r.body.status,'FAIL_CLOSED');
   assert.equal(h.seen.ruleReads,1);
 });
+
+test('explicit nested July transaction date cannot hide behind a June global event date',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    transactions:{'WH-R4-04':{eventDate:'2026-07-10',grossBill:'1000'}}});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'TRANSACTION_EVENT_DATE_CONFLICT');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('multiple transaction dates are not silently collapsed into one global event',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    transactions:{'A':{eventDate:'2026-06-30'},'B':{eventDate:'2026-07-01'}}});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'TRANSACTION_EVENT_DATE_CONFLICT');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('undated transaction cannot inherit caller-selected event date',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    transactions:{'WH-R4-04':{grossBill:'1000'}}});
+  assert.equal(r.code,422);
+  assert.equal(r.body.code,'TRANSACTION_EVENT_DATE_REQUIRED');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('invalid civil-date transaction is rejected before reading tax rules',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    transactions:{'WH-R4-04':{eventDate:'2026-02-30'}}});
+  assert.equal(r.code,422);
+  assert.equal(r.body.code,'TRANSACTION_EVENT_DATE_REQUIRED');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('conflicting structured ruleFacts eventDate is not ignored',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    ruleFacts:{'WH-R4-04':{baseAmount:'1000',eventDate:'2026-07-10'}}});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'RULE_EVENT_DATE_CONFLICT');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('same-date explicitly dated transaction passes the date guard but cannot bypass frozen-rule coverage',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',
+    transactions:{'WH-R4-04':{eventDate:'2026-06-30',grossBill:'1000'}}});
+  assert.equal(r.code,503);
+  assert.equal(r.body.status,'FAIL_CLOSED');
+  assert.equal(h.seen.ruleReads,1);
+});
+
+test('malformed transaction map cannot be silently disregarded',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',transactions:['2026-06-30']});
+  assert.equal(r.code,422);
+  assert.equal(r.body.code,'TRANSACTION_FACTS_UNVERIFIED');
+  assert.equal(h.seen.ruleReads,0);
+});
