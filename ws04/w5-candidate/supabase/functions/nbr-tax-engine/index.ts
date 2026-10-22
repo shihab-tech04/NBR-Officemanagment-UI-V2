@@ -1096,9 +1096,15 @@ Deno.serve(async (req) => {
     // conservative denial, NOT a determination of statutory applicability,
     // savings, special income periods, or return entitlement. A verified
     // event/cohort selection contract must replace this candidate before release.
+    // ruleFacts is shared by several runtime modes. Before certified rule
+    // binding selection exists, a nonempty set may include a TRANSACTION_EVENT;
+    // deny its out-of-period use rather than allow a ruleFacts-only bypass.
+    // This is deliberately conservative and requires a typed reviewed event
+    // selector before release, including any source-backed special periods.
     const transactionClaimed = (
       (Array.isArray(body.transactionRuleIds) && body.transactionRuleIds.length > 0) ||
-      (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0)
+      (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0) ||
+      (objectRecord(body.ruleFacts) && Object.keys(body.ruleFacts).length > 0)
     );
     const recordedYearStart = Number(year.income_year.slice(0, 4));
     const periodStart = `${recordedYearStart}-07-01`;
