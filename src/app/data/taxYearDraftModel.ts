@@ -99,7 +99,7 @@ export function freshDraftInput(): TaxYearDraftInput {
 }
 
 function fiscalYearStart(value: string): number | null {
-  const match = /^(\\d{4})-(\\d{2})$/.exec(value);
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
   if (!match) return null;
   const first = Number(match[1]);
   const last = Number(match[2]);
