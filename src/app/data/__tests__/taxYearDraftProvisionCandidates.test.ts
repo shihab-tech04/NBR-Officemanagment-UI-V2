@@ -83,6 +83,29 @@ describe("WS03 Office proposed provision fail-closed intake", () => {
     expect(exported.provisionCandidates[0].legalVerified).toBe(false);
     expect(exported.executionStatus).toBe("NOT_CERTIFIED");
   });
+  it("requires a parent identity for a child or subrule",()=>{
+    const input=fixture();
+    input.proposedProvisions[0].level="SUBRULE";
+    input.proposedProvisions[0].parentRuleId="";
+    expect(()=>createDraftReviewPackage(input,ids)).toThrow("Invalid proposed hierarchy");
+    input.proposedProvisions[0].level="CHILD";
+    expect(()=>createDraftReviewPackage(input,ids)).toThrow("Invalid proposed hierarchy");
+    input.proposedProvisions[0].parentRuleId="CORE-S-84";
+    expect(createDraftReviewPackage(input,ids).provisionCandidates[0].parentRuleId).toBe("CORE-S-84");
+  });
+  it("retains earlier local proposal revisions without SQL approval",()=>{
+    const input=fixture();
+    const old=structuredClone(input.proposedProvisions[0]);
+    input.priorLocalProvisionRevisions=[old];
+    input.proposedProvisions[0].localReviewRevision=2;
+    input.proposedProvisions[0].proposedText="Revised synthetic-only text";
+    const x=createDraftReviewPackage(input,ids);
+    expect(x.provisionCandidates[0].localReviewRevision).toBe(2);
+    expect(x.priorLocalProvisionRevisions[0].localReviewRevision).toBe(1);
+    expect(x.priorLocalProvisionRevisions[0].proposedText).toBe(old.proposedText);
+    expect(x.persistentSqlWritePerformed).toBe(false);
+    expect(x.approvedForPublication).toBe(false);
+  });
   it("rejects duplicate proposal IDs, unknown impacts and false approval", () => {
     const input = fixture();
     input.proposedProvisions.push({...input.proposedProvisions[0]});
