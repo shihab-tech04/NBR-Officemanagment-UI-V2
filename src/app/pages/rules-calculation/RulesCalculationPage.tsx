@@ -71,7 +71,9 @@ export function RulesCalculationPage({ rulesAdminClient }: { rulesAdminClient?: 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedYear = searchParams.get("year");
-  const year = TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === requestedYear) ? requestedYear! : BASE_YEAR;
+  const year = (rulesAdminClient && /^\d{4}-\d{2}$/.test(requestedYear || ""))
+    ? requestedYear!
+    : TAX_YEAR_SNAPSHOT.some(item => item.assessmentYear === requestedYear) ? requestedYear! : BASE_YEAR;
   const selectedRuleKey = searchParams.get("rule");
   const tr = (en: string, bnText: string) => bn ? bnText : en;
   const [search, setSearch] = useState("");
