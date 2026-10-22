@@ -1,0 +1,62 @@
+name: WS02 disposable PostgreSQL 17 capability (no deployment)
+on:
+  pull_request:
+    paths:
+      - 'ws02/isolated_pg17_capability_smoke.sql'
+      - '.github/workflows/ws02-disposable-pg17.yml'
+  push:
+    branches:
+      - 'ws02/disposable-pg17-sql-test-runner-20261022'
+    paths:
+      - 'ws02/isolated_pg17_capability_smoke.sql'
+      - '.github/workflows/ws02-disposable-pg17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pg17-isolated-capability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ws02_disposable
+          POSTGRES_PASSWORD: disposable_pg17_ci_only
+          POSTGRES_DB: ws02_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ws02_disposable -d ws02_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: ws02_disposable
+      PGPASSWORD: disposable_pg17_ci_only
+      PGDATABASE: ws02_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PostgreSQL client
+        shell: bash
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -q
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+      - name: Run real disposable PostgreSQL 17 privilege and rollback smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_pg17_capability_smoke.sql
+      - name: Explicit acceptance boundary
+        shell: bash
+        run: |
+          echo 'PASS applies ONLY to a fresh disposable PG17 service, synthetic privilege check and rollback.'
+          echo 'NOT TESTED: WS02 archived migration SQL, Supabase Auth users/JWT, ownership RPC, signed legal review, NBR Project Agent, source-to-value correctness.'
+          echo 'No connection to any real Supabase project or production taxpayer data.'
