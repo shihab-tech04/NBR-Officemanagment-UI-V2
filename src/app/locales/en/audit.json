@@ -244,7 +244,8 @@
     "officialSourceContext": "NBR: 72,341 selections for AY 2023–24 (28 Apr 2026) — separate from this dataset",
     "loadedCandidateNote": "Selected records in this local sample",
     "unmappedCircles": "Source circles (unmapped)",
-    "overlapNote": "Risk signals can overlap: one return may have several signals. Each percentage is the share of filtered returns, not a share of exclusive categories."
+    "overlapNote": "Risk signals can overlap: one return may have several signals. Each percentage is the share of filtered returns, not a share of exclusive categories.",
+    "generatedFinancialScope": "Historical financial series in this profile are generated illustrative scenarios, not taxpayer filings or tax assessments."
   },
   "columns": {
     "caseId": "Case ID",
