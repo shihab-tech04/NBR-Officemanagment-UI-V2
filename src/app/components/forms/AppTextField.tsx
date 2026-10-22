@@ -5,6 +5,7 @@ import { muiFieldSx, muiFilterSx } from "./muiFieldSx";
 interface AppTextFieldProps {
   id: string;
   label: string;
+  type?: React.HTMLInputTypeAttribute;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -23,13 +24,14 @@ interface AppTextFieldProps {
 }
 
 export function AppTextField({
-  id, label, value, onChange, placeholder, helper, error,
+  id, label, value, onChange, placeholder, helper, error, type,
   required, disabled, readOnly, autoComplete, inputRef, onKeyDown, compact,
   maxLength, inputMode,
 }: AppTextFieldProps) {
   return (
     <TextField
       id={id}
+      type={type}
       label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
