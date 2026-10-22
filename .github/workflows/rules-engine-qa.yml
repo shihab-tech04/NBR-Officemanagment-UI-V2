@@ -19,6 +19,34 @@ jobs:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
       - run: npm test -- --reporter=default
       - run: npx tsx src/app/i18n/validateLocales.ts
+      - name: Verify live NBR replacement Rules gateway security and browser origin
+        run: |
+          python3 - <<'PY'
+          import json
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          base = 'https://gtorruuhvohafapctxym.supabase.co/functions/v1/nbr-rules-office-gateway'
+          origin = 'https://shihab-tech04.github.io'
+          def call(path, method='GET'):
+              request = Request(base + '/' + path, method=method, headers={'Origin':origin,'Accept':'application/json'})
+              try:
+                  with urlopen(request,timeout=25) as r:
+                      return r.status, dict(r.headers.items()), r.read()
+              except HTTPError as e:
+                  return e.code, dict(e.headers.items()), e.read()
+          preflight = Request(base+'/public/years',method='OPTIONS',headers={'Origin':origin,'Access-Control-Request-Method':'GET'})
+          with urlopen(preflight,timeout=25) as res:
+              assert res.status == 204
+              assert res.headers.get('Access-Control-Allow-Origin') == origin
+          status, headers, raw = call('public/years')
+          assert status == 200
+          assert headers.get('Access-Control-Allow-Origin') == origin
+          payload = json.loads(raw)
+          assert any(y['assessmentYear']=='2026-27' for y in payload['years'])
+          status, headers, raw = call('years')
+          assert status == 401, (status,raw[:150])
+          print('PASS: live Rules gateway CORS, tax-year catalog and unauthorized denial')
+          PY
 
   off-github-backup-source:
     runs-on: ubuntu-latest
