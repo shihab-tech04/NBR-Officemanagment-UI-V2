@@ -151,7 +151,7 @@
       "finalDeterminationDetail": "Cases closed with a recorded outcome"
     },
     "interactiveScreening": "Interactive screening analytics",
-    "screenedPopulation": "Screened population",
+    "screenedPopulation": "Loaded return records",
     "screenedPopulationSub": "{{count}} returns in the national-scale prototype view",
     "currentLens": "Current lens",
     "allRiskLevels": "All risk levels",
@@ -197,7 +197,7 @@
     },
     "auditFlow": "Audit flow",
     "customAnalysis": "Interactive audit analysis",
-    "customAnalysisHint": "Choose or drag a parameter to group the data. Add an optional filter to narrow the same population.",
+    "customAnalysisHint": "Explore the same loaded return records by a parameter; optionally narrow the group with a filter.",
     "groupBy": "Group by",
     "filterBy": "Filter by",
     "filterValue": "Value",
@@ -227,19 +227,24 @@
     "candidateGrowth": "Candidate growth",
     "chartLegend": "Chart legend",
     "selectionSources": "Selection sources",
-    "selectionSourcesHint": "Where the selected audit population came from",
+    "selectionSourcesHint": "Selection-track breakdown of loaded candidate records",
     "latestSelection": "Latest selection",
-    "nationalScale": "National-scale view",
-    "nationalScaleHelp": "4.0M+ screened-return baseline and 72,341 automatic-audit selection baseline. Other dashboard totals are proportional prototype projections from representative records.",
-    "officialSelectionBaseline": "Published automatic-audit selection baseline",
+    "nationalScale": "Loaded reference records",
+    "nationalScaleHelp": "These are locally loaded illustrative AY 2025–26 records, not the country's screened-taxpayer population.",
+    "officialSelectionBaseline": "Published selection total is shown separately by tax year",
     "explainer": {
       "openDetails": "View details",
       "currentView": "Current view",
-      "modeledReturns": "Modeled returns",
+      "modeledReturns": "Loaded records",
       "shareOfView": "Share of current view",
       "filterContext": "Filter context",
-      "allScreenedReturns": "All screened returns"
-    }
+      "allScreenedReturns": "All loaded returns"
+    },
+    "localDatasetScope": "Illustrative AY 2025–26 audit records. These counts come from loaded local rows, not NBR's live audit database. The header AY is not applied to these reference records.",
+    "officialSourceContext": "NBR: 72,341 selections for AY 2023–24 (28 Apr 2026) — separate from this dataset",
+    "loadedCandidateNote": "Selected records in this local sample",
+    "unmappedCircles": "Source circles (unmapped)",
+    "overlapNote": "Risk signals can overlap: one return may have several signals. Each percentage is the share of filtered returns, not a share of exclusive categories."
   },
   "columns": {
     "caseId": "Case ID",
