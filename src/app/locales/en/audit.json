@@ -820,7 +820,7 @@
         "R-A3": "TDS-implied income floor",
         "R-B1": "Large asset growth",
         "R-B2": "Income falls while assets grow",
-        "R-C1": "Reconciliation gap",
+        "R-C1": "Fund-flow reconciliation gap",
         "R-C2": "Multi-year cumulative gap",
         "R-C3": "Opening wealth continuity break",
         "R-C4": "Implausibly low expenditure",
@@ -828,7 +828,7 @@
         "R-D2": "Alternating declaration pattern",
         "R-D3": "Amendment after trigger",
         "R-E1": "Payroll or third-party income mismatch",
-        "R-E2": "Asset registry mismatch",
+        "R-E2": "External asset-registry mismatch",
         "R-E3": "VAT turnover mismatch"
       },
       "signalsShort": "Signals",
