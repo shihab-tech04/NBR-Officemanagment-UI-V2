@@ -1118,6 +1118,49 @@ Deno.serve(async (req) => {
         error:"The transaction event is outside the recorded standard income period; reviewed event/year and savings applicability is required",
       }, 409);
     }
+    // No single caller-supplied legalEventDate can prove multiple transaction
+    // dates. Fail closed on absent, malformed, or contradictory per-event dates.
+    // This is an unapproved safety restriction; the future source-verified
+    // cohort selector must account for statutory savings and special periods.
+    if (body.transactions !== undefined) {
+      if (!objectRecord(body.transactions)) {
+        return json({ status:"FAIL_CLOSED", code:"TRANSACTION_FACTS_UNVERIFIED",
+          error:"A typed map of dated transaction events is required" }, 422);
+      }
+      for (const value of Object.values(body.transactions)) {
+        if (!objectRecord(value)) {
+          return json({ status:"FAIL_CLOSED", code:"TRANSACTION_FACTS_UNVERIFIED",
+            error:"Each transaction must contain a verified date" }, 422);
+        }
+        const eventDates = ["eventDate", "legalEventDate", "transactionEventDate"]
+          .filter((key) => value[key] !== undefined).map((key) => value[key]);
+        if (eventDates.length === 0 || eventDates.some((date) =>
+            typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+            Number.isNaN(Date.parse(date + "T00:00:00Z")) ||
+            new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)) {
+          return json({ status:"FAIL_CLOSED", code:"TRANSACTION_EVENT_DATE_REQUIRED",
+            error:"Transaction date is missing or invalid" }, 422);
+        }
+        if (eventDates.some((date) => date !== body.legalEventDate)) {
+          return json({ status:"FAIL_CLOSED", code:"TRANSACTION_EVENT_DATE_CONFLICT",
+            error:"Per-transaction dates disagree with the requested legal event date" }, 409);
+        }
+      }
+    }
+    // Existing ruleFacts carries multiple event types. If it does declare
+    // transaction dates, a contradictory date cannot override the request
+    // date used for legal-source and effective-period selection.
+    if (objectRecord(body.ruleFacts)) {
+      for (const value of Object.values(body.ruleFacts)) {
+        if (!objectRecord(value)) continue;
+        for (const key of ["eventDate", "legalEventDate", "transactionEventDate"]) {
+          if (value[key] !== undefined && value[key] !== body.legalEventDate) {
+            return json({ status:"FAIL_CLOSED", code:"RULE_EVENT_DATE_CONFLICT",
+              error:"Structured rule fact date conflicts with the evaluated event date" }, 409);
+          }
+        }
+      }
+    }
     const { data: rows, error: ruleError } = await supabase
       .from("nbr_rule_versions")
       .select("id,rule_key,revision_no,source_assessment_year,year_applicability_status,execution_status,group_id,rule_data")
