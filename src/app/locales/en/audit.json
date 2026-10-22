@@ -869,6 +869,21 @@
           "R-E2": "external asset-registry evidence",
           "R-E3": "VAT turnover against declared business receipts"
         }
+      },
+      "quickSummary": {
+        "title": "Quick summary",
+        "hide": "Hide summary",
+        "insightLabel": "Record-based insight",
+        "synopsisSource": "Generated from the visible illustrative candidate record; verify evidence before making a finding.",
+        "lead": "{{name}} (AY {{year}}, {{circle}}): {{risk}} priority; audit {{status}}.",
+        "indicators": "Screening flags: {{indicators}}.",
+        "shortIndicators": "Screening flags {{codes}}.",
+        "moreSignals": " +{{count}} more",
+        "noIndicators": "No substantive risk signal recorded; review selection basis and data quality.",
+        "coverage": "Data: {{quality}}, {{tier}}.",
+        "difference": "Illustrative fund-flow difference ৳{{amount}} (not assessed tax).",
+        "action": "Next: Verify {{evidence}} before review.",
+        "disclaimer": "Screening indicators only; no confirmed finding or tax demand."
       }
     }
   }
