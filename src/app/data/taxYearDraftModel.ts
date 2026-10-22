@@ -29,6 +29,7 @@ export type DraftRuleLevel = "PARENT" | "SUBRULE" | "CHILD";
 export type DraftHierarchyBasis = "STATUTORY" | "ADMINISTRATIVE";
 export interface DraftProvisionCandidate {
   proposalId: string;
+  localReviewRevision: number;
   ruleId: string;
   parentRuleId: string;
   level: DraftRuleLevel;
@@ -50,7 +51,7 @@ export interface DraftProvisionCandidate {
 }
 export function freshProvisionCandidate(): DraftProvisionCandidate {
   return {
-    proposalId: "", ruleId: "", parentRuleId: "", level: "PARENT", hierarchyBasis: "STATUTORY",
+    proposalId: "", localReviewRevision: 1, ruleId: "", parentRuleId: "", level: "PARENT", hierarchyBasis: "STATUTORY",
     sourceId: "", sourcePdfSha256: "", provisionLocator: "", previousText: "", proposedText: "",
     issueDate: "", effectiveDate: "", savingsText: "", taxpayerScope: "",
     triggeringFacts: "", rateOrFormula: "", exemptionOrException: "",
@@ -66,6 +67,7 @@ export interface TaxYearDraftInput {
   selectedRuleIds: string[];
   customRules: DraftCustomRule[];
   proposedProvisions: DraftProvisionCandidate[];
+  priorLocalProvisionRevisions: DraftProvisionCandidate[];
   documents: DraftDocumentEvidence[];
   legalEffect: CandidateLegalEffect;
   changeNote: string;
@@ -88,6 +90,7 @@ export function freshDraftInput(): TaxYearDraftInput {
     selectedRuleIds: [],
     customRules: [],
     proposedProvisions: [],
+    priorLocalProvisionRevisions: [],
     documents: [],
     legalEffect: "UNVERIFIED",
     changeNote: "",
@@ -122,9 +125,12 @@ export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds:
     if (!/^[A-Z][A-Z0-9-]{3,63}$/.test(proposed.proposalId) || proposalIds.has(proposed.proposalId))
       throw new Error("Invalid or duplicate provision proposal ID");
     proposalIds.add(proposed.proposalId);
+    if (!Number.isInteger(proposed.localReviewRevision) || proposed.localReviewRevision < 1)
+      throw new Error("Local proposal revision must be a positive integer");
     if (!allowedRuleIds.has(proposed.ruleId) ||
         (proposed.parentRuleId && !allowedRuleIds.has(proposed.parentRuleId)) ||
         proposed.parentRuleId === proposed.ruleId ||
+        (proposed.level !== "PARENT" && !proposed.parentRuleId) ||
         !["PARENT", "SUBRULE", "CHILD"].includes(proposed.level) ||
         !["STATUTORY", "ADMINISTRATIVE"].includes(proposed.hierarchyBasis))
       throw new Error("Invalid proposed hierarchy or unmatched rule identity");
@@ -164,6 +170,7 @@ export function createDraftReviewPackage(input: TaxYearDraftInput, canonicalIds:
       customRuleProposals: input.customRules.map(x => ({ candidateId: x.candidateId, purpose: x.purpose.trim(), status: "PROPOSED" as const })),
     },
     sourceDocuments: input.documents.map(doc => ({ ...doc, evidenceStatus: "UNVERIFIED" as const, persisted: false as const })),
+    priorLocalProvisionRevisions: (input.priorLocalProvisionRevisions ?? []).map(p => ({ ...p, impacts: [...p.impacts], persistence: "LOCAL_REVIEW_ONLY" as const })),
     provisionCandidates: provisions.map(p => ({
       ...p, impacts: [...p.impacts], legalVerified: false as const, sqlVersionId: null,
       persistence: "LOCAL_REVIEW_ONLY" as const, gapState: "OPEN" as const,
