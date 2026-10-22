@@ -1,11 +1,11 @@
 -- WS02 disposable PostgreSQL 17 capability smoke. No production schema/tenant data.
 -- Synthetic objects ONLY: this does NOT test the original WS02 legal migration.
-DO $
+DO $VERSION$
 BEGIN
   IF current_setting('server_version_num')::int < 170000 THEN
     RAISE EXCEPTION 'POSTGRES_17_REQUIRED';
   END IF;
-END $;
+END $VERSION$;
 
 CREATE ROLE nbr_probe_anon NOLOGIN;
 CREATE ROLE nbr_probe_authenticated NOLOGIN;
