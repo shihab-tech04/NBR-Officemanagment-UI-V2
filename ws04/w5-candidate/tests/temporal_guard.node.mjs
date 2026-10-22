@@ -130,3 +130,27 @@ test('the next income year remains draft and denies calculation',async()=>{
   assert.equal(r.body.code,'UNAPPROVED_YEAR');
   assert.equal(h.seen.ruleReads,0);
 });
+
+test('ruleFacts-only transaction candidate cannot bypass recorded income-year boundary',async()=>{
+  const h=harness();
+  const r=await h.request({ruleFacts:{'WH-R4-04':{baseAmount:'1000'}}});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'TRANSACTION_PERIOD_REVIEW_REQUIRED');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('unknown structured fact outside the income period is conservatively held for typed event review',async()=>{
+  const h=harness();
+  const r=await h.request({ruleFacts:{'UNCLASSIFIED-REVIEW-ONLY':{baseAmount:'100'}}});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'TRANSACTION_PERIOD_REVIEW_REQUIRED');
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('in-period structured rule facts do not become approved tax calculation without full registry',async()=>{
+  const h=harness();
+  const r=await h.request({legalEventDate:'2026-06-30',ruleFacts:{'WH-R4-04':{baseAmount:'1000'}}});
+  assert.equal(r.code,503);
+  assert.equal(r.body.status,'FAIL_CLOSED');
+  assert.equal(h.seen.ruleReads,1);
+});
