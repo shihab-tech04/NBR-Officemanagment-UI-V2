@@ -6,6 +6,7 @@ import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { fc, type TableRow } from "../modulePageUtils";
+import { compareAuthenticatedRuleDetail } from "../../services/nbrRulesAdminReadClient";
 import type {
   createRulesAdminReadClient, SqlGate, SqlRuleDetail, SqlRuleGroup,
   SqlRuleRecord, SqlSummary, SqlYear,
@@ -174,9 +175,10 @@ export function RulesAuthenticatedSqlView({client,view,year,bn,onOpenYear}: Prop
     try {
       const result=await client.getRule(year,String(row.rule_id));
       const listVersion=rules.find(rule=>rule.rule_id===result.version.rule_key)?._backend;
-      if(!listVersion||listVersion.versionId!==result.version.id ||
-         listVersion.revisionNo!==result.version.revision_no)
-        throw new Error("List and detail SQL version differ; reload before review.");
+      const listed = rules.find(rule=>rule.rule_id===result.version.rule_key);
+      if(!listed||!listVersion) throw new Error("Missing SQL list version; reload before review.");
+      const differences=compareAuthenticatedRuleDetail(listed,result,year);
+      if(differences.length) throw new Error("SQL list/detail version or rule body mismatch: "+differences.join(", "));
       setDetail(result);
     }catch(e){setDetailError(e instanceof Error?e.message:String(e));}
   };
