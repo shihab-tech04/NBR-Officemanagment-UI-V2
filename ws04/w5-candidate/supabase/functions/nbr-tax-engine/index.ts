@@ -6,7 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
-const ENGINE_VERSION = "NBR-TAX-ENGINE-1.5.0";
+const ENGINE_VERSION = "NBR-TAX-ENGINE-1.5.0-WS04-REVIEW-ONLY";
+const CONTRACT_VERSION = "NBR_ENGINE_CITIZEN_V2_REVIEW";
 // Release gates are separate from the historical seed gates marked PASS in October 2026.
 // These evidence records must be created only by an approved legal/security/QA workflow.
 const FROZEN_REGISTRY_SHA256 = "34902bac07a459a4f0c051b90bfe3b4c492f2465d06c661bab18ab7f36252184";
@@ -52,8 +53,8 @@ function nonnegativeMoney(value: unknown): boolean {
   if (typeof value !== "number" && typeof value !== "string") return false;
   const raw = String(value).trim().replace(/,/g, "");
   return /^\d+(?:\.\d{1,10})?$/.test(raw) &&
-    (typeof value !== "number" || Number.isSafeInteger(value) ||
-      (Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER));
+    // Do not accept a binary float as the source of tax decimal evidence.
+    (typeof value !== "number" || Number.isSafeInteger(value));
 }
 
 function invalidCalculationFacts(body: Record<string, any>): string[] {
@@ -140,7 +141,7 @@ function canonical(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
   const entries = Object.entries(value as Record<string, unknown>)
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([k, v]) => JSON.stringify(k) + ":" + canonical(v));
   return "{" + entries.join(",") + "}";
 }
@@ -152,13 +153,21 @@ async function sha256(value: string): Promise<string> {
 }
 
 function decimal(value: unknown): bigint {
-  if (value === null || value === undefined || value === "") return 0n;
-  const raw = String(value).trim().replace(/,/g, "");
-  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) throw new Error(`Invalid decimal value: ${raw}`);
+  // A missing statutory operand is not monetary zero. Optional fields must
+  // explicitly choose a documented zero before calling this parser.
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "bigint") {
+    throw new RangeError("MISSING_DECIMAL_OPERAND");
+  }
+  if (typeof value === "number" && (!Number.isFinite(value) || !Number.isSafeInteger(value))) {
+    throw new RangeError("BINARY_FLOAT_DECIMAL_FORBIDDEN");
+  }
+  const raw = String(value).trim();
+  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) throw new RangeError("INVALID_DECIMAL_OPERAND");
   const negative = raw.startsWith("-");
   const clean = negative ? raw.slice(1) : raw;
   const [whole, fraction = ""] = clean.split(".");
-  const scaled = BigInt(whole || "0") * SCALE + BigInt((fraction + "0".repeat(Number(SCALE_DIGITS))).slice(0, Number(SCALE_DIGITS)));
+  if (fraction.length > Number(SCALE_DIGITS)) throw new RangeError("DECIMAL_PRECISION_UNSUPPORTED");
+  const scaled = BigInt(whole || "0") * SCALE + BigInt(fraction.padEnd(Number(SCALE_DIGITS), "0"));
   return negative ? -scaled : scaled;
 }
 
@@ -179,11 +188,25 @@ function max(a: bigint, b: bigint) { return a > b ? a : b; }
 
 function parseNumericRate(value: unknown): bigint | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === "number" || typeof value === "bigint") return decimal(String(value));
-  const raw = String(value).trim().replace(/,/g, "");
-  if (/^-?\d+(?:\.\d+)?$/.test(raw)) return decimal(raw);
-  const exactPct = raw.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
-  if (exactPct) return decimal(exactPct[1]) / 100n;
+  // SQL parameter rates are dimensionless fractions; percent notation must
+  // convert exactly to a decimal-10 fraction, without JS Number or truncation.
+  if (typeof value === "number" || typeof value === "bigint") {
+    try { const r = decimal(value); return r >= 0n && r <= SCALE ? r : null; } catch { return null; }
+  }
+  const raw = String(value).trim();
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
+    try { const r = decimal(raw); return r <= SCALE ? r : null; } catch { return null; }
+  }
+  const exactPct = raw.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (exactPct) {
+    const [whole, fraction = ""] = exactPct[1].split(".");
+    // A rate precision finer than 10 fractional places in the fraction
+    // cannot be expressed by the original fixed-point W5 evaluator.
+    const numerator = BigInt(whole) * (10n ** BigInt(fraction.length)) + BigInt(fraction || "0");
+    const divisor = 100n * (10n ** BigInt(fraction.length));
+    const product = numerator * SCALE;
+    return numerator <= divisor && product % divisor === 0n ? product / divisor : null;
+  }
 
   // Legal prose is not an executable expression. In particular, a single
   // percentage may be conditional on an unproven statutory predicate.
@@ -402,6 +425,9 @@ function evaluateRule(
     ? rule.rate_alternate
     : (rule.rate_primary ?? rule.rate ?? rule.domestic_default);
   const rateOptions = canonicalRateOptions(rateRaw);
+  // Multiple legal rate choices are not an entitlement. A caller-chosen
+  // option/index cannot substitute for a sourced statutory predicate.
+  const unresolvedRateBranch = rateOptions.length > 1;
   let rate = parseNumericRate(rateRaw);
   if (rate === null && rateOptions.length > 0) {
     const requestedRateKey = String(facts.rateOptionKey ?? "");
@@ -433,6 +459,10 @@ function evaluateRule(
     rateOptions,
   };
 
+  if (unresolvedRateBranch && (binding?.affects_calculation || binding?.affects_submission)) {
+    return { ...traceBase, state:"FAIL_CLOSED",
+      reason:"Multiple rate options lack an independently reviewed conditional-branch resolver." };
+  }
   if (applicability.state === "NOT_APPLICABLE") {
     return { ...traceBase, state:"NOT_APPLICABLE", reason:applicability.reason };
   }
@@ -586,6 +616,9 @@ function thresholdFor(schedule: Record<string, any>, taxpayer: Record<string, an
 }
 
 function computeIndividual(schedule: Record<string, any>, rebateVerification: Record<string, any> | null, body: Record<string, any>) {
+  // Legacy reference retained for comparison only; never call app-side slabs.
+  // The SQL version-pinned function exclusively owns statutory base tax.
+  throw new Error("NON_SQL_STATUTORY_CALCULATOR_DISABLED");
   const taxpayer = body.taxpayer ?? {};
   const returnData = body.returnData ?? {};
   const incomeHeads = returnData.incomeHeads ?? {};
@@ -698,7 +731,9 @@ function computeIndividualFromSqlBase(
     ? baseTax.missingFacts.map((value: unknown) => String(value))
     : [];
 
-  if (!baseTax || baseTax.status === "FAIL_CLOSED") {
+  if (!baseTax || baseTax.status !== "CALCULATED" ||
+      typeof baseTax.grossTax !== "string" || typeof baseTax.taxFreeThreshold !== "string" ||
+      !nonnegativeMoney(baseTax.grossTax) || !nonnegativeMoney(baseTax.taxFreeThreshold)) {
     return {
       status: "FAIL_CLOSED",
       missingFacts: missingFacts.length ? missingFacts : ["INDIVIDUAL_TAX_SCHEDULE"],
@@ -714,7 +749,7 @@ function computeIndividualFromSqlBase(
     };
   }
 
-  const grossTax = decimal(baseTax.grossTax ?? "0");
+  const grossTax = decimal(baseTax.grossTax);
 
   let rebate = 0n;
   let rebateStatus = "NOT_CLAIMED";
@@ -755,10 +790,21 @@ function computeIndividualFromSqlBase(
   }
 
   const netTax = max(0n, sub(grossTax, rebate));
-  const taxPaid = add(
-    add(decimal(returnData.taxDeductedAtSource ?? 0), decimal(returnData.advanceTaxPaid ?? 0)),
-    decimal(returnData.selfAssessmentTaxPaid ?? 0),
+  // A withholding declaration is NOT an authorized ledger credit. Prevent
+  // payment claims from generating a lower payable amount until WS02 publishes
+  // an immutable, ownership-verified payment-credit/reversal contract.
+  const claimedTaxCredit = add(
+    add(decimal(returnData.taxDeductedAtSource ?? "0"), decimal(returnData.advanceTaxPaid ?? "0")),
+    decimal(returnData.selfAssessmentTaxPaid ?? "0"),
   );
+  if (claimedTaxCredit > 0n) {
+    return {
+      status: "FAIL_CLOSED", code: "CREDIT_EVIDENCE_NOT_VERIFIED",
+      missingFacts: ["ownerVerifiedPaymentCredits", "duplicateAndReversalCheck"],
+      trace: { baseTax, rebateStatus, creditDisposition: "EVIDENCE_ONLY_NOT_APPLIED" },
+    };
+  }
+  const taxPaid = 0n;
   const balanceDue = max(0n, sub(netTax, taxPaid));
 
   return {
@@ -766,7 +812,7 @@ function computeIndividualFromSqlBase(
     missingFacts: [...new Set(missingFacts)],
     values: {
       totalIncome: decimalString(totalIncome),
-      taxFreeThreshold: String(baseTax.taxFreeThreshold ?? "0"),
+      taxFreeThreshold: decimalString(decimal(baseTax.taxFreeThreshold)),
       grossTax: decimalString(grossTax),
       rebate: decimalString(rebate),
       netTax: decimalString(netTax),
@@ -809,6 +855,10 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === "GET" && route[0] === "years") {
+      return json({ status:"FAIL_CLOSED", code:"YEARS_PRIVATE",
+        error:"Use the audited Rules API public-year catalogue rather than a privileged calculator query" }, 403);
+      // Historical implementation preserved below but unreachable.
+
       const { data:years, error:yearsError } = await supabase
         .from("nbr_tax_years")
         .select("assessment_year,income_year,state,is_executable,is_immutable,source_registry_version,legal_cutoff")
@@ -829,6 +879,11 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === "GET" && route[0] === "status") {
+      return json({ status:"FAIL_CLOSED", code:"STATUS_NOT_PUBLIC",
+        error:"Private engine source/gate diagnostics require an approved Admin session" }, 403);
+      // Retained historic implementation below for non-destructive recovery;
+      // current public path cannot reach service-role diagnostics.
+
       const { data:year, error:yearError } = await supabase
         .from("nbr_tax_years")
         .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
@@ -921,6 +976,11 @@ Deno.serve(async (req) => {
     }
 
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    // Explicit disabled-by-default guard before taxpayer interaction. The
+    // isolated tests set this flag with in-memory mocks; deployed W5 remains off.
+    if (Deno.env.get("NBR_TAX_EXECUTION_ENABLED") !== "true") {
+      return json({ status:"FAIL_CLOSED", code:"ENGINE_DISABLED", error:"Executable engine is not approved" }, 503);
+    }
 
     const token = verifiedBearer(req);
     if (!token || token === serviceRole) {
@@ -935,9 +995,35 @@ Deno.serve(async (req) => {
     if (!body || typeof body !== "object" || Array.isArray(body) || !validAssessmentYear(body.assessmentYear)) {
       return json({ error: "An explicit, valid assessmentYear is required" }, 400);
     }
+    if (body.contractVersion !== CONTRACT_VERSION ||
+        typeof body.legalEventDate !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(body.legalEventDate) ||        !Number.isFinite(Date.parse(body.legalEventDate + "T00:00:00Z")) ||
+        new Date(body.legalEventDate + "T00:00:00Z").toISOString().slice(0,10) !== body.legalEventDate ||
+        typeof body.expectedSourceCutoff !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(body.expectedSourceCutoff) ||
+        typeof body.expectedRuleSetHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.expectedRuleSetHash) ||
+        typeof body.expectedParameterRevision !== "number" || !Number.isSafeInteger(body.expectedParameterRevision) ||
+        typeof body.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(body.idempotencyKey) ||
+        !objectRecord(body.taxpayer) || typeof body.taxpayer.residency !== "string" ||
+        !["resident","nonresident"].includes(body.taxpayer.residency) ||
+        typeof body.taxpayer.industryCode !== "string" ||
+        !/^[A-Za-z0-9_.-]{1,64}$/.test(body.taxpayer.industryCode) ||
+        typeof body.taxpayer.specialCategory !== "string" ||
+        !["none","female","senior_citizen","person_with_disability","third_gender","gazetted_freedom_fighter","july_warrior","parent_of_disabled"].includes(body.taxpayer.specialCategory)) {
+      return json({ status:"FAIL_CLOSED", code:"VERSIONED_CONTRACT_REQUIRED", error:"Explicit verified year, event, taxpayer class and pinned source revisions are required" }, 422);
+    }
+    if (body.taxpayer.residency !== "resident") {
+      return json({ status:"FAIL_CLOSED", code:"UNSUPPORTED_RESIDENCY_SCOPE",
+        error:"Nonresident calculation requires separate verified applicability and treaty source" }, 409);
+    }
     const invalidFacts = invalidCalculationFacts(body);
     if (invalidFacts.length > 0) {
       return json({ error: "Taxpayer or income inputs are missing or invalid", status: "FAIL_CLOSED", invalidFacts }, 422);
+    }
+    if (body.taxpayer.industryCode === "not_applicable" &&
+        decimal(body.returnData?.incomeHeads?.businessProfession ?? "0") > 0n) {
+      return json({ status:"FAIL_CLOSED", code:"INDUSTRY_CLASSIFICATION_REQUIRED",
+        error:"Business/final-tax industry requires a reviewed statutory classification" }, 409);
     }
     // A user JWT alone is not evidence of ownership of this taxpayer return.
     // WS02 must implement and certify this owner-checked SQL RPC; until then,
@@ -952,19 +1038,6 @@ Deno.serve(async (req) => {
       return json({ error:"An explicit incomeYear is required", status:"FAIL_CLOSED", code:"INCOME_YEAR_REQUIRED" }, 422);
     }
 
-    const { data: year, error: yearError } = await supabase
-      .from("nbr_tax_years")
-      .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
-      .eq("assessment_year", assessmentYear)
-      .maybeSingle();
-    if (yearError) throw yearError;
-    if (!year) return json({ error: "Assessment year not found" }, 404);
-    if (!year.is_executable || year.state !== "active") {
-      return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
-    }
-    if (year.income_year !== body.incomeYear) {
-      return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
-    }
     // This RPC must check immutable owner/tenant mapping, not caller-submitted
     // identity or client metadata. User UUID comes only from auth.getUser(token).
     const { data: ownership, error: ownershipError } = await supabase.rpc(
@@ -980,6 +1053,42 @@ Deno.serve(async (req) => {
       return json({ error:"Taxpayer record access denied", status:"FAIL_CLOSED", code:"TAXPAYER_ACCESS_DENIED" }, 403);
     }
 
+    // Atomic reserve or replay denial must be implemented by WS02 in an
+    // isolated migration; without it no privileged calculation may proceed.
+    const authorizedRequestHash = await sha256(canonical({
+      userId: authData.user.id, taxpayerRecordId, request: body,
+    }));
+    const { data: reservation, error: reservationError } = await supabase.rpc(
+      "nbr_reserve_citizen_evaluation", {
+        p_auth_user_id: authData.user.id,
+        p_taxpayer_record_id: taxpayerRecordId,
+        p_assessment_year: assessmentYear,
+        p_idempotency_key: body.idempotencyKey,
+        p_request_hash: authorizedRequestHash,
+        p_contract_version: CONTRACT_VERSION,
+      });
+    if (reservationError || !objectRecord(reservation) || typeof reservation.state !== "string") {
+      return json({ status:"FAIL_CLOSED", code:"REPLAY_GATE_UNAVAILABLE",
+        error:"Approved atomic replay/idempotency gate unavailable" }, 503);
+    }
+    if (reservation.state !== "RESERVED") {
+      return json({ status:"FAIL_CLOSED", code:"REPLAY_NOT_ACCEPTED",
+        error:"Duplicate or conflicting evaluation request denied" }, 409);
+    }
+
+    const { data: year, error: yearError } = await supabase
+      .from("nbr_tax_years")
+      .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
+      .eq("assessment_year", assessmentYear)
+      .maybeSingle();
+    if (yearError) throw yearError;
+    if (!year) return json({ error: "Assessment year not found" }, 404);
+    if (!year.is_executable || year.state !== "active") {
+      return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
+    }
+    if (year.income_year !== body.incomeYear) {
+      return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
+    }
     const { data: rows, error: ruleError } = await supabase
       .from("nbr_rule_versions")
       .select("id,rule_key,revision_no,source_assessment_year,year_applicability_status,execution_status,group_id,rule_data")
@@ -1005,7 +1114,6 @@ Deno.serve(async (req) => {
       .eq("status", "ACTIVE")
       .maybeSingle();
     if (scheduleError) throw scheduleError;
-
     const { data:bindingRows, error:bindingError } = await supabase
       .from("nbr_rule_runtime_bindings")
       .select("rule_key,runtime_mode,entity_types,trigger_key,affects_calculation,affects_submission,source_basis")
@@ -1042,6 +1150,11 @@ Deno.serve(async (req) => {
       } : null,
     }));
 
+    if (ruleSetHash !== body.expectedRuleSetHash) {
+      return json({ status:"FAIL_CLOSED", code:"STALE_RULESET_REVISION",
+        error:"Supplied approved rule-set hash does not match current immutable SQL versions" }, 409);
+    }
+
     const { data: releaseGates, error: releaseGateError } = await supabase
       .from("nbr_tax_year_gate_results")
       .select("gate_code,status,evidence_ref,evidence_detail,evaluated_at,evaluated_by")
@@ -1050,9 +1163,23 @@ Deno.serve(async (req) => {
     if (releaseGateError) {
       return json({ error:"Engine release certification lookup failed", status:"FAIL_CLOSED" }, 503);
     }
+    if (year.legal_cutoff !== body.expectedSourceCutoff ||
+        typeof year.legal_cutoff !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(year.legal_cutoff) ||
+        body.legalEventDate > year.legal_cutoff) {
+      return json({ status:"FAIL_CLOSED", code:"LEGAL_EVENT_CUTOFF_UNVERIFIED",
+        error:"Legal event falls outside source-reviewed cutoff or cutoff is missing" }, 409);
+    }
     const pendingGates = missingReleaseGates(releaseGates ?? [], ruleSetHash);
     if (pendingGates.length > 0) {
       return json({ error:"Current legal/security/QA acceptance is pending", status:"FAIL_CLOSED", pendingGates }, 409);
+    }
+
+    if (!scheduleRow || scheduleRow.revision_no !== body.expectedParameterRevision ||
+        !scheduleRow.legal_source || scheduleRow.status !== "ACTIVE" ||
+        scheduleRow.parameter_data?.rounding_policy !== "FIXED_DECIMAL_10_TRUNCATE_TOWARD_ZERO") {
+      return json({ status:"FAIL_CLOSED", code:"UNAPPROVED_PARAMETER_REVISION",
+        error:"Selected parameter version is missing, stale or has no legal provenance" }, 409);
     }
 
     // Per-rule legal attestations belong to the separate release-evidence
@@ -1064,6 +1191,11 @@ Deno.serve(async (req) => {
       if (!binding?.affects_calculation && !binding?.affects_submission) return false;
       const verification = attestations[row.rule_key];
       return verification?.status !== "VERIFIED" ||
+        verification?.amendment_conflict === true ||
+        verification?.savings_unresolved === true ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(String(verification?.effective_from ?? "")) ||
+        verification.effective_from > body.legalEventDate ||
+        (verification.effective_until && verification.effective_until < body.legalEventDate) ||
         verification?.revision_no !== row.revision_no ||
         typeof verification?.source_sha256 !== "string" ||
         !/^[a-f0-9]{64}$/i.test(verification.source_sha256) ||
@@ -1096,6 +1228,8 @@ Deno.serve(async (req) => {
       "nbr_engine_calculate_individual_base_tax",
       {
         p_assessment_year: assessmentYear,
+        p_parameter_revision: scheduleRow.revision_no,
+        p_expected_rule_set_hash: ruleSetHash,
         p_total_income: totalIncomeForBaseTax,
         p_special_category: String(body.taxpayer?.specialCategory ?? "none"),
         p_is_new_taxpayer:
@@ -1108,7 +1242,17 @@ Deno.serve(async (req) => {
             : Number(body.taxpayer?.disabledChildCount),
       },
     );
-    if (baseTaxError) throw baseTaxError;
+    if (baseTaxError) {
+      return json({ status:"FAIL_CLOSED", code:"BASE_TAX_SQL_CONTRACT_UNAVAILABLE",
+        error:"Reviewed version-pinned calculation RPC is unavailable" }, 503);
+    }
+    if (baseTaxResult?.status === "CALCULATED" &&
+        (baseTaxResult?.parameter_revision !== scheduleRow.revision_no ||
+         baseTaxResult?.rule_set_hash !== ruleSetHash ||
+         baseTaxResult?.rounding_policy !== scheduleRow.parameter_data.rounding_policy)) {
+      return json({ status:"FAIL_CLOSED", code:"UNPINNED_SQL_CALCULATION",
+        error:"SQL tax calculation returned an unverified ruleset, revision or rounding policy" }, 409);
+    }
 
     const individual = scheduleRow
       ? computeIndividualFromSqlBase(
@@ -1129,7 +1273,7 @@ Deno.serve(async (req) => {
       "HISTORICAL_ONLY","NOT_APPLICABLE","NOT_TRIGGERED"
     ]);
     const unhandled = results.filter((r:any)=>!recognizedRuntimeStates.has(String(r.state))).length;
-    const inputHash = await sha256(canonical(body));
+    const inputHash = authorizedRequestHash;
 
     const relevantBlocked = results.filter((r:any)=>
       r.state === "FAIL_CLOSED" && (r.affectsCalculation || r.affectsSubmission)
@@ -1144,11 +1288,26 @@ Deno.serve(async (req) => {
         : individual.status === "NEEDS_FACTS" || relevantNeedsFacts > 0
           ? "NEEDS_FACTS"
           : "CALCULATED";
-    const submissionReady =
+    // Tax arithmetic acceptance is never equivalent to filing permission.
+    const submissionReady = false;
+    const computationComplete =
       fullReturnStatus === "CALCULATED" &&
       results.length === (rows ?? []).length &&
       unhandled === 0;
 
+    const receipt = {
+      contractVersion: CONTRACT_VERSION,
+      engineVersion: ENGINE_VERSION,
+      assessmentYear, incomeYear: year.income_year,
+      legalEventDate: body.legalEventDate,
+      ruleSetHash, parameterRevision: scheduleRow.revision_no,
+      inputHash, evaluationStatus: fullReturnStatus,
+      computationComplete, submissionReady,
+      ruleVersions: rows.map((row:any) => ({ id:row.rule_key, revision:row.revision_no })),
+      trace: { individual:individual.trace, rules:results },
+      amounts: fullReturnStatus === "CALCULATED" ? individual.values : null,
+    };
+    const receiptHash = await sha256(canonical(receipt));
     const { error: logError } = await supabase.from("nbr_engine_evaluation_log").insert({
       assessment_year: assessmentYear,
       engine_version: ENGINE_VERSION,
@@ -1163,13 +1322,34 @@ Deno.serve(async (req) => {
         parameter_revision: scheduleRow?.revision_no ?? null,
         actor_user_id: authData.user.id,
         taxpayer_record_id: taxpayerRecordId,
+        receipt_hash: receiptHash,
+        contract_version: CONTRACT_VERSION,
       },
     });
     if (logError) {
-      return json({ error:"Engine evaluation could not be persisted", status:"FAIL_CLOSED" }, 503);
+      return json({ error:"Engine evaluation could not be persisted", status:"FAIL_CLOSED", code:"AUDIT_WRITE_FAILED" }, 503);
+    }
+    const { data: finalization, error: finalizeError } = await supabase.rpc(
+      "nbr_finalize_citizen_evaluation", {
+        p_auth_user_id: authData.user.id,
+        p_taxpayer_record_id: taxpayerRecordId,
+        p_assessment_year: assessmentYear,
+        p_idempotency_key: body.idempotencyKey,
+        p_request_hash: authorizedRequestHash,
+        p_receipt_hash: receiptHash,
+      });
+    if (finalizeError || finalization !== true) {
+      return json({ status:"FAIL_CLOSED", code:"RECEIPT_FINALIZATION_UNAVAILABLE",
+        error:"Cannot certify persisted idempotent evaluation" }, 503);
     }
 
     return json({
+      ok: fullReturnStatus === "CALCULATED",
+      code: fullReturnStatus === "CALCULATED" ? "CALCULATED" :
+        individual.code ?? (fullReturnStatus === "NEEDS_FACTS" ? "FACTS_REQUIRED" : "LEGAL_OR_RULE_BLOCKED"),
+      contractVersion: CONTRACT_VERSION,
+      receiptHash,
+      inputHash,
       engineVersion: ENGINE_VERSION,
       status: fullReturnStatus,
       submissionReady,
@@ -1178,6 +1358,10 @@ Deno.serve(async (req) => {
       sourceRegistryVersion: year.source_registry_version,
       legalCutoff: year.legal_cutoff,
       ruleSetHash,
+      parameterSetHash: await sha256(canonical({ assessmentYear,
+        revision: scheduleRow.revision_no, data: scheduleRow.parameter_data,
+        legalSource: scheduleRow.legal_source })),
+      roundingPolicy: scheduleRow.parameter_data.rounding_policy,
       taxpayerRecordId,
       ruleCount: (rows ?? []).length,
       ruleSummary: {
@@ -1194,7 +1378,9 @@ Deno.serve(async (req) => {
         allRuleNodesEvaluated: results.length === (rows ?? []).length && unhandled === 0,
         submissionReady,
       },
-      individual,
+      individual: fullReturnStatus === "CALCULATED" ? individual : {
+        ...individual, values: undefined, // failed/unknown responses never masquerade as tax amounts
+      },
       rules: results,
       parameterSet: scheduleRow ? {
         revision: scheduleRow.revision_no,
@@ -1203,7 +1389,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error(error);
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    return json({ status:"FAIL_CLOSED", code:"EVALUATOR_EXCEPTION", error:"Evaluation refused; no tax amount is authorized" }, 503);
   }
 });
-
