@@ -871,5 +871,90 @@ BEGIN
  OR (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='engine-private-readback-00001')<>1 THEN
   RAISE EXCEPTION 'PRIVATE_ATOMIC_RECEIPT_READBACK_FAILED'; END IF;
 END $private_receipt_readback$;
+-- Independent cross-assessment-year idempotency and owner isolation.
+-- Same synthetic record and idempotency key MUST NOT authorize a different
+-- year's owner, replay its request, or swap audit traces/receipts. No real JWT.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000005','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000005','2027-28',
+  '60000000-0000-4000-8000-000000000002','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $cross_year_isolation$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ b uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000005';
+ idem text:='cross-year-idempotency-00001';
+ req_a text:=repeat('a',64); req_b text:=repeat('d',64);
+ receipt_a text:=repeat('b',64); receipt_b text:=repeat('e',64);
+ trace_a text:=repeat('c',64); trace_b text:=repeat('f',64);
+ audit_a jsonb; audit_b jsonb; r jsonb;
+BEGIN
+ audit_a:=jsonb_build_object('actor_user_id',a::text,
+  'taxpayer_record_id',rec::text,'assessment_year','2026-27',
+  'income_year','2025-26','authorized_request_hash',req_a,
+  'receipt_hash',receipt_a,'idempotency_key',idem,
+  'result_status','NEEDS_FACTS','contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ audit_b:=jsonb_build_object('actor_user_id',b::text,
+  'taxpayer_record_id',rec::text,'assessment_year','2027-28',
+  'income_year','2026-27','authorized_request_hash',req_b,
+  'receipt_hash',receipt_b,'idempotency_key',idem,
+  'result_status','FAIL_CLOSED','contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_owner.nbr_authorize_citizen_evaluation(a,rec,'2027-28')
+ OR ws02_owner.nbr_authorize_citizen_evaluation(b,rec,'2026-27') THEN
+  RAISE EXCEPTION 'CROSS_YEAR_WRONG_ACTOR_AUTHORIZED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  a,rec,'2026-27',idem,req_a,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'CROSS_YEAR_FIRST_RESERVATION_DENIED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  b,rec,'2027-28',idem,req_b,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'CROSS_YEAR_SECOND_RESERVATION_CONFLATED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  a,rec,'2027-28',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR ws02_owner.nbr_commit_evaluation_atomically(
+  b,rec,'2026-27',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b) THEN
+  RAISE EXCEPTION 'CROSS_YEAR_WRONG_ACTOR_COMMIT_ACCEPTED'; END IF;
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  b,rec,'2027-28',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b)
+ OR NOT ws02_owner.nbr_commit_evaluation_atomically(
+  a,rec,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a) THEN
+  RAISE EXCEPTION 'CROSS_YEAR_INDEPENDENT_COMMIT_FAILED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  a,rec,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR ws02_owner.nbr_commit_evaluation_atomically(
+  b,rec,'2027-28',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b) THEN
+  RAISE EXCEPTION 'CROSS_YEAR_DUPLICATE_RECEIPT_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  a,rec,'2026-27',idem,req_b,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'CONFLICT' THEN
+  RAISE EXCEPTION 'CROSS_YEAR_REQUEST_HASH_REPLAY_ACCEPTED'; END IF;
+END $cross_year_isolation$;
+RESET ROLE;
+DO $cross_year_readback$
+DECLARE rec uuid:='50000000-0000-4000-8000-000000000005';
+ idem text:='cross-year-idempotency-00001';
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE record_id=rec AND idem_key=idem AND state='FINALIZED')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id=rec AND idem_key=idem)<>2
+ OR NOT EXISTS (SELECT 1 FROM ws02_owner.slots s
+  JOIN ws02_owner.evaluation_logs l USING(actor_id,record_id,assessment_year,idem_key)
+  WHERE s.record_id=rec AND s.idem_key=idem
+  AND s.assessment_year='2026-27'
+  AND s.actor_id='60000000-0000-4000-8000-000000000001'
+  AND s.receipt_hash=repeat('b',64) AND l.request_hash=repeat('a',64)
+  AND l.result_state='NEEDS_FACTS' AND l.audit_trace->>'income_year'='2025-26')
+ OR NOT EXISTS (SELECT 1 FROM ws02_owner.slots s
+  JOIN ws02_owner.evaluation_logs l USING(actor_id,record_id,assessment_year,idem_key)
+  WHERE s.record_id=rec AND s.idem_key=idem
+  AND s.assessment_year='2027-28'
+  AND s.actor_id='60000000-0000-4000-8000-000000000002'
+  AND s.receipt_hash=repeat('e',64) AND l.request_hash=repeat('d',64)
+  AND l.result_state='FAIL_CLOSED' AND l.audit_trace->>'income_year'='2026-27')
+ THEN RAISE EXCEPTION 'CROSS_YEAR_ATOMIC_TRACE_RECEIPT_CONTAMINATION'; END IF;
+END $cross_year_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
