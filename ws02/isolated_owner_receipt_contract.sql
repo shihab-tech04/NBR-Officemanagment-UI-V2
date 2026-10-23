@@ -229,8 +229,9 @@ BEGIN
  IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
   RAISE EXCEPTION 'FINALIZATION_WITHOUT_EVALUATION_LOG_ACCEPTED'; END IF;
  INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
-   idem_key,request_hash,receipt_hash,trace_hash,result_state)
- VALUES(a,x,'2026-27',k,h,receipt,repeat('d',64),'CALCULATED');
+   idem_key,request_hash,receipt_hash,trace_hash,result_state,audit_trace)
+ VALUES(a,x,'2026-27',k,h,receipt,repeat('d',64),'CALCULATED',
+ jsonb_build_object('synthetic_control','legacy_log_bound_finalize'));
  IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,h2) THEN
   RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_RECEIPT_ACCEPTED'; END IF;
  IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) THEN
