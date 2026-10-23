@@ -458,6 +458,13 @@ BEGIN
   actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
   '[]'::jsonb) THEN
   RAISE EXCEPTION 'NON_OBJECT_TRACE_ACCEPTED'; END IF;
+ -- The 256 KiB audit boundary must fail closed before any receipt/log write.
+ -- The synthetic payload is deliberately larger than the RPC's byte cap;
+ -- this is not a production taxpayer trace or a legal calculation.
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+  audit||jsonb_build_object('oversized_fixture',repeat('x',262144))) THEN
+  RAISE EXCEPTION 'OVERSIZED_ATOMIC_AUDIT_TRACE_ACCEPTED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs
   WHERE idem_key=request_key)<>0 OR
   (SELECT state FROM ws02_owner.slots WHERE idem_key=request_key)
