@@ -35,6 +35,7 @@ import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
+import { formatFinancialChange, fundFlowReconciliation, crossesBalanceSign } from "./auditFinancialPresentation";
 
 const PER_PAGE = 10;
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -211,7 +212,7 @@ function series(current: number, seed: number, offset = 0): number[] {
   return [oldest, middle, Math.round(current)];
 }
 
-function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
+export function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
   const seed = candidateSeed(candidate);
   const signals = signalIds(candidate.signals);
 
@@ -323,18 +324,16 @@ function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
     (value, index) =>
       value + Math.max(0, netWealth[index] - (index > 0 ? netWealth[index - 1] : Math.round(netWealth[index] * 0.9))),
   );
-  const difference = sourceOfFund.map(
-    (value, index) => value - fundOutflow[index],
-  );
-
+  // Illustrative values must reconcile: source − outflow = difference, no hidden plug.
   if (signals.includes("R-C1")) {
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
+    fundOutflow[2] = sourceOfFund[2] + Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
   }
   if (signals.includes("R-C2")) {
-    difference[0] = -Math.round(Math.max(sourceOfFund[0], 1) * 0.08);
-    difference[1] = -Math.round(Math.max(sourceOfFund[1], 1) * 0.14);
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.2);
+    [0.08, 0.14, 0.2].forEach((rate, index) => {
+      fundOutflow[index] = sourceOfFund[index] + Math.round(Math.max(sourceOfFund[index], 1) * rate);
+    });
   }
+  const difference = sourceOfFund.map((value, index) => value - fundOutflow[index]);
 
   const openingNetWealth = [
     Math.round(netWealth[0] * 0.9),
@@ -549,8 +548,10 @@ function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
 }
 
 function formatMoney(value: number, language: string): string {
+  if (!Number.isFinite(value)) return "—";
   const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  return "৳" + new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+  const sign = value < 0 ? "−" : "";
+  return sign + "৳" + new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.abs(value));
 }
 
 function changePercent(current: number, previous: number): number | null {
@@ -558,26 +559,13 @@ function changePercent(current: number, previous: number): number | null {
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
-function formatChange(value: number | null, language: string): string {
-  if (value === null || !Number.isFinite(value)) return "—";
-  const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  const sign = value > 0 ? "+" : "";
-  return (
-    sign +
-    new Intl.NumberFormat(locale, {
-      maximumFractionDigits: 1,
-      minimumFractionDigits: 0,
-    }).format(value) +
-    "%"
-  );
-}
-
 function formatCompactMoney(value: number, language: string): string {
+  if (!Number.isFinite(value)) return "—";
   const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  return "৳" + new Intl.NumberFormat(locale, {
+  return (value < 0 ? "−" : "") + "৳" + new Intl.NumberFormat(locale, {
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(Math.abs(value));
 }
 
 type SignalLinkedMetric = ComparisonMetric & {
@@ -653,8 +641,8 @@ function AuditTrendChart({
   threeYearLabel: string;
 }) {
   const width = 720;
-  const height = 210;
-  const pad = { top: 22, right: 28, bottom: 34, left: 68 };
+  const height = 235;
+  const pad = { top: 32, right: 78, bottom: 46, left: 78 };
   const values = metric.values;
   const minRaw = Math.min(0, ...values);
   const maxRaw = Math.max(0, ...values);
@@ -703,11 +691,11 @@ function AuditTrendChart({
         <div className="audit-trend-summary__changes">
           <span className={(oneYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{oneYearLabel}</small>
-            <strong>{formatChange(oneYearChange, language)}</strong>
+            <strong title={crossesBalanceSign(values[2], values[1]) ? description : undefined}>{formatFinancialChange(values[2], values[1], language)}</strong>
           </span>
           <span className={(threeYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{threeYearLabel}</small>
-            <strong>{formatChange(threeYearChange, language)}</strong>
+            <strong title={crossesBalanceSign(values[2], values[0]) ? description : undefined}>{formatFinancialChange(values[2], values[0], language)}</strong>
           </span>
         </div>
       </div>
@@ -791,16 +779,18 @@ function AuditTrendChart({
                 cx={px}
                 cy={py}
                 r={isCurrent ? "5.5" : "4.5"}
-              />
+              >
+                <title>{years[index]}: {formatMoney(value, language)}</title>
+              </circle>
               <text
                 className={[
                   "audit-chart__value-label",
                   isCurrent ? "audit-chart__value-label--current" : "",
                   isNegative ? "audit-chart__value-label--negative" : "",
                 ].filter(Boolean).join(" ")}
-                x={px}
+                x={isCurrent ? px - 9 : px}
                 y={labelY}
-                textAnchor="middle"
+                textAnchor={isCurrent ? "end" : "middle"}
               >
                 {formatCompactMoney(value, language)}
               </text>
@@ -953,7 +943,6 @@ function AuditCustomComparison({
   metrics,
   years,
   selectedKeys,
-  onSelect,
   language,
   labels,
   view,
@@ -961,7 +950,6 @@ function AuditCustomComparison({
   metrics: SignalLinkedMetric[];
   years: string[];
   selectedKeys: string[];
-  onSelect: (slot: number, key: string) => void;
   language: string;
   labels: {
     title: string;
@@ -977,37 +965,6 @@ function AuditCustomComparison({
 
   return (
     <div className="audit-custom-comparison">
-      <div className="audit-custom-comparison__selectors">
-        <div className="audit-custom-comparison__selector-spacer" aria-hidden="true" />
-        {selectedKeys.map((key, index) => {
-          const metric = metrics.find((item) => item.key === key);
-
-          return (
-            <div className="audit-custom-comparison__selector-cell" key={index}>
-              <AppSelectField
-                id={`audit-compare-metric-${index + 1}`}
-                label=""
-                ariaLabel={`${labels.metricAria} ${index + 1}`}
-                value={key}
-                onChange={(value) => onSelect(index, value)}
-                compact
-                sortOptions
-                searchableAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
-                options={metrics.map((item) => ({
-                  value: item.key,
-                  label: item.label,
-                }))}
-              />
-              {metric && (
-                <span className="audit-custom-comparison__selector-context">
-                  {metric.sectionTitle}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
       {view === "graph" ? (
         <div className="audit-custom-comparison__viewport">
           <AuditCustomComparisonGraph
@@ -1067,7 +1024,7 @@ function AuditCustomComparison({
                   role="cell"
                   key={metric.key}
                 >
-                  {formatChange(value, language)}
+                  {formatFinancialChange(metric.values[2], metric.values[1], language)}
                 </div>
               );
             })}
@@ -1088,7 +1045,7 @@ function AuditCustomComparison({
                   role="cell"
                   key={metric.key}
                 >
-                  {formatChange(value, language)}
+                  {formatFinancialChange(metric.values[2], metric.values[0], language)}
                 </div>
               );
             })}
@@ -1533,6 +1490,13 @@ export function AuditCandidatesPage({
       }))
       .filter((section) => section.metrics.length > 0);
     const displayedComparison = comparisonView === "focus" ? focusedComparison : comparison;
+    const lookupMetric = (key: string) => allComparisonMetrics.find((metric) => metric.key === key);
+    const fundSource = lookupMetric("sourceOfFund")?.values[2];
+    const fundOutflowValue = lookupMetric("fundOutflow")?.values[2];
+    const reportedDifference = lookupMetric("difference")?.values[2];
+    const reconciliation = fundSource !== undefined && fundOutflowValue !== undefined && reportedDifference !== undefined
+      ? fundFlowReconciliation(fundSource, fundOutflowValue, reportedDifference)
+      : null;
     const updateCompareMetric = (slot: number, key: string) => {
       setCompareMetricKeys((current) => {
         const next = [...current];
@@ -1584,13 +1548,16 @@ export function AuditCandidatesPage({
                   {selectedCandidate.circle}
                 </button>
                 <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  className="audit-concept-inline"
-                  onClick={() => explain("assessment_year", selectedCandidate.assessment_year, profileExplanationRow)}
-                >
-                  {selectedCandidate.assessment_year}
-                </button>
+                <Tooltip arrow title={t("candidates.detail.profileUx.yearScopeHelp")}>
+                  <button
+                    type="button"
+                    className="audit-concept-inline audit-candidate-ay-tag"
+                    onClick={() => explain("assessment_year", selectedCandidate.assessment_year, profileExplanationRow)}
+                  >
+                    {t("candidates.detail.profileUx.recordAy", {year: selectedCandidate.assessment_year})}
+                    <Info size={12} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </p>
             </div>
             <div className="audit-candidate-detail__statuses">
@@ -1644,29 +1611,10 @@ export function AuditCandidatesPage({
           </div>
 
           <div className="audit-note-strip__grid">
-            <div className="audit-note-strip__item">
-              <span>{t("candidates.detail.auditNote.situation")}</span>
-              <strong>
-                {t("candidates.detail.auditNote.situationValue", {
-                  risk: selectedCandidate.risk_level,
-                  status: selectedCandidate.audit_status,
-                })}
-              </strong>
-            </div>
-
             <div className="audit-note-strip__item audit-note-strip__item--issue">
               <span>{t("candidates.detail.auditNote.issue")}</span>
               <strong>{auditIssue}</strong>
-              {auditNoteIndicator && (
-                <small>
-                  {auditNoteIndicator.label}: {formatMoney(
-                    auditNoteIndicator.values[2],
-                    language,
-                  )}
-                </small>
-              )}
             </div>
-
             <div className="audit-note-strip__item audit-note-strip__item--action">
               <span>{t("candidates.detail.auditNote.nextActionLabel")}</span>
               <strong>{auditNextAction}</strong>
@@ -1681,10 +1629,14 @@ export function AuditCandidatesPage({
           <div className="audit-selection-decision">
             <div className="audit-selection-decision__heading">
               <h2 id="selection-reason-title">{t("candidates.detail.selectionReason")}</h2>
-              <ShieldAlert size={20} aria-hidden="true" />
+              <Tooltip arrow placement="top" title={t("candidates.detail.profileUx.selectionHelp", {reason: selectionReason})}>
+                <button type="button" className="audit-inline-help" aria-label={t("candidates.detail.moreInfo")}>
+                  <Info size={15} aria-hidden="true" />
+                </button>
+              </Tooltip>
             </div>
 
-            <p className="audit-selection-decision__reason">{selectionReason}</p>
+
 
             {currentSignals.length > 0 && (
               <div className="audit-selection-signals">
@@ -1710,18 +1662,7 @@ export function AuditCandidatesPage({
               </div>
             )}
 
-            <div className="audit-selection-decision__guardrail">
-              <span>{t("candidates.detail.guardrailShort")}</span>
-              <Tooltip title={t("candidates.detail.selectionReasonHelp")} arrow placement="top">
-                <button
-                  type="button"
-                  className="audit-inline-help"
-                  aria-label={t("candidates.detail.moreInfo")}
-                >
-                  <Info size={13} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            </div>
+
           </div>
 
           {keyIndicators.length > 0 && (
@@ -1771,8 +1712,8 @@ export function AuditCandidatesPage({
                       <strong>{formatMoney(metric.values[2], i18n.resolvedLanguage ?? "en")}</strong>
 
                       <div className="audit-key-indicator__changes">
-                        <span>{t("candidates.detail.change1y")} <b>{formatChange(oneYear, i18n.resolvedLanguage ?? "en")}</b></span>
-                        <span>{t("candidates.detail.change3y")} <b>{formatChange(threeYear, i18n.resolvedLanguage ?? "en")}</b></span>
+                        <Tooltip arrow title={crossesBalanceSign(metric.values[2], metric.values[1]) ? t("candidates.detail.profileUx.crossZeroHelp") : t("candidates.detail.profileUx.percentageHelp")}><span>{t("candidates.detail.change1y")} <b>{formatFinancialChange(metric.values[2], metric.values[1], language)}</b></span></Tooltip>
+                        <Tooltip arrow title={crossesBalanceSign(metric.values[2], metric.values[0]) ? t("candidates.detail.profileUx.crossZeroHelp") : t("candidates.detail.profileUx.percentageHelp")}><span>{t("candidates.detail.change3y")} <b>{formatFinancialChange(metric.values[2], metric.values[0], language)}</b></span></Tooltip>
                       </div>
                     </article>
                   );
@@ -1861,8 +1802,51 @@ export function AuditCandidatesPage({
             </div>
           </div>
 
+          {reconciliation && (currentSignals.includes("R-C1") || currentSignals.includes("R-C2")) && (
+            <details className="audit-financial-reconciliation">
+              <summary>
+                <span>{t("candidates.detail.profileUx.reconciliationTitle")}</span>
+                <strong className={reconciliation.difference < 0 ? "audit-value-negative" : ""}>
+                  {reconciliation.verifiedWithinModel
+                    ? formatMoney(reconciliation.difference, language)
+                    : t("candidates.detail.profileUx.needsReconciliation")}
+                </strong>
+                <Tooltip arrow title={t("candidates.detail.profileUx.reconciliationHelp")}>
+                  <span role="note" className="audit-reconciliation-info" aria-label={t("candidates.detail.profileUx.reconciliationHelp")}>
+                    <Info size={14} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              </summary>
+              <div className="audit-financial-reconciliation__formula">
+                <div><span>{t("candidates.detail.metrics.sourceOfFund")}</span><strong>{formatMoney(fundSource!, language)}</strong></div>
+                <div><span>{t("candidates.detail.metrics.fundOutflow")}</span><strong>− {formatMoney(fundOutflowValue!, language)}</strong></div>
+                <div><span>{t("candidates.detail.metrics.difference")}</span><strong>{reconciliation.verifiedWithinModel ? formatMoney(reconciliation.difference, language) : "—"}</strong></div>
+              </div>
+            </details>
+          )}
+
           {comparisonView === "focus" && signalLinkedMetrics.length > 0 && activeTrendMetric && (
             <section className="audit-visual-analysis" aria-label={t("candidates.detail.visualAnalysisTitle")}>
+              <div className="audit-custom-comparison__selectors audit-custom-comparison__selectors--wide" aria-label={t("candidates.detail.customComparisonTitle")}>
+                {compareMetricKeys.map((key, index) => {
+                  const metric = allComparisonMetrics.find((item) => item.key === key);
+                  return (
+                    <div className="audit-custom-comparison__selector-cell" key={index} title={metric?.label}>
+                      <AppSelectField
+                        id={`audit-compare-metric-${index + 1}`}
+                        label=""
+                        ariaLabel={`${t("candidates.detail.customComparisonMetric")} ${index + 1}`}
+                        value={key}
+                        onChange={(value) => updateCompareMetric(index, value)}
+                        compact
+                        sortOptions
+                        searchableAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
+                        options={allComparisonMetrics.map((item) => ({ value: item.key, label: item.label }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
               <div className="audit-visual-analysis__grid">
                 <div className="audit-visual-panel">
                   <div className="audit-visual-panel__header audit-visual-panel__header--trend">
@@ -1929,7 +1913,6 @@ export function AuditCandidatesPage({
                     metrics={allComparisonMetrics}
                     years={years}
                     selectedKeys={compareMetricKeys}
-                    onSelect={updateCompareMetric}
                     language={i18n.resolvedLanguage ?? "en"}
                     view={customComparisonView}
                     labels={{
@@ -1988,14 +1971,6 @@ export function AuditCandidatesPage({
                         const related = currentSignals.some((signal) =>
                           metric.relatedSignals.includes(signal),
                         );
-                        const oneYear = changePercent(
-                          metric.values[2],
-                          metric.values[1],
-                        );
-                        const threeYear = changePercent(
-                          metric.values[2],
-                          metric.values[0],
-                        );
   
                         const negativeBalance = metric.key === "difference" && metric.values[2] < 0;
   
@@ -2037,18 +2012,12 @@ export function AuditCandidatesPage({
                             ))}
                             <td>
                               <p>
-                                {formatChange(
-                                  oneYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {formatFinancialChange(metric.values[2], metric.values[1], language)}
                               </p>
                             </td>
                             <td>
                               <p>
-                                {formatChange(
-                                  threeYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {formatFinancialChange(metric.values[2], metric.values[0], language)}
                               </p>
                             </td>
                           </tr>
