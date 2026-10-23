@@ -235,3 +235,30 @@ for (const [field, invalidSelection] of [
     assert.equal(h.seen.reserveCalls, 0);
   });
 }
+
+// WS00 cross-owner source contract: these are static trace-shape guards,
+// not proof of live SQL schema, PostgREST exposure, or real Auth ownership.
+test('evaluation audit trace binds verified authorized request and idempotency key', () => {
+  const start = source.indexOf('await supabase.from("nbr_engine_evaluation_log").insert({');
+  assert.ok(start >= 0, 'expected persisted evaluation log insertion');
+  const end = source.indexOf('if (logError)', start);
+  assert.ok(end > start, 'expected audit write failure gate');
+  const insert = source.slice(start, end);
+  for (const marker of [
+    'actor_user_id: authData.user.id',
+    'taxpayer_record_id: taxpayerRecordId',
+    'authorized_request_hash: authorizedRequestHash',
+    'idempotency_key: body.idempotencyKey',
+    'receipt_hash: receiptHash',
+    'contract_version: CONTRACT_VERSION',
+  ]) assert.ok(insert.includes(marker), 'missing audit trace binding: '+marker);
+});
+
+test('reservation and finalization reuse the server-derived authorized request hash', () => {
+  assert.match(source, /const authorizedRequestHash = await sha256\\(canonical\\(\\{\\s*userId: authData\\.user\\.id, taxpayerRecordId, request: body,/);
+  const reserve = source.slice(source.indexOf('"nbr_reserve_citizen_evaluation"'), source.indexOf('if (reservationError'));
+  const finalize = source.slice(source.indexOf('"nbr_finalize_citizen_evaluation"'), source.indexOf('if (finalizeError'));
+  assert.ok(reserve.includes('p_request_hash: authorizedRequestHash'));
+  assert.ok(finalize.includes('p_request_hash: authorizedRequestHash'));
+  assert.ok(finalize.includes('p_receipt_hash: receiptHash'));
+});
