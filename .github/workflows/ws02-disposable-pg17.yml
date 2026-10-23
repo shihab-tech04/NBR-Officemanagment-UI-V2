@@ -63,6 +63,45 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_owner_receipt_contract.sql
+      - name: Verify real two-session owner-row revocation serialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Disposable database only; extract committed DDL before synthetic tests.
+          awk '/^INSERT INTO ws02_owner.owners\(record_id,assessment_year,actor_id,state\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_owner_ddl.sql
+          echo 'COMMIT;' >> /tmp/ws02_owner_ddl.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_owner_ddl.sql >/tmp/ws02_setup.log
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000001','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
+          cat > /tmp/ws02_owner_session_a.sql <<'SQL'
+          BEGIN;
+          SET LOCAL ROLE ws02_owner_engine;
+          SELECT ws02_owner.nbr_lock_active_owner('60000000-0000-4000-8000-000000000001'::uuid,'50000000-0000-4000-8000-000000000001'::uuid,'2026-27');
+          \echo OWNER_LOCK_ACQUIRED
+          SELECT pg_sleep(6);
+          COMMIT;
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_owner_session_a.sql > /tmp/ws02_owner_session_a.log 2>&1 &
+          holder=$!
+          acquired=0
+          for i in $(seq 1 80); do
+            if grep -q 'OWNER_LOCK_ACQUIRED' /tmp/ws02_owner_session_a.log; then acquired=1; break; fi
+            if ! kill -0 "$holder" 2>/dev/null; then break; fi
+            sleep 0.1
+          done
+          if [[ "$acquired" -ne 1 ]]; then cat /tmp/ws02_owner_session_a.log; exit 1; fi
+          set +e
+          psql -X -v ON_ERROR_STOP=1 -c "SET lock_timeout='750ms'; UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000001' AND assessment_year='2026-27';" > /tmp/ws02_revoke_attempt.log 2>&1
+          revoke_rc=$?
+          set -e
+          if [[ "$revoke_rc" -eq 0 ]] || ! grep -q 'lock timeout' /tmp/ws02_revoke_attempt.log; then cat /tmp/ws02_revoke_attempt.log; exit 1; fi
+          active=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000001';")
+          [[ "$active" == 'ACTIVE' ]] || { echo 'OWNER_CHANGED_WHILE_RECEIPT_LOCK_HELD'; exit 1; }
+          wait "$holder"
+          psql -X -v ON_ERROR_STOP=1 -c "UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000001';"
+          revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000001';")
+          [[ "$revoked" == 'REVOKED' ]] || { echo 'REVOCATION_AFTER_COMMIT_FAILED'; exit 1; }
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          echo 'TWO_SESSION_OWNER_REVOCATION_SERIALIZATION_PASS_ONLY'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
