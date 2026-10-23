@@ -192,12 +192,12 @@ BEGIN
 END $atomic$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
 -- Explicit function allowlist: no blanket grant to the RPC definer.
--- The engine's lock-helper permission is retained for the isolated two-session
--- serialization test; it grants no ownership DML or receipt-write privilege.
+-- The owner-row lock helper is private to the non-login atomic RPC definer.
+-- The engine must never call this helper directly, even in synthetic tests.
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)
  TO ws02_owner_engine,ws02_owner_rpc;
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text)
- TO ws02_owner_engine,ws02_owner_rpc;
+ TO ws02_owner_rpc;
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)
  TO ws02_owner_engine;
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)
@@ -243,6 +243,9 @@ BEGIN
  OR has_function_privilege('ws02_owner_engine',
   'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') THEN
   RAISE EXCEPTION 'SPLIT_FINALIZER_ROLE_EXECUTION_LEAK'; END IF;
+ IF has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)','EXECUTE') THEN
+  RAISE EXCEPTION 'ENGINE_OWNER_LOCK_HELPER_EXECUTION_LEAK'; END IF;
  IF NOT has_function_privilege('ws02_owner_engine',
   'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)','EXECUTE')
  OR NOT has_function_privilege('ws02_owner_rpc',
@@ -570,6 +573,21 @@ BEGIN
  END;
  IF NOT insert_denied OR NOT update_denied THEN RAISE EXCEPTION 'ENGINE_DIRECT_DML_EXECUTABLE'; END IF;
 END $engine_dml_denial$;
+RESET ROLE;
+-- Actual engine-role call must fail: row-lock capability belongs only to the
+-- non-login atomic RPC definer, not the engine caller.
+SET LOCAL ROLE ws02_owner_engine;
+DO $engine_lock_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_lock_active_owner(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,'2026-27');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'ENGINE_DIRECT_OWNER_LOCK_HELPER_EXECUTABLE'; END IF;
+END $engine_lock_denial$;
 RESET ROLE;
 -- Verify actual SQL privilege denial for untrusted synthetic API roles.
 -- These roles are NOT authenticated Supabase JWT principals or a public RPC wrapper.
