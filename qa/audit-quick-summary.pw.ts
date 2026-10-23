@@ -74,13 +74,12 @@ test('risk code opens its definition in a detail drawer', async ({page}) => {
 });
 
 
-test('header Back returns from linked risk details to Quick summary, then to profile', async ({page}) => {
+test('Back belongs on risk details; Quick summary has Close only', async ({page}) => {
   await page.setViewportSize({width:1366,height:865});
   await page.goto(first);
   await page.getByRole('button',{name:'Quick summary'}).click();
   const summary=page.getByRole('dialog',{name:'Quick summary'});
-  const summaryBack=summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true});
-  await expect(summaryBack).toBeVisible();
+  await expect(summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
   await expect(summary.locator('.responsive-overlay__close')).toBeVisible();
   await summary.getByRole('button',{name:/R-C1: .*fund/i}).click();
   const detail=page.getByRole('dialog',{name:/R-C1/i});
@@ -99,7 +98,8 @@ test('header Back returns from linked risk details to Quick summary, then to pro
   await detailBack.click();
   await expect(detail).toHaveCount(0);
   await expect(summary).toBeVisible();
-  await summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true}).click();
+  await expect(summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true})).toHaveCount(0);
+  await summary.locator('.responsive-overlay__close').click();
   await expect(summary).toHaveCount(0);
   await expect(page.locator('.audit-candidate-detail__header')).toBeVisible();
 });
@@ -115,7 +115,7 @@ test('header Back on a directly opened signal returns to candidate profile, not 
   await expect(page.locator('.audit-candidate-detail__header')).toBeVisible();
 });
 
-test('Bengali bottom sheet Back is localized, visible and does not clip the title',async({page})=>{
+test('Bengali first-level bottom sheet has Close only and does not clip the title',async({page})=>{
   await page.setViewportSize({width:360,height:800});
   await page.addInitScript(()=>{
     localStorage.setItem('i18nextLng','bn');
@@ -128,11 +128,11 @@ test('Bengali bottom sheet Back is localized, visible and does not clip the titl
   await page.locator('.audit-detail-back-row').getByRole('button',{name:'সংক্ষিপ্ত সারাংশ'}).click();
   const dialog=page.getByRole('dialog',{name:'সংক্ষিপ্ত সারাংশ'});
   await expect(dialog).toBeVisible();
-  const back=dialog.locator('.responsive-overlay__header').getByRole('button',{name:'পেছনে যান'});
-  await expect(back).toBeVisible();
+  await expect(dialog.locator('.responsive-overlay__header').getByRole('button',{name:'পেছনে যান'})).toHaveCount(0);
+  await expect(dialog.locator('.responsive-overlay__close')).toBeVisible();
   const overflow=await dialog.locator('.responsive-overlay__header').evaluate(el=>el.scrollWidth-el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(2);
-  await back.click();
+  await dialog.locator('.responsive-overlay__close').click();
   await expect(dialog).toHaveCount(0);
 });
 
