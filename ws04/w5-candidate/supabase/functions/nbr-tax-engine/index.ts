@@ -1410,6 +1410,8 @@ Deno.serve(async (req) => {
       parameter_revision: scheduleRow?.revision_no ?? null,
       actor_user_id: authData.user.id,
       taxpayer_record_id: taxpayerRecordId,
+      assessment_year: assessmentYear,
+      income_year: body.incomeYear,
       authorized_request_hash: authorizedRequestHash,
       idempotency_key: body.idempotencyKey,
       receipt_hash: receiptHash,
