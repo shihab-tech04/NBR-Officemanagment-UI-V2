@@ -322,6 +322,84 @@ BEGIN
  IS DISTINCT FROM repeat('d',64) THEN
   RAISE EXCEPTION 'ATOMIC_ERROR_PATH_MODIFIED_EXISTING_STATE'; END IF;
 END $atomic_test$;
+-- Owner revocation BETWEEN reserve and atomic commit must fail closed.
+-- This models a source-record revocation, NOT a JWT revocation or signed Auth test.
+DO $revocation_reserve$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ r jsonb;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+ actor,record,'2026-27','revoked-after-reserve-00001',
+ repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'REVOCATION_RESERVATION_SETUP_FAILED'; END IF;
+END $revocation_reserve$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET state='REVOKED'
+ WHERE record_id='50000000-0000-4000-8000-000000000001'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $revocation_denial$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ k text:='revoked-after-reserve-00001'; r jsonb;
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'authorized_request_hash',repeat('a',64),
+ 'receipt_hash',repeat('b',64),'idempotency_key',k,
+ 'result_status','FAIL_CLOSED',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF ws02_owner.nbr_authorize_citizen_evaluation(actor,record,'2026-27') THEN
+  RAISE EXCEPTION 'REVOKED_OWNER_STILL_AUTHORIZED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(actor,record,
+ '2026-27',k,repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'OWNER_DENIED' THEN
+  RAISE EXCEPTION 'REVOKED_OWNER_RESERVE_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
+ repeat('c',64),'FAIL_CLOSED',audit) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64)) THEN
+  RAISE EXCEPTION 'REVOKED_OWNER_RECEIPT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>0 OR
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'RESERVED' OR
+ (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=k) IS NOT NULL THEN
+  RAISE EXCEPTION 'REVOKED_OWNER_CHANGED_AUDIT_OR_SLOT'; END IF;
+END $revocation_denial$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET state='ACTIVE'
+ WHERE record_id='50000000-0000-4000-8000-000000000001'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $revocation_recovery$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ k text:='revoked-after-reserve-00001';
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'authorized_request_hash',repeat('a',64),
+ 'receipt_hash',repeat('b',64),'idempotency_key',k,
+ 'result_status','FAIL_CLOSED',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
+ repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'RESTORED_OWNER_ATOMIC_COMMIT_FAILED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
+ repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'RESTORED_OWNER_DUPLICATE_COMMIT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>1 OR
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'FINALIZED' OR
+ (SELECT audit_trace FROM ws02_owner.evaluation_logs WHERE idem_key=k)
+ IS DISTINCT FROM audit THEN
+  RAISE EXCEPTION 'RESTORED_OWNER_RECEIPT_READBACK_FAILED'; END IF;
+END $revocation_recovery$;
 RESET ROLE;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
