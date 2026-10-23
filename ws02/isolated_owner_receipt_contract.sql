@@ -409,5 +409,57 @@ BEGIN
   RAISE EXCEPTION 'RESTORED_OWNER_RECEIPT_READBACK_FAILED'; END IF;
 END $revocation_recovery$;
 RESET ROLE;
+-- Verify actual SQL privilege denial for untrusted synthetic API roles.
+-- These roles are NOT authenticated Supabase JWT principals or a public RPC wrapper.
+DO $privilege_preflight$
+DECLARE r name; f text;
+BEGIN
+ FOREACH r IN ARRAY ARRAY['ws02_owner_anon','ws02_owner_auth'] LOOP
+  IF has_schema_privilege(r,'ws02_owner','USAGE')
+     OR has_table_privilege(r,'ws02_owner.owners','SELECT')
+     OR has_table_privilege(r,'ws02_owner.slots','INSERT')
+     OR has_table_privilege(r,'ws02_owner.evaluation_logs','SELECT') THEN
+   RAISE EXCEPTION 'UNTRUSTED_ROLE_PRIVATE_SCHEMA_OR_TABLE_GRANT_%',r;
+  END IF;
+  FOREACH f IN ARRAY ARRAY[
+   'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+   'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'
+  ] LOOP
+   IF has_function_privilege(r,f,'EXECUTE') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_RPC_EXECUTE_GRANTED_%_%',r,f;
+   END IF;
+  END LOOP;
+ END LOOP;
+END $privilege_preflight$;
+SET ROLE ws02_owner_anon;
+DO $anon_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_authorize_citizen_evaluation(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,'2026-27');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'DIRECT_UNTRUSTED_RPC_EXECUTION_ANON'; END IF;
+END $anon_denial$;
+RESET ROLE;
+SET ROLE ws02_owner_auth;
+DO $auth_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','untrusted-actor-00001',repeat('a',64),repeat('b',64),
+   repeat('c',64),'CALCULATED','{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'DIRECT_UNTRUSTED_RPC_EXECUTION_AUTH'; END IF;
+END $auth_denial$;
+RESET ROLE;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
