@@ -1,6 +1,7 @@
 import { useEffect, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, X } from "lucide-react";
+import { SecondaryButton } from "../buttons/SecondaryButton";
 import { useUIState } from "../../hooks/useUI";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
@@ -101,16 +102,15 @@ export function ResponsiveOverlay({
         {/* Header */}
         {(title || showCloseButton || onBack) && (
           <div className="responsive-overlay__header">
-            <div className="responsive-overlay__header-start">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               {onBack && (
-                <button type="button" className="responsive-overlay__back"
-                  onClick={onBack} aria-label={backLabel} title={backLabel}>
-                  <ChevronLeft size={17} strokeWidth={2} aria-hidden="true" />
-                  <span>{backLabel}</span>
-                </button>
+                <SecondaryButton size="sm" icon={ChevronLeft}
+                  className="responsive-overlay__back shrink-0" onClick={onBack}>
+                  {backLabel}
+                </SecondaryButton>
               )}
               {title && (
-                <h2 id="responsive-overlay-title" className="responsive-overlay__title">
+                <h2 id="responsive-overlay-title" className="responsive-overlay__title min-w-0 truncate">
                   {title}
                 </h2>
               )}
