@@ -1,6 +1,7 @@
 import { useEffect, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
+import { SecondaryButton } from "../buttons/SecondaryButton";
 import { useUIState } from "../../hooks/useUI";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
@@ -22,6 +23,9 @@ interface ResponsiveOverlayProps {
   className?: string;
   /** Close button aria label */
   closeLabel?: string;
+  /** Optional header Back action for nested details; independent of Close. */
+  onBack?: () => void;
+  backLabel?: string;
   /** ID of element that describes the dialog content (aria-describedby) */
   describedBy?: string;
 }
@@ -37,6 +41,8 @@ export function ResponsiveOverlay({
   showCloseButton = true,
   className = "",
   closeLabel = "Close",
+  onBack,
+  backLabel = "Back",
   describedBy,
 }: ResponsiveOverlayProps) {
   const { isDesktop } = useUIState();
@@ -94,13 +100,21 @@ export function ResponsiveOverlay({
         } as React.CSSProperties}
       >
         {/* Header */}
-        {(title || showCloseButton) && (
+        {(title || showCloseButton || onBack) && (
           <div className="responsive-overlay__header">
-            {title && (
-              <h2 id="responsive-overlay-title" className="responsive-overlay__title">
-                {title}
-              </h2>
-            )}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {onBack && (
+                <SecondaryButton size="sm" icon={ChevronLeft}
+                  className="responsive-overlay__back shrink-0" onClick={onBack}>
+                  {backLabel}
+                </SecondaryButton>
+              )}
+              {title && (
+                <h2 id="responsive-overlay-title" className="responsive-overlay__title min-w-0 truncate">
+                  {title}
+                </h2>
+              )}
+            </div>
             {showCloseButton && (
               <button
                 ref={closeButtonRef}

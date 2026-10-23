@@ -73,6 +73,69 @@ test('risk code opens its definition in a detail drawer', async ({page}) => {
   await expect(page.getByRole('dialog')).toContainText('R-C1');
 });
 
+
+test('header Back returns from linked risk details to Quick summary, then to profile', async ({page}) => {
+  await page.setViewportSize({width:1366,height:865});
+  await page.goto(first);
+  await page.getByRole('button',{name:'Quick summary'}).click();
+  const summary=page.getByRole('dialog',{name:'Quick summary'});
+  const summaryBack=summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true});
+  await expect(summaryBack).toBeVisible();
+  await expect(summary.locator('.responsive-overlay__close')).toBeVisible();
+  await summary.getByRole('button',{name:/R-C1: .*fund/i}).click();
+  const detail=page.getByRole('dialog',{name:/R-C1/i});
+  await expect(detail).toBeVisible();
+  const detailBack=detail.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true});
+  await expect(detailBack).toBeVisible();
+  const positions=await detail.evaluate(root=>{
+    const back=root.querySelector<HTMLElement>('.responsive-overlay__back')!.getBoundingClientRect();
+    const title=root.querySelector<HTMLElement>('.responsive-overlay__title')!.getBoundingClientRect();
+    const close=root.querySelector<HTMLElement>('.responsive-overlay__close')!.getBoundingClientRect();
+    return {backX:back.x,titleX:title.x,closeX:close.x,backRight:back.right,titleRight:title.right};
+  });
+  expect(positions.backX).toBeLessThan(positions.titleX);
+  expect(positions.titleX).toBeLessThan(positions.closeX);
+  expect(positions.backRight).toBeLessThanOrEqual(positions.titleX+2);
+  await detailBack.click();
+  await expect(detail).toHaveCount(0);
+  await expect(summary).toBeVisible();
+  await summary.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true}).click();
+  await expect(summary).toHaveCount(0);
+  await expect(page.locator('.audit-candidate-detail__header')).toBeVisible();
+});
+
+test('header Back on a directly opened signal returns to candidate profile, not summary',async({page})=>{
+  await page.goto(first);
+  await page.locator('.audit-evidence-chip--button').filter({hasText:'R-C1'}).first().click();
+  const detail=page.getByRole('dialog',{name:/R-C1/i});
+  await expect(detail).toBeVisible();
+  await detail.locator('.responsive-overlay__header').getByRole('button',{name:'Back',exact:true}).click();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByRole('dialog',{name:'Quick summary'})).toHaveCount(0);
+  await expect(page.locator('.audit-candidate-detail__header')).toBeVisible();
+});
+
+test('Bengali bottom sheet Back is localized, visible and does not clip the title',async({page})=>{
+  await page.setViewportSize({width:360,height:800});
+  await page.addInitScript(()=>{
+    localStorage.setItem('i18nextLng','bn');
+    localStorage.setItem('gov_ui_settings',JSON.stringify({
+      assessmentYear:'2024-25',themeId:'indigo-blue',
+      fontId:'poppins',fontSizeId:'standard',languageId:'bn',
+    }));
+  });
+  await page.goto(first);
+  await page.locator('.audit-detail-back-row').getByRole('button',{name:'সংক্ষিপ্ত সারাংশ'}).click();
+  const dialog=page.getByRole('dialog',{name:'সংক্ষিপ্ত সারাংশ'});
+  await expect(dialog).toBeVisible();
+  const back=dialog.locator('.responsive-overlay__header').getByRole('button',{name:'পেছনে যান'});
+  await expect(back).toBeVisible();
+  const overflow=await dialog.locator('.responsive-overlay__header').evaluate(el=>el.scrollWidth-el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(2);
+  await back.click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test('switching candidates clears the prior drawer and its content', async ({page}) => {
   await page.goto(first);
   await page.getByRole('button', {name:'Quick summary'}).click();
