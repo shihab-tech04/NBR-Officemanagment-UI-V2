@@ -14,7 +14,7 @@ export function formatFinancialChange(current: number, previous: number, languag
     return sign + "৳" + n(Math.abs(delta), 0);
   }
   const percentage = ((current - previous) / Math.abs(previous)) * 100;
-  return (percentage > 0 ? "+" : "") + n(percentage, 1) + "%";
+  return (percentage < 0 ? "−" : percentage > 0 ? "+" : "") + n(Math.abs(percentage), 1) + "%";
 }
 export function fundFlowReconciliation(source: number, outflow: number, displayedDifference: number) {
   const difference = source - outflow;
