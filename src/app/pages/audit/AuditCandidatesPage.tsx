@@ -2037,8 +2037,6 @@ export function AuditCandidatesPage({
         <ResponsiveOverlay
           open={quickSummaryOpen}
           onClose={() => setQuickSummaryCandidateId(null)}
-          onBack={() => setQuickSummaryCandidateId(null)}
-          backLabel={t("initiate.actions.back")}
           title={t("candidates.detail.quickSummary.title")}
           closeLabel={tc("accessibility.closeDrawer")}
           desktopWidth="560px"
