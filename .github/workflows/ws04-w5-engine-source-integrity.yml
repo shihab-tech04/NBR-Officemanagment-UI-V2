@@ -23,9 +23,9 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo 'fca055cc1d47971b4ddd16c811b52aaeaa20df8ae5bed26502e13ae2559407a0  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
-          echo 'e2573760653e1239757ab29be0784a2f32898f26af2620cf3234ecb98e74765a  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
-          echo 'd327c5f4e7dc3ea72cfa67158bf8a6aeb532d035f0a74ebad6b4c6545652fc3b  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+          echo 'e7db795dacc4c8a9cbe8eb93402c7470637e17a9cfeee21ee2a20963e11bc386  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
+          echo 'dabfb640e1ce58f992fa44197b64a9026f42d483d14dd1bdf92c5bdb6f201777  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
       - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
         shell: bash
         run: |
@@ -45,7 +45,7 @@ jobs:
             'NBR_TAX_EXECUTION_ENABLED',
             'nbr_authorize_citizen_evaluation',
             'nbr_reserve_citizen_evaluation',
-            'nbr_finalize_citizen_evaluation',
+            'nbr_commit_evaluation_atomically',
             'expectedRuleSetHash',
             'expectedParameterRevision',
             'CREDIT_EVIDENCE_NOT_VERIFIED',

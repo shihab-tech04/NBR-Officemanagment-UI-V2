@@ -141,7 +141,7 @@ function fixture(overrides = {}) {
     finalizeReceipt:true,
     finalizeError:null,
     replayCalls:0,
-    finalizeCalls:0,
+    atomicCalls:0,
     year: { id: 'synthetic-year', assessment_year: '2026-27', state: 'active', is_executable: true, legal_cutoff: '2026-09-30' },
     rows: STANDARD_ROWS,
     bindings: STANDARD_BINDINGS,
@@ -150,7 +150,7 @@ function fixture(overrides = {}) {
     logError: null,
     rpcResponse: { status: 'FAIL_CLOSED' },
     realSql: false,
-    calls: { auth: 0, rpc: 0, log: 0 },
+    calls: { auth: 0, rpc: 0, atomic: 0 },
     ownershipCalls: 0,
     ...overrides,
   };
@@ -174,21 +174,7 @@ function fixture(overrides = {}) {
       const query = {
         select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; },
         async maybeSingle() { return { data: tableRows(table), error: null }; },
-        async insert(record) {
-          assert.equal(table, 'nbr_engine_evaluation_log');
-          state.calls.log++;
-          state.lastLog = record;
-          if (state.realSql) {
-            try {
-              state.persistedLogId = persistSyntheticLog(record);
-              state.persistedLog = readSyntheticLog(record.input_hash);
-              return { data: null, error: null };
-            } catch (error) {
-              return { data: null, error: { message: String(error) } };
-            }
-          }
-          return { data: null, error: state.logError };
-        },
+        async insert(){throw Error('Direct audit insert forbidden by atomic candidate');},
         then(resolve, reject) {
           return Promise.resolve({ data: tableRows(table), error: null }).then(resolve, reject);
         },
@@ -206,10 +192,31 @@ function fixture(overrides = {}) {
         state.lastReservationArgs=args;
         return { data:state.reservationState === null ? null : {state:state.reservationState}, error:state.reservationError };
       }
-      if (_name === 'nbr_finalize_citizen_evaluation') {
-        state.finalizeCalls++;
-        state.lastFinalizeArgs=args;
-        return { data:state.finalizeReceipt,error:state.finalizeError };
+      if (_name === 'nbr_commit_evaluation_atomically') {
+        state.atomicCalls++;
+        state.calls.atomic++;
+        state.lastAtomicArgs=args;
+        state.lastAuditTrace=args.p_audit_trace;
+        if (state.logError) return {data:null,error:state.logError};
+        if (state.finalizeError || state.finalizeReceipt !== true)
+          return {data:state.finalizeReceipt,error:state.finalizeError};
+        if (state.realSql) {
+          try {
+            state.persistedLogId=persistSyntheticLog({
+              assessment_year:args.p_assessment_year,
+              engine_version:args.p_audit_trace.engine_version,
+              input_hash:args.p_audit_trace.input_hash,
+              rule_set_hash:args.p_audit_trace.rule_set_hash,
+              result_status:args.p_result_state,
+              applied_rule_count:args.p_audit_trace.applied_rule_count,
+              needs_fact_count:args.p_audit_trace.needs_fact_count,
+              blocked_rule_count:args.p_audit_trace.blocked_rule_count,
+              calculation_trace:args.p_audit_trace,
+            });
+            state.persistedLog=readSyntheticLog(args.p_audit_trace.input_hash);
+          } catch (error) {return {data:null,error:{message:String(error)}};}
+        }
+        return {data:true,error:null};
       }
       state.calls.rpc++;
       state.lastRpcArgs = args;
@@ -266,14 +273,14 @@ test('unauthenticated POST is denied before SQL or logging', async () => {
   const s = fixture();
   const r = await s.request({ assessmentYear: '2026-27' }, null);
   assert.equal(r.status, 401);
-  assert.deepEqual(s.calls, { auth: 0, rpc: 0, log: 0 });
+  assert.deepEqual(s.calls, { auth: 0, rpc: 0, atomic: 0 });
 });
 
 test('service-role token cannot act as taxpayer credential', async () => {
   const s = fixture();
   const r = await s.request({ assessmentYear: '2026-27' }, 'Bearer synthetic-secret');
   assert.equal(r.status, 401);
-  assert.deepEqual(s.calls, { auth: 0, rpc: 0, log: 0 });
+  assert.deepEqual(s.calls, { auth: 0, rpc: 0, atomic: 0 });
 });
 
 test('invalid and expired-equivalent tokens fail closed', async () => {
@@ -289,7 +296,7 @@ for (const value of [undefined, null, 202627, '', '2026-26', '2026-27 extra', '2
     const r = await s.request({ assessmentYear: value });
     assert.equal(r.status, 400);
     assert.equal(s.calls.rpc, 0);
-    assert.equal(s.calls.log, 0);
+    assert.equal(s.calls.atomic, 0);
   });
 }
 
@@ -335,7 +342,7 @@ test('366 distinct substitute identities cannot impersonate the frozen registry'
   assert.equal(r.status, 503);
   assert.match(r.body.error, /frozen certified registry/);
   assert.equal(s.calls.rpc, 0);
-  assert.equal(s.calls.log, 0);
+  assert.equal(s.calls.atomic, 0);
 });
 
 test('a 367th unreviewed rule cannot bypass a frozen 366 identity manifest', async () => {
@@ -397,7 +404,7 @@ test('synthetic legal attestations are independent of immutable rule_data', asyn
   const r = await s.request({ assessmentYear: '2026-27', returnData: { incomeHeads: { employment: 0 } } });
   assert.equal(r.status, 200);
   assert.equal(r.body.status, 'FAIL_CLOSED');
-  assert.deepEqual(s.calls, { auth: 1, rpc: 1, log: 1 });
+  assert.deepEqual(s.calls, { auth: 1, rpc: 1, atomic: 1 });
   assert.equal(rows.find(row => row.rule_key === SPECIAL_RULE_KEY).rule_data.legal_verification, undefined);
 });
 
@@ -436,11 +443,11 @@ for (const [name, rateText, facts, expectedState, expectedAmount, alternateRate]
   });
 }
 
-test('evaluation log persistence failure prevents a success response', async () => {
+test('atomic audit persistence failure prevents a success response', async () => {
   const s = fixture({ gates: releaseEvidence(), logError: { message: 'synthetic database write failure' } });
   const r = await s.request({ assessmentYear: '2026-27', returnData: { incomeHeads: { employment: 0 } } });
   assert.equal(r.status, 503);
-  assert.deepEqual(s.calls, { auth: 1, rpc: 1, log: 1 });
+  assert.deepEqual(s.calls, { auth: 1, rpc: 1, atomic: 1 });
 });
 
 test('fully gated synthetic request retains an explicit fail-closed tax result', async () => {
@@ -449,8 +456,8 @@ test('fully gated synthetic request retains an explicit fail-closed tax result',
   assert.equal(r.status, 200);
   assert.equal(r.body.status, 'FAIL_CLOSED');
   assert.equal(r.body.submissionReady, false);
-  assert.equal(s.lastLog.result_status, 'FAIL_CLOSED');
-  assert.equal(s.lastLog.calculation_trace.actor_user_id, 'synthetic-user');
+  assert.equal(s.lastAuditTrace.result_status, 'FAIL_CLOSED');
+  assert.equal(s.lastAuditTrace.actor_user_id, 'synthetic-user');
 });
 
 for (const [name, taxpayer, returnData] of [
@@ -473,7 +480,7 @@ for (const [name, taxpayer, returnData] of [
     assert.equal(r.status, 422);
     assert.equal(r.body.status, 'FAIL_CLOSED');
     assert.equal(s.calls.rpc, 0);
-    assert.equal(s.calls.log, 0);
+    assert.equal(s.calls.atomic, 0);
   });
 }
 
@@ -499,7 +506,7 @@ test('missing rebate rule fails closed instead of labeling a rebate request as o
   assert.equal(r.status, 200);
   assert.equal(r.body.status, 'FAIL_CLOSED');
   assert.equal(r.body.submissionReady, false);
-  assert.equal(s.lastLog.result_status, 'FAIL_CLOSED');
+  assert.equal(s.lastAuditTrace.result_status, 'FAIL_CLOSED');
 });
 
 for (const [name, patch] of [
@@ -520,7 +527,7 @@ for (const [name, patch] of [
     assert.equal(r.status, 422);
     assert.equal(r.body.status, 'FAIL_CLOSED');
     assert.equal(s.calls.rpc, 0);
-    assert.equal(s.calls.log, 0);
+    assert.equal(s.calls.atomic, 0);
   });
 }
 
@@ -624,7 +631,7 @@ if (process.env.W5_PG_SOCKET) {
     assert.equal(r.status, 200);
     assert.equal(r.body.status, 'CALCULATED');
     assert.equal(r.body.individual.values.grossTax, '20');
-    assert.equal(s.lastLog.result_status, 'CALCULATED');
+    assert.equal(s.lastAuditTrace.result_status, 'CALCULATED');
     assert.equal(s.persistedLog.result_status, 'CALCULATED');
     assert.equal(s.persistedLog.rule_set_hash, r.body.ruleSetHash);
     assert.equal(s.persistedLog.assessment_year, '2099-00');
@@ -682,13 +689,13 @@ test('wrong taxpayer or tenant ownership is forbidden, even with valid JWT and s
   const s = fixture({ authorizedTaxpayer: false, gates: releaseEvidence(), year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27' });
   assert.equal(r.status,403); assert.equal(r.body.code,'TAXPAYER_ACCESS_DENIED');
-  assert.equal(s.ownershipCalls,1); assert.equal(s.calls.rpc,0); assert.equal(s.calls.log,0);
+  assert.equal(s.ownershipCalls,1); assert.equal(s.calls.rpc,0); assert.equal(s.calls.atomic,0);
 });
 test('missing WS02 owner RPC fails closed rather than accepting bearer identity as ownership', async () => {
   const s = fixture({ ownershipError: { message:'function absent' }, gates: releaseEvidence(), year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27' });
   assert.equal(r.status,503); assert.equal(r.body.code,'OWNERSHIP_GATE_UNAVAILABLE');
-  assert.equal(s.calls.rpc,0); assert.equal(s.calls.log,0);
+  assert.equal(s.calls.rpc,0); assert.equal(s.calls.atomic,0);
 });
 test('forged owner identity in body cannot override verified Auth principal sent to RPC', async () => {
   const s = fixture({ gates: [], year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
@@ -706,7 +713,7 @@ test('unapproved request origin is blocked before service-role initialization', 
   const s = fixture();
   const response = await s.request({ assessmentYear:'2026-27' }, 'Bearer valid.test.token', 'POST', 'https://evil.synthetic.invalid');
   assert.equal(response.status,403);
-  assert.equal(s.calls.auth,0); assert.equal(s.calls.rpc,0); assert.equal(s.calls.log,0);
+  assert.equal(s.calls.auth,0); assert.equal(s.calls.rpc,0); assert.equal(s.calls.atomic,0);
 });
 
 test('approved exact CORS origin can reach the normal fail-closed release gate', async () => {
@@ -802,7 +809,7 @@ test('missing atomic replay reservation SQL blocks before any tax rule read',asy
   assert.equal(r.status,503);
   assert.equal(r.body.code,'REPLAY_GATE_UNAVAILABLE');
   assert.equal(s.calls.rpc,0);
-  assert.equal(s.calls.log,0);
+  assert.equal(s.calls.atomic,0);
 });
 
 test('used idempotency key never runs another calculation',async()=>{
@@ -817,13 +824,13 @@ test('used idempotency key never runs another calculation',async()=>{
   assert.equal(s.calls.rpc,sqlCalls);
 });
 
-test('missing finalization SQL rejects result even after audit insert',async()=>{
+test('missing atomic audit RPC blocks result without prior direct log insert',async()=>{
   const s=fixture({gates:releaseEvidence(),finalizeError:{message:'RPC missing'},
     rpcResponse:{status:'CALCULATED',grossTax:'0',taxFreeThreshold:'0',missingFacts:[]}});
   const r=await s.request({assessmentYear:'2026-27'});
   assert.equal(r.status,503);
-  assert.equal(r.body.code,'RECEIPT_FINALIZATION_UNAVAILABLE');
-  assert.equal(s.calls.log,1);
+  assert.equal(r.body.code,'AUDIT_ATOMIC_COMMIT_UNAVAILABLE');
+  assert.equal(s.calls.atomic,1);
 });
 
 test('same pinned synthetic request yields identical receipt, decimals and trace hash',async()=>{
@@ -837,7 +844,7 @@ test('same pinned synthetic request yields identical receipt, decimals and trace
   assert.equal(a.body.inputHash,b.body.inputHash);
   assert.equal(a.body.ruleSetHash,b.body.ruleSetHash);
   assert.equal(a.body.submissionReady,false);
-  assert.equal(s.finalizeCalls,2); // synthetic replay gate permits both; real WS02 must reject duplicate
+  assert.equal(s.atomicCalls,2); // synthetic replay gate permits both; real WS02 must reject duplicate
 });
 
 test('missing versioned request is a typed error not a tax result',async()=>{
@@ -903,7 +910,7 @@ test('SQL-reported wrong revision cannot impersonate an approved calculation',as
     rpcIntegrityOverride:{parameter_revision:999}});
   const r=await s.request({assessmentYear:'2026-27'});
   assert.equal(r.status,409);assert.equal(r.body.code,'UNPINNED_SQL_CALCULATION');
-  assert.equal(s.calls.log,0);
+  assert.equal(s.calls.atomic,0);
 });
 
 test('SQL-reported wrong ruleset hash cannot impersonate matching fiscal-year schedule',async()=>{
@@ -911,7 +918,7 @@ test('SQL-reported wrong ruleset hash cannot impersonate matching fiscal-year sc
     rpcIntegrityOverride:{rule_set_hash:'wrong'}});
   const r=await s.request({assessmentYear:'2026-27'});
   assert.equal(r.status,409);assert.equal(r.body.code,'UNPINNED_SQL_CALCULATION');
-  assert.equal(s.calls.log,0);
+  assert.equal(s.calls.atomic,0);
 });
 
 test('SQL rounding-policy mismatch blocks without accepting plausible tax amount',async()=>{
@@ -919,7 +926,7 @@ test('SQL rounding-policy mismatch blocks without accepting plausible tax amount
     rpcIntegrityOverride:{rounding_policy:'UNVERIFIED'}});
   const r=await s.request({assessmentYear:'2026-27'});
   assert.equal(r.status,409);assert.equal(r.body.code,'UNPINNED_SQL_CALCULATION');
-  assert.equal(s.calls.log,0);
+  assert.equal(s.calls.atomic,0);
 });
 
 test('caller-selected branch from multi-option legal rates is never sufficient',async()=>{
@@ -934,4 +941,28 @@ test('numeric JSON base tax is not a valid versioned SQL decimal-string response
   const s=fixture({gates:releaseEvidence(),rpcResponse:{status:'CALCULATED',grossTax:20,taxFreeThreshold:'0',missingFacts:[]}});
   const r=await s.request({assessmentYear:'2026-27'});
   assert.equal(r.body.status,'FAIL_CLOSED');assert.equal(r.body.individual.values,undefined);
+});
+
+test('atomic audit RPC binds the verified actor, request, receipt and full synthetic rule trace',async()=>{
+  const s=fixture({gates:releaseEvidence()});
+  const r=await s.request({assessmentYear:'2026-27'});
+  assert.equal(r.status,200);
+  assert.equal(s.atomicCalls,1);
+  assert.equal(s.calls.atomic,1);
+  assert.equal(s.lastAtomicArgs.p_auth_user_id,'synthetic-user');
+  assert.equal(s.lastAtomicArgs.p_receipt_hash,r.body.receiptHash);
+  assert.equal(s.lastAuditTrace.receipt_hash,r.body.receiptHash);
+  assert.equal(s.lastAuditTrace.authorized_request_hash,s.lastAtomicArgs.p_request_hash);
+  assert.equal(s.lastAuditTrace.actor_user_id,'synthetic-user');
+  assert.equal(s.lastAuditTrace.result_status,r.body.status);
+  assert.equal(s.lastAuditTrace.rules.length,366);
+  assert.equal(s.lastAtomicArgs.p_result_state,r.body.status);
+});
+test('atomic SQL rejection prevents a success response and an orphan log',async()=>{
+  const s=fixture({gates:releaseEvidence(),finalizeReceipt:false});
+  const r=await s.request({assessmentYear:'2026-27'});
+  assert.equal(r.status,503);
+  assert.equal(r.body.code,'AUDIT_ATOMIC_COMMIT_UNAVAILABLE');
+  assert.equal(s.atomicCalls,1);
+  assert.equal(s.persistedLog,undefined);
 });

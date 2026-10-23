@@ -1393,8 +1393,13 @@ Deno.serve(async (req) => {
       amounts: fullReturnStatus === "CALCULATED" ? individual.values : null,
     };
     const receiptHash = await sha256(canonical(receipt));
-    const { error: logError } = await supabase.from("nbr_engine_evaluation_log").insert({
-      assessment_year: assessmentYear,
+    // All-or-nothing verified owner receipt + audit trace. No direct log INSERT.
+    // Candidate stays disabled until WS02 has source-backed owner mapping,
+    // approved private RPC permissions, legal gating and integration E2E.
+    const auditTrace = {
+      individual: individual.trace,
+      rules: results,
+      amounts: fullReturnStatus === "CALCULATED" ? individual.values : null,
       engine_version: ENGINE_VERSION,
       input_hash: inputHash,
       rule_set_hash: ruleSetHash,
@@ -1402,32 +1407,30 @@ Deno.serve(async (req) => {
       applied_rule_count: applied,
       needs_fact_count: needsFacts,
       blocked_rule_count: blocked,
-      calculation_trace: {
-        individual: individual.trace,
-        parameter_revision: scheduleRow?.revision_no ?? null,
-        actor_user_id: authData.user.id,
-        taxpayer_record_id: taxpayerRecordId,
-        authorized_request_hash: authorizedRequestHash,
-        idempotency_key: body.idempotencyKey,
-        receipt_hash: receiptHash,
-        contract_version: CONTRACT_VERSION,
-      },
-    });
-    if (logError) {
-      return json({ error:"Engine evaluation could not be persisted", status:"FAIL_CLOSED", code:"AUDIT_WRITE_FAILED" }, 503);
-    }
-    const { data: finalization, error: finalizeError } = await supabase.rpc(
-      "nbr_finalize_citizen_evaluation", {
+      parameter_revision: scheduleRow?.revision_no ?? null,
+      actor_user_id: authData.user.id,
+      taxpayer_record_id: taxpayerRecordId,
+      authorized_request_hash: authorizedRequestHash,
+      idempotency_key: body.idempotencyKey,
+      receipt_hash: receiptHash,
+      contract_version: CONTRACT_VERSION,
+    };
+    const auditTraceHash = await sha256(canonical(auditTrace));
+    const { data: atomicCommit, error: atomicCommitError } = await supabase.rpc(
+      "nbr_commit_evaluation_atomically", {
         p_auth_user_id: authData.user.id,
         p_taxpayer_record_id: taxpayerRecordId,
         p_assessment_year: assessmentYear,
         p_idempotency_key: body.idempotencyKey,
         p_request_hash: authorizedRequestHash,
         p_receipt_hash: receiptHash,
+        p_trace_hash: auditTraceHash,
+        p_result_state: fullReturnStatus,
+        p_audit_trace: auditTrace,
       });
-    if (finalizeError || finalization !== true) {
-      return json({ status:"FAIL_CLOSED", code:"RECEIPT_FINALIZATION_UNAVAILABLE",
-        error:"Cannot certify persisted idempotent evaluation" }, 503);
+    if (atomicCommitError || atomicCommit !== true) {
+      return json({ status:"FAIL_CLOSED", code:"AUDIT_ATOMIC_COMMIT_UNAVAILABLE",
+        error:"Atomic, owner-bound receipt persistence was not confirmed" }, 503);
     }
 
     return json({

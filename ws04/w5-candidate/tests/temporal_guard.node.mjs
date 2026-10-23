@@ -236,32 +236,29 @@ for (const [field, invalidSelection] of [
   });
 }
 
-// WS00 cross-owner source contract: these are static trace-shape guards,
-// not proof of live SQL schema, PostgREST exposure, or real Auth ownership.
-test('evaluation audit trace binds verified authorized request and idempotency key', () => {
-  const start = source.indexOf('await supabase.from("nbr_engine_evaluation_log").insert({');
-  assert.ok(start >= 0, 'expected persisted evaluation log insertion');
-  const end = source.indexOf('if (logError)', start);
-  assert.ok(end > start, 'expected audit write failure gate');
-  const insert = source.slice(start, end);
-  for (const marker of [
-    'actor_user_id: authData.user.id',
-    'taxpayer_record_id: taxpayerRecordId',
-    'authorized_request_hash: authorizedRequestHash',
-    'idempotency_key: body.idempotencyKey',
-    'receipt_hash: receiptHash',
-    'contract_version: CONTRACT_VERSION',
-  ]) assert.ok(insert.includes(marker), 'missing audit trace binding: '+marker);
+// Source-only atomic boundary checks; real PG17/Auth is separate.
+test('no direct audit insert or split receipt finalize remains in the candidate',()=>{
+  assert.equal(source.includes('supabase.from("nbr_engine_evaluation_log").insert'),false);
+  assert.equal(source.includes('"nbr_finalize_citizen_evaluation"'),false);
+  assert.ok(source.includes('"nbr_commit_evaluation_atomically"'));
 });
-
-test('reservation and finalization reuse the server-derived authorized request hash', () => {
-  const authorizedStart = source.indexOf('const authorizedRequestHash = await sha256(canonical({');
-  assert.ok(authorizedStart >= 0, 'missing authorized request digest');
-  const digestSource = source.slice(authorizedStart, source.indexOf('const { data: reservation', authorizedStart));
-  assert.ok(digestSource.includes('userId: authData.user.id, taxpayerRecordId, request: body'));
-  const reserve = source.slice(source.indexOf('"nbr_reserve_citizen_evaluation"'), source.indexOf('if (reservationError'));
-  const finalize = source.slice(source.indexOf('"nbr_finalize_citizen_evaluation"'), source.indexOf('if (finalizeError'));
-  assert.ok(reserve.includes('p_request_hash: authorizedRequestHash'));
-  assert.ok(finalize.includes('p_request_hash: authorizedRequestHash'));
-  assert.ok(finalize.includes('p_receipt_hash: receiptHash'));
+test('atomic trace and call pin user, record, request, receipt, version and statuses',()=>{
+  const i=source.indexOf('const auditTrace = {');
+  const j=source.indexOf('const { data: atomicCommit',i);
+  assert.ok(i>0 && j>i);
+  const trace=source.slice(i,j);
+  for(const token of ['individual: individual.trace','rules: results',
+    'actor_user_id: authData.user.id','taxpayer_record_id: taxpayerRecordId',
+    'authorized_request_hash: authorizedRequestHash','idempotency_key: body.idempotencyKey',
+    'receipt_hash: receiptHash','result_status: fullReturnStatus'])
+    assert.ok(trace.includes(token),token);
+  const call=source.slice(j,source.indexOf('if (atomicCommitError',j));
+  for(const token of ['p_auth_user_id: authData.user.id','p_request_hash: authorizedRequestHash',
+    'p_receipt_hash: receiptHash','p_trace_hash: auditTraceHash',
+    'p_result_state: fullReturnStatus','p_audit_trace: auditTrace'])
+    assert.ok(call.includes(token),token);
+});
+test('atomic RPC unavailability fails closed',()=>{
+  assert.ok(source.includes('atomicCommitError || atomicCommit !== true'));
+  assert.ok(source.includes('code:"AUDIT_ATOMIC_COMMIT_UNAVAILABLE"'));
 });
