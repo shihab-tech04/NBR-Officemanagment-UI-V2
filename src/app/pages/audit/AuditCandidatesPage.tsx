@@ -1534,6 +1534,13 @@ export function AuditCandidatesPage({
       }))
       .filter((section) => section.metrics.length > 0);
     const displayedComparison = comparisonView === "focus" ? focusedComparison : comparison;
+    const lookupMetric = (key: string) => allComparisonMetrics.find((metric) => metric.key === key);
+    const fundSource = lookupMetric("sourceOfFund")?.values[2];
+    const fundOutflowValue = lookupMetric("fundOutflow")?.values[2];
+    const reportedDifference = lookupMetric("difference")?.values[2];
+    const reconciliation = fundSource !== undefined && fundOutflowValue !== undefined && reportedDifference !== undefined
+      ? fundFlowReconciliation(fundSource, fundOutflowValue, reportedDifference)
+      : null;
     const updateCompareMetric = (slot: number, key: string) => {
       setCompareMetricKeys((current) => {
         const next = [...current];
@@ -1585,13 +1592,16 @@ export function AuditCandidatesPage({
                   {selectedCandidate.circle}
                 </button>
                 <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  className="audit-concept-inline"
-                  onClick={() => explain("assessment_year", selectedCandidate.assessment_year, profileExplanationRow)}
-                >
-                  {selectedCandidate.assessment_year}
-                </button>
+                <Tooltip arrow title={t("candidates.detail.profileUx.yearScopeHelp")}>
+                  <button
+                    type="button"
+                    className="audit-concept-inline audit-candidate-ay-tag"
+                    onClick={() => explain("assessment_year", selectedCandidate.assessment_year, profileExplanationRow)}
+                  >
+                    {t("candidates.detail.profileUx.recordAy", {year: selectedCandidate.assessment_year})}
+                    <Info size={12} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </p>
             </div>
             <div className="audit-candidate-detail__statuses">
@@ -1645,29 +1655,10 @@ export function AuditCandidatesPage({
           </div>
 
           <div className="audit-note-strip__grid">
-            <div className="audit-note-strip__item">
-              <span>{t("candidates.detail.auditNote.situation")}</span>
-              <strong>
-                {t("candidates.detail.auditNote.situationValue", {
-                  risk: selectedCandidate.risk_level,
-                  status: selectedCandidate.audit_status,
-                })}
-              </strong>
-            </div>
-
             <div className="audit-note-strip__item audit-note-strip__item--issue">
               <span>{t("candidates.detail.auditNote.issue")}</span>
               <strong>{auditIssue}</strong>
-              {auditNoteIndicator && (
-                <small>
-                  {auditNoteIndicator.label}: {formatMoney(
-                    auditNoteIndicator.values[2],
-                    language,
-                  )}
-                </small>
-              )}
             </div>
-
             <div className="audit-note-strip__item audit-note-strip__item--action">
               <span>{t("candidates.detail.auditNote.nextActionLabel")}</span>
               <strong>{auditNextAction}</strong>
@@ -1682,10 +1673,14 @@ export function AuditCandidatesPage({
           <div className="audit-selection-decision">
             <div className="audit-selection-decision__heading">
               <h2 id="selection-reason-title">{t("candidates.detail.selectionReason")}</h2>
-              <ShieldAlert size={20} aria-hidden="true" />
+              <Tooltip arrow placement="top" title={t("candidates.detail.profileUx.selectionHelp", {reason: selectionReason})}>
+                <button type="button" className="audit-inline-help" aria-label={t("candidates.detail.moreInfo")}>
+                  <Info size={15} aria-hidden="true" />
+                </button>
+              </Tooltip>
             </div>
 
-            <p className="audit-selection-decision__reason">{selectionReason}</p>
+
 
             {currentSignals.length > 0 && (
               <div className="audit-selection-signals">
@@ -1711,18 +1706,7 @@ export function AuditCandidatesPage({
               </div>
             )}
 
-            <div className="audit-selection-decision__guardrail">
-              <span>{t("candidates.detail.guardrailShort")}</span>
-              <Tooltip title={t("candidates.detail.selectionReasonHelp")} arrow placement="top">
-                <button
-                  type="button"
-                  className="audit-inline-help"
-                  aria-label={t("candidates.detail.moreInfo")}
-                >
-                  <Info size={13} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            </div>
+
           </div>
 
           {keyIndicators.length > 0 && (
@@ -1861,6 +1845,29 @@ export function AuditCandidatesPage({
               </div>
             </div>
           </div>
+
+          {reconciliation && (currentSignals.includes("R-C1") || currentSignals.includes("R-C2")) && (
+            <details className="audit-financial-reconciliation">
+              <summary>
+                <span>{t("candidates.detail.profileUx.reconciliationTitle")}</span>
+                <strong className={reconciliation.difference < 0 ? "audit-value-negative" : ""}>
+                  {reconciliation.verifiedWithinModel
+                    ? formatMoney(reconciliation.difference, language)
+                    : t("candidates.detail.profileUx.needsReconciliation")}
+                </strong>
+                <Tooltip arrow title={t("candidates.detail.profileUx.reconciliationHelp")}>
+                  <span role="note" className="audit-reconciliation-info" aria-label={t("candidates.detail.profileUx.reconciliationHelp")}>
+                    <Info size={14} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+              </summary>
+              <div className="audit-financial-reconciliation__formula">
+                <div><span>{t("candidates.detail.metrics.sourceOfFund")}</span><strong>{formatMoney(fundSource!, language)}</strong></div>
+                <div><span>{t("candidates.detail.metrics.fundOutflow")}</span><strong>− {formatMoney(fundOutflowValue!, language)}</strong></div>
+                <div><span>{t("candidates.detail.metrics.difference")}</span><strong>{reconciliation.verifiedWithinModel ? formatMoney(reconciliation.difference, language) : "—"}</strong></div>
+              </div>
+            </details>
+          )}
 
           {comparisonView === "focus" && signalLinkedMetrics.length > 0 && activeTrendMetric && (
             <section className="audit-visual-analysis" aria-label={t("candidates.detail.visualAnalysisTitle")}>
