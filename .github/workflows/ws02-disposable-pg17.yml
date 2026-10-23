@@ -74,7 +74,9 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000001','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
           cat > /tmp/ws02_owner_session_a.sql <<'SQL'
           BEGIN;
-          SET LOCAL ROLE ws02_owner_engine;
+          -- Exercise lock serialization as the non-login atomic RPC definer;
+          -- the synthetic engine no longer has direct lock-helper execution.
+          SET LOCAL ROLE ws02_owner_rpc;
           SELECT ws02_owner.nbr_lock_active_owner('60000000-0000-4000-8000-000000000001'::uuid,'50000000-0000-4000-8000-000000000001'::uuid,'2026-27');
           \echo OWNER_LOCK_ACQUIRED
           SELECT pg_sleep(6);
