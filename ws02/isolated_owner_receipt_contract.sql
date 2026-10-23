@@ -224,6 +224,8 @@ RESET ROLE;
 -- Historical direct-write fixtures only, AFTER the extracted DDL boundary.
 GRANT INSERT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
 GRANT UPDATE ON ws02_owner.slots TO ws02_owner_engine;
+CREATE POLICY logs_legacy_fixture_insert ON ws02_owner.evaluation_logs FOR INSERT TO ws02_owner_engine WITH CHECK (true);
+CREATE POLICY slots_legacy_fixture_update ON ws02_owner.slots FOR UPDATE TO ws02_owner_engine USING (true) WITH CHECK (true);
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) TO ws02_owner_engine;
 SET LOCAL ROLE ws02_owner_engine;
 DO $test$
@@ -434,6 +436,8 @@ END $atomic_test$;
 RESET ROLE;
 REVOKE INSERT ON ws02_owner.evaluation_logs FROM ws02_owner_engine;
 REVOKE UPDATE ON ws02_owner.slots FROM ws02_owner_engine;
+DROP POLICY logs_legacy_fixture_insert ON ws02_owner.evaluation_logs;
+DROP POLICY slots_legacy_fixture_update ON ws02_owner.slots;
 SET LOCAL ROLE ws02_owner_engine;
 -- Owner revocation BETWEEN reserve and atomic commit must fail closed.
 -- This models a source-record revocation, NOT a JWT revocation or signed Auth test.
