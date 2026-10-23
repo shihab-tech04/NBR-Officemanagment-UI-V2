@@ -145,6 +145,15 @@ BEGIN
  OR p_audit_trace->>'result_status' IS DISTINCT FROM p_result_state
  OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
  THEN RETURN false; END IF;
+ -- Keep the authoritative owner row stable until this transaction commits.
+ -- FOR SHARE conflicts with owner revocation or reassignment UPDATE, closing
+ -- the check/use race between authorization and receipt finalization.
+ PERFORM 1 FROM ws02_owner.owners o
+ WHERE o.record_id=p_taxpayer_record_id
+   AND o.assessment_year=p_assessment_year
+   AND o.actor_id=p_auth_user_id AND o.state='ACTIVE'
+ FOR SHARE;
+ IF NOT FOUND THEN RETURN false; END IF;
  SELECT * INTO slot FROM ws02_owner.slots WHERE
  actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
  AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
@@ -495,6 +504,74 @@ BEGIN
  END;
  IF NOT denied THEN RAISE EXCEPTION 'DIRECT_UNTRUSTED_RPC_EXECUTION_AUTH'; END IF;
 END $auth_denial$;
+RESET ROLE;
+-- An ownership reassignment after reserve must not let the previous owner
+-- finalize a receipt. These are synthetic rows, not live taxpayer identities.
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassign_reserve$
+DECLARE r jsonb;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001'::uuid,
+  '50000000-0000-4000-8000-000000000001'::uuid,
+  '2026-27','reassigned-after-reserve-00001',
+  repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'REASSIGNMENT_SETUP_FAILED'; END IF;
+END $reassign_reserve$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET actor_id='60000000-0000-4000-8000-000000000002'
+ WHERE record_id='50000000-0000-4000-8000-000000000001'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassign_denial$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ k text:='reassigned-after-reserve-00001';
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'assessment_year','2026-27','income_year','2025-26',
+ 'authorized_request_hash',repeat('a',64),
+ 'receipt_hash',repeat('b',64),'idempotency_key',k,
+ 'result_status','FAIL_CLOSED',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF ws02_owner.nbr_authorize_citizen_evaluation(actor,record,'2026-27')
+ OR ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
+ repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'PREVIOUS_OWNER_REASSIGNMENT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>0
+ OR (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'REASSIGNMENT_DENIAL_LEFT_SIDE_EFFECT'; END IF;
+END $reassign_denial$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET actor_id='60000000-0000-4000-8000-000000000001'
+ WHERE record_id='50000000-0000-4000-8000-000000000001'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassign_recovery$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ k text:='reassigned-after-reserve-00001';
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'assessment_year','2026-27','income_year','2025-26',
+ 'authorized_request_hash',repeat('a',64),
+ 'receipt_hash',repeat('b',64),'idempotency_key',k,
+ 'result_status','FAIL_CLOSED',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
+ repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'REASSIGNMENT_RESTORED_OWNER_DENIED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>1
+ OR (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'FINALIZED' THEN
+  RAISE EXCEPTION 'REASSIGNMENT_RESTORED_RECEIPT_READBACK_FAILED'; END IF;
+END $reassign_recovery$;
 RESET ROLE;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
