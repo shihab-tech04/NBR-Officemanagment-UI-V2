@@ -252,6 +252,37 @@ BEGIN
   'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)','EXECUTE') THEN
   RAISE EXCEPTION 'REQUIRED_ATOMIC_ALLOWLIST_MISSING'; END IF;
 END $rpc_allowlist$;
+-- Isolated least-privilege attestation before historical fixture grants.
+-- PostgreSQL role membership must not allow the synthetic API/engine caller to
+-- assume the private SECURITY DEFINER identities. This is NOT signed JWT proof.
+DO $role_capabilities$
+DECLARE checked integer;
+BEGIN
+ SELECT count(*) INTO checked FROM pg_catalog.pg_roles
+ WHERE rolname IN ('ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+                   'ws02_owner_rpc','ws02_owner_lock');
+ IF checked <> 5 THEN RAISE EXCEPTION 'SYNTHETIC_ROLE_INVENTORY_INCOMPLETE'; END IF;
+ IF EXISTS (
+  SELECT 1 FROM pg_catalog.pg_roles
+  WHERE rolname IN ('ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+                    'ws02_owner_rpc','ws02_owner_lock')
+  AND (rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb
+       OR rolreplication OR rolbypassrls)
+ ) THEN RAISE EXCEPTION 'SYNTHETIC_ROLE_ELEVATED_CAPABILITY'; END IF;
+ IF EXISTS (
+  SELECT 1 FROM pg_catalog.pg_auth_members m
+  JOIN pg_catalog.pg_roles member_role ON member_role.oid=m.member
+  JOIN pg_catalog.pg_roles granted_role ON granted_role.oid=m.roleid
+  WHERE member_role.rolname IN ('ws02_owner_anon','ws02_owner_auth',
+                                'ws02_owner_engine')
+    AND granted_role.rolname IN ('ws02_owner_rpc','ws02_owner_lock')
+ ) THEN RAISE EXCEPTION 'SYNTHETIC_CALLER_INHERITS_PRIVATE_DEFINER'; END IF;
+ IF pg_catalog.pg_has_role('ws02_owner_engine','ws02_owner_rpc','MEMBER')
+    OR pg_catalog.pg_has_role('ws02_owner_engine','ws02_owner_lock','MEMBER')
+    OR pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_rpc','MEMBER')
+    OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_rpc','MEMBER') THEN
+  RAISE EXCEPTION 'SYNTHETIC_CALLER_CAN_ASSUME_PRIVATE_DEFINER'; END IF;
+END $role_capabilities$;
 -- Historical split-finalize regression is exercised with a temporary synthetic grant.
 -- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
 RESET ROLE;
