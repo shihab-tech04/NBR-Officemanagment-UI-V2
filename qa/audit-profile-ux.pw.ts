@@ -30,7 +30,9 @@ for(const viewport of [{width:1366,height:865},{width:1024,height:768},{width:39
     await expect(details).toContainText("3,074,468");
     await expect(details).toContainText("3,812,340");
     await expect(details).toContainText("737,872");
-    await expect(page.locator(".audit-key-indicator__changes")).not.toContainText("−146.4%");
+    const indicatorText=(await page.locator(".audit-key-indicator__changes").allTextContents()).join(" ");
+    expect(indicatorText).not.toContain("−146.4%");
+    expect(indicatorText).toContain("2,326,610");
     await expect(page.locator(".audit-trend-summary")).not.toContainText("−146.4%");
     await expect(page.locator(".audit-trend-summary")).toContainText("2,326,610");
     const horizontalOverflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
@@ -42,10 +44,10 @@ test("year mismatch and illustrative evidence explained by accessible info contr
   await page.goto(profile);
   const year=page.locator(".audit-candidate-ay-tag");
   await year.hover();
-  await expect(page.getByRole("tooltip")).toContainText("top-bar AY selector");
+  await expect(page.getByRole("tooltip").filter({hasText:"top-bar AY selector"})).toBeVisible();
   const head=page.locator(".audit-comparison-card__title-row .audit-inline-help");
   await head.focus();
-  await expect(page.getByRole("tooltip")).toContainText("not actual verified taxpayer eReturns");
+  await expect(page.getByRole("tooltip").filter({hasText:"not actual verified taxpayer eReturns"})).toBeVisible();
 });
 test("Bengali candidate labels, source explanations and reconciliation stay visible",async({page})=>{
   await page.goto(profile);
