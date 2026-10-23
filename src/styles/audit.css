@@ -4643,3 +4643,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* Three financial selectors now occupy a full-width toolbar above both charts,
+   so neither panel has truncated selected metric names. */
+.audit-candidates-page .audit-custom-comparison__selectors--wide {
+  padding: var(--space-3) var(--space-5);
+  margin: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+@media (max-width: 767px) {
+  .audit-candidates-page .audit-custom-comparison__selectors--wide {
+    padding: var(--space-3);
+  }
+}
