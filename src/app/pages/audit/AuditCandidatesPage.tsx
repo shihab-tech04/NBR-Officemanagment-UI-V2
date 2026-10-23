@@ -1088,6 +1088,7 @@ export function AuditCandidatesPage({
   const [page, setPage] = useState(1);
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
   const [quickSummaryCandidateId, setQuickSummaryCandidateId] = useState<string | null>(null);
+  const [summaryOriginCandidateId, setSummaryOriginCandidateId] = useState<string | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const initialDashboardFilters = {
     ...(routeSelectionTrack ? { selection_track: routeSelectionTrack } : {}),
@@ -1329,6 +1330,7 @@ export function AuditCandidatesPage({
 
   const openCandidate = (row: TableRow) => {
     setQuickSummaryCandidateId(null);
+    setSummaryOriginCandidateId(null);
     const candidateId = String(row.candidate_id ?? "");
     setSelectedCandidateId(candidateId);
     setSelectedTrendMetricKey("");
@@ -1344,6 +1346,7 @@ export function AuditCandidatesPage({
 
   const backToBatches = () => {
     setQuickSummaryCandidateId(null);
+    setSummaryOriginCandidateId(null);
     setSelectedBatchId(null);
     setSelectedCandidateId(null);
     setSearchParams({});
@@ -1352,6 +1355,7 @@ export function AuditCandidatesPage({
 
   const backToCandidates = () => {
     setQuickSummaryCandidateId(null);
+    setSummaryOriginCandidateId(null);
     setSelectedCandidateId(null);
     setSelectedTrendMetricKey("");
     setComparisonView("focus");
@@ -1362,6 +1366,7 @@ export function AuditCandidatesPage({
   };
 
   const explain = (key: string, value: string, row: TableRow) => {
+    setSummaryOriginCandidateId(null);
     const lookupKey = key === "audit_status" ? "audit_state" : key;
     const resolved = resolveAuditExplanation(
       lookupKey,
@@ -2032,6 +2037,8 @@ export function AuditCandidatesPage({
         <ResponsiveOverlay
           open={quickSummaryOpen}
           onClose={() => setQuickSummaryCandidateId(null)}
+          onBack={() => setQuickSummaryCandidateId(null)}
+          backLabel={t("initiate.actions.back")}
           title={t("candidates.detail.quickSummary.title")}
           closeLabel={tc("accessibility.closeDrawer")}
           desktopWidth="560px"
@@ -2071,6 +2078,7 @@ export function AuditCandidatesPage({
                         onClick={() => {
                           setQuickSummaryCandidateId(null);
                           explain("signals", signal, profileExplanationRow);
+                          setSummaryOriginCandidateId(selectedCandidate.candidate_id);
                         }}>
                         <strong>{signal}</strong>
                         <span>{t(SIGNAL_LABEL_KEYS[signal] ?? signal)}</span>
@@ -2100,7 +2108,17 @@ export function AuditCandidatesPage({
             <p className="audit-summary-drawer__caution">{t("candidates.detail.guardrailShort")}</p>
           </div>
         </ResponsiveOverlay>
-        <AuditExplainerDrawer explanation={explanation} onClose={() => setExplanation(null)} />
+        <AuditExplainerDrawer
+          explanation={explanation}
+          onClose={() => { setExplanation(null); setSummaryOriginCandidateId(null); }}
+          onBack={() => {
+            setExplanation(null);
+            if (summaryOriginCandidateId === selectedCandidate.candidate_id) {
+              setQuickSummaryCandidateId(selectedCandidate.candidate_id);
+            }
+            setSummaryOriginCandidateId(null);
+          }}
+        />
       </div>
     );
   }
