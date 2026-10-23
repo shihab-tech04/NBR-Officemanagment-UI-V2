@@ -901,6 +901,12 @@
           "R-E2": "asset registry mismatch",
           "R-E3": "VAT turnover mismatch"
         }
+      },
+      "ux": {
+        "reconciliation": "Funds reconciliation",
+        "formulaHelp": "Illustrative formula: Sources − Fund outflow = Difference. Generated histories are not filed returns or assessed tax; review the original schedules before making a finding.",
+        "changeHelp": "When a balance crosses zero, show the monetary movement, not a misleading growth percentage.",
+        "historicalHelp": "Prior years are illustrative generated scenarios. The AY shown inside this profile is from the selected candidate and may differ from the global selector."
       }
     }
   }
