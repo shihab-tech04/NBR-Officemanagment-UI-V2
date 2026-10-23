@@ -63,6 +63,21 @@ SET search_path=pg_catalog,ws02_owner AS $fn$
  AND o.record_id=p_taxpayer_record_id AND o.assessment_year=p_assessment_year
  AND o.state='ACTIVE');
 $fn$;
+-- Narrow SECURITY DEFINER helper: acquire a row lock without granting the
+-- engine UPDATE on the authoritative owner table. Fixed search_path, no SQL
+-- interpolation, and no access for anon/auth roles. Synthetic PG17 only.
+CREATE FUNCTION ws02_owner.nbr_lock_active_owner(
+ p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,ws02_owner AS $lock$
+BEGIN
+ PERFORM 1 FROM ws02_owner.owners o
+ WHERE o.record_id=p_taxpayer_record_id
+   AND o.assessment_year=p_assessment_year
+   AND o.actor_id=p_auth_user_id AND o.state='ACTIVE'
+ FOR SHARE;
+ RETURN FOUND;
+END $lock$;
 CREATE FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
  p_idempotency_key text,p_request_hash text,p_contract_version text
@@ -145,15 +160,11 @@ BEGIN
  OR p_audit_trace->>'result_status' IS DISTINCT FROM p_result_state
  OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
  THEN RETURN false; END IF;
- -- Keep the authoritative owner row stable until this transaction commits.
- -- FOR SHARE conflicts with owner revocation or reassignment UPDATE, closing
- -- the check/use race between authorization and receipt finalization.
- PERFORM 1 FROM ws02_owner.owners o
- WHERE o.record_id=p_taxpayer_record_id
-   AND o.assessment_year=p_assessment_year
-   AND o.actor_id=p_auth_user_id AND o.state='ACTIVE'
- FOR SHARE;
- IF NOT FOUND THEN RETURN false; END IF;
+ -- Narrow definer helper holds the owner row lock until transaction end.
+ -- Do not grant the engine UPDATE on owners merely to obtain FOR SHARE.
+ IF NOT ws02_owner.nbr_lock_active_owner(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year) THEN
+  RETURN false; END IF;
  SELECT * INTO slot FROM ws02_owner.slots WHERE
  actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
  AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
@@ -467,6 +478,7 @@ BEGIN
   END IF;
   FOREACH f IN ARRAY ARRAY[
    'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+   'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)',
    'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
    'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)',
    'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'
