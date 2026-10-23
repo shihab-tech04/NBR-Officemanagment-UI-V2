@@ -263,3 +263,46 @@
   from { opacity: 1; }
   to   { opacity: 0; }
 }
+
+/* Optional header-level Back navigation for linked details.
+   Does not change existing overlays without an onBack action. */
+.responsive-overlay__header-start {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.responsive-overlay__header-start .responsive-overlay__title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.responsive-overlay__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 5px 8px 5px 4px;
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  font: inherit;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.responsive-overlay__back:hover { background: var(--color-surface-hover); }
+.responsive-overlay__back:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 390px) {
+  .responsive-overlay__back { min-height: 40px; padding-inline: 4px; }
+  .responsive-overlay__header-start { gap: 5px; }
+}
