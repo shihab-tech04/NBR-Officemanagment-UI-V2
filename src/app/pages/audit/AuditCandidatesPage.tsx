@@ -1068,7 +1068,7 @@ function AuditCustomComparison({
                   role="cell"
                   key={metric.key}
                 >
-                  {formatChange(value, language)}
+                  {formatFinancialChange(metric.values[2], metric.values[1], language)}
                 </div>
               );
             })}
@@ -1089,7 +1089,7 @@ function AuditCustomComparison({
                   role="cell"
                   key={metric.key}
                 >
-                  {formatChange(value, language)}
+                  {formatFinancialChange(metric.values[2], metric.values[0], language)}
                 </div>
               );
             })}
@@ -1756,8 +1756,8 @@ export function AuditCandidatesPage({
                       <strong>{formatMoney(metric.values[2], i18n.resolvedLanguage ?? "en")}</strong>
 
                       <div className="audit-key-indicator__changes">
-                        <span>{t("candidates.detail.change1y")} <b>{formatChange(oneYear, i18n.resolvedLanguage ?? "en")}</b></span>
-                        <span>{t("candidates.detail.change3y")} <b>{formatChange(threeYear, i18n.resolvedLanguage ?? "en")}</b></span>
+                        <Tooltip arrow title={crossesBalanceSign(metric.values[2], metric.values[1]) ? t("candidates.detail.profileUx.crossZeroHelp") : t("candidates.detail.profileUx.percentageHelp")}><span>{t("candidates.detail.change1y")} <b>{formatFinancialChange(metric.values[2], metric.values[1], language)}</b></span></Tooltip>
+                        <Tooltip arrow title={crossesBalanceSign(metric.values[2], metric.values[0]) ? t("candidates.detail.profileUx.crossZeroHelp") : t("candidates.detail.profileUx.percentageHelp")}><span>{t("candidates.detail.change3y")} <b>{formatFinancialChange(metric.values[2], metric.values[0], language)}</b></span></Tooltip>
                       </div>
                     </article>
                   );
@@ -2045,18 +2045,12 @@ export function AuditCandidatesPage({
                             ))}
                             <td>
                               <p>
-                                {formatChange(
-                                  oneYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {formatFinancialChange(metric.values[2], metric.values[1], language)}
                               </p>
                             </td>
                             <td>
                               <p>
-                                {formatChange(
-                                  threeYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {formatFinancialChange(metric.values[2], metric.values[0], language)}
                               </p>
                             </td>
                           </tr>
