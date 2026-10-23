@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
 import type { TableRow } from "../modulePageUtils";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
+import { AuditSignalLogicFlow } from "./AuditSignalLogicFlow";
 
 function compactMoney(value: number, language: string): string {
   const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
@@ -133,6 +134,7 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
   if (!explanation) return null;
 
   const activeExplanation = drilldown ?? explanation;
+  const selectedSignalId = activeExplanation.title.match(/^(R-[A-E]\\d+)\\s+—/)?.[1] ?? null;
   const profileInsight = drilldown ? undefined : explanation.candidateInsight;
   const candidateInsight = explanation.candidateInsight;
 
@@ -388,6 +390,9 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
         ) : (
           <>
             {textSection(t("explainer.whatItMeans"), activeExplanation.definition)}
+            {selectedSignalId && (
+              <AuditSignalLogicFlow signalId={selectedSignalId} language={i18n.resolvedLanguage ?? "en"} />
+            )}
             {textSection(t("explainer.whatItAffects"), activeExplanation.effect)}
 
             {activeExplanation.sections.map((section, sectionIndex) => (
