@@ -943,7 +943,6 @@ function AuditCustomComparison({
   metrics,
   years,
   selectedKeys,
-  onSelect,
   language,
   labels,
   view,
@@ -951,7 +950,6 @@ function AuditCustomComparison({
   metrics: SignalLinkedMetric[];
   years: string[];
   selectedKeys: string[];
-  onSelect: (slot: number, key: string) => void;
   language: string;
   labels: {
     title: string;
@@ -967,37 +965,6 @@ function AuditCustomComparison({
 
   return (
     <div className="audit-custom-comparison">
-      <div className="audit-custom-comparison__selectors">
-        <div className="audit-custom-comparison__selector-spacer" aria-hidden="true" />
-        {selectedKeys.map((key, index) => {
-          const metric = metrics.find((item) => item.key === key);
-
-          return (
-            <div className="audit-custom-comparison__selector-cell" key={index} title={metric?.label}>
-              <AppSelectField
-                id={`audit-compare-metric-${index + 1}`}
-                label=""
-                ariaLabel={`${labels.metricAria} ${index + 1}`}
-                value={key}
-                onChange={(value) => onSelect(index, value)}
-                compact
-                sortOptions
-                searchableAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
-                options={metrics.map((item) => ({
-                  value: item.key,
-                  label: item.label,
-                }))}
-              />
-              {metric && (
-                <span className="audit-custom-comparison__selector-context">
-                  {metric.sectionTitle}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
       {view === "graph" ? (
         <div className="audit-custom-comparison__viewport">
           <AuditCustomComparisonGraph
@@ -1860,6 +1827,26 @@ export function AuditCandidatesPage({
 
           {comparisonView === "focus" && signalLinkedMetrics.length > 0 && activeTrendMetric && (
             <section className="audit-visual-analysis" aria-label={t("candidates.detail.visualAnalysisTitle")}>
+              <div className="audit-custom-comparison__selectors audit-custom-comparison__selectors--wide" aria-label={t("candidates.detail.customComparisonTitle")}>
+                {compareMetricKeys.map((key, index) => {
+                  const metric = allComparisonMetrics.find((item) => item.key === key);
+                  return (
+                    <div className="audit-custom-comparison__selector-cell" key={index} title={metric?.label}>
+                      <AppSelectField
+                        id={`audit-compare-metric-${index + 1}`}
+                        label=""
+                        ariaLabel={`${t("candidates.detail.customComparisonMetric")} ${index + 1}`}
+                        value={key}
+                        onChange={(value) => updateCompareMetric(index, value)}
+                        compact
+                        sortOptions
+                        searchableAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
+                        options={allComparisonMetrics.map((item) => ({ value: item.key, label: item.label }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
               <div className="audit-visual-analysis__grid">
                 <div className="audit-visual-panel">
                   <div className="audit-visual-panel__header audit-visual-panel__header--trend">
@@ -1926,7 +1913,6 @@ export function AuditCandidatesPage({
                     metrics={allComparisonMetrics}
                     years={years}
                     selectedKeys={compareMetricKeys}
-                    onSelect={updateCompareMetric}
                     language={i18n.resolvedLanguage ?? "en"}
                     view={customComparisonView}
                     labels={{
