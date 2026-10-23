@@ -283,6 +283,63 @@ BEGIN
     OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_rpc','MEMBER') THEN
   RAISE EXCEPTION 'SYNTHETIC_CALLER_CAN_ASSUME_PRIVATE_DEFINER'; END IF;
 END $role_capabilities$;
+-- Disposable PostgREST-style spoofed-claim denial: untrusted request.jwt.*
+-- GUCs cannot grant private function access to synthetic anon/auth roles.
+-- These are forged settings, NOT cryptographically verified Supabase JWTs.
+SET LOCAL ROLE ws02_owner_anon;
+DO $spoofed_anon_claims$
+DECLARE denied boolean:=false;
+BEGIN
+ PERFORM pg_catalog.set_config('request.jwt.claim.sub',
+  '60000000-0000-4000-8000-000000000001',true);
+ PERFORM pg_catalog.set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-4000-8000-000000000001","role":"service_role"}',true);
+ BEGIN
+  PERFORM ws02_owner.nbr_reserve_citizen_evaluation(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','jwt-claim-spoof-00001',repeat('a',64),
+   'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'FORGED_ANON_CLAIMS_REACHED_PRIVATE_RESERVE'; END IF;
+END $spoofed_anon_claims$;
+RESET ROLE;
+SET LOCAL ROLE ws02_owner_auth;
+DO $spoofed_auth_claims$
+DECLARE denied_reserve boolean:=false; denied_commit boolean:=false;
+BEGIN
+ PERFORM pg_catalog.set_config('request.jwt.claim.sub',
+  '60000000-0000-4000-8000-000000000001',true);
+ PERFORM pg_catalog.set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-4000-8000-000000000001","role":"service_role"}',true);
+ BEGIN
+  PERFORM ws02_owner.nbr_reserve_citizen_evaluation(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','jwt-claim-spoof-00001',repeat('a',64),
+   'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ EXCEPTION WHEN insufficient_privilege THEN denied_reserve:=true;
+ END;
+ BEGIN
+  PERFORM ws02_owner.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','jwt-claim-spoof-00001',repeat('a',64),
+   repeat('b',64),repeat('c',64),'NEEDS_FACTS',
+   '{"untrusted":"forged_claims"}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied_commit:=true;
+ END;
+ IF NOT denied_reserve OR NOT denied_commit THEN
+  RAISE EXCEPTION 'FORGED_AUTH_CLAIMS_REACHED_PRIVATE_RPC'; END IF;
+END $spoofed_auth_claims$;
+RESET ROLE;
+DO $spoofed_claims_no_effects$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots WHERE idem_key='jwt-claim-spoof-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs WHERE idem_key='jwt-claim-spoof-00001')
+ THEN RAISE EXCEPTION 'FORGED_JWT_CLAIMS_CREATED_PRIVATE_STATE'; END IF;
+END $spoofed_claims_no_effects$;
 -- Historical split-finalize regression is exercised with a temporary synthetic grant.
 -- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
 RESET ROLE;
