@@ -4618,3 +4618,28 @@
     margin-right: var(--space-3);
   }
 }
+
+
+/* Audit custom comparison: use all available width, never spend a fourth of
+   the selector row on an empty year-label column. Keep the graph/table matrix. */
+.audit-candidates-page .audit-custom-comparison__selectors {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.audit-candidates-page .audit-custom-comparison__selector-spacer {
+  display: none;
+}
+.audit-candidates-page .audit-custom-comparison__selector-cell {
+  padding: 0;
+}
+.audit-candidates-page .audit-custom-comparison__selector-context {
+  display: none; /* Redundant field-category copy; full name remains on hover and in options. */
+}
+.audit-candidates-page .audit-trend-summary__current > span {
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .audit-candidates-page .audit-custom-comparison__selectors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
