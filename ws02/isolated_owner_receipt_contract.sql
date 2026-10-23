@@ -260,7 +260,7 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  request_key text:='atomic-evaluation-key-00001';
  bad_key text:='atomic-evaluation-key-00002';
  reqhash text:=repeat('a',64); receipt text:=repeat('b',64);
- trace text:=repeat('c',64); result jsonb; audit jsonb;
+ trace text:=repeat('c',64); result jsonb; audit jsonb; audit_patch jsonb;
 BEGIN
  audit:=jsonb_build_object('actor_user_id',actor::text,
   'taxpayer_record_id',record::text,'assessment_year','2026-27','income_year','2025-26','authorized_request_hash',reqhash,
@@ -297,9 +297,34 @@ BEGIN
  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
  audit||jsonb_build_object('income_year','INVALID')) THEN
   RAISE EXCEPTION 'MISSING_OR_MALFORMED_INCOME_YEAR_ACCEPTED'; END IF;
+ -- Bind every server-derived atomic RPC parameter to the persisted trace.
+ -- These negative calls must not insert logs or finalize the reserved slot.
+ FOR audit_patch IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
+  jsonb_build_object('taxpayer_record_id',other::text),
+  jsonb_build_object('authorized_request_hash',repeat('d',64)),
+  jsonb_build_object('receipt_hash',repeat('d',64)),
+  jsonb_build_object('idempotency_key','other-key-1234567890'),
+  jsonb_build_object('result_status','CALCULATED'),
+  jsonb_build_object('contract_version','UNAPPROVED')
+ )) LOOP
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+   audit||audit_patch) THEN
+   RAISE EXCEPTION 'ATOMIC_TRACE_FIELD_MISMATCH_ACCEPTED_%',audit_patch; END IF;
+ END LOOP;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+  audit-'idempotency_key') THEN
+  RAISE EXCEPTION 'MISSING_TRACE_IDEMPOTENCY_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+  '[]'::jsonb) THEN
+  RAISE EXCEPTION 'NON_OBJECT_TRACE_ACCEPTED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs
-  WHERE idem_key=request_key)<>0 THEN
-  RAISE EXCEPTION 'FAILED_ATOMIC_CALL_LEFT_A_LOG'; END IF;
+  WHERE idem_key=request_key)<>0 OR
+  (SELECT state FROM ws02_owner.slots WHERE idem_key=request_key)
+  IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FAILED_ATOMIC_CALL_LEFT_A_LOG_OR_CHANGED_SLOT'; END IF;
  IF NOT ws02_owner.nbr_commit_evaluation_atomically(
   actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',audit) THEN
   RAISE EXCEPTION 'VALID_ATOMIC_FINALIZATION_DENIED'; END IF;
