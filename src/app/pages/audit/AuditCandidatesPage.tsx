@@ -1473,6 +1473,11 @@ export function AuditCandidatesPage({
     const activeTrendMetric =
       allComparisonMetrics.find((metric) => metric.key === selectedTrendMetricKey) ??
       defaultTrendMetric;
+    const currentValue = (key: string) => allComparisonMetrics.find((m) => m.key === key)?.values[2];
+    const sourceFundCurrent = currentValue("sourceOfFund");
+    const fundOutflowCurrent = currentValue("fundOutflow");
+    const differenceCurrent = currentValue("difference");
+    const hasReconciliation = [sourceFundCurrent, fundOutflowCurrent, differenceCurrent].every((v) => typeof v === "number" && Number.isFinite(v));
     const keyIndicators = [...signalLinkedMetrics]
       .sort((a, b) => {
         const aNegativeDifference = a.key === "difference" && a.values[2] < 0 ? 1 : 0;
@@ -1675,10 +1680,10 @@ export function AuditCandidatesPage({
           <div className="audit-selection-decision">
             <div className="audit-selection-decision__heading">
               <h2 id="selection-reason-title">{t("candidates.detail.selectionReason")}</h2>
-              <ShieldAlert size={20} aria-hidden="true" />
+              <Tooltip title={t("candidates.detail.selectionReasonHelp")} arrow><button type="button" className="audit-inline-help" aria-label={t("candidates.detail.moreInfo")}><Info size={15} /></button></Tooltip>
             </div>
 
-            <p className="audit-selection-decision__reason">{selectionReason}</p>
+            <Tooltip title={selectionReason} arrow><p className="audit-selection-decision__reason audit-selection-decision__reason--compact">{selectionReason}</p></Tooltip>
 
             {currentSignals.length > 0 && (
               <div className="audit-selection-signals">
@@ -1718,6 +1723,17 @@ export function AuditCandidatesPage({
             </div>
           </div>
 
+          {hasReconciliation && currentSignals.some((signal) => signal === "R-C1" || signal === "R-C2") && (
+            <div className="audit-reconciliation-strip">
+              <strong>{t("candidates.detail.ux.reconciliation")}</strong>
+              <span>{t("candidates.detail.metrics.sourceOfFund")}: {formatMoney(sourceFundCurrent!, language)}</span>
+              <span>{t("candidates.detail.metrics.fundOutflow")}: {formatMoney(fundOutflowCurrent!, language)}</span>
+              <b className={differenceCurrent! < 0 ? "audit-reconciliation-strip__negative" : ""}>{t("candidates.detail.metrics.difference")}: {formatMoney(differenceCurrent!, language)}</b>
+              <Tooltip title={t("candidates.detail.ux.formulaHelp")} arrow>
+                <button type="button" className="audit-inline-help" aria-label={t("candidates.detail.ux.formulaHelp")}><Info size={14} /></button>
+              </Tooltip>
+            </div>
+          )}
           {keyIndicators.length > 0 && (
             <div className="audit-key-indicators">
               <div className="audit-key-indicators__header">
@@ -1765,8 +1781,8 @@ export function AuditCandidatesPage({
                       <strong>{formatMoney(metric.values[2], i18n.resolvedLanguage ?? "en")}</strong>
 
                       <div className="audit-key-indicator__changes">
-                        <span>{t("candidates.detail.change1y")} <b>{formatChange(oneYear, i18n.resolvedLanguage ?? "en")}</b></span>
-                        <span>{t("candidates.detail.change3y")} <b>{formatChange(threeYear, i18n.resolvedLanguage ?? "en")}</b></span>
+                        <Tooltip title={t("candidates.detail.ux.changeHelp")} arrow><span>{t("candidates.detail.change1y")} <b>{metric.values[1] * metric.values[2] < 0 ? formatMoney(metric.values[2] - metric.values[1], language) : formatChange(oneYear, language)}</b></span></Tooltip>
+                        <Tooltip title={t("candidates.detail.ux.changeHelp")} arrow><span>{t("candidates.detail.change3y")} <b>{metric.values[0] * metric.values[2] < 0 ? formatMoney(metric.values[2] - metric.values[0], language) : formatChange(threeYear, language)}</b></span></Tooltip>
                       </div>
                     </article>
                   );
@@ -1823,7 +1839,7 @@ export function AuditCandidatesPage({
           <div className="audit-detail-card__header audit-comparison-card__header">
             <div className="audit-comparison-card__title-row">
               <h2 id="return-comparison-title">{t("candidates.detail.comparisonTitle")}</h2>
-              <Tooltip title={t("candidates.detail.comparisonDescription")} arrow placement="top">
+              <Tooltip title={`${t("candidates.detail.comparisonDescription")} ${t("candidates.detail.ux.historicalHelp")}`} arrow placement="top">
                 <button
                   type="button"
                   className="audit-inline-help"
@@ -2031,18 +2047,12 @@ export function AuditCandidatesPage({
                             ))}
                             <td>
                               <p>
-                                {formatChange(
-                                  oneYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {metric.values[1] * metric.values[2] < 0 ? formatMoney(metric.values[2] - metric.values[1], language) : formatChange(oneYear, language)}
                               </p>
                             </td>
                             <td>
                               <p>
-                                {formatChange(
-                                  threeYear,
-                                  i18n.resolvedLanguage ?? "en",
-                                )}
+                                {metric.values[0] * metric.values[2] < 0 ? formatMoney(metric.values[2] - metric.values[0], language) : formatChange(threeYear, language)}
                               </p>
                             </td>
                           </tr>
