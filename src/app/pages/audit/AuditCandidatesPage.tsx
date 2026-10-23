@@ -548,8 +548,10 @@ export function buildComparison(candidate: AuditCandidateRecord): ComparisonSect
 }
 
 function formatMoney(value: number, language: string): string {
+  if (!Number.isFinite(value)) return "—";
   const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  return "৳" + new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+  const sign = value < 0 ? "−" : "";
+  return sign + "৳" + new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.abs(value));
 }
 
 function changePercent(current: number, previous: number): number | null {
@@ -558,11 +560,12 @@ function changePercent(current: number, previous: number): number | null {
 }
 
 function formatCompactMoney(value: number, language: string): string {
+  if (!Number.isFinite(value)) return "—";
   const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  return "৳" + new Intl.NumberFormat(locale, {
+  return (value < 0 ? "−" : "") + "৳" + new Intl.NumberFormat(locale, {
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(Math.abs(value));
 }
 
 type SignalLinkedMetric = ComparisonMetric & {
@@ -970,7 +973,7 @@ function AuditCustomComparison({
           const metric = metrics.find((item) => item.key === key);
 
           return (
-            <div className="audit-custom-comparison__selector-cell" key={index}>
+            <div className="audit-custom-comparison__selector-cell" key={index} title={metric?.label}>
               <AppSelectField
                 id={`audit-compare-metric-${index + 1}`}
                 label=""
