@@ -11,6 +11,7 @@ on:
       - 'ws02/disposable-pg17-sql-test-runner-20261022'
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   workflow_dispatch:

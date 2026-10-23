@@ -116,6 +116,277 @@ BEGIN
  GET DIAGNOSTICS n=ROW_COUNT;
  RETURN n=1;
 END $fn$;
+-- Synthetic, test-only single-call receipt+log transaction.
+-- Real ownership mapping and signed caller proof MUST precede any production use.
+CREATE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
+ p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+ p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+ p_trace_hash text,p_result_state text
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY INVOKER
+SET search_path=pg_catalog,ws02_owner AS $atomic$
+DECLARE updated integer; prior ws02_owner.slots%ROWTYPE;
+BEGIN
+ IF NOT ws02_owner.nbr_authorize_citizen_evaluation(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year)
+ OR p_receipt_hash IS NULL OR p_receipt_hash !~ '^[a-f0-9]{64}
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine;
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000001','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000002','2026-27',
+  '60000000-0000-4000-8000-000000000002','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000003','2026-27',
+  '60000000-0000-4000-8000-000000000003','REVOKED');
+DO $test$
+BEGIN
+ IF has_schema_privilege('ws02_owner_anon','ws02_owner','USAGE') OR
+ has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE') OR
+ has_function_privilege('ws02_owner_anon',
+ 'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)','EXECUTE') OR
+ has_function_privilege('ws02_owner_auth',
+ 'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') OR
+ has_table_privilege('ws02_owner_auth','ws02_owner.owners','SELECT') OR
+ has_table_privilege('ws02_owner_auth','ws02_owner.evaluation_logs','SELECT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') THEN
+ RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
+END $test$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $test$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ b uuid:='60000000-0000-4000-8000-000000000002';
+ c uuid:='60000000-0000-4000-8000-000000000003';
+ x uuid:='50000000-0000-4000-8000-000000000001';
+ y uuid:='50000000-0000-4000-8000-000000000002';
+ z uuid:='50000000-0000-4000-8000-000000000003';
+ k text:='synthetic-idempotency-00001'; h text:=repeat('a',64);
+ h2 text:=repeat('b',64);receipt text:=repeat('c',64);
+ v text:='NBR_ENGINE_CITIZEN_V2_REVIEW'; r jsonb;
+BEGIN
+ IF NOT ws02_owner.nbr_authorize_citizen_evaluation(a,x,'2026-27') THEN
+  RAISE EXCEPTION 'OWNER_FALSE_DENIAL'; END IF;
+ IF ws02_owner.nbr_authorize_citizen_evaluation(b,x,'2026-27') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(a,y,'2026-27') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(a,x,'2027-28') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(c,z,'2026-27') THEN
+  RAISE EXCEPTION 'WRONG_ACTOR_YEAR_OR_REVOKED_GRANTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(b,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'OWNER_DENIED' THEN
+  RAISE EXCEPTION 'WRONG_ACTOR_RESERVED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27','short',h,v);
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'BAD_IDEMPOTENCY_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,'bad-hash',v);
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'BAD_REQUEST_HASH_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,'UNAPPROVED');
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'UNPINNED_VERSION_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FIRST_RESERVATION_FAILED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'REPLAY_NOT_ACCEPTED' THEN
+  RAISE EXCEPTION 'DUPLICATE_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h2,v);
+ IF r->>'state' IS DISTINCT FROM 'CONFLICT' THEN
+  RAISE EXCEPTION 'CONFLICTING_REQUEST_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(b,x,'2026-27',k,h,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2027-28',k,h,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,'bad') THEN
+  RAISE EXCEPTION 'INVALID_FINALIZATION_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITHOUT_EVALUATION_LOG_ACCEPTED'; END IF;
+ INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
+   idem_key,request_hash,receipt_hash,trace_hash,result_state)
+ VALUES(a,x,'2026-27',k,h,receipt,repeat('d',64),'CALCULATED');
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,h2) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_RECEIPT_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_REQUEST_ACCEPTED'; END IF;
+ IF NOT ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'VALID_FINALIZATION_DENIED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'DUPLICATE_FINALIZATION_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs) <> 1 OR
+ (SELECT receipt_hash FROM ws02_owner.evaluation_logs) IS DISTINCT FROM receipt THEN
+  RAISE EXCEPTION 'EVALUATION_LOG_READBACK_MISMATCH'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.slots) <> 1 OR
+ (SELECT state FROM ws02_owner.slots) IS DISTINCT FROM 'FINALIZED' OR
+ (SELECT receipt_hash FROM ws02_owner.slots) IS DISTINCT FROM receipt THEN
+  RAISE EXCEPTION 'RECEIPT_READBACK_MISMATCH'; END IF;
+END $test$;
+DO $atomic_test$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ b uuid:='60000000-0000-4000-8000-000000000002';
+ x uuid:='50000000-0000-4000-8000-000000000001';
+ key1 text:='atomic-proof-key-00001';
+ key2 text:='atomic-conflict-00002';
+ h text:=repeat('a',64); rh text:=repeat('b',64);
+ th text:=repeat('c',64); v text:='NBR_ENGINE_CITIZEN_V2_REVIEW';
+ r jsonb;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',key1,h,v);
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+ RAISE EXCEPTION 'ATOMIC_RESERVE_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ b,x,'2026-27',key1,h,rh,th,'CALCULATED') OR
+ ws02_owner.nbr_commit_evaluation_atomically(
+ a,x,'2027-28',key1,h,rh,th,'CALCULATED') OR
+ ws02_owner.nbr_commit_evaluation_atomically(
+ a,x,'2026-27',key1,'bad',rh,th,'CALCULATED') OR
+ ws02_owner.nbr_commit_evaluation_atomically(
+ a,x,'2026-27',key1,h,'bad',th,'CALCULATED') THEN
+ RAISE EXCEPTION 'INVALID_ATOMIC_COMMIT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=key1)<>0
+ OR (SELECT state FROM ws02_owner.slots WHERE idem_key=key1)
+ IS DISTINCT FROM 'RESERVED' THEN
+ RAISE EXCEPTION 'FAILED_COMMIT_WROTE_LOG_OR_UPDATED_SLOT'; END IF;
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+ a,x,'2026-27',key1,h,rh,th,'CALCULATED') THEN
+ RAISE EXCEPTION 'VALID_ATOMIC_COMMIT_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ a,x,'2026-27',key1,h,rh,th,'CALCULATED') THEN
+ RAISE EXCEPTION 'DOUBLE_FINALIZATION_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=key1)<>1
+ OR (SELECT state FROM ws02_owner.slots WHERE idem_key=key1)
+ IS DISTINCT FROM 'FINALIZED'
+ OR (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=key1)
+ IS DISTINCT FROM rh THEN
+ RAISE EXCEPTION 'ATOMIC_READBACK_MISMATCH'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',key2,h,v);
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+ RAISE EXCEPTION 'ATOMIC_ROLLBACK_TEST_RESERVE_FAILED'; END IF;
+ INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
+ idem_key,request_hash,receipt_hash,trace_hash,result_state)
+ VALUES(a,x,'2026-27',key2,h,repeat('d',64),th,'CALCULATED');
+ BEGIN
+  PERFORM ws02_owner.nbr_commit_evaluation_atomically(
+    a,x,'2026-27',key2,h,rh,th,'CALCULATED');
+  RAISE EXCEPTION 'UNIQUE_VIOLATION_WAS_NOT_RAISED';
+ EXCEPTION WHEN unique_violation THEN NULL;
+ END;
+ IF (SELECT state FROM ws02_owner.slots WHERE idem_key=key2)
+ IS DISTINCT FROM 'RESERVED'
+ OR (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=key2) IS NOT NULL
+ OR (SELECT receipt_hash FROM ws02_owner.evaluation_logs WHERE idem_key=key2)
+ IS DISTINCT FROM repeat('d',64) THEN
+ RAISE EXCEPTION 'ERROR_PATH_COMMITTED_PARTIAL_RECEIPT'; END IF;
+END $atomic_test$;
+RESET ROLE;
+ROLLBACK;
+SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
+
+ OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine;
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000001','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000002','2026-27',
+  '60000000-0000-4000-8000-000000000002','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000003','2026-27',
+  '60000000-0000-4000-8000-000000000003','REVOKED');
+DO $test$
+BEGIN
+ IF has_schema_privilege('ws02_owner_anon','ws02_owner','USAGE') OR
+ has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE') OR
+ has_function_privilege('ws02_owner_anon',
+ 'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)','EXECUTE') OR
+ has_function_privilege('ws02_owner_auth',
+ 'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') OR
+ has_table_privilege('ws02_owner_auth','ws02_owner.owners','SELECT') OR
+ has_table_privilege('ws02_owner_auth','ws02_owner.evaluation_logs','SELECT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') THEN
+ RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
+END $test$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $test$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ b uuid:='60000000-0000-4000-8000-000000000002';
+ c uuid:='60000000-0000-4000-8000-000000000003';
+ x uuid:='50000000-0000-4000-8000-000000000001';
+ y uuid:='50000000-0000-4000-8000-000000000002';
+ z uuid:='50000000-0000-4000-8000-000000000003';
+ k text:='synthetic-idempotency-00001'; h text:=repeat('a',64);
+ h2 text:=repeat('b',64);receipt text:=repeat('c',64);
+ v text:='NBR_ENGINE_CITIZEN_V2_REVIEW'; r jsonb;
+BEGIN
+ IF NOT ws02_owner.nbr_authorize_citizen_evaluation(a,x,'2026-27') THEN
+  RAISE EXCEPTION 'OWNER_FALSE_DENIAL'; END IF;
+ IF ws02_owner.nbr_authorize_citizen_evaluation(b,x,'2026-27') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(a,y,'2026-27') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(a,x,'2027-28') OR
+ ws02_owner.nbr_authorize_citizen_evaluation(c,z,'2026-27') THEN
+  RAISE EXCEPTION 'WRONG_ACTOR_YEAR_OR_REVOKED_GRANTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(b,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'OWNER_DENIED' THEN
+  RAISE EXCEPTION 'WRONG_ACTOR_RESERVED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27','short',h,v);
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'BAD_IDEMPOTENCY_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,'bad-hash',v);
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'BAD_REQUEST_HASH_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,'UNAPPROVED');
+ IF r->>'state' IS DISTINCT FROM 'INVALID_CONTRACT' THEN
+  RAISE EXCEPTION 'UNPINNED_VERSION_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FIRST_RESERVATION_FAILED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h,v);
+ IF r->>'state' IS DISTINCT FROM 'REPLAY_NOT_ACCEPTED' THEN
+  RAISE EXCEPTION 'DUPLICATE_ACCEPTED'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(a,x,'2026-27',k,h2,v);
+ IF r->>'state' IS DISTINCT FROM 'CONFLICT' THEN
+  RAISE EXCEPTION 'CONFLICTING_REQUEST_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(b,x,'2026-27',k,h,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2027-28',k,h,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) OR
+ ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,'bad') THEN
+  RAISE EXCEPTION 'INVALID_FINALIZATION_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITHOUT_EVALUATION_LOG_ACCEPTED'; END IF;
+ INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
+   idem_key,request_hash,receipt_hash,trace_hash,result_state)
+ VALUES(a,x,'2026-27',k,h,receipt,repeat('d',64),'CALCULATED');
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,h2) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_RECEIPT_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h2,receipt) THEN
+  RAISE EXCEPTION 'FINALIZATION_WITH_MISMATCHED_LOG_REQUEST_ACCEPTED'; END IF;
+ IF NOT ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'VALID_FINALIZATION_DENIED'; END IF;
+ IF ws02_owner.nbr_finalize_citizen_evaluation(a,x,'2026-27',k,h,receipt) THEN
+  RAISE EXCEPTION 'DUPLICATE_FINALIZATION_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs) <> 1 OR
+ (SELECT receipt_hash FROM ws02_owner.evaluation_logs) IS DISTINCT FROM receipt THEN
+  RAISE EXCEPTION 'EVALUATION_LOG_READBACK_MISMATCH'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.slots) <> 1 OR
+ (SELECT state FROM ws02_owner.slots) IS DISTINCT FROM 'FINALIZED' OR
+ (SELECT receipt_hash FROM ws02_owner.slots) IS DISTINCT FROM receipt THEN
+  RAISE EXCEPTION 'RECEIPT_READBACK_MISMATCH'; END IF;
+END $test$;
+RESET ROLE;
+ROLLBACK;
+SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
+
+ OR p_result_state IS DISTINCT FROM 'CALCULATED' THEN RETURN false; END IF;
+ SELECT * INTO prior FROM ws02_owner.slots
+ WHERE actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
+ AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
+ AND request_hash=p_request_hash AND state='RESERVED' FOR UPDATE;
+ IF NOT FOUND THEN RETURN false; END IF;
+ INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
+ idem_key,request_hash,receipt_hash,trace_hash,result_state) VALUES
+ (p_auth_user_id,p_taxpayer_record_id,p_assessment_year,p_idempotency_key,
+ p_request_hash,p_receipt_hash,p_trace_hash,p_result_state);
+ UPDATE ws02_owner.slots SET state='FINALIZED',receipt_hash=p_receipt_hash
+ WHERE actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
+ AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
+ AND request_hash=p_request_hash AND state='RESERVED';
+ GET DIAGNOSTICS updated=ROW_COUNT;
+ IF updated<>1 THEN RAISE EXCEPTION 'ATOMIC_COMMIT_UPDATE_FAILED'; END IF;
+ RETURN true;
+END $atomic$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine;
 INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
