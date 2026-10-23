@@ -7,9 +7,10 @@ DO $v$ BEGIN IF current_setting('server_version_num')::int < 170000
 CREATE ROLE ws02_owner_anon NOLOGIN;
 CREATE ROLE ws02_owner_auth NOLOGIN;
 CREATE ROLE ws02_owner_engine NOLOGIN;
+CREATE ROLE ws02_owner_rpc NOLOGIN; -- Synthetic, non-login RPC definer only.
 CREATE SCHEMA ws02_owner;
 REVOKE ALL ON SCHEMA ws02_owner FROM PUBLIC;
-GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine;
+GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc;
 CREATE TABLE ws02_owner.owners(
  record_id uuid NOT NULL, assessment_year text NOT NULL,
  actor_id uuid NOT NULL, state text NOT NULL CHECK(state IN ('ACTIVE','REVOKED')),
@@ -39,21 +40,23 @@ ALTER TABLE ws02_owner.evaluation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.owners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.slots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ALL TABLES IN SCHEMA ws02_owner FROM PUBLIC;
-GRANT SELECT ON ws02_owner.owners TO ws02_owner_engine;
-GRANT SELECT,INSERT,UPDATE ON ws02_owner.slots TO ws02_owner_engine;
-GRANT SELECT,INSERT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
+GRANT SELECT ON ws02_owner.owners TO ws02_owner_engine,ws02_owner_rpc;
+GRANT SELECT ON ws02_owner.slots TO ws02_owner_engine;
+GRANT SELECT,INSERT,UPDATE ON ws02_owner.slots TO ws02_owner_rpc;
+GRANT SELECT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
+GRANT SELECT,INSERT ON ws02_owner.evaluation_logs TO ws02_owner_rpc;
 CREATE POLICY logs_engine_read ON ws02_owner.evaluation_logs FOR SELECT
- TO ws02_owner_engine USING (true);
+ TO ws02_owner_engine,ws02_owner_rpc USING (true);
 CREATE POLICY logs_engine_insert ON ws02_owner.evaluation_logs FOR INSERT
- TO ws02_owner_engine WITH CHECK (true);
+ TO ws02_owner_rpc WITH CHECK (true);
 CREATE POLICY owners_engine_read ON ws02_owner.owners FOR SELECT
-  TO ws02_owner_engine USING (true);
+  TO ws02_owner_engine,ws02_owner_rpc USING (true);
 CREATE POLICY slots_engine_read ON ws02_owner.slots FOR SELECT
-  TO ws02_owner_engine USING (true);
+  TO ws02_owner_engine,ws02_owner_rpc USING (true);
 CREATE POLICY slots_engine_insert ON ws02_owner.slots FOR INSERT
-  TO ws02_owner_engine WITH CHECK (true);
+  TO ws02_owner_rpc WITH CHECK (true);
 CREATE POLICY slots_engine_update ON ws02_owner.slots FOR UPDATE
-  TO ws02_owner_engine USING (true) WITH CHECK (true);
+  TO ws02_owner_rpc USING (true) WITH CHECK (true);
 CREATE FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER
@@ -81,7 +84,7 @@ END $lock$;
 CREATE FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
  p_idempotency_key text,p_request_hash text,p_contract_version text
-) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY INVOKER
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,ws02_owner AS $fn$
 DECLARE n integer; old_slot ws02_owner.slots%ROWTYPE;
 BEGIN
@@ -137,7 +140,7 @@ CREATE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
  p_idempotency_key text,p_request_hash text,p_receipt_hash text,
  p_trace_hash text,p_result_state text,p_audit_trace jsonb
-) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY INVOKER
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,ws02_owner AS $atomic$
 DECLARE slot ws02_owner.slots%ROWTYPE; affected integer;
 BEGIN
@@ -183,7 +186,12 @@ BEGIN
  RETURN true;
 END $atomic$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc;
+-- The mutating SECURITY DEFINER functions are owned by a non-login role,
+-- not by the PostgreSQL superuser. Their fixed search_path is retained.
+ALTER FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text) OWNER TO ws02_owner_rpc;
+ALTER FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text) OWNER TO ws02_owner_rpc;
+ALTER FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb) OWNER TO ws02_owner_rpc;
 -- Do not expose the obsolete split finalizer in the extracted DDL.
 -- The engine must use the owner-locked atomic audit+receipt function.
 REVOKE EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) FROM ws02_owner_engine;
@@ -204,12 +212,18 @@ BEGIN
  'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') OR
  has_table_privilege('ws02_owner_auth','ws02_owner.owners','SELECT') OR
  has_table_privilege('ws02_owner_auth','ws02_owner.evaluation_logs','SELECT') OR
- has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') THEN
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','INSERT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.slots','INSERT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.slots','UPDATE') THEN
  RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
 END $test$;
 -- Historical split-finalize regression is exercised with a temporary synthetic grant.
 -- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
 RESET ROLE;
+-- Historical direct-write fixtures only, AFTER the extracted DDL boundary.
+GRANT INSERT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
+GRANT UPDATE ON ws02_owner.slots TO ws02_owner_engine;
 GRANT EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) TO ws02_owner_engine;
 SET LOCAL ROLE ws02_owner_engine;
 DO $test$
@@ -417,6 +431,10 @@ BEGIN
  IS DISTINCT FROM repeat('d',64) THEN
   RAISE EXCEPTION 'ATOMIC_ERROR_PATH_MODIFIED_EXISTING_STATE'; END IF;
 END $atomic_test$;
+RESET ROLE;
+REVOKE INSERT ON ws02_owner.evaluation_logs FROM ws02_owner_engine;
+REVOKE UPDATE ON ws02_owner.slots FROM ws02_owner_engine;
+SET LOCAL ROLE ws02_owner_engine;
 -- Owner revocation BETWEEN reserve and atomic commit must fail closed.
 -- This models a source-record revocation, NOT a JWT revocation or signed Auth test.
 DO $revocation_reserve$
@@ -493,6 +511,30 @@ BEGIN
  IS DISTINCT FROM audit THEN
   RAISE EXCEPTION 'RESTORED_OWNER_RECEIPT_READBACK_FAILED'; END IF;
 END $revocation_recovery$;
+RESET ROLE;
+-- Verify the engine cannot bypass atomic receipt writes with direct DML.
+DO $engine_dml_privileges$
+BEGIN
+ IF has_table_privilege('ws02_owner_engine','ws02_owner.slots','INSERT') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.slots','UPDATE') OR
+ has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','INSERT') THEN
+ RAISE EXCEPTION 'ENGINE_CAN_BYPASS_ATOMIC_RPC'; END IF;
+END $engine_dml_privileges$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $engine_dml_denial$
+DECLARE insert_denied boolean:=false; update_denied boolean:=false;
+BEGIN
+ BEGIN
+  INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,idem_key,request_hash,receipt_hash,trace_hash,result_state,audit_trace)
+  VALUES('60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001','2026-27','forged-direct-log-00001',repeat('a',64),repeat('b',64),repeat('c',64),'CALCULATED','{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN insert_denied:=true;
+ END;
+ BEGIN
+  UPDATE ws02_owner.slots SET state='FINALIZED' WHERE false;
+ EXCEPTION WHEN insufficient_privilege THEN update_denied:=true;
+ END;
+ IF NOT insert_denied OR NOT update_denied THEN RAISE EXCEPTION 'ENGINE_DIRECT_DML_EXECUTABLE'; END IF;
+END $engine_dml_denial$;
 RESET ROLE;
 -- Verify actual SQL privilege denial for untrusted synthetic API roles.
 -- These roles are NOT authenticated Supabase JWT principals or a public RPC wrapper.
