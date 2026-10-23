@@ -212,7 +212,7 @@ function series(current: number, seed: number, offset = 0): number[] {
   return [oldest, middle, Math.round(current)];
 }
 
-function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
+export function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
   const seed = candidateSeed(candidate);
   const signals = signalIds(candidate.signals);
 
@@ -555,20 +555,6 @@ function formatMoney(value: number, language: string): string {
 function changePercent(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return ((current - previous) / Math.abs(previous)) * 100;
-}
-
-function formatChange(value: number | null, language: string): string {
-  if (value === null || !Number.isFinite(value)) return "—";
-  const locale = language?.startsWith("bn") ? "bn-BD" : "en-BD";
-  const sign = value > 0 ? "+" : "";
-  return (
-    sign +
-    new Intl.NumberFormat(locale, {
-      maximumFractionDigits: 1,
-      minimumFractionDigits: 0,
-    }).format(value) +
-    "%"
-  );
 }
 
 function formatCompactMoney(value: number, language: string): string {
@@ -1995,14 +1981,6 @@ export function AuditCandidatesPage({
                       {section.metrics.map((metric) => {
                         const related = currentSignals.some((signal) =>
                           metric.relatedSignals.includes(signal),
-                        );
-                        const oneYear = changePercent(
-                          metric.values[2],
-                          metric.values[1],
-                        );
-                        const threeYear = changePercent(
-                          metric.values[2],
-                          metric.values[0],
                         );
   
                         const negativeBalance = metric.key === "difference" && metric.values[2] < 0;
