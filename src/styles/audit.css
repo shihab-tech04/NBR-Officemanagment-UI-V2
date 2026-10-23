@@ -4492,3 +4492,129 @@
     justify-content: center;
   }
 }
+
+
+/* Audit Candidate decision-support refinement — isolated from shared shell. */
+.audit-candidates-page .audit-note-strip__grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
+}
+.audit-candidates-page .audit-note-strip__item {
+  padding: 9px 13px;
+}
+.audit-candidates-page .audit-note-strip__item > span {
+  font-size: var(--fs-caption);
+}
+.audit-candidates-page .audit-note-strip__item > strong {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+}
+.audit-candidates-page .audit-selection-decision {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+.audit-candidates-page .audit-selection-decision__heading {
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.audit-candidate-ay-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+}
+.audit-candidates-page .audit-key-indicator__changes {
+  font-size: var(--fs-body-sm);
+}
+.audit-candidates-page .audit-chart--trend-compact svg {
+  height: 235px;
+  max-height: none;
+}
+.audit-candidates-page .audit-chart--trend-compact .audit-chart__axis-label,
+.audit-candidates-page .audit-chart--trend-compact .audit-chart__x-label,
+.audit-candidates-page .audit-chart--trend-compact .audit-chart__value-label {
+  font-size: var(--fs-body-sm);
+}
+.audit-candidates-page .audit-custom-comparison__legend {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
+}
+.audit-candidates-page .audit-comparison-table__metric-row td p {
+  font-variant-numeric: tabular-nums;
+}
+.audit-financial-reconciliation {
+  margin: 0 var(--space-5) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-background-subtle);
+}
+.audit-financial-reconciliation > summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  padding: 8px var(--space-3);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+.audit-financial-reconciliation > summary strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.audit-financial-reconciliation > summary .audit-value-negative {
+  color: var(--color-error);
+}
+.audit-financial-reconciliation > summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.audit-reconciliation-info {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: help;
+}
+.audit-financial-reconciliation__formula {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+.audit-financial-reconciliation__formula > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.audit-financial-reconciliation__formula span {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+}
+.audit-financial-reconciliation__formula strong {
+  font-size: var(--fs-body-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .audit-candidates-page .audit-note-strip__grid,
+  .audit-financial-reconciliation__formula {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .audit-candidates-page .audit-chart--trend-compact svg {
+    width: 620px;
+    min-width: 620px;
+    height: 235px;
+  }
+  .audit-financial-reconciliation {
+    margin-left: var(--space-3);
+    margin-right: var(--space-3);
+  }
+}
