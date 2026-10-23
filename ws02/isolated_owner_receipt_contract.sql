@@ -586,6 +586,83 @@ BEGIN
   RAISE EXCEPTION 'RESTORED_OWNER_RECEIPT_READBACK_FAILED'; END IF;
 END $revocation_recovery$;
 RESET ROLE;
+-- Synthetic owner reassignment BETWEEN reservation and atomic commit.
+-- A stale reservation must never become a receipt after ownership moves to
+-- another principal. This is NOT a real signed-Auth or tenant/year mapping.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000004','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassignment_reserve$
+DECLARE r jsonb;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+ '60000000-0000-4000-8000-000000000001',
+ '50000000-0000-4000-8000-000000000004',
+ '2026-27','reassigned-owner-atomic-00001',repeat('a',64),
+ 'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'REASSIGNMENT_RESERVE_SETUP_FAILED'; END IF;
+END $reassignment_reserve$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET actor_id='60000000-0000-4000-8000-000000000002'
+ WHERE record_id='50000000-0000-4000-8000-000000000004'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassignment_denial$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ r uuid:='50000000-0000-4000-8000-000000000004';
+ k text:='reassigned-owner-atomic-00001';
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',a::text,'taxpayer_record_id',r::text,
+ 'assessment_year','2026-27','income_year','2025-26',
+ 'authorized_request_hash',repeat('a',64),'receipt_hash',repeat('b',64),
+ 'idempotency_key',k,'result_status','NEEDS_FACTS',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF ws02_owner.nbr_authorize_citizen_evaluation(a,r,'2026-27') OR
+ ws02_owner.nbr_commit_evaluation_atomically(
+ a,r,'2026-27',k,repeat('a',64),repeat('b',64),repeat('c',64),
+ 'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'STALE_REASSIGNED_OWNER_COMMIT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>0 OR
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'RESERVED' OR
+ (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=k) IS NOT NULL THEN
+  RAISE EXCEPTION 'REASSIGNED_OWNER_DENIAL_LEFT_AUDIT_OR_RECEIPT'; END IF;
+END $reassignment_denial$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET actor_id='60000000-0000-4000-8000-000000000001'
+ WHERE record_id='50000000-0000-4000-8000-000000000004'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $reassignment_recovery$
+DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
+ r uuid:='50000000-0000-4000-8000-000000000004';
+ k text:='reassigned-owner-atomic-00001';
+ audit jsonb:=jsonb_build_object(
+ 'actor_user_id',a::text,'taxpayer_record_id',r::text,
+ 'assessment_year','2026-27','income_year','2025-26',
+ 'authorized_request_hash',repeat('a',64),'receipt_hash',repeat('b',64),
+ 'idempotency_key',k,'result_status','NEEDS_FACTS',
+ 'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+ a,r,'2026-27',k,repeat('a',64),repeat('b',64),repeat('c',64),
+ 'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'RESTORED_REASSIGNED_OWNER_COMMIT_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ a,r,'2026-27',k,repeat('a',64),repeat('b',64),repeat('c',64),
+ 'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'REASSIGNED_OWNER_DUPLICATE_COMMIT_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>1 OR
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
+ IS DISTINCT FROM 'FINALIZED' OR
+ (SELECT audit_trace FROM ws02_owner.evaluation_logs WHERE idem_key=k)
+ IS DISTINCT FROM audit THEN
+  RAISE EXCEPTION 'REASSIGNED_OWNER_RECEIPT_READBACK_MISMATCH'; END IF;
+END $reassignment_recovery$;
+RESET ROLE;
 -- Verify the engine cannot bypass atomic receipt writes with direct DML.
 DO $engine_dml_privileges$
 BEGIN
