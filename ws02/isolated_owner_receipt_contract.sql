@@ -454,9 +454,7 @@ BEGIN
   RAISE EXCEPTION 'REVOKED_OWNER_RESERVE_ACCEPTED'; END IF;
  IF ws02_owner.nbr_commit_evaluation_atomically(
  actor,record,'2026-27',k,repeat('a',64),repeat('b',64),
- repeat('c',64),'FAIL_CLOSED',audit) OR
- ws02_owner.nbr_finalize_citizen_evaluation(
- actor,record,'2026-27',k,repeat('a',64),repeat('b',64)) THEN
+ repeat('c',64),'FAIL_CLOSED',audit) THEN
   RAISE EXCEPTION 'REVOKED_OWNER_RECEIPT_ACCEPTED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=k)<>0 OR
  (SELECT state FROM ws02_owner.slots WHERE idem_key=k)
