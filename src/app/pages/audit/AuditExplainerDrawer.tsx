@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
 import type { TableRow } from "../modulePageUtils";
@@ -117,9 +117,11 @@ function CandidateEvidenceTrendChart({
 interface AuditExplainerDrawerProps {
   explanation: AuditExplanation | null;
   onClose: () => void;
+  /** Return to the originating summary when opened from a risk-signal link. */
+  onBack?: () => void;
 }
 
-export function AuditExplainerDrawer({ explanation, onClose }: AuditExplainerDrawerProps) {
+export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExplainerDrawerProps) {
   const { t: tc } = useTranslation("common");
   const { t, i18n } = useTranslation("audit");
   const [drilldown, setDrilldown] = useState<AuditExplanation | null>(null);
@@ -189,22 +191,13 @@ export function AuditExplainerDrawer({ explanation, onClose }: AuditExplainerDra
     <ResponsiveOverlay
       open
       onClose={onClose}
+      onBack={() => { if (drilldown) setDrilldown(null); else (onBack ?? onClose)(); }}
+      backLabel={t("initiate.actions.back")}
       title={activeExplanation.title}
       closeLabel={tc("accessibility.closeDrawer")}
       desktopWidth={profileInsight ? "620px" : "540px"}
     >
       <div className="form-stack">
-        {drilldown && (
-          <button
-            type="button"
-            className="audit-preview-drawer-v2__back"
-            onClick={() => setDrilldown(null)}
-          >
-            <ChevronLeft size={15} aria-hidden="true" />
-            {t("initiate.actions.back")}
-          </button>
-        )}
-
         {profileInsight ? (
           <div className="audit-preview-drawer-v2">
             <section className="audit-preview-drawer-v2__snapshot">
