@@ -327,15 +327,6 @@ function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
     (value, index) => value - fundOutflow[index],
   );
 
-  if (signals.includes("R-C1")) {
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
-  }
-  if (signals.includes("R-C2")) {
-    difference[0] = -Math.round(Math.max(sourceOfFund[0], 1) * 0.08);
-    difference[1] = -Math.round(Math.max(sourceOfFund[1], 1) * 0.14);
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.2);
-  }
-
   const openingNetWealth = [
     Math.round(netWealth[0] * 0.9),
     netWealth[0],
@@ -554,6 +545,7 @@ function formatMoney(value: number, language: string): string {
 }
 
 function changePercent(current: number, previous: number): number | null {
+  if (previous * current < 0) return null;
   if (previous === 0) return current === 0 ? 0 : null;
   return ((current - previous) / Math.abs(previous)) * 100;
 }
@@ -654,14 +646,14 @@ function AuditTrendChart({
 }) {
   const width = 720;
   const height = 210;
-  const pad = { top: 22, right: 28, bottom: 34, left: 68 };
+  const pad = { top: 28, right: 62, bottom: 42, left: 70 };
   const values = metric.values;
   const minRaw = Math.min(0, ...values);
   const maxRaw = Math.max(0, ...values);
   const rawSpan = Math.max(1, maxRaw - minRaw);
   const step = niceStep(rawSpan / 3);
-  const axisMin = Math.min(0, Math.floor(minRaw / step) * step);
-  const axisMax = Math.max(step, Math.ceil(maxRaw / step) * step);
+  const axisMin = Math.min(0, Math.floor(minRaw / step) * step) - (minRaw < 0 ? step * 0.35 : 0);
+  const axisMax = Math.max(step, Math.ceil(maxRaw / step) * step) + step * 0.25;
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const x = (index: number) =>
@@ -689,6 +681,8 @@ function AuditTrendChart({
   }
 
   const latestNegative = values[2] < 0;
+  const signCrossing = (previous: number) => previous * values[2] < 0;
+  const moneyDelta = (previous: number) => formatMoney(values[2] - previous, language);
 
   return (
     <div className="audit-chart audit-chart--trend audit-chart--trend-compact">
@@ -703,11 +697,11 @@ function AuditTrendChart({
         <div className="audit-trend-summary__changes">
           <span className={(oneYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{oneYearLabel}</small>
-            <strong>{formatChange(oneYearChange, language)}</strong>
+            <strong>{signCrossing(values[1]) ? moneyDelta(values[1]) : formatChange(oneYearChange, language)}</strong>
           </span>
           <span className={(threeYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{threeYearLabel}</small>
-            <strong>{formatChange(threeYearChange, language)}</strong>
+            <strong>{signCrossing(values[0]) ? moneyDelta(values[0]) : formatChange(threeYearChange, language)}</strong>
           </span>
         </div>
       </div>
@@ -778,7 +772,7 @@ function AuditTrendChart({
           const labelAbove = value >= 0;
           const labelY = labelAbove
             ? Math.max(pad.top + 11, py - 10)
-            : Math.min(height - pad.bottom - 5, py + 18);
+            : Math.min(height - pad.bottom - 15, py + 19);
 
           return (
             <g key={years[index]}>
