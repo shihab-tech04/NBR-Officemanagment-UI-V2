@@ -41,29 +41,27 @@ ALTER TABLE ws02_owner.evaluation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.owners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.slots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ALL TABLES IN SCHEMA ws02_owner FROM PUBLIC;
-GRANT SELECT ON ws02_owner.owners TO ws02_owner_engine,ws02_owner_rpc;
+GRANT SELECT ON ws02_owner.owners TO ws02_owner_rpc;
 GRANT SELECT,UPDATE ON ws02_owner.owners TO ws02_owner_lock;
-GRANT SELECT ON ws02_owner.slots TO ws02_owner_engine;
 GRANT SELECT,INSERT,UPDATE ON ws02_owner.slots TO ws02_owner_rpc;
-GRANT SELECT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
 GRANT SELECT,INSERT ON ws02_owner.evaluation_logs TO ws02_owner_rpc;
-CREATE POLICY logs_engine_read ON ws02_owner.evaluation_logs FOR SELECT
- TO ws02_owner_engine,ws02_owner_rpc USING (true);
+CREATE POLICY logs_rpc_read ON ws02_owner.evaluation_logs FOR SELECT
+ TO ws02_owner_rpc USING (true);
 CREATE POLICY logs_engine_insert ON ws02_owner.evaluation_logs FOR INSERT
  TO ws02_owner_rpc WITH CHECK (true);
-CREATE POLICY owners_engine_read ON ws02_owner.owners FOR SELECT
-  TO ws02_owner_engine,ws02_owner_rpc,ws02_owner_lock USING (true);
+CREATE POLICY owners_rpc_lock_read ON ws02_owner.owners FOR SELECT
+  TO ws02_owner_rpc,ws02_owner_lock USING (true);
 CREATE POLICY owners_lock_update ON ws02_owner.owners FOR UPDATE
  TO ws02_owner_lock USING (true) WITH CHECK (true);
-CREATE POLICY slots_engine_read ON ws02_owner.slots FOR SELECT
-  TO ws02_owner_engine,ws02_owner_rpc USING (true);
+CREATE POLICY slots_rpc_read ON ws02_owner.slots FOR SELECT
+  TO ws02_owner_rpc USING (true);
 CREATE POLICY slots_engine_insert ON ws02_owner.slots FOR INSERT
   TO ws02_owner_rpc WITH CHECK (true);
 CREATE POLICY slots_engine_update ON ws02_owner.slots FOR UPDATE
   TO ws02_owner_rpc USING (true) WITH CHECK (true);
 CREATE FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text
-) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER
+) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,ws02_owner AS $fn$
  SELECT p_auth_user_id IS NOT NULL AND p_taxpayer_record_id IS NOT NULL AND EXISTS(
  SELECT 1 FROM ws02_owner.owners o WHERE o.actor_id=p_auth_user_id
@@ -206,6 +204,8 @@ GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,
 -- The mutating SECURITY DEFINER functions are owned by a non-login role,
 -- not by the PostgreSQL superuser. Their fixed search_path is retained.
 ALTER FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text) OWNER TO ws02_owner_lock;
+-- Engine authorization reads through the narrow non-login definer, not direct table SELECT.
+ALTER FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text) OWNER TO ws02_owner_rpc;
 ALTER FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text) OWNER TO ws02_owner_rpc;
 ALTER FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb) OWNER TO ws02_owner_rpc;
 -- Do not expose the obsolete split finalizer in the extracted DDL.
@@ -255,7 +255,12 @@ END $rpc_allowlist$;
 -- Historical split-finalize regression is exercised with a temporary synthetic grant.
 -- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
 RESET ROLE;
--- Historical direct-write fixtures only, AFTER the extracted DDL boundary.
+-- Historical direct-write and readback fixtures only, AFTER the extracted DDL boundary.
+-- Production-shaped DDL above grants NO private-table SELECT to the engine.
+GRANT SELECT ON ws02_owner.owners,ws02_owner.slots,ws02_owner.evaluation_logs TO ws02_owner_engine;
+CREATE POLICY owners_fixture_read ON ws02_owner.owners FOR SELECT TO ws02_owner_engine USING (true);
+CREATE POLICY slots_fixture_read ON ws02_owner.slots FOR SELECT TO ws02_owner_engine USING (true);
+CREATE POLICY logs_fixture_read ON ws02_owner.evaluation_logs FOR SELECT TO ws02_owner_engine USING (true);
 GRANT INSERT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
 GRANT UPDATE ON ws02_owner.slots TO ws02_owner_engine;
 CREATE POLICY logs_legacy_fixture_insert ON ws02_owner.evaluation_logs FOR INSERT TO ws02_owner_engine WITH CHECK (true);
@@ -710,5 +715,53 @@ BEGIN
   RAISE EXCEPTION 'REASSIGNMENT_RESTORED_RECEIPT_READBACK_FAILED'; END IF;
 END $reassign_recovery$;
 RESET ROLE;
+-- Remove historical fixture SELECT privileges before testing the final engine boundary.
+DROP POLICY owners_fixture_read ON ws02_owner.owners;
+DROP POLICY slots_fixture_read ON ws02_owner.slots;
+DROP POLICY logs_fixture_read ON ws02_owner.evaluation_logs;
+REVOKE SELECT ON ws02_owner.owners,ws02_owner.slots,ws02_owner.evaluation_logs FROM ws02_owner_engine;
+DO $engine_select_preflight$
+BEGIN
+ IF has_table_privilege('ws02_owner_engine','ws02_owner.owners','SELECT')
+ OR has_table_privilege('ws02_owner_engine','ws02_owner.slots','SELECT')
+ OR has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','SELECT') THEN
+  RAISE EXCEPTION 'ENGINE_PRIVATE_TABLE_SELECT_LEAK'; END IF;
+ IF NOT (SELECT p.prosecdef AND pg_get_userbyid(p.proowner)='ws02_owner_rpc'
+  FROM pg_proc p WHERE p.oid='ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)'::regprocedure) THEN
+  RAISE EXCEPTION 'AUTHORIZER_NOT_NARROW_NONLOGIN_DEFINER'; END IF;
+END $engine_select_preflight$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $engine_no_direct_read$
+DECLARE tbl text; denied boolean; actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ idem text:='engine-private-readback-00001'; req text:=repeat('a',64);
+ receipt text:=repeat('b',64); trace text:=repeat('c',64); r jsonb; audit jsonb;
+BEGIN
+ FOREACH tbl IN ARRAY ARRAY['owners','slots','evaluation_logs'] LOOP
+  denied:=false;
+  BEGIN EXECUTE format('SELECT 1 FROM ws02_owner.%I LIMIT 1',tbl);
+  EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+  IF NOT denied THEN RAISE EXCEPTION 'ENGINE_DIRECT_PRIVATE_READ_ALLOWED_%',tbl; END IF;
+ END LOOP;
+ IF NOT ws02_owner.nbr_authorize_citizen_evaluation(actor,record,'2026-27')
+ OR ws02_owner.nbr_authorize_citizen_evaluation('60000000-0000-4000-8000-000000000002'::uuid,record,'2026-27') THEN
+  RAISE EXCEPTION 'AUTHORIZER_REGRESSION_AFTER_ENGINE_SELECT_REVOKE'; END IF;
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(actor,record,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN RAISE EXCEPTION 'PRIVATE_RESERVATION_FAILED'; END IF;
+ audit:=jsonb_build_object('actor_user_id',actor::text,'taxpayer_record_id',record::text,
+  'assessment_year','2026-27','income_year','2025-26','authorized_request_hash',req,
+  'receipt_hash',receipt,'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(actor,record,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_RECEIPT_FAILED'; END IF;
+END $engine_no_direct_read$;
+RESET ROLE;
+DO $private_receipt_readback$
+BEGIN
+ IF (SELECT state FROM ws02_owner.slots WHERE idem_key='engine-private-readback-00001') IS DISTINCT FROM 'FINALIZED'
+ OR (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key='engine-private-readback-00001') IS DISTINCT FROM repeat('b',64)
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='engine-private-readback-00001')<>1 THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_RECEIPT_READBACK_FAILED'; END IF;
+END $private_receipt_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
