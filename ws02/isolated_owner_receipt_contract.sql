@@ -191,7 +191,18 @@ BEGIN
  RETURN true;
 END $atomic$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc;
+-- Explicit function allowlist: no blanket grant to the RPC definer.
+-- The engine's lock-helper permission is retained for the isolated two-session
+-- serialization test; it grants no ownership DML or receipt-write privilege.
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)
+ TO ws02_owner_engine,ws02_owner_rpc;
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text)
+ TO ws02_owner_engine,ws02_owner_rpc;
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)
+ TO ws02_owner_engine;
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)
+ TO ws02_owner_engine;
+-- No grant to either role on the obsolete split finalizer.
 -- The mutating SECURITY DEFINER functions are owned by a non-login role,
 -- not by the PostgreSQL superuser. Their fixed search_path is retained.
 ALTER FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text) OWNER TO ws02_owner_lock;
@@ -223,6 +234,21 @@ BEGIN
  has_table_privilege('ws02_owner_engine','ws02_owner.slots','UPDATE') THEN
  RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
 END $test$;
+-- The non-login RPC definer must not inherit execution of the legacy split
+-- finalizer merely because it owns the atomic functions.
+DO $rpc_allowlist$
+BEGIN
+ IF has_function_privilege('ws02_owner_rpc',
+  'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE')
+ OR has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') THEN
+  RAISE EXCEPTION 'SPLIT_FINALIZER_ROLE_EXECUTION_LEAK'; END IF;
+ IF NOT has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)','EXECUTE')
+ OR NOT has_function_privilege('ws02_owner_rpc',
+  'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)','EXECUTE') THEN
+  RAISE EXCEPTION 'REQUIRED_ATOMIC_ALLOWLIST_MISSING'; END IF;
+END $rpc_allowlist$;
 -- Historical split-finalize regression is exercised with a temporary synthetic grant.
 -- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
 RESET ROLE;
