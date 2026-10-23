@@ -136,6 +136,7 @@ BEGIN
  OR octet_length(p_audit_trace::text)>262144
  OR p_audit_trace->>'actor_user_id' IS DISTINCT FROM p_auth_user_id::text
  OR p_audit_trace->>'taxpayer_record_id' IS DISTINCT FROM p_taxpayer_record_id::text
+ OR p_audit_trace->>'assessment_year' IS DISTINCT FROM p_assessment_year
  OR p_audit_trace->>'authorized_request_hash' IS DISTINCT FROM p_request_hash
  OR p_audit_trace->>'receipt_hash' IS DISTINCT FROM p_receipt_hash
  OR p_audit_trace->>'idempotency_key' IS DISTINCT FROM p_idempotency_key
@@ -260,7 +261,7 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  trace text:=repeat('c',64); result jsonb; audit jsonb;
 BEGIN
  audit:=jsonb_build_object('actor_user_id',actor::text,
-  'taxpayer_record_id',record::text,'authorized_request_hash',reqhash,
+  'taxpayer_record_id',record::text,'assessment_year','2026-27','authorized_request_hash',reqhash,
   'receipt_hash',receipt,'idempotency_key',request_key,
   'result_status','NEEDS_FACTS',
   'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
@@ -279,6 +280,13 @@ BEGIN
  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
  audit||jsonb_build_object('actor_user_id',other::text)) THEN
  RAISE EXCEPTION 'SPOOFED_AUDIT_OWNER_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+ audit||jsonb_build_object('assessment_year','2027-28')) OR
+ ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+ audit-'assessment_year') THEN
+ RAISE EXCEPTION 'SPOOFED_OR_MISSING_AUDIT_ASSESSMENT_YEAR_ACCEPTED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs
   WHERE idem_key=request_key)<>0 THEN
   RAISE EXCEPTION 'FAILED_ATOMIC_CALL_LEFT_A_LOG'; END IF;
@@ -345,7 +353,7 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  record uuid:='50000000-0000-4000-8000-000000000001';
  k text:='revoked-after-reserve-00001'; r jsonb;
  audit jsonb:=jsonb_build_object(
- 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,'assessment_year','2026-27',
  'authorized_request_hash',repeat('a',64),
  'receipt_hash',repeat('b',64),'idempotency_key',k,
  'result_status','FAIL_CLOSED',
@@ -379,7 +387,7 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  record uuid:='50000000-0000-4000-8000-000000000001';
  k text:='revoked-after-reserve-00001';
  audit jsonb:=jsonb_build_object(
- 'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+ 'actor_user_id',actor::text,'taxpayer_record_id',record::text,'assessment_year','2026-27',
  'authorized_request_hash',repeat('a',64),
  'receipt_hash',repeat('b',64),'idempotency_key',k,
  'result_status','FAIL_CLOSED',
