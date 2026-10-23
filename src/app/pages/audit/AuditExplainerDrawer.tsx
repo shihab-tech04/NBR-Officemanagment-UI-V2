@@ -134,7 +134,7 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
   if (!explanation) return null;
 
   const activeExplanation = drilldown ?? explanation;
-  const selectedSignalId = activeExplanation.title.match(/^(R-[A-E]\\d+)\\s+—/)?.[1] ?? null;
+  const selectedSignalId = activeExplanation.title.match(/^(R-[A-E]\d+)\s+—/)?.[1] ?? null;
   const profileInsight = drilldown ? undefined : explanation.candidateInsight;
   const candidateInsight = explanation.candidateInsight;
 
