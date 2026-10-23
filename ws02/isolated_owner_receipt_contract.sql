@@ -8,9 +8,10 @@ CREATE ROLE ws02_owner_anon NOLOGIN;
 CREATE ROLE ws02_owner_auth NOLOGIN;
 CREATE ROLE ws02_owner_engine NOLOGIN;
 CREATE ROLE ws02_owner_rpc NOLOGIN; -- Synthetic, non-login RPC definer only.
+CREATE ROLE ws02_owner_lock NOLOGIN; -- Only row-lock helper can hold owners UPDATE privilege.
 CREATE SCHEMA ws02_owner;
 REVOKE ALL ON SCHEMA ws02_owner FROM PUBLIC;
-GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc;
+GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc,ws02_owner_lock;
 CREATE TABLE ws02_owner.owners(
  record_id uuid NOT NULL, assessment_year text NOT NULL,
  actor_id uuid NOT NULL, state text NOT NULL CHECK(state IN ('ACTIVE','REVOKED')),
@@ -41,6 +42,7 @@ ALTER TABLE ws02_owner.owners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ws02_owner.slots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ALL TABLES IN SCHEMA ws02_owner FROM PUBLIC;
 GRANT SELECT ON ws02_owner.owners TO ws02_owner_engine,ws02_owner_rpc;
+GRANT SELECT,UPDATE ON ws02_owner.owners TO ws02_owner_lock;
 GRANT SELECT ON ws02_owner.slots TO ws02_owner_engine;
 GRANT SELECT,INSERT,UPDATE ON ws02_owner.slots TO ws02_owner_rpc;
 GRANT SELECT ON ws02_owner.evaluation_logs TO ws02_owner_engine;
@@ -50,7 +52,9 @@ CREATE POLICY logs_engine_read ON ws02_owner.evaluation_logs FOR SELECT
 CREATE POLICY logs_engine_insert ON ws02_owner.evaluation_logs FOR INSERT
  TO ws02_owner_rpc WITH CHECK (true);
 CREATE POLICY owners_engine_read ON ws02_owner.owners FOR SELECT
-  TO ws02_owner_engine,ws02_owner_rpc USING (true);
+  TO ws02_owner_engine,ws02_owner_rpc,ws02_owner_lock USING (true);
+CREATE POLICY owners_lock_update ON ws02_owner.owners FOR UPDATE
+ TO ws02_owner_lock USING (true) WITH CHECK (true);
 CREATE POLICY slots_engine_read ON ws02_owner.slots FOR SELECT
   TO ws02_owner_engine,ws02_owner_rpc USING (true);
 CREATE POLICY slots_engine_insert ON ws02_owner.slots FOR INSERT
@@ -67,7 +71,8 @@ SET search_path=pg_catalog,ws02_owner AS $fn$
  AND o.state='ACTIVE');
 $fn$;
 -- Narrow SECURITY DEFINER helper: acquire a row lock without granting the
--- engine UPDATE on the authoritative owner table. Fixed search_path, no SQL
+-- engine or atomic-RPC owner UPDATE on the authoritative owner table.
+-- The separate no-login lock owner has only the privilege needed for FOR SHARE. Fixed search_path, no SQL
 -- interpolation, and no access for anon/auth roles. Synthetic PG17 only.
 CREATE FUNCTION ws02_owner.nbr_lock_active_owner(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text
@@ -189,7 +194,7 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc;
 -- The mutating SECURITY DEFINER functions are owned by a non-login role,
 -- not by the PostgreSQL superuser. Their fixed search_path is retained.
-ALTER FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text) OWNER TO ws02_owner_rpc;
+ALTER FUNCTION ws02_owner.nbr_lock_active_owner(uuid,uuid,text) OWNER TO ws02_owner_lock;
 ALTER FUNCTION ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text) OWNER TO ws02_owner_rpc;
 ALTER FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb) OWNER TO ws02_owner_rpc;
 -- Do not expose the obsolete split finalizer in the extracted DDL.
