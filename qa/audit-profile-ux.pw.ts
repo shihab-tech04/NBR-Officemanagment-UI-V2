@@ -35,6 +35,13 @@ for(const viewport of [{width:1366,height:865},{width:1024,height:768},{width:39
     expect(indicatorText).toContain("2,326,610");
     await expect(page.locator(".audit-trend-summary")).not.toContainText("−146.4%");
     await expect(page.locator(".audit-trend-summary")).toContainText("2,326,610");
+    const selectors=page.locator(".audit-custom-comparison__selectors");
+    const selectorCols=await selectors.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    expect(selectorCols).toBe(viewport.width<=767 ? 1 : 3);
+    const firstSelector=selectors.locator(".audit-custom-comparison__selector-cell").first();
+    expect(await firstSelector.getAttribute("title")).toBe("Source of fund");
+    expect((await firstSelector.boundingBox())!.width).toBeGreaterThan(110);
+    await expect(page.locator(".audit-custom-comparison__selector-context").first()).toBeHidden();
     const horizontalOverflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     expect(horizontalOverflow).toBeLessThanOrEqual(2);
     await page.screenshot({path:`test-results/audit-compact-ux-${viewport.width}.png`,animations:"disabled",fullPage:true});
