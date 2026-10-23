@@ -249,6 +249,7 @@ test('atomic trace and call pin user, record, request, receipt, version and stat
   const trace=source.slice(i,j);
   for(const token of ['individual: individual.trace','rules: results',
     'actor_user_id: authData.user.id','taxpayer_record_id: taxpayerRecordId',
+    'assessment_year: assessmentYear','income_year: body.incomeYear',
     'authorized_request_hash: authorizedRequestHash','idempotency_key: body.idempotencyKey',
     'receipt_hash: receiptHash','result_status: fullReturnStatus'])
     assert.ok(trace.includes(token),token);
