@@ -100,7 +100,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000001';"
           revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000001';")
           [[ "$revoked" == 'REVOKED' ]] || { echo 'REVOCATION_AFTER_COMMIT_FAILED'; exit 1; }
-          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'TWO_SESSION_OWNER_REVOCATION_SERIALIZATION_PASS_ONLY'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
