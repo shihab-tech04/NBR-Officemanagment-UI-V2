@@ -255,7 +255,10 @@ test('evaluation audit trace binds verified authorized request and idempotency k
 });
 
 test('reservation and finalization reuse the server-derived authorized request hash', () => {
-  assert.match(source, /const authorizedRequestHash = await sha256\\(canonical\\(\\{\\s*userId: authData\\.user\\.id, taxpayerRecordId, request: body,/);
+  const authorizedStart = source.indexOf('const authorizedRequestHash = await sha256(canonical({');
+  assert.ok(authorizedStart >= 0, 'missing authorized request digest');
+  const digestSource = source.slice(authorizedStart, source.indexOf('const { data: reservation', authorizedStart));
+  assert.ok(digestSource.includes('userId: authData.user.id, taxpayerRecordId, request: body'));
   const reserve = source.slice(source.indexOf('"nbr_reserve_citizen_evaluation"'), source.indexOf('if (reservationError'));
   const finalize = source.slice(source.indexOf('"nbr_finalize_citizen_evaluation"'), source.indexOf('if (finalizeError'));
   assert.ok(reserve.includes('p_request_hash: authorizedRequestHash'));
