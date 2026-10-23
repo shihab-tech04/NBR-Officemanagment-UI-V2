@@ -35,6 +35,7 @@ import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
+import { formatFinancialChange, fundFlowReconciliation, crossesBalanceSign } from "./auditFinancialPresentation";
 
 const PER_PAGE = 10;
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -323,18 +324,16 @@ function buildComparison(candidate: AuditCandidateRecord): ComparisonSection[] {
     (value, index) =>
       value + Math.max(0, netWealth[index] - (index > 0 ? netWealth[index - 1] : Math.round(netWealth[index] * 0.9))),
   );
-  const difference = sourceOfFund.map(
-    (value, index) => value - fundOutflow[index],
-  );
-
+  // Illustrative values must reconcile: source − outflow = difference, no hidden plug.
   if (signals.includes("R-C1")) {
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
+    fundOutflow[2] = sourceOfFund[2] + Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
   }
   if (signals.includes("R-C2")) {
-    difference[0] = -Math.round(Math.max(sourceOfFund[0], 1) * 0.08);
-    difference[1] = -Math.round(Math.max(sourceOfFund[1], 1) * 0.14);
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.2);
+    [0.08, 0.14, 0.2].forEach((rate, index) => {
+      fundOutflow[index] = sourceOfFund[index] + Math.round(Math.max(sourceOfFund[index], 1) * rate);
+    });
   }
+  const difference = sourceOfFund.map((value, index) => value - fundOutflow[index]);
 
   const openingNetWealth = [
     Math.round(netWealth[0] * 0.9),
@@ -653,8 +652,8 @@ function AuditTrendChart({
   threeYearLabel: string;
 }) {
   const width = 720;
-  const height = 210;
-  const pad = { top: 22, right: 28, bottom: 34, left: 68 };
+  const height = 235;
+  const pad = { top: 32, right: 78, bottom: 46, left: 78 };
   const values = metric.values;
   const minRaw = Math.min(0, ...values);
   const maxRaw = Math.max(0, ...values);
@@ -703,11 +702,11 @@ function AuditTrendChart({
         <div className="audit-trend-summary__changes">
           <span className={(oneYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{oneYearLabel}</small>
-            <strong>{formatChange(oneYearChange, language)}</strong>
+            <strong title={crossesBalanceSign(values[2], values[1]) ? description : undefined}>{formatFinancialChange(values[2], values[1], language)}</strong>
           </span>
           <span className={(threeYearChange ?? 0) < 0 ? "audit-trend-summary__change audit-trend-summary__change--negative" : "audit-trend-summary__change"}>
             <small>{threeYearLabel}</small>
-            <strong>{formatChange(threeYearChange, language)}</strong>
+            <strong title={crossesBalanceSign(values[2], values[0]) ? description : undefined}>{formatFinancialChange(values[2], values[0], language)}</strong>
           </span>
         </div>
       </div>
@@ -791,16 +790,18 @@ function AuditTrendChart({
                 cx={px}
                 cy={py}
                 r={isCurrent ? "5.5" : "4.5"}
-              />
+              >
+                <title>{years[index]}: {formatMoney(value, language)}</title>
+              </circle>
               <text
                 className={[
                   "audit-chart__value-label",
                   isCurrent ? "audit-chart__value-label--current" : "",
                   isNegative ? "audit-chart__value-label--negative" : "",
                 ].filter(Boolean).join(" ")}
-                x={px}
+                x={isCurrent ? px - 9 : px}
                 y={labelY}
-                textAnchor="middle"
+                textAnchor={isCurrent ? "end" : "middle"}
               >
                 {formatCompactMoney(value, language)}
               </text>
