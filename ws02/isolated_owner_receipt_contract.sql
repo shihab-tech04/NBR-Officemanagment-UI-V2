@@ -184,6 +184,9 @@ BEGIN
 END $atomic$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ws02_owner FROM PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ws02_owner TO ws02_owner_engine;
+-- Do not expose the obsolete split finalizer in the extracted DDL.
+-- The engine must use the owner-locked atomic audit+receipt function.
+REVOKE EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) FROM ws02_owner_engine;
 INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
  ('50000000-0000-4000-8000-000000000001','2026-27',
   '60000000-0000-4000-8000-000000000001','ACTIVE'),
@@ -204,6 +207,10 @@ BEGIN
  has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','UPDATE') THEN
  RAISE EXCEPTION 'UNPRIVILEGED_FUNCTION_OR_TABLE_ACCESS'; END IF;
 END $test$;
+-- Historical split-finalize regression is exercised with a temporary synthetic grant.
+-- This temporary grant is AFTER the DDL extraction boundary and is revoked below.
+RESET ROLE;
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) TO ws02_owner_engine;
 SET LOCAL ROLE ws02_owner_engine;
 DO $test$
 DECLARE a uuid:='60000000-0000-4000-8000-000000000001';
@@ -271,6 +278,31 @@ BEGIN
  (SELECT receipt_hash FROM ws02_owner.slots) IS DISTINCT FROM receipt THEN
   RAISE EXCEPTION 'RECEIPT_READBACK_MISMATCH'; END IF;
 END $test$;
+-- Restore the fail-closed production-shaped privilege boundary after legacy fixture.
+RESET ROLE;
+REVOKE EXECUTE ON FUNCTION ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text) FROM ws02_owner_engine;
+DO $legacy_privilege$
+BEGIN
+ IF has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)','EXECUTE') THEN
+  RAISE EXCEPTION 'LEGACY_SPLIT_FINALIZE_STILL_GRANTED'; END IF;
+ IF NOT has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)','EXECUTE') THEN
+  RAISE EXCEPTION 'ATOMIC_COMMIT_PRIVILEGE_MISSING'; END IF;
+END $legacy_privilege$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $legacy_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_finalize_citizen_evaluation(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','synthetic-idempotency-00001',repeat('a',64),repeat('c',64));
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'LEGACY_SPLIT_FINALIZE_EXECUTABLE'; END IF;
+END $legacy_denial$;
 -- Caller identity and signed ownership inputs here are synthetic only.
 -- Real taxpayer-record owner evidence is NOT available on the active database.
 DO $atomic_test$
