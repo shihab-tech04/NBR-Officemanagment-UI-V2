@@ -137,6 +137,24 @@ const SIGNALS: Record<string, { name: Localized; family: Localized; condition: L
   "R-E3": { name:l("VAT turnover mismatch","VAT turnover mismatch"), family:l("E — External cross-check","E — External cross-check"), condition:l("VAT turnover is inconsistent with declared business income.","VAT turnover declared business income-এর সাথে অসামঞ্জস্যপূর্ণ।"), strength:"strong", requires:"EXT (legal basis)", legitimate:l("Low margin, period mismatch or group registration may explain it.","Low margin, period mismatch বা group registration ব্যাখ্যা হতে পারে।"), evidence:l("VAT return/turnover detail and BIN ↔ TIN linkage evidence.","VAT return/turnover detail এবং BIN ↔ TIN linkage evidence।") },
 };
 
+/** Display-only signal metadata from the existing Audit reference definitions.
+ * Do not treat these framework specifications as approved executable rules. */
+export function getAuditSignalDefinition(id: string, language: string) {
+  const signal = SIGNALS[id];
+  if (!signal) return null;
+  const locale: Lang = language.startsWith("bn") ? "bn" : "en";
+  return {
+    id,
+    name: pick(signal.name, locale),
+    family: pick(signal.family, locale),
+    condition: pick(signal.condition, locale),
+    strength: signal.strength,
+    requires: signal.requires,
+    legitimate: pick(signal.legitimate, locale),
+    evidence: pick(signal.evidence, locale),
+  };
+}
+
 const WORKFLOW: Record<string, { definition: Localized; next: Localized }> = {
   "Not Started": { definition:l("No formal audit case has been opened for this return in this prototype workspace.","এই return-এর জন্য prototype workspace-এ formal audit case খোলা হয়নি।"), next:l("The officer may inspect the return and, once the formal selection policy is defined, start an audit with a recorded reason.","Officer return inspect করতে পারবেন; formal selection policy নির্ধারিত হলে recorded reason দিয়ে audit শুরু করা যাবে।") },
   Assigned: { definition:l("The case is assigned and waiting for the caseworker to begin verification.","Case assigned হয়েছে এবং caseworker verification শুরু করবেন।"), next:l("Open the case and validate identity, return version, data snapshot and source data.","Case খুলে identity, return version, data snapshot ও source data validate করুন।") },
