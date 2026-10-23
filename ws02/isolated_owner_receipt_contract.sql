@@ -29,7 +29,8 @@ CREATE TABLE ws02_owner.evaluation_logs(
  idem_key text NOT NULL,request_hash text NOT NULL CHECK(request_hash ~ '^[a-f0-9]{64}$'),
  receipt_hash text NOT NULL CHECK(receipt_hash ~ '^[a-f0-9]{64}$'),
  trace_hash text NOT NULL CHECK(trace_hash ~ '^[a-f0-9]{64}$'),
- result_state text NOT NULL CHECK(result_state='CALCULATED'),
+ result_state text NOT NULL CHECK(result_state IN ('CALCULATED','NEEDS_FACTS','FAIL_CLOSED')),
+ audit_trace jsonb NOT NULL CHECK(jsonb_typeof(audit_trace)='object'),
  PRIMARY KEY(actor_id,record_id,assessment_year,idem_key),
  FOREIGN KEY(actor_id,record_id,assessment_year,idem_key)
  REFERENCES ws02_owner.slots(actor_id,record_id,assessment_year,idem_key)
@@ -120,7 +121,7 @@ END $fn$;
 CREATE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
  p_idempotency_key text,p_request_hash text,p_receipt_hash text,
- p_trace_hash text,p_result_state text
+ p_trace_hash text,p_result_state text,p_audit_trace jsonb
 ) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY INVOKER
 SET search_path=pg_catalog,ws02_owner AS $atomic$
 DECLARE slot ws02_owner.slots%ROWTYPE; affected integer;
@@ -129,16 +130,27 @@ BEGIN
    p_auth_user_id,p_taxpayer_record_id,p_assessment_year)
  OR p_receipt_hash IS NULL OR p_receipt_hash !~ '^[0-9a-f]{64}$'
  OR p_trace_hash IS NULL OR p_trace_hash !~ '^[0-9a-f]{64}$'
- OR p_result_state IS DISTINCT FROM 'CALCULATED' THEN RETURN false; END IF;
+ OR p_result_state NOT IN ('CALCULATED','NEEDS_FACTS','FAIL_CLOSED')
+ OR p_result_state IS NULL OR p_audit_trace IS NULL
+ OR jsonb_typeof(p_audit_trace) IS DISTINCT FROM 'object'
+ OR octet_length(p_audit_trace::text)>262144
+ OR p_audit_trace->>'actor_user_id' IS DISTINCT FROM p_auth_user_id::text
+ OR p_audit_trace->>'taxpayer_record_id' IS DISTINCT FROM p_taxpayer_record_id::text
+ OR p_audit_trace->>'authorized_request_hash' IS DISTINCT FROM p_request_hash
+ OR p_audit_trace->>'receipt_hash' IS DISTINCT FROM p_receipt_hash
+ OR p_audit_trace->>'idempotency_key' IS DISTINCT FROM p_idempotency_key
+ OR p_audit_trace->>'result_status' IS DISTINCT FROM p_result_state
+ OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
+ THEN RETURN false; END IF;
  SELECT * INTO slot FROM ws02_owner.slots WHERE
  actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
  AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
  AND request_hash=p_request_hash AND state='RESERVED' FOR UPDATE;
  IF NOT FOUND THEN RETURN false; END IF;
  INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
- idem_key,request_hash,receipt_hash,trace_hash,result_state) VALUES(
+ idem_key,request_hash,receipt_hash,trace_hash,result_state,audit_trace) VALUES(
  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,p_idempotency_key,
- p_request_hash,p_receipt_hash,p_trace_hash,p_result_state);
+ p_request_hash,p_receipt_hash,p_trace_hash,p_result_state,p_audit_trace);
  UPDATE ws02_owner.slots SET state='FINALIZED',receipt_hash=p_receipt_hash
  WHERE actor_id=p_auth_user_id AND record_id=p_taxpayer_record_id
  AND assessment_year=p_assessment_year AND idem_key=p_idempotency_key
@@ -244,45 +256,60 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  request_key text:='atomic-evaluation-key-00001';
  bad_key text:='atomic-evaluation-key-00002';
  reqhash text:=repeat('a',64); receipt text:=repeat('b',64);
- trace text:=repeat('c',64); result jsonb;
+ trace text:=repeat('c',64); result jsonb; audit jsonb;
 BEGIN
+ audit:=jsonb_build_object('actor_user_id',actor::text,
+  'taxpayer_record_id',record::text,'authorized_request_hash',reqhash,
+  'receipt_hash',receipt,'idempotency_key',request_key,
+  'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
  result:=ws02_owner.nbr_reserve_citizen_evaluation(actor,record,
   '2026-27',request_key,reqhash,'NBR_ENGINE_CITIZEN_V2_REVIEW');
  IF result->>'state' IS DISTINCT FROM 'RESERVED' THEN
   RAISE EXCEPTION 'ATOMIC_SETUP_FAILED'; END IF;
  IF ws02_owner.nbr_commit_evaluation_atomically(
-  other,record,'2026-27',request_key,reqhash,receipt,trace,'CALCULATED')
+  other,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',audit)
  OR ws02_owner.nbr_commit_evaluation_atomically(
-  actor,record,'2027-28',request_key,reqhash,receipt,trace,'CALCULATED')
+  actor,record,'2027-28',request_key,reqhash,receipt,trace,'NEEDS_FACTS',audit)
  OR ws02_owner.nbr_commit_evaluation_atomically(
-  actor,record,'2026-27',request_key,reqhash,'bad',trace,'CALCULATED') THEN
+  actor,record,'2026-27',request_key,reqhash,'bad',trace,'NEEDS_FACTS',audit) THEN
   RAISE EXCEPTION 'ATOMIC_NEGATIVE_WAS_ACCEPTED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+ actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+ audit||jsonb_build_object('actor_user_id',other::text)) THEN
+ RAISE EXCEPTION 'SPOOFED_AUDIT_OWNER_ACCEPTED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs
   WHERE idem_key=request_key)<>0 THEN
   RAISE EXCEPTION 'FAILED_ATOMIC_CALL_LEFT_A_LOG'; END IF;
  IF NOT ws02_owner.nbr_commit_evaluation_atomically(
-  actor,record,'2026-27',request_key,reqhash,receipt,trace,'CALCULATED') THEN
+  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',audit) THEN
   RAISE EXCEPTION 'VALID_ATOMIC_FINALIZATION_DENIED'; END IF;
  IF ws02_owner.nbr_commit_evaluation_atomically(
-  actor,record,'2026-27',request_key,reqhash,receipt,trace,'CALCULATED') THEN
+  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',audit) THEN
   RAISE EXCEPTION 'DUPLICATE_ATOMIC_FINALIZATION'; END IF;
  IF (SELECT count(*) FROM ws02_owner.evaluation_logs
   WHERE idem_key=request_key)<>1 OR
  (SELECT state FROM ws02_owner.slots WHERE idem_key=request_key)
  IS DISTINCT FROM 'FINALIZED' OR
  (SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=request_key)
- IS DISTINCT FROM receipt THEN
+ IS DISTINCT FROM receipt OR
+ (SELECT result_state FROM ws02_owner.evaluation_logs WHERE idem_key=request_key)
+ IS DISTINCT FROM 'NEEDS_FACTS' OR
+ (SELECT audit_trace FROM ws02_owner.evaluation_logs WHERE idem_key=request_key)
+ IS DISTINCT FROM audit THEN
   RAISE EXCEPTION 'ATOMIC_RECEIPT_READBACK_MISMATCH'; END IF;
  result:=ws02_owner.nbr_reserve_citizen_evaluation(actor,record,
   '2026-27',bad_key,reqhash,'NBR_ENGINE_CITIZEN_V2_REVIEW');
  IF result->>'state' IS DISTINCT FROM 'RESERVED' THEN
   RAISE EXCEPTION 'ATOMIC_EXCEPTION_SETUP_FAILED'; END IF;
  INSERT INTO ws02_owner.evaluation_logs(actor_id,record_id,assessment_year,
-  idem_key,request_hash,receipt_hash,trace_hash,result_state)
- VALUES(actor,record,'2026-27',bad_key,reqhash,repeat('d',64),trace,'CALCULATED');
+  idem_key,request_hash,receipt_hash,trace_hash,result_state,audit_trace)
+ VALUES(actor,record,'2026-27',bad_key,reqhash,repeat('d',64),trace,'CALCULATED',
+ audit||jsonb_build_object('receipt_hash',repeat('d',64),
+ 'idempotency_key',bad_key,'result_status','CALCULATED'));
  BEGIN
   PERFORM ws02_owner.nbr_commit_evaluation_atomically(
-  actor,record,'2026-27',bad_key,reqhash,receipt,trace,'CALCULATED');
+  actor,record,'2026-27',bad_key,reqhash,receipt,trace,'NEEDS_FACTS',audit||jsonb_build_object('idempotency_key',bad_key));
   RAISE EXCEPTION 'UNIQUE_VIOLATION_NOT_RAISED';
  EXCEPTION WHEN unique_violation THEN NULL;
  END;
