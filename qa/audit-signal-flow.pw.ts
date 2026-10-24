@@ -49,6 +49,8 @@ for (const width of [1366,768,390,360]) {
     await expect(detail).toContainText('Next step');
     await expect(flow).not.toContainText('D ≥');
     await expect(flow).not.toContainText('₹');
+    await flow.locator('.audit-decision-map__start').scrollIntoViewIfNeeded();
+    await page.screenshot({path:`test-results/audit-visual-flowchart-${width}.png`,animations:'disabled'});
     await flow.locator('.audit-signal-flow__formula summary').click();
     await expect(flow).toContainText('IT-10B sources');
     await expect(flow).toContainText('line 10 − line 7');
