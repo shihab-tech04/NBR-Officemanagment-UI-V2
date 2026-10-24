@@ -1097,29 +1097,6 @@ Deno.serve(async (req) => {
       return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
     }
 
-    // Atomic reserve or replay denial must be implemented by WS02 in an
-    // isolated migration; without it no privileged calculation may proceed.
-    const authorizedRequestHash = await sha256(canonical({
-      userId: authData.user.id, taxpayerRecordId, request: body,
-    }));
-    const { data: reservation, error: reservationError } = await supabase.rpc(
-      "nbr_reserve_citizen_evaluation", {
-        p_auth_user_id: authData.user.id,
-        p_taxpayer_record_id: taxpayerRecordId,
-        p_assessment_year: assessmentYear,
-        p_idempotency_key: body.idempotencyKey,
-        p_request_hash: authorizedRequestHash,
-        p_contract_version: CONTRACT_VERSION,
-      });
-    if (reservationError || !objectRecord(reservation) || typeof reservation.state !== "string") {
-      return json({ status:"FAIL_CLOSED", code:"REPLAY_GATE_UNAVAILABLE",
-        error:"Approved atomic replay/idempotency gate unavailable" }, 503);
-    }
-    if (reservation.state !== "RESERVED") {
-      return json({ status:"FAIL_CLOSED", code:"REPLAY_NOT_ACCEPTED",
-        error:"Duplicate or conflicting evaluation request denied" }, 409);
-    }
-
     // REVIEW-ONLY safety boundary. A transaction event cannot be assumed to
     // belong to a prior income year merely because the later legal source
     // cutoff covers the event. This standard July-June label check is a
@@ -1191,6 +1168,31 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // Deny known invalid transaction event dates and periods before reserving
+    // an idempotency key. WS02 must still recheck owner/year inside atomic SQL.
+    // Atomic reserve or replay denial must be implemented by WS02 in an
+    // isolated migration; without it no privileged calculation may proceed.
+    const authorizedRequestHash = await sha256(canonical({
+      userId: authData.user.id, taxpayerRecordId, request: body,
+    }));
+    const { data: reservation, error: reservationError } = await supabase.rpc(
+      "nbr_reserve_citizen_evaluation", {
+        p_auth_user_id: authData.user.id,
+        p_taxpayer_record_id: taxpayerRecordId,
+        p_assessment_year: assessmentYear,
+        p_idempotency_key: body.idempotencyKey,
+        p_request_hash: authorizedRequestHash,
+        p_contract_version: CONTRACT_VERSION,
+      });
+    if (reservationError || !objectRecord(reservation) || typeof reservation.state !== "string") {
+      return json({ status:"FAIL_CLOSED", code:"REPLAY_GATE_UNAVAILABLE",
+        error:"Approved atomic replay/idempotency gate unavailable" }, 503);
+    }
+    if (reservation.state !== "RESERVED") {
+      return json({ status:"FAIL_CLOSED", code:"REPLAY_NOT_ACCEPTED",
+        error:"Duplicate or conflicting evaluation request denied" }, 409);
+    }
+
     const { data: rows, error: ruleError } = await supabase
       .from("nbr_rule_versions")
       .select("id,rule_key,revision_no,source_assessment_year,year_applicability_status,execution_status,group_id,rule_data")
