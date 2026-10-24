@@ -5151,3 +5151,34 @@
   .audit-story__next,
   .audit-story__population-progress { padding: var(--space-2); }
 }
+
+/* Audit signal review inherits only the currently selected Office palette.
+   Keep all nested labels and decision paths readable in dark and light modes. */
+.audit-explainer-drawer .audit-signal-flow,
+.audit-explainer-drawer .audit-story__fact,
+.audit-explainer-drawer .audit-story__verification,
+.audit-explainer-drawer .audit-story__meaning,
+.audit-explainer-drawer .audit-story__next,
+.audit-explainer-drawer .audit-story__population,
+.audit-explainer-drawer .audit-story__population-progress,
+.audit-explainer-drawer .audit-story__decision,
+.audit-explainer-drawer .audit-story__source,
+.audit-explainer-drawer .audit-story__reference,
+.audit-explainer-drawer .audit-decision-map__box,
+.audit-explainer-drawer .audit-decision-map__start,
+.audit-explainer-drawer .audit-decision-map__end {
+  color: var(--color-text-primary);
+}
+.audit-explainer-drawer .audit-story__fact-label,
+.audit-explainer-drawer .audit-story__context,
+.audit-explainer-drawer .audit-story__documents,
+.audit-explainer-drawer .audit-signal-flow__historical,
+.audit-explainer-drawer .audit-signal-flow__source-note {
+  color: var(--color-text-secondary);
+}
+.audit-explainer-drawer .audit-story__decision summary:focus-visible,
+.audit-explainer-drawer .audit-story__source summary:focus-visible,
+.audit-explainer-drawer .audit-story__reference summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
