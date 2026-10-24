@@ -12,6 +12,7 @@ on:
       - 'qa/audit-quick-summary.pw.ts'
       - 'qa/audit-profile-ux.pw.ts'
       - 'qa/audit-signal-flow.pw.ts'
+      - 'qa/audit-full-module-ui.pw.ts'
       - 'src/app/pages/audit/auditSignalSource.test.ts'
       - 'src/app/pages/audit/auditQuickSummary.test.ts'
       - '.github/workflows/audit-responsive-qa.yml'
@@ -35,7 +36,7 @@ jobs:
       - name: Build Audit dashboard
         run: npm run build
       - name: Check Audit Overview at eight widths and five parameter modes
-        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts qa/audit-source-truth.pw.ts qa/audit-quick-summary.pw.ts qa/audit-profile-ux.pw.ts qa/audit-signal-flow.pw.ts
+        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts qa/audit-source-truth.pw.ts qa/audit-quick-summary.pw.ts qa/audit-profile-ux.pw.ts qa/audit-signal-flow.pw.ts qa/audit-full-module-ui.pw.ts
       - name: Preserve screenshots and trace
         if: always()
         uses: actions/upload-artifact@v4
