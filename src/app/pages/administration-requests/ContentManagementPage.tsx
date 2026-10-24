@@ -146,7 +146,7 @@ export function ContentManagementPage() {
   const [message, setMessage] = useState('');
 
   const refresh = async () => {
-    if (!cms) return;
+    if (!cms || !cmsAdminUid) { setBanners([]); setSelectedId(null); return; }
     const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
     if (error) throw error;
     const next = (data || []) as Banner[];
