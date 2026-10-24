@@ -65,6 +65,28 @@ export function useAppearance() {
     root.style.setProperty("--color-warning", t.warning);
     root.style.setProperty("--color-error", t.error);
 
+    // Sync semantic Tailwind/shadcn aliases with the active Office theme.
+    // The app's .theme-dark class is not the framework's .dark selector, so
+    // leaving --foreground / --card at their light defaults makes inherited
+    // text dark-on-dark even while --color-surface is correct.
+    root.style.setProperty("--background", t.background);
+    root.style.setProperty("--foreground", t.textPrimary);
+    root.style.setProperty("--card", t.surface);
+    root.style.setProperty("--card-foreground", t.textPrimary);
+    root.style.setProperty("--popover", t.surface);
+    root.style.setProperty("--popover-foreground", t.textPrimary);
+    root.style.setProperty("--primary", t.primary);
+    root.style.setProperty("--primary-foreground", textOnPrimary);
+    root.style.setProperty("--secondary", t.primaryLight);
+    root.style.setProperty("--secondary-foreground", t.textPrimary);
+    root.style.setProperty("--muted", t.primaryLight);
+    root.style.setProperty("--muted-foreground", t.textSecondary);
+    root.style.setProperty("--border", t.border);
+    root.style.setProperty("--ring", t.primary);
+    root.style.setProperty("--sidebar", t.surface);
+    root.style.setProperty("--sidebar-foreground", t.textPrimary);
+    root.style.setProperty("--color-text-tertiary", t.textSecondary);
+
     // Derived tokens — dark vs light
     if (isDark) {
       root.style.setProperty("--color-background-subtle", "#242528");
