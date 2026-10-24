@@ -23,7 +23,7 @@ const ownedRecord = '50000000-0000-4000-8000-000000000001';
 function harness({
   ownerData = true, ownerError = null,
   reservationData = { state: 'RESERVED' }, reservationError = null,
-  yearData = null, actorId = signedActor,
+  yearData = null, actorId = signedActor, revokeAfterFirstAuth = false,
 } = {}) {
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
     privilegedReads: 0, ownerArgs: null, reserveArgs: null };
@@ -32,7 +32,8 @@ function harness({
     auth: {
       async getUser(token) {
         seen.authCalls++;
-        return token === 'valid.synthetic.token'
+        return token === 'valid.synthetic.token' &&
+          !(revokeAfterFirstAuth && seen.authCalls > 1)
           ? { data: { user: { id: actorId } }, error: null }
           : { data: { user: null }, error: { message: 'Invalid or revoked mock token' } };
       },
@@ -127,6 +128,27 @@ test('mock invalid or revoked token cannot reach owner RPC', async () => {
   assert.equal(h.seen.authCalls, 1);
   assert.equal(h.seen.ownerCalls, 0);
   assert.equal(h.seen.reserveCalls, 0);
+  assert.equal(h.seen.privilegedReads, 0);
+});
+
+test('mock token revoked between requests is rechecked before owner or reservation RPC', async () => {
+  const h = harness({
+    revokeAfterFirstAuth: true,
+    reservationError: { message: 'synthetic stop after first authorization' },
+  });
+  const first = await h.request();
+  assert.equal(first.status, 503);
+  assert.equal(first.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.authCalls, 1);
+  assert.equal(h.seen.ownerCalls, 1);
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 0);
+
+  const revoked = await h.request();
+  assert.equal(revoked.status, 401);
+  assert.equal(h.seen.authCalls, 2, 'each request must revalidate its bearer');
+  assert.equal(h.seen.ownerCalls, 1, 'revoked bearer must not reuse previous owner grant');
+  assert.equal(h.seen.reserveCalls, 1, 'revoked bearer must not reserve again');
   assert.equal(h.seen.privilegedReads, 0);
 });
 
