@@ -107,7 +107,8 @@ test('a transaction-map claim has the same cross-income-year denial',async()=>{
 
 test('matching income-period date passes this guard but cannot compute without 366 rules',async()=>{
   const h=harness();
-  const r=await h.request({legalEventDate:'2026-06-30',transactionRuleIds:['WH-R4-04']});
+  const r=await h.request({legalEventDate:'2026-06-30',transactionRuleIds:['WH-R4-04'],
+    transactions:{'WH-R4-04':{eventDate:'2026-06-30',grossBill:'20000'}}});
   assert.equal(r.code,503);
   assert.equal(r.body.status,'FAIL_CLOSED');
   assert.notEqual(r.body.code,'TRANSACTION_PERIOD_REVIEW_REQUIRED');
