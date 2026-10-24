@@ -1,0 +1,40 @@
+name: TaxPay Office pre-release Git history recovery
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/taxpay-office-recovery.yml'
+      - 'src/app/pages/administration-requests/ContentManagementPage.tsx'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch canonical branch refs
+        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+      - name: Bundle and independently test restored pre-release HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovery
+          git bundle create recovery/nbr-office-all-refs.bundle --all
+          git bundle verify recovery/nbr-office-all-refs.bundle
+          sha256sum recovery/nbr-office-all-refs.bundle | tee recovery/nbr-office-all-refs.bundle.sha256
+          git clone -q recovery/nbr-office-all-refs.bundle recovery/restore-check
+          git -C recovery/restore-check fsck --full --no-reflogs
+          git -C recovery/restore-check cat-file -e feca596ec427bee7d836677941cf29613ca97b28^{commit}
+          git -C recovery/restore-check checkout --detach feca596ec427bee7d836677941cf29613ca97b28
+          test "$(git -C recovery/restore-check rev-parse HEAD)" = feca596ec427bee7d836677941cf29613ca97b28
+          git -C recovery/restore-check rev-parse HEAD > recovery/pre-release-head.txt
+          rm -rf recovery/restore-check
+      - name: Publish offline recovery artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbr-office-pre-cms-security-all-history
+          path: recovery/
+          retention-days: 30

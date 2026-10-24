@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
@@ -25,7 +25,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
 const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
 const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
 const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) : null;
+  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
@@ -71,6 +71,65 @@ function originalImageUrl(id: string) {
 
 export function ContentManagementPage() {
   const [tab, setTab] = useState<'banners' | 'logo'>('banners');
+  const [cmsAdminUid, setCmsAdminUid] = useState<string | null>(null);
+  const [cmsEmail, setCmsEmail] = useState('');
+  const [cmsOtp, setCmsOtp] = useState('');
+  const [cmsOtpRequested, setCmsOtpRequested] = useState(false);
+  const [cmsAuthBusy, setCmsAuthBusy] = useState(false);
+  const [cmsAuthMessage, setCmsAuthMessage] = useState('');
+
+  useEffect(() => {
+    if (!cms) return;
+    let mounted = true;
+    const checkVerifiedAdmin = async () => {
+      const { data: { user }, error } = await cms!.auth.getUser();
+      if (!mounted) return;
+      if (error || !user) { setCmsAdminUid(null); return; }
+      // The database role is authoritative: Office's local "admin" flag is not authorization.
+      const { data, error: roleError } = await cms!.from('taxpay_portal_admins')
+        .select('user_uid').eq('user_uid', user.id).eq('active', true).maybeSingle();
+      if (mounted) {
+        setCmsAdminUid(!roleError && data?.user_uid === user.id ? user.id : null);
+        if (roleError) setCmsAuthMessage('Unable to verify your content administrator role.');
+      }
+    };
+    void checkVerifiedAdmin();
+    const { data: { subscription } } = cms.auth.onAuthStateChange(() => {
+      // Defer role read outside the auth state callback to avoid lock contention.
+      queueMicrotask(() => void checkVerifiedAdmin());
+    });
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, []);
+
+  async function requestCmsOtp(event: FormEvent) {
+    event.preventDefault();
+    if (!cms || !cmsEmail.trim() || cmsAuthBusy) return;
+    setCmsAuthBusy(true); setCmsAuthMessage('');
+    try {
+      const { error } = await cms.auth.signInWithOtp({
+        email: cmsEmail.trim(), options: { shouldCreateUser: false }
+      });
+      if (error) throw error;
+      setCmsOtpRequested(true);
+      setCmsAuthMessage('Check your authorized administrator email for a sign-in code.');
+    } catch (error) { setCmsAuthMessage((error as Error).message); }
+    finally { setCmsAuthBusy(false); }
+  }
+
+  async function verifyCmsOtp(event: FormEvent) {
+    event.preventDefault();
+    if (!cms || !cmsEmail.trim() || !cmsOtp.trim() || cmsAuthBusy) return;
+    setCmsAuthBusy(true); setCmsAuthMessage('');
+    try {
+      const { error } = await cms.auth.verifyOtp({
+        email: cmsEmail.trim(), token: cmsOtp.trim(), type: 'email'
+      });
+      if (error) throw error;
+      setCmsOtp('');
+      setCmsAuthMessage('Administrator identity checked. Verifying access…');
+    } catch (error) { setCmsAuthMessage((error as Error).message); }
+    finally { setCmsAuthBusy(false); }
+  }
   const officeUserId = useSelector((state: RootState) => state.auth.userId);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -87,7 +146,7 @@ export function ContentManagementPage() {
   const [message, setMessage] = useState('');
 
   const refresh = async () => {
-    if (!cms) return;
+    if (!cms || !cmsAdminUid) { setBanners([]); setSelectedId(null); return; }
     const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
     if (error) throw error;
     const next = (data || []) as Banner[];
@@ -97,7 +156,7 @@ export function ContentManagementPage() {
 
   useEffect(() => {
     void refresh().catch(err => setMessage(err.message));
-  }, []);
+  }, [cmsAdminUid]);
 
   useEffect(() => {
     const index = banners.findIndex(row => row.id === selectedId);
@@ -163,7 +222,7 @@ export function ContentManagementPage() {
 
   async function save() {
     if (!cms || !draft || busy) return;
-    if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
+    if (officeUserId !== 'admin' || !cmsAdminUid) { setMessage('Verified Office and TaxPay administrator sessions are required.'); return; }
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete all English and Bangla fields within the mobile character limits.');
       return;
@@ -178,7 +237,7 @@ export function ContentManagementPage() {
       const payload = Object.fromEntries(fields.map(field => [field.key, draft[field.key]]));
       const values = {
         ...payload, service_code: draft.service_code, desktop_image_path: desktop, mobile_image_path: mobile,
-        published: draft.published, updated_by: null,
+        published: draft.published, updated_by: cmsAdminUid,
       };
       const { data, error } = isNew
         ? await cms.from('taxpay_site_banners').insert({ id: draft.id, sort_order: banners.length, ...values }).select('id').maybeSingle()
@@ -202,7 +261,7 @@ export function ContentManagementPage() {
 
   async function remove() {
     if (!cms || !draft || busy) return;
-    if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
+    if (officeUserId !== 'admin' || !cmsAdminUid) { setMessage('Verified Office and TaxPay administrator sessions are required.'); return; }
     if (!window.confirm(`Remove ${draft.heading_en}? This will remove it from the public carousel.`)) return;
     setBusy(true); setMessage('');
     try {
@@ -223,6 +282,27 @@ export function ContentManagementPage() {
     <header className="cms-page__heading">
       <div><h1>Content Management</h1><p>Manage content shown on the public TaxPay website.</p></div>
     </header>
+    {!cmsAdminUid ? <section className="cms-panel" aria-label="Verified CMS administrator sign in">
+      <h2>Verify content administrator</h2>
+      <p>TaxPay content publishing requires a verified administrator identity. Office sign-in alone does not grant database write access.</p>
+      <form onSubmit={cmsOtpRequested ? verifyCmsOtp : requestCmsOtp} className="cms-fields">
+        <div className="cms-field">
+          <label htmlFor="cms-admin-email">Administrator email</label>
+          <input id="cms-admin-email" type="email" autoComplete="email" value={cmsEmail}
+            onChange={event => setCmsEmail(event.target.value)} required disabled={cmsAuthBusy} />
+        </div>
+        {cmsOtpRequested && <div className="cms-field">
+          <label htmlFor="cms-admin-code">Email sign-in code</label>
+          <input id="cms-admin-code" type="text" inputMode="numeric" autoComplete="one-time-code"
+            value={cmsOtp} onChange={event => setCmsOtp(event.target.value.replace(/\D/g, ''))}
+            required disabled={cmsAuthBusy} />
+        </div>}
+        <button type="submit" className="cms-primary" disabled={cmsAuthBusy}>
+          {cmsAuthBusy ? 'Verifying…' : cmsOtpRequested ? 'Verify administrator' : 'Send secure sign-in code'}
+        </button>
+      </form>
+      {cmsAuthMessage && <p role="status">{cmsAuthMessage}</p>}
+    </section> : <>
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
@@ -282,6 +362,7 @@ export function ContentManagementPage() {
           </div>}
         </section>}
       </div>}
+    </>}
     {message && <p className="cms-message" role="status">{message}</p>}
     {cropTask && <ImageCropDialog key={`${cropTask.device}-${cropTask.file.name}-${cropTask.file.lastModified}`} file={cropTask.file}
       title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 1600 : 1200}
