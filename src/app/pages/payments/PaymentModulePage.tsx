@@ -25,6 +25,7 @@ import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentS
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
 import { toStoryPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
+import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 
@@ -250,13 +251,16 @@ export function PaymentModulePage({page}: {page: string}) {
   };
   const keys=paymentColumns(t);
   const storyRows=storyPayments.map(toStoryPaymentRow);
+  const storySummary=summarizeMirroredDemoPayments(storyPayments,storyNotices,scopeYear);
   // The actual Transactions page must never mix in reference snapshots,
   // scenario fixtures, authenticated preview ledgers or QA API records.
-  const allRows=current==='transactions'?storyRows:paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
+  // Payment Overview and Transactions always show TaxPay-submitted SQL demo rows,
+  // never historical reference fixtures or private simulated-ledger examples.
+  const allRows=current==='transactions'||current==='overview'?storyRows:paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
-    options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
+    options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear)),...storyRows.flatMap(row=>row.assessment_year.split(', ').map(year=>year.trim().replace('–','-')).filter(year=>year!=='—'))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
   const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??demoProfiles[0];
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=isDemo?liveAllocationRows(liveTransactions).filter(p=>p.tin===selectedTin && (scopeYear==='all'||p.assessment_year.replace('–','-')===scopeYear)):scopedPayments.filter(p=>p.tin===selectedTin);
@@ -307,20 +311,23 @@ export function PaymentModulePage({page}: {page: string}) {
   const overview=()=> <>
     {toolbar(t('overview'))}
     <div className="payment-module__year-control">{yearSelect}</div>
+    {storyLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত সিমুলেশন লোড হচ্ছে…':'Loading connected simulations…'}</p>}
+    {storyError&&<p role="alert" className="table-page__desc">{storyError}</p>}
+    {storySummary.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'SQL সিমুলেশনের পরিমাণ যাচাই করা যায়নি।':'Could not verify exact SQL simulation amounts.'}</p>}
     {showKpis([
-      kpi(t('payments'),displayNumber(scopedPayments.length),CreditCard),
-      kpi(t('received'),displayMoney(totalReceived(scopedOriginal)+(paymentDataset==='connected'?storyPayments.reduce((n,p)=>n+p.amountMinor/100,0):0)),Landmark,'success'),
-      kpi(t('eligible'),displayMoney(totalEligible(scopedOriginal)),CheckCircle2,'success'),
-      kpi(t('blocked'),displayNumber(scopedOriginal.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
-      kpi(t('offlinePending'),displayNumber(referenceOffline.filter(e=>e.status==='Pending' && (scopeYear==='all'||e.ay.replace('–','-')===scopeYear)).length),Clock3,'warning'),
+      kpi(i18n.resolvedLanguage==='bn'?'সিমুলেশন রেকর্ড':'Simulated transactions',displayNumber(storySummary.count),CreditCard),
+      kpi(i18n.resolvedLanguage==='bn'?'মোট সিমুলেশন পরিমাণ':'Total simulated amount',storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
+      kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',displayNumber(storySummary.services),BarChart3),
+      kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',displayNumber(storySummary.notificationCount),Users),
+      kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ সিমুলেশন':'Latest simulation',storySummary.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
-        {referenceCorrections.filter(c=>c.status==='Blocked' && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=><button className="payment-module__record-link" type="button" key={c.id} onClick={()=>view({...c,amount:money(c.amount)},c.id)}><strong>{c.id}</strong><p>{displayRecord(c.reason)} · {displayMoney(c.amount)}</p></button>)}
+        <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'নিচের সংযুক্ত রিভিউ কিউ থেকে সিমুলেশন পর্যালোচনা করুন।':'Use the connected review queue below for submitted simulation reviews.'}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
         {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
-        {referenceAudit.slice(0,Math.max(0,4-storyNotices.length)).map(e=><button className="payment-module__record-link" key={e.id} type="button" onClick={()=>view({...e},e.id)}><strong>{displayRecord(e.action)}</strong><p>{displayEventDate(e.date)} · {e.actor.replace(/ \(demo\)/i,'')}</p></button>)}
+        {!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত সিমুলেশনের কোনো সাম্প্রতিক বিজ্ঞপ্তি নেই।':'No recent connected simulation notices.'}</p>}
       </section>
     </div>
   </>;
