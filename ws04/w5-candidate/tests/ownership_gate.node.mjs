@@ -272,3 +272,40 @@ test('actor-bound canonical request hash is stable only for the same signed prin
     'changed taxpayer facts must not share an authorized request hash');
   assert.equal(h.seen.privilegedReads, 0);
 });
+
+test('authorization hash binds year, legal pins, record and replay key before rule access', async () => {
+  const stop = { message: 'synthetic stop after reservation' };
+  async function getHash(bodyOverrides = {}) {
+    const h = harness({ reservationError: stop });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 503);
+    assert.equal(result.body.code, 'REPLAY_GATE_UNAVAILABLE');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.reserveCalls, 1);
+    assert.equal(h.seen.privilegedReads, 0);
+    assert.equal(h.seen.reserveArgs.p_auth_user_id, signedActor);
+    assert.equal(h.seen.reserveArgs.p_taxpayer_record_id,
+      bodyOverrides.taxpayerRecordId ?? ownedRecord);
+    assert.match(h.seen.reserveArgs.p_request_hash, /^[a-f0-9]{64}$/);
+    return h.seen.reserveArgs.p_request_hash;
+  }
+
+  const baseline = await getHash();
+  assert.equal(await getHash(), baseline, 'identical authorized inputs are deterministic');
+  const changes = [
+    { assessmentYear: '2027-28' },
+    { incomeYear: '2026-27' },
+    { taxpayerRecordId: '50000000-0000-4000-8000-000000000002' },
+    { legalEventDate: '2026-06-29' },
+    { expectedSourceCutoff: '2026-09-29' },
+    { expectedRuleSetHash: 'b'.repeat(64) },
+    { expectedParameterRevision: 2 },
+    { idempotencyKey: 'synthetic-owner-bound-00002' },
+  ];
+  for (const changed of changes) {
+    assert.notEqual(await getHash(changed), baseline,
+      'changed authorization pin must not reuse original request hash: ' +
+      Object.keys(changed)[0]);
+  }
+});
