@@ -45,6 +45,15 @@ function validAssessmentYear(value: unknown): value is string {
   return Number(value.slice(5)) === (start + 1) % 100;
 }
 
+// Calendar-valid source dates are a prerequisite for a pinned legal cutoff.
+// Regex shape alone admits nonexistent dates such as 2026-02-30.
+function validIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + "T00:00:00Z");
+  return Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value;
+}
+
 function objectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -1009,12 +1018,8 @@ Deno.serve(async (req) => {
       return json({ error: "An explicit, valid assessmentYear is required" }, 400);
     }
     if (body.contractVersion !== CONTRACT_VERSION ||
-        typeof body.legalEventDate !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(body.legalEventDate) ||
-        !Number.isFinite(Date.parse(body.legalEventDate + "T00:00:00Z")) ||
-        new Date(body.legalEventDate + "T00:00:00Z").toISOString().slice(0,10) !== body.legalEventDate ||
-        typeof body.expectedSourceCutoff !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(body.expectedSourceCutoff) ||
+        !validIsoDate(body.legalEventDate) ||
+        !validIsoDate(body.expectedSourceCutoff) ||
         typeof body.expectedRuleSetHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.expectedRuleSetHash) ||
         typeof body.expectedParameterRevision !== "number" || !Number.isSafeInteger(body.expectedParameterRevision) ||
         typeof body.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(body.idempotencyKey) ||
