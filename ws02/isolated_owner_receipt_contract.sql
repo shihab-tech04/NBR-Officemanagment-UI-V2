@@ -1191,5 +1191,74 @@ BEGIN
   RAISE EXCEPTION 'TEMP_OWNER_SHADOW_LEFT_RECEIPT_OR_TRACE'; END IF;
 END $temp_owner_shadow_readback$;
 DROP TABLE pg_temp.owners;
+-- Independent pg_temp ledger-shadow regression: an engine session can create
+-- local lookalike reservation and audit tables, but the private SECURITY
+-- DEFINER RPC must bind only to schema-qualified persistent tables.
+-- These are synthetic disposable PG17 fixtures, not taxpayer records.
+SET LOCAL ROLE ws02_owner_engine;
+SET LOCAL search_path=pg_temp,public;
+CREATE TEMP TABLE slots(
+ actor_id uuid,record_id uuid,assessment_year text,idem_key text,
+ request_hash text,contract_version text,state text,receipt_hash text
+) ON COMMIT DROP;
+CREATE TEMP TABLE evaluation_logs(
+ actor_id uuid,record_id uuid,assessment_year text,idem_key text,
+ request_hash text,receipt_hash text,trace_hash text,result_state text,
+ audit_trace jsonb
+) ON COMMIT DROP;
+INSERT INTO pg_temp.slots VALUES(
+ '60000000-0000-4000-8000-000000000001',
+ '50000000-0000-4000-8000-000000000001',
+ '2026-27','temp-shadow-ledger-00001',repeat('f',64),
+ 'NBR_ENGINE_CITIZEN_V2_REVIEW','FINALIZED',repeat('e',64));
+INSERT INTO pg_temp.evaluation_logs VALUES(
+ '60000000-0000-4000-8000-000000000001',
+ '50000000-0000-4000-8000-000000000001',
+ '2026-27','temp-shadow-ledger-00001',repeat('f',64),
+ repeat('e',64),repeat('d',64),'CALCULATED','{"forged":true}'::jsonb);
+DO $temp_ledger_shadow$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ idem text:='temp-shadow-ledger-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ trace text:=repeat('c',64); audit jsonb; reservation jsonb;
+BEGIN
+ IF (SELECT count(*) FROM pg_temp.slots WHERE idem_key=idem)<>1
+ OR (SELECT count(*) FROM pg_temp.evaluation_logs WHERE idem_key=idem)<>1 THEN
+  RAISE EXCEPTION 'TEMP_LEDGER_SHADOW_SETUP_FAILED'; END IF;
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,record,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'TEMP_LEDGER_SHADOW_RESERVATION_POISONED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  actor,record,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'TEMP_LEDGER_SHADOW_ATOMIC_COMMIT_POISONED'; END IF;
+ IF (SELECT request_hash FROM pg_temp.slots WHERE idem_key=idem)
+ IS DISTINCT FROM repeat('f',64)
+ OR (SELECT receipt_hash FROM pg_temp.evaluation_logs WHERE idem_key=idem)
+ IS DISTINCT FROM repeat('e',64) THEN
+  RAISE EXCEPTION 'TEMP_LEDGER_SHADOW_FAKE_ROWS_MUTATED'; END IF;
+END $temp_ledger_shadow$;
+RESET ROLE;
+DO $temp_ledger_shadow_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE idem_key='temp-shadow-ledger-00001' AND state='FINALIZED'
+  AND request_hash=repeat('a',64) AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE idem_key='temp-shadow-ledger-00001'
+  AND request_hash=repeat('a',64) AND receipt_hash=repeat('b',64)
+  AND trace_hash=repeat('c',64) AND result_state='NEEDS_FACTS'
+  AND audit_trace->>'income_year'='2025-26')<>1 THEN
+  RAISE EXCEPTION 'TEMP_LEDGER_SHADOW_PERSISTENT_TRACE_RECEIPT_MISMATCH'; END IF;
+END $temp_ledger_shadow_readback$;
+DROP TABLE pg_temp.evaluation_logs;
+DROP TABLE pg_temp.slots;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
