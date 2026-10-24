@@ -21,6 +21,8 @@ for (const width of [1366,768,390,360]) {
     await page.getByRole('button',{name:'Quick summary'}).click();
     const summary=page.getByRole('dialog',{name:'Quick summary'});
     await expect(summary).toBeVisible();
+    await expect(summary.locator('.audit-summary-drawer__figures .drawer-field')).toHaveCount(3);
+    await expect(summary).toContainText('Figures to check');
     await summary.getByRole('button',{name:/R-C1: .*fund/i}).click();
     const detail=page.getByRole('dialog',{name:/R-C1/i});
     await expect(detail).toBeVisible();
