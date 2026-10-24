@@ -198,6 +198,7 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
       title={activeExplanation.title}
       closeLabel={tc("accessibility.closeDrawer")}
       desktopWidth={profileInsight ? "620px" : "540px"}
+      className="audit-explainer-drawer"
     >
       <div className="form-stack">
         {profileInsight ? (
