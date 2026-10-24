@@ -13,6 +13,14 @@ export interface AuditSignalContext {
   count?: number;
   total?: number;
   filterContext?: string;
+  /** Displayed profile comparison, never accepted as independent source proof. */
+  displayedFacts?: Array<{
+    label: string;
+    current: number;
+    previous?: number;
+    currentYear: string;
+    previousYear?: string;
+  }>;
 }
 
 type Pair = { en: string; bn: string };
