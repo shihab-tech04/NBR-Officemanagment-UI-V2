@@ -748,7 +748,7 @@
       "selectionProcessDetails": "Selection process details",
       "controlFlags": "Control and data quality flags",
       "comparisonTitle": "Three-year financial comparison",
-      "comparisonDescription": "Illustrative series generated for UX assessment, not actual verified taxpayer eReturns or certified income-tax calculations. The selected taxpayer's AY is independent of the header AY. Percentages crossing zero are replaced with absolute taka movements.",
+      "comparisonDescription": "Profile comparisons are generated from the available records. They are not independently verified filed returns or approved income-tax calculations. This return's assessment year is separate from the header selection. Changes that cross zero are shown in taka rather than as percentages.",
       "keyChangesTitle": "Key signal-linked changes",
       "keyChangesDescription": "A quick view of the comparison rows already linked to this candidate's triggered selection signals. This is a summary of the table below, not a new score or finding.",
       "latestValue": "Latest value",
