@@ -1,4 +1,5 @@
 import type { TableRow } from "../modulePageUtils";
+import type { AuditSignalContext } from "./auditSignalPresentation";
 import { buildCandidateEvidenceTrend, type CandidateEvidenceTrend } from "./auditCandidateEvidence";
 
 export interface AuditExplanationSection {
@@ -29,6 +30,7 @@ export interface AuditExplanation {
   important?: string;
   sections: AuditExplanationSection[];
   candidateInsight?: AuditCandidateInsight;
+  signalContext?: AuditSignalContext;
 }
 
 type Localized = { en: string; bn: string };
@@ -370,18 +372,26 @@ export function resolveAuditExplanation(
     if (ids.length === 0 && SIGNALS[value]) ids.push(value);
     if (ids.length > 0) {
       return {
-        title: ids.length === 1 ? `${ids[0]} — ${pick(SIGNALS[ids[0]].name, lang)}` : pick(l("Risk signals in this record", "এই record-এর Risk signal"), lang),
+        title: ids.length === 1 ? `${ids[0]} — ${pick(SIGNALS[ids[0]].name, lang)}` : pick(l("Signals in this selection", "এই বাছাইয়ের সংকেত"), lang),
+        signalContext: row.return_id ? {
+          scope: "taxpayer" as const,
+          returnId: text(row.return_id),
+          assessmentYear: text(row.assessment_year),
+          dataQuality: text(row.data_quality),
+          coverageTier: text(row.coverage_tier),
+          auditStatus: text(row.audit_state ?? row.audit_status),
+        } : { scope: "population" as const },
         category: pick(l("Substantive risk signal", "Substantive risk signal"), lang),
-        definition: pick(l("A risk signal is a named question worth checking. It is not a Finding of wrongdoing.", "Risk signal হলো নির্দিষ্ট একটি প্রশ্ন যা যাচাই করা দরকার। এটি wrongdoing-এর Finding নয়।"), lang),
-        effect: pick(l("Signals are deduplicated by underlying fact before Risk Level is assigned. Independent evidence families matter for escalation.", "Risk Level দেওয়ার আগে underlying fact অনুযায়ী signal deduplicate হয়। Escalation-এর জন্য independent evidence family গুরুত্বপূর্ণ।"), lang),
-        nextStep: pick(l("Verify each signal separately and link evidence to that exact signal.", "প্রতিটি signal আলাদাভাবে verify করুন এবং evidence সেই নির্দিষ্ট signal-এর সাথে link করুন।"), lang),
-        important: pick(l("A Pending or Refuted signal cannot support a Finding.", "Pending বা Refuted signal কোনো Finding support করতে পারে না।"), lang),
+        definition: pick(l("This signal identifies a difference that needs checking against the return and supporting records.", "এই সংকেতটি রিটার্ন ও সংশ্লিষ্ট নথির সঙ্গে মিলিয়ে দেখার মতো অমিল নির্দেশ করে।"), lang),
+        effect: pick(l("Check each difference once, even if several signals describe it. The final decision depends on verified documents.", "একই অমিল একাধিক সংকেতে থাকলেও একবারই যাচাই করুন। প্রমাণ যাচাই না করে সিদ্ধান্ত নেবেন না।"), lang),
+        nextStep: pick(l("Open the relevant return, compare the source figures and attach the documents to this signal.", "সংশ্লিষ্ট রিটার্ন খুলুন, সংখ্যাগুলো মিলিয়ে দেখুন এবং এই সংকেতের সঙ্গে প্রমাণ যুক্ত করুন।"), lang),
+        important: pick(l("An unresolved or explained signal is not an audit finding.", "অমীমাংসিত বা ব্যাখ্যা পাওয়া সংকেত মানেই নিরীক্ষার চূড়ান্ত সিদ্ধান্ত নয়।"), lang),
         sections: [
           { title: pick(l("Signal definitions", "Signal definition"), lang), items: ids.map(id => {
             const s = SIGNALS[id];
             return {
               label: `${id} · ${pick(s.name, lang)}`,
-              value: `${pick(s.family, lang)}. Condition: ${pick(s.condition, lang)} Strength: ${s.strength}. Requires: ${s.requires}. Possible legitimate explanation: ${pick(s.legitimate, lang)} Evidence: ${pick(s.evidence, lang)}`,
+              value: `${pick(s.family, lang)}. ${pick(s.condition, lang)} ${pick(s.legitimate, lang)} ${pick(s.evidence, lang)}`,
             };
           })},
           contextSection(row, [["case_id","Case ID"],["return_id","Return ID"],["coverage_tier","Coverage Tier"],["risk_level","Risk Level"],["verification_summary","Verification"],["evidence_refs","Linked evidence"]]),
