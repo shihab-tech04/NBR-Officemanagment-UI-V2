@@ -4828,3 +4828,183 @@
   .audit-signal-flow__step-content { padding: var(--space-2); }
   .audit-signal-flow__branch { flex-wrap: wrap; gap: 3px 6px; }
 }
+
+
+/* Audit signal decision chart: shared Office surface, tokens and mobile layout. */
+.audit-decision-map {
+  min-width: 0;
+  padding: var(--space-3) 0;
+}
+.audit-decision-map__start,
+.audit-decision-map__end {
+  margin-inline: auto;
+  max-width: 310px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-alpha-4);
+  text-align: center;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-body-sm);
+}
+.audit-decision-map__start strong { margin-right: 8px; }
+.audit-decision-map__end { font-weight: 700; }
+.audit-decision-map__arrow {
+  position: relative;
+  height: 28px;
+  width: 2px;
+  margin-inline: auto;
+  background: var(--color-primary);
+}
+.audit-decision-map__arrow::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -4px;
+  height: 8px;
+  width: 8px;
+  border-right: 2px solid var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
+  transform: rotate(45deg);
+}
+.audit-decision-map__gate { min-width: 0; }
+.audit-decision-map__diamond {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(240px,100%);
+  height: 124px;
+  margin: 0 auto;
+  text-align: center;
+}
+.audit-decision-map__diamond svg {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.audit-decision-map__diamond svg path {
+  fill: var(--color-primary-alpha-4);
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+.audit-decision-map__diamond strong {
+  position: relative;
+  max-width: 148px;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.audit-decision-map__fork {
+  position: relative;
+  height: 24px;
+  margin: 0 25%;
+  border-top: 0;
+  border-bottom: 2px solid var(--color-border);
+}
+.audit-decision-map__fork::before {
+  position: absolute;
+  content: "";
+  width: 2px;
+  height: 100%;
+  left: 50%;
+  top: 0;
+  background: var(--color-primary);
+}
+.audit-decision-map__options {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: var(--space-2);
+}
+.audit-decision-map__option {
+  min-width: 0;
+  position: relative;
+  padding-top: var(--space-2);
+}
+.audit-decision-map__option::before {
+  position: absolute;
+  content: "";
+  width: 2px;
+  height: var(--space-2);
+  left: 50%;
+  top: 0;
+  background: var(--color-border);
+}
+.audit-decision-map__answer {
+  display: block;
+  margin-bottom: var(--space-2);
+  text-align: center;
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.audit-decision-map__box {
+  min-height: 120px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-alpha-4);
+  overflow-wrap: anywhere;
+}
+.audit-decision-map__box--stop {
+  border-color: var(--color-border);
+  background: var(--color-surface-secondary);
+}
+.audit-decision-map__box strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-body-sm);
+  line-height: 1.35;
+}
+.audit-decision-map__box p,
+.audit-decision-map__question {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.audit-decision-map__question {
+  max-width: 95%;
+  margin: var(--space-1) auto 0;
+  text-align: center;
+}
+.audit-signal-flow__footnotes {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.audit-signal-flow__footnotes p {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 390px) {
+  .audit-decision-map__start,
+  .audit-decision-map__end { padding: var(--space-2); }
+  .audit-decision-map__diamond { width: min(220px,100%); height: 116px; }
+  .audit-decision-map__diamond strong { max-width: 132px; font-size: var(--fs-caption); }
+  .audit-decision-map__box { padding: var(--space-2); min-height: 136px; }
+  .audit-decision-map__options { gap: var(--space-1); }
+}
+
+/* Scoped mobile title wrap: preserve the shared overlay header and actions. */
+@media (max-width: 600px) {
+  .audit-explainer-drawer .responsive-overlay__title {
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: var(--fs-body);
+  }
+}
