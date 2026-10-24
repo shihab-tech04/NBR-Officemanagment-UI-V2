@@ -5212,9 +5212,11 @@
   border-top: 1px solid var(--color-border);
 }
 .audit-summary-drawer__meta,
-.audit-summary-drawer__copy,
 .audit-summary-drawer__signals {
   padding: 0;
+}
+.audit-summary-drawer__copy {
+  padding: var(--space-2) var(--space-3);
 }
 .audit-summary-drawer .drawer-field-grid,
 .audit-summary-drawer__figures .drawer-field-grid {
