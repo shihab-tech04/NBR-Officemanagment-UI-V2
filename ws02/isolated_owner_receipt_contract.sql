@@ -10,6 +10,11 @@ CREATE ROLE ws02_owner_engine NOLOGIN;
 CREATE ROLE ws02_owner_rpc NOLOGIN; -- Synthetic, non-login RPC definer only.
 CREATE ROLE ws02_owner_lock NOLOGIN; -- Only row-lock helper can hold owners UPDATE privilege.
 CREATE SCHEMA ws02_owner;
+-- PostgreSQL grants EXECUTE on newly created functions to PUBLIC by default.
+-- Schema-local default REVOKE cannot undo the global PUBLIC default; revoke
+-- at the disposable function creator's global default privilege scope.
+-- All changes are inside this isolated transaction and rolled back.
+ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 REVOKE ALL ON SCHEMA ws02_owner FROM PUBLIC;
 GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc,ws02_owner_lock;
 CREATE TABLE ws02_owner.owners(
@@ -283,6 +288,28 @@ BEGIN
     OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_rpc','MEMBER') THEN
   RAISE EXCEPTION 'SYNTHETIC_CALLER_CAN_ASSUME_PRIVATE_DEFINER'; END IF;
 END $role_capabilities$;
+-- Future-function default-deny regression. This probe is created AFTER the
+-- existing-function REVOKE and is excluded from the CI's committed DDL setup.
+-- It proves that a later private function cannot silently regain PUBLIC EXECUTE.
+CREATE FUNCTION ws02_owner.nbr_future_private_probe()
+ RETURNS boolean LANGUAGE sql SECURITY INVOKER
+ SET search_path=pg_catalog,ws02_owner AS $probe$ SELECT true $probe$;
+DO $future_function_default_denial$
+DECLARE r name;
+BEGIN
+ FOREACH r IN ARRAY ARRAY['ws02_owner_anon','ws02_owner_auth','ws02_owner_engine'] LOOP
+  IF has_function_privilege(r,'ws02_owner.nbr_future_private_probe()','EXECUTE') THEN
+   RAISE EXCEPTION 'FUTURE_PRIVATE_FUNCTION_PUBLIC_EXECUTE_LEAK_%',r;
+  END IF;
+ END LOOP;
+ IF EXISTS (
+  SELECT 1 FROM pg_catalog.pg_proc p,
+       LATERAL pg_catalog.aclexplode(p.proacl) acl
+  WHERE p.oid='ws02_owner.nbr_future_private_probe()'::regprocedure
+    AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
+ ) THEN RAISE EXCEPTION 'FUTURE_PRIVATE_FUNCTION_PUBLIC_ACL_LEAK'; END IF;
+END $future_function_default_denial$;
+DROP FUNCTION ws02_owner.nbr_future_private_probe();
 -- Disposable PostgREST-style spoofed-claim denial: untrusted request.jwt.*
 -- GUCs cannot grant private function access to synthetic anon/auth roles.
 -- These are forged settings, NOT cryptographically verified Supabase JWTs.
