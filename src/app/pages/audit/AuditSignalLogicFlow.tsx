@@ -69,9 +69,10 @@ export function AuditSignalLogicFlow({
         <h3>{bilingual("Review summary", "যাচাইয়ের সারসংক্ষেপ")}</h3>
         <span className="audit-signal-flow__mode">{taxpayer ? word("single") : word("group")}</span>
       </div>
+      <div className="audit-signal-flow__body">
       {taxpayer && displayedFacts.length > 0 && (
-        <section className="detail-section audit-signal-flow__preview" aria-label={word("snapshot")}>
-          <h4 className="detail-section__head detail-section__head--static">{word("snapshot")}</h4>
+        <section className="audit-signal-flow__preview" aria-label={word("snapshot")}>
+          <h4 className="audit-signal-flow__subhead">{word("snapshot")}</h4>
           <div className="audit-story__figures">
             {displayedFacts.map((fact) => (
               <div className="audit-story__fact" key={fact.label}>
@@ -245,6 +246,7 @@ export function AuditSignalLogicFlow({
           <p>{word("noAuthority")}</p>
         </div>
       </details>
+      </div>
     </section>
   );
 }

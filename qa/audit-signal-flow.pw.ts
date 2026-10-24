@@ -27,7 +27,7 @@ for (const width of [1366,768,390,360]) {
     await expect(summary).not.toContainText('Screening indicators — not audit findings');
     await expect(summary.locator('.audit-summary-drawer__figures .drawer-field').last()).toHaveCSS('grid-column-start', '1');
     await expect(summary.locator('.audit-summary-drawer__figures .drawer-field').last()).toHaveCSS('grid-column-end', '-1');
-    await expect(summary.locator('.detail-section').first()).toHaveCSS('border-top-width', '0px');
+    await expect(summary.locator('.detail-section').first()).toHaveCSS('border-top-width', '1px');
     await page.screenshot({path:`test-results/audit-summary-flat-${width}.png`,animations:'disabled'});
     await summary.getByRole('button',{name:/R-C1: .*fund/i}).click();
     const detail=page.getByRole('dialog',{name:/R-C1/i});
@@ -48,10 +48,34 @@ for (const width of [1366,768,390,360]) {
     await expect(flow).toContainText('Figures in this taxpayer profile');
     await expect(flow.locator('.audit-story__figures .audit-story__fact')).toHaveCount(3);
     await expect(flow.locator('.audit-story__verification')).toContainText('Source check pending');
+    // The signal review uses the exact same canonical section border, surface and
+    // header fill as the other Office drawer cards. The only inset grid is facts.
+    const sections = await detail.evaluate(root => {
+      const first = root.querySelector<HTMLElement>('.detail-section:not(.audit-story__reference)')!;
+      const flow = root.querySelector<HTMLElement>('.audit-signal-flow')!;
+      const header = root.querySelector<HTMLElement>('.detail-section__head')!;
+      const flowHeader = root.querySelector<HTMLElement>('.audit-signal-flow__header')!;
+      const sample = (el: HTMLElement) => {
+        const cs = getComputedStyle(el);
+        return { surface: cs.backgroundColor, border: cs.borderTopColor, width: cs.borderTopWidth,
+          radius: cs.borderTopLeftRadius, shadow: cs.boxShadow };
+      };
+      return { golden: sample(first), review: sample(flow),
+        goldenHeader: getComputedStyle(header).backgroundColor,
+        reviewHeader: getComputedStyle(flowHeader).backgroundColor };
+    });
+    expect(sections.review).toEqual(sections.golden);
+    expect(sections.reviewHeader).toEqual(sections.goldenHeader);
     await expect(flow).not.toContainText('These are figures shown in the profile.');
     await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('border-top-width', '0px');
     await expect(flow.locator('.audit-story__next')).toBeVisible();
     await expect(flow.locator('.audit-story__decision')).not.toHaveAttribute('open');
+    await expect(detail.locator('.audit-story__reference')).not.toHaveAttribute('open');
+    await detail.locator('.audit-story__reference summary').click();
+    await expect(detail.locator('.audit-story__definition-group').first()).toBeVisible();
+    const definitionCells = detail.locator('.audit-story__reference .drawer-field');
+    await expect(definitionCells.first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await detail.locator('.audit-story__reference summary').click();
     await expect(flow.locator('.audit-story__figures > :last-child')).toHaveCSS('grid-column-start','1');
     await expect(flow).toContainText('source-of-funds comparison is separate');
     await expect(flow).toContainText('not an audit finding');
@@ -185,9 +209,9 @@ for (const width of [1366, 390]) {
     await expect(page.locator('html')).toHaveClass(/theme-dark/);
     await expect(page.locator('body')).toHaveCSS('color', 'rgb(232, 234, 237)');
     await expect(detail).toHaveCSS('background-color', 'rgb(43, 44, 47)');
-    await expect(flow).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(flow).toHaveCSS('background-color', 'rgb(43, 44, 47)');
     await expect(flow).toHaveCSS('color', 'rgb(232, 234, 237)');
-    await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('background-color', 'rgb(43, 44, 47)');
     await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('color', 'rgb(232, 234, 237)');
     await expect(flow.locator('.audit-story__fact-label').first()).toHaveCSS('color', 'rgb(189, 193, 198)');
     await expect(flow.locator('.audit-story__decision')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -218,6 +242,6 @@ test('Dark Mode Audit Overview keeps population panels and labels on Office toke
   await expect(flow.locator('.audit-story__population')).toHaveCSS('color', 'rgb(232, 234, 237)');
   await expect(flow.locator('.audit-story__population')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(flow.locator('.audit-story__population-progress')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(flow.locator('.audit-story__progress-grid > div').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(flow.locator('.audit-story__progress-grid > div').first()).toHaveCSS('background-color', 'rgb(48, 49, 52)');
   await page.screenshot({ path: 'test-results/audit-dark-overview.png', animations: 'disabled' });
 });
