@@ -72,11 +72,11 @@ export function AuditSignalLogicFlow({
       {taxpayer && displayedFacts.length > 0 && (
         <section className="detail-section audit-signal-flow__preview" aria-label={word("snapshot")}>
           <h4 className="detail-section__head detail-section__head--static">{word("snapshot")}</h4>
-          <div className="drawer-field-grid">
+          <div className="audit-story__figures">
             {displayedFacts.map((fact) => (
-              <div className="drawer-field" key={fact.label}>
-                <span className="drawer-field__label">{fact.label} · {fact.currentYear}</span>
-                <div className="drawer-field__value"><strong>{money(fact.current)}</strong></div>
+              <div className="audit-story__fact" key={fact.label}>
+                <span className="audit-story__fact-label">{fact.label} · {fact.currentYear}</span>
+                <div className="audit-story__fact-value"><strong>{money(fact.current)}</strong></div>
                 {fact.previous !== undefined && fact.previousYear && (
                   <p className="audit-signal-flow__historical">
                     {fact.previousYear}: {money(fact.previous)} · {word("change")}: {money(fact.current - fact.previous)}
