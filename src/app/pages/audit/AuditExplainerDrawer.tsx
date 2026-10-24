@@ -400,35 +400,34 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
                   impact={activeExplanation.effect}
                   nextAction={activeExplanation.nextStep}
                 />
-                {activeExplanation.sections.length > 0 && (
-                  <details className="audit-story__reference">
-                    <summary>{i18n.resolvedLanguage?.startsWith("bn") ? "সংকেতের ব্যাখ্যা ও রেকর্ড" : "Signal definition and record details"}</summary>
+                {(activeExplanation.sections.length > 0 || activeExplanation.important) && (
+                  <details className="detail-section audit-story__reference">
+                    <summary className="detail-section__head">
+                      {i18n.resolvedLanguage?.startsWith("bn") ? "সংকেতের ব্যাখ্যা ও রেকর্ড" : "Signal definition and record details"}
+                    </summary>
                     <div className="audit-story__reference-body">
                       {activeExplanation.sections.map((section, sectionIndex) => (
-                                    <section className="detail-section" key={`${section.title}-${sectionIndex}`}>
-                                      <h3 className="detail-section__head detail-section__head--static">{section.title}</h3>
-                                      <div className="drawer-field-grid">
-                                        {section.items.map((item, itemIndex) => {
-                                          const shouldSpan = section.items.length % 2 === 1 && itemIndex === section.items.length - 1;
-                                          return (
-                                            <div
-                                              className={`drawer-field${shouldSpan ? " drawer-field--wide" : ""}`}
-                                              key={`${item.label}-${item.value}`}
-                                            >
-                                              <span className="drawer-field__label">{item.label}</span>
-                                              <div className="drawer-field__value">
-                                                <span>{item.value}</span>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </section>
-                                  ))}
+                        <section className="audit-story__definition-group" key={`${section.title}-${sectionIndex}`}>
+                          <h4 className="audit-story__definition-heading">{section.title}</h4>
+                          <div className="drawer-field-grid">
+                            {section.items.map((item, itemIndex) => (
+                              <div
+                                className={`drawer-field${section.items.length % 2 === 1 && itemIndex === section.items.length - 1 ? " drawer-field--wide" : ""}`}
+                                key={`${item.label}-${itemIndex}`}
+                              >
+                                <span className="drawer-field__label">{item.label}</span>
+                                <div className="drawer-field__value">{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                      {activeExplanation.important && (
+                        <p className="audit-story__reference-note">{activeExplanation.important}</p>
+                      )}
                     </div>
                   </details>
                 )}
-                {activeExplanation.important && textSection(t("explainer.important"), activeExplanation.important)}
               </>
             ) : (
               <>
