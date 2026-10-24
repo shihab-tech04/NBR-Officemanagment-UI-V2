@@ -349,6 +349,62 @@ BEGIN
 END $owner_future_default_denial$;
 DROP SCHEMA ws02_future_rpc CASCADE;
 DROP SCHEMA ws02_future_lock CASCADE;
+-- Review-only PostgREST exposure boundary: no public-schema RPC is installed.
+-- These assertions do NOT constitute a signed-JWT or actual PostgREST test.
+-- Prevent a future private-definer or engine role from accidentally creating
+-- a callable public wrapper, or replacing functions in the fixed search_path.
+DO $postgrest_exposure_boundary$
+DECLARE caller name; target_schema text;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='public')
+ OR EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public'
+    AND p.proname IN ('nbr_authorize_citizen_evaluation',
+                     'nbr_lock_active_owner',
+                     'nbr_reserve_citizen_evaluation',
+                     'nbr_finalize_citizen_evaluation',
+                     'nbr_commit_evaluation_atomically')
+ ) THEN RAISE EXCEPTION 'POSTGREST_PUBLIC_RPC_EXPOSURE_PRESENT'; END IF;
+ FOREACH caller IN ARRAY ARRAY[
+   'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+   'ws02_owner_rpc','ws02_owner_lock'] LOOP
+  FOREACH target_schema IN ARRAY ARRAY['public','ws02_owner'] LOOP
+   IF has_schema_privilege(caller,target_schema,'CREATE') THEN
+    RAISE EXCEPTION 'POSTGREST_OR_SEARCH_PATH_SCHEMA_CREATE_LEAK_%_%',
+      caller,target_schema;
+   END IF;
+  END LOOP;
+ END LOOP;
+ IF has_schema_privilege('ws02_owner_anon','ws02_owner','USAGE')
+ OR has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE') THEN
+  RAISE EXCEPTION 'POSTGREST_PRIVATE_SCHEMA_VISIBLE_TO_UNTRUSTED_ROLE'; END IF;
+END $postgrest_exposure_boundary$;
+-- Execute real CREATE denial, not only ACL metadata checks.
+SET LOCAL ROLE ws02_owner_engine;
+DO $postgrest_engine_create_denial$
+DECLARE denied_public boolean:=false; denied_private boolean:=false;
+BEGIN
+ BEGIN
+  EXECUTE 'CREATE FUNCTION public.nbr_commit_evaluation_atomically() RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+ EXCEPTION WHEN insufficient_privilege THEN denied_public:=true;
+ END;
+ BEGIN
+  EXECUTE 'CREATE FUNCTION ws02_owner.untrusted_search_path_probe() RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+ EXCEPTION WHEN insufficient_privilege THEN denied_private:=true;
+ END;
+ IF NOT denied_public OR NOT denied_private THEN
+  RAISE EXCEPTION 'ENGINE_CREATED_UNTRUSTED_RPC_OR_SEARCH_PATH_FUNCTION';
+ END IF;
+END $postgrest_engine_create_denial$;
+RESET ROLE;
+DO $postgrest_create_no_side_effect$
+BEGIN
+ IF to_regprocedure('public.nbr_commit_evaluation_atomically()') IS NOT NULL
+ OR to_regprocedure('ws02_owner.untrusted_search_path_probe()') IS NOT NULL THEN
+  RAISE EXCEPTION 'DENIED_CREATE_LEFT_CALLABLE_FUNCTION'; END IF;
+END $postgrest_create_no_side_effect$;
 -- Disposable PostgREST-style spoofed-claim denial: untrusted request.jwt.*
 -- GUCs cannot grant private function access to synthetic anon/auth roles.
 -- These are forged settings, NOT cryptographically verified Supabase JWTs.
