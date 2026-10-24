@@ -24,7 +24,7 @@ function harness({
   ownerData = true, ownerError = null,
   reservationData = { state: 'RESERVED' }, reservationError = null,
   yearData = { assessment_year: '2026-27', income_year: '2025-26',
-    state: 'active', is_executable: true },
+    state: 'active', is_executable: true, legal_cutoff: '2026-09-30' },
   actorId = signedActor, revokeAfterFirstAuth = false,
 } = {}) {
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
@@ -383,6 +383,7 @@ test('authorization hash binds year, legal pins, record and replay key before ru
       assessment_year: bodyOverrides.assessmentYear ?? '2026-27',
       income_year: bodyOverrides.incomeYear ?? '2025-26',
       state: 'active', is_executable: true,
+      legal_cutoff: bodyOverrides.expectedSourceCutoff ?? '2026-09-30',
     };
     const h = harness({ reservationError: stop, yearData });
     const result = await h.request({ bodyOverrides });
@@ -474,5 +475,33 @@ test('transaction period and event-date denials do not consume owner-bound idemp
     assert.equal(h.seen.reserveCalls, 0,
       'known invalid event must not consume an idempotency slot: ' + expectedCode);
     assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
+// A valid caller cutoff is not necessarily the owner-authorized SQL cutoff.
+// Both mismatches must fail before consuming an idempotency reservation.
+test('SQL legal cutoff mismatch and post-cutoff event cannot reserve or read rules', async () => {
+  const cases = [
+    {
+      yearData: { assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: true, legal_cutoff: '2026-08-31' },
+      bodyOverrides: {},
+    },
+    {
+      yearData: { assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: true, legal_cutoff: '2026-05-31' },
+      bodyOverrides: { expectedSourceCutoff: '2026-05-31', legalEventDate: '2026-06-15' },
+    },
+  ];
+  for (const { yearData, bodyOverrides } of cases) {
+    const h = harness({ yearData, reservationError: { message: 'reservation must not be reached' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 409);
+    assert.equal(r.body.code, 'LEGAL_EVENT_CUTOFF_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0, 'invalid legal cutoff cannot reserve');
+    assert.equal(h.seen.privilegedReads, 0, 'invalid legal cutoff cannot read tax rules');
   }
 });
