@@ -1374,7 +1374,33 @@ export function AuditCandidatesPage({
       row,
       i18n.resolvedLanguage,
     );
-    if (resolved) setExplanation(resolved);
+    if (resolved) {
+      // The visible comparison uses the same figures as this taxpayer profile.
+      // It is not a substitute for original IT-10B or independent external evidence.
+      if (resolved.signalContext?.scope === "taxpayer" && selectedCandidate) {
+        const displayedFacts = comparison
+          .flatMap((section) => section.metrics)
+          .filter((metric) => metric.relatedSignals.includes(value))
+          .filter((metric) => Number.isFinite(metric.values[2]))
+          .slice(0, 3)
+          .map((metric) => ({
+            label: t(metric.labelKey),
+            current: metric.values[2],
+            previous: Number.isFinite(metric.values[1]) ? metric.values[1] : undefined,
+            currentYear: assessmentYearHistory(selectedCandidate.assessment_year)[2],
+            previousYear: assessmentYearHistory(selectedCandidate.assessment_year)[1],
+          }));
+        setExplanation({
+          ...resolved,
+          signalContext: {
+            ...resolved.signalContext,
+            displayedFacts,
+          },
+        });
+      } else {
+        setExplanation(resolved);
+      }
+    }
   };
 
   if (selectedCandidate && selectedBatch) {
