@@ -72,7 +72,7 @@ for (const width of [1366,768,390,360]) {
     await expect(flow.locator('.audit-story__decision')).not.toHaveAttribute('open');
     await expect(detail.locator('.audit-story__reference')).not.toHaveAttribute('open');
     await detail.locator('.audit-story__reference summary').click();
-    await expect(detail.locator('.audit-story__definition-group')).toBeVisible();
+    await expect(detail.locator('.audit-story__definition-group').first()).toBeVisible();
     const definitionCells = detail.locator('.audit-story__reference .drawer-field');
     await expect(definitionCells.first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await detail.locator('.audit-story__reference summary').click();
