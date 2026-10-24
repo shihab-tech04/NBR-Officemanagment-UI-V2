@@ -506,6 +506,30 @@ test('SQL legal cutoff mismatch and post-cutoff event cannot reserve or read rul
   }
 });
 
+test('unbacked event rule selectors are denied before idempotency reservation', async () => {
+  // Selecting a time-sensitive rule ID is not evidence of a dated transaction.
+  // These synthetic tests never authorize a real payment or withholding credit.
+  const cases = [
+    { transactionRuleIds: ['WH-R4-04'] },
+    { paymentRuleIds: ['WH-R4-04'] },
+    { transactionRuleIds: ['WH-R4-04'],
+      transactions: { 'WH-R4-05': { eventDate: '2026-06-30' } } },
+    { paymentRuleIds: ['WH-R4-04'],
+      paymentEvents: { 'WH-R4-05': { eventDate: '2026-06-30' } } },
+  ];
+  for (const bodyOverrides of cases) {
+    const h = harness({ reservationError: { message: 'unbacked selector must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0, 'unbacked selector must not consume replay key');
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
 test('payment-event period and date violations are denied before idempotency reservation', async () => {
   // Payment-event claims are also time-bound. They must not bypass the
   // transaction-only pre-reservation guard by using paymentRuleIds/paymentEvents.
