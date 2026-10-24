@@ -1,0 +1,61 @@
+name: WS04 isolated W5 engine source integrity (no deploy)
+on:
+  push:
+    branches:
+      - ws04/w5-tax-engine-review-20261022
+  pull_request:
+    paths:
+      - 'ws04/w5-candidate/**'
+      - '.github/workflows/ws04-w5-engine-source-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify exact reviewed candidate source and test checksums
+        shell: bash
+        run: |
+          echo 'dd2b8f73010518b287adbb6552fbb64029846a50673efe3fb177659a0759020a  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
+          echo '5d7a8c5bef755cf037d7a9cd86a1db9e996f2e56d44d433fb41470c5ae141189  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+      - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
+        shell: bash
+        run: |
+          node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
+          node --test ws04/w5-candidate/tests/ownership_gate.node.mjs
+          echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, 89-case harness, PostgreSQL/Auth or Agent certification.'
+      - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {stripTypeScriptTypes} from 'node:module';
+          import {Script} from 'node:vm';
+          const s=readFileSync('ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts','utf8');
+          const js=stripTypeScriptTypes(s.replace(/^import \{ createClient \} from .*;$/m, 'const { createClient } = __testDeps;'));
+          new Script(js);
+          const required=[
+            'NBR_TAX_EXECUTION_ENABLED',
+            'nbr_authorize_citizen_evaluation',
+            'nbr_reserve_citizen_evaluation',
+            'nbr_commit_evaluation_atomically',
+            'expectedRuleSetHash',
+            'expectedParameterRevision',
+            'CREDIT_EVIDENCE_NOT_VERIFIED',
+            'FIXED_DECIMAL_10_TRUNCATE_TOWARD_ZERO',
+            'NON_SQL_STATUTORY_CALCULATOR_DISABLED',
+          ];
+          for (const token of required) if (!s.includes(token)) throw Error('Required boundary missing: '+token);
+          if (s.includes('"Access-Control-Allow-Origin": "*"')) throw Error('Unrestricted CORS');
+          console.log('PASS: exact candidate syntax/integrity/static security boundaries');
+          console.log('NOT RUN IN CI: original 366-rule frozen library and Auth/PG17 fixture are not in public repository');
+          console.log('The separate controlled source bundle has local 89/89 synthetic handler tests, NOT law certification');
+          NODE
