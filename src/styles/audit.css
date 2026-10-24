@@ -4993,3 +4993,18 @@
   .audit-decision-map__box { padding: var(--space-2); min-height: 136px; }
   .audit-decision-map__options { gap: var(--space-1); }
 }
+
+/* Scoped mobile title wrap: preserve the shared overlay header and actions. */
+@media (max-width: 600px) {
+  .audit-explainer-drawer .responsive-overlay__title {
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: var(--fs-body);
+  }
+}
