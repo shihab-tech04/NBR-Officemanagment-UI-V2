@@ -19,7 +19,7 @@ import { AppSelectField } from '../../components/forms/AppSelectField';
 import type { ColDef, TableRow, FilterDef, MobileCardMapping, KpiDef } from '../modulePageUtils';
 import {
   referenceAudit, referenceCorrections, referenceIntelligence,
-  referenceOffline, referencePayments, referenceTaxpayers, totalEligible, totalReceived,
+  referenceOffline, referencePayments, referenceTaxpayers,
 } from './paymentReference';
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
@@ -259,7 +259,6 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   // never historical reference fixtures or private simulated-ledger examples.
   const allRows=current==='transactions'||current==='overview'?storyRows:paymentDataset==='reference'?samplePayments:paymentDataset==='scenarios'?demoGlobalRows:[...storyRows,...liveTransactionRows(liveTransactions)];
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
-  const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
     options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear)),...storyRows.flatMap(row=>row.assessment_year.split(', ').map(year=>year.trim().replace('–','-')).filter(year=>year!=='—'))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
   // One taxpayer register derived from the same mirrored SQL Story 1 rows as Transactions.
@@ -274,22 +273,23 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
         if(!/^[0-9]{12,13}$/.test(tin))continue;
         const item=accounts.get(tin);
         const name=names.length===tins.length&&names[index]&&names[index]!=='—'?names[index]:'TIN '+tin;
-        if(item){item.records++;continue;}
+        if(item){item.records++;if(Date.parse(payment.date)>Date.parse(item.last_activity))item.last_activity=payment.date;continue;}
         accounts.set(tin,{key:tin,tin,taxpayer_name:name,records:1,last_activity:payment.date});
       }
     }
     return Array.from(accounts.values()).sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
   })();
   const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
-  const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??{
-    name:connectedTaxpayer?.taxpayer_name??'—',tin:selectedTin,
+  const taxP=connectedTaxpayer?{
+    name:connectedTaxpayer.taxpayer_name,tin:selectedTin,
     nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
+  }:[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??{
+    name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
   };
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=storyRows.filter(p=>String(p.tin??'').split(',').map(v=>v.trim()).includes(selectedTin)
     && (scopeYear==='all'||String(p.assessment_year).split(',').some(y=>y.trim().replace('–','-')===scopeYear)));
   const beneficiaryNotices=isDemo?liveNotices:[];
-  const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
   const incidentRows=localRecords.incidents;
@@ -390,7 +390,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
-    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=>({...c,ay:c.before.startsWith('AY ')?c.before.slice(3):'',amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
+    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <section className="card payment-module__card"><h2>{t('correctionsTab')}</h2><p className="table-page__desc">{t('correctionsNotVerified')}</p></section> :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
