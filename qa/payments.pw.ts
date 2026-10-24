@@ -41,10 +41,15 @@ for (const viewport of viewports) {
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth - innerWidth);
     expect(overflow,'no app-wide horizontal overflow').toBeLessThanOrEqual(2);
     if(viewport.width<=390 && route==='taxpayer-360'){
+      // Taxpayer register is now the parent list, not the previous one-page dropdown.
+      await expect(page.locator('.payment-module__table-card')).toBeVisible();
+      await page.goto('/payments/taxpayer-360/1111111111111');
       const strip=page.locator('.payment-module__tab-scroll .tab-bar');
       await expect(strip).toBeVisible();
       const layout=await strip.evaluate(el=>getComputedStyle(el).flexWrap);
       expect(layout).toBe('nowrap');
+      const detailOverflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+      expect(detailOverflow,'detail remains within mobile viewport').toBeLessThanOrEqual(2);
     }
   });
  }
@@ -166,15 +171,21 @@ test('mobile transaction cards have an explicit View Details action', async({pag
   await expect(page.getByText('00000000-0000-4000-8000-000000000001').last()).toBeVisible();
 });
 
-test('Taxpayer 360 summary and credit preview are distinct functional tabs', async({page})=>{
+test('Taxpayer 360 table opens full detail; unverified credits are never fabricated', async({page})=>{
   await page.setViewportSize({width:1280,height:850});
   await page.goto('/payments/taxpayer-360');
+  await expect(page.locator('.payment-module__table-card .card-table tbody tr').first()).toBeVisible({timeout:18000});
+  await page.locator('.payment-module__table-card .card-table tbody tr').first().click();
+  await expect(page).toHaveURL(/\\/payments\\/taxpayer-360\\/1111111111111$/);
+  await expect(page.getByRole('button',{name:'Back to taxpayers'})).toBeVisible();
   await page.getByRole('tab',{name:'Tax position'}).click();
-  await expect(page.getByText('Payment receipt and credit summary from the selected sample records. Tax liability is not modeled.')).toBeVisible();
+  await expect(page.getByText('Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.')).toBeVisible();
   await page.getByRole('tab',{name:'Ledger'}).click();
-  await expect(page.getByText('Sample payment credit states only')).toBeVisible();
+  await expect(page.getByText('A verified tax ledger is not connected. Open Payments to inspect linked sample transactions; they do not establish tax credits.')).toBeVisible();
   await page.getByRole('tab',{name:'Returns'}).click();
   await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
+  await page.getByRole('button',{name:'Back to taxpayers'}).click();
+  await expect(page).toHaveURL(/\\/payments\\/taxpayer-360$/);
 });
 // Payment-specific acceptance: rendered compact filters, translated column
 // headings and meaningful sort values, checked against actual DOM geometry.
