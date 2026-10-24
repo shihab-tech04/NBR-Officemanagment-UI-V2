@@ -42,7 +42,7 @@ function harness({
       if (name === 'nbr_authorize_citizen_evaluation') {
         seen.ownerCalls++;
         seen.ownerArgs = args;
-        return { data: ownerData, error: ownerError };
+        return { data: typeof ownerData === 'function' ? ownerData() : ownerData, error: ownerError };
       }
       if (name === 'nbr_reserve_citizen_evaluation') {
         seen.reserveCalls++;
@@ -149,6 +149,30 @@ test('mock token revoked between requests is rechecked before owner or reservati
   assert.equal(h.seen.authCalls, 2, 'each request must revalidate its bearer');
   assert.equal(h.seen.ownerCalls, 1, 'revoked bearer must not reuse previous owner grant');
   assert.equal(h.seen.reserveCalls, 1, 'revoked bearer must not reserve again');
+  assert.equal(h.seen.privilegedReads, 0);
+});
+
+test('ownership revoked between requests cannot reuse a previously authorized principal', async () => {
+  let ownerActive = true;
+  const h = harness({
+    ownerData: () => ownerActive,
+    reservationError: { message: 'synthetic stop before any privileged reads' },
+  });
+  const initial = await h.request();
+  assert.equal(initial.status, 503);
+  assert.equal(initial.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.authCalls, 1);
+  assert.equal(h.seen.ownerCalls, 1);
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 0);
+
+  ownerActive = false; // Simulates source-of-truth owner revocation, not JWT revocation.
+  const denied = await h.request();
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.code, 'TAXPAYER_ACCESS_DENIED');
+  assert.equal(h.seen.authCalls, 2, 'bearer must be rechecked on each request');
+  assert.equal(h.seen.ownerCalls, 2, 'owner RPC must be consulted again');
+  assert.equal(h.seen.reserveCalls, 1, 'revoked owner must not reserve a second time');
   assert.equal(h.seen.privilegedReads, 0);
 });
 
