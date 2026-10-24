@@ -184,7 +184,9 @@ jobs:
           rollback_revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000002';")
           [[ "$rollback_revoked" == 'REVOKED' ]] || { echo 'OWNER_REVOCATION_AFTER_ROLLBACK_FAILED'; exit 1; }
           echo 'TWO_SESSION_ATOMIC_RECEIPT_ROLLBACK_NO_ORPHANS_PASS_ONLY'
-          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          # Remove role-owned default ACL records as well as schema objects; otherwise
+          # PostgreSQL correctly refuses to drop the synthetic definer roles.
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'TWO_SESSION_ATOMIC_RECEIPT_OWNER_REVOCATION_SERIALIZATION_PASS_ONLY'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
