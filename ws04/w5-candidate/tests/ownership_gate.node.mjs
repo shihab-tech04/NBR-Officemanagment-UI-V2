@@ -340,7 +340,14 @@ test('actor-bound canonical request hash is stable only for the same signed prin
 test('authorization hash binds year, legal pins, record and replay key before rule access', async () => {
   const stop = { message: 'synthetic stop after reservation' };
   async function getHash(bodyOverrides = {}) {
-    const h = harness({ reservationError: stop });
+    // Hash-binding test only: mirror mutated year pins in synthetic SQL metadata
+    // so this test reaches reservation. This is NOT a statutory year approval.
+    const yearData = {
+      assessment_year: bodyOverrides.assessmentYear ?? '2026-27',
+      income_year: bodyOverrides.incomeYear ?? '2025-26',
+      state: 'active', is_executable: true,
+    };
+    const h = harness({ reservationError: stop, yearData });
     const result = await h.request({ bodyOverrides });
     assert.equal(result.status, 503);
     assert.equal(result.body.code, 'REPLAY_GATE_UNAVAILABLE');
