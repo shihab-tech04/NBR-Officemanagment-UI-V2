@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
@@ -101,7 +101,7 @@ export function ContentManagementPage() {
     return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
-  async function requestCmsOtp(event: React.FormEvent) {
+  async function requestCmsOtp(event: FormEvent) {
     event.preventDefault();
     if (!cms || !cmsEmail.trim() || cmsAuthBusy) return;
     setCmsAuthBusy(true); setCmsAuthMessage('');
@@ -116,7 +116,7 @@ export function ContentManagementPage() {
     finally { setCmsAuthBusy(false); }
   }
 
-  async function verifyCmsOtp(event: React.FormEvent) {
+  async function verifyCmsOtp(event: FormEvent) {
     event.preventDefault();
     if (!cms || !cmsEmail.trim() || !cmsOtp.trim() || cmsAuthBusy) return;
     setCmsAuthBusy(true); setCmsAuthMessage('');
