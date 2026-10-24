@@ -1084,6 +1084,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (yearError) throw yearError;
     if (!year) return json({ error: "Assessment year not found" }, 404);
+    // Fail closed if a year-filtered response contains a different AY.
+    // Ownership authorization does not permit a cross-year metadata fallback.
+    if (year.assessment_year !== assessmentYear) {
+      return json({ error:"Assessment-year metadata is inconsistent with the authorized request",
+        status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
+    }
     if (!year.is_executable || year.state !== "active") {
       return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
     }
