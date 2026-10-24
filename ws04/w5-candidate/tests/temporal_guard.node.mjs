@@ -25,7 +25,7 @@ function harness(year = {
     auth:{ async getUser(token) {
       seen.authCalls++;
       return token === 'valid.test.token'
-        ? {data:{user:{id:'isolated-auth-user'}},error:null}
+        ? {data:{user:{id:'60000000-0000-4000-8000-000000000001'}},error:null}
         : {data:{user:null},error:{message:'Invalid'}};
     }},
     async rpc(name) {
