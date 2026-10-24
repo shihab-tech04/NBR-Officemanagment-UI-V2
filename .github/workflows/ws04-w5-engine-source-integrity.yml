@@ -23,7 +23,7 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo 'b61c9448498c673a6f07e5d1969942f38fb327eeb518edcb4ef9885676098af4  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '02ab0bcad14195c0059ac19d7233a9ef6c9227a7a3565b26cca83615b4991afe  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
           echo '799921dd2d3e2ae6980468ecdbd3eedff259815734e9088acc8a1c9a8600db42  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
       - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
