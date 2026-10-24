@@ -1,7 +1,7 @@
 import { GitBranch } from "lucide-react";
 import { getAuditSignalDefinition } from "./auditKnowledge";
 import {
-  auditSignalQuestion, auditSignalText, type AuditSignalContext,
+  auditSignalQuestion, auditSignalText, auditSignalCheck, auditSignalReason, auditSignalDocuments, type AuditSignalContext,
 } from "./auditSignalPresentation";
 
 type Step = { title: string; detail: string; more?: string };
@@ -31,6 +31,9 @@ export function AuditSignalLogicFlow({
   const complete = context?.dataQuality?.toLowerCase() === "complete";
   const incomplete = /invalid|incomplete/i.test(context?.dataQuality ?? "");
   const isC1 = signalId === "R-C1";
+  const check = auditSignalCheck(signalId, language) ?? word("check");
+  const reason = auditSignalReason(signalId, language) ?? signal.legitimate;
+  const documents = auditSignalDocuments(signalId, language) ?? signal.evidence;
   const locale = language.toLowerCase().startsWith("bn") ? "bn-BD" : "en-BD";
   const count = (value: number) => new Intl.NumberFormat(locale).format(value);
   const recordIntro = [
@@ -59,15 +62,15 @@ export function AuditSignalLogicFlow({
       detail: `${word("separate")} ${question}`,
       more: word("check"),
     },
-    ...(isC1 ? [{
+    {
       title: word("third"),
-      detail: word("c1Compare"),
-      more: word("c1Threshold"),
-    }] : []),
+      detail: check,
+      more: isC1 ? word("c1Threshold") : word("noAuthority"),
+    },
     {
       title: word("evidence"),
-      detail: `${word("reasons")}${signal.legitimate}`,
-      more: `${word("proof")}${signal.evidence}`,
+      detail: `${word("reasons")}${reason}`,
+      more: `${word("proof")}${documents}`,
     },
     {
       title: word("decision"),
