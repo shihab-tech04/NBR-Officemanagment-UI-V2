@@ -1022,7 +1022,7 @@ Deno.serve(async (req) => {
         !validIsoDate(body.legalEventDate) ||
         !validIsoDate(body.expectedSourceCutoff) ||
         typeof body.expectedRuleSetHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.expectedRuleSetHash) ||
-        typeof body.expectedParameterRevision !== "number" || (!Number.isSafeInteger(body.expectedParameterRevision) || body.expectedParameterRevision < 0) ||
+        typeof body.expectedParameterRevision !== "number" || (!Number.isSafeInteger(body.expectedParameterRevision) || body.expectedParameterRevision < 1) ||
         typeof body.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(body.idempotencyKey) ||
         !objectRecord(body.taxpayer) || typeof body.taxpayer.residency !== "string" ||
         !["resident","nonresident"].includes(body.taxpayer.residency) ||
