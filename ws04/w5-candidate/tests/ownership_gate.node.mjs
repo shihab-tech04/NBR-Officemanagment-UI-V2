@@ -389,8 +389,8 @@ test('invalid source-cutoff calendar dates are denied before ownership and reser
 
 // A negative revision cannot identify an approved SQL parameter version.
 // Reject it before creating an owner-bound reservation or reading tax rules.
-test('negative parameter revision is rejected before owner and reservation RPCs', async () => {
-  for (const expectedParameterRevision of [-1, -2147483648]) {
+test('zero or negative parameter revision is rejected before owner and reservation RPCs', async () => {
+  for (const expectedParameterRevision of [0, -1, -2147483648]) {
     const h = harness({ reservationError: { message: 'unexpected reservation' } });
     const result = await h.request({ bodyOverrides: { expectedParameterRevision } });
     assert.equal(result.status, 422, String(expectedParameterRevision));
