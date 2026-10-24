@@ -4,7 +4,6 @@ import {
   auditSignalQuestion, auditSignalText, auditSignalCheck, auditSignalReason, auditSignalDocuments, type AuditSignalContext,
 } from "./auditSignalPresentation";
 
-type Step = { title: string; detail: string; more?: string };
 const nonEmpty = (value: string | undefined) => (value && value.trim() ? value : "—");
 
 /**
@@ -54,32 +53,10 @@ export function AuditSignalLogicFlow({
   const readiness = taxpayer
     ? incomplete ? word("missing") : complete ? word("available") : word("unknown")
     : word("unknownCount");
-  const steps: Step[] = [
-    {
-      title: word("first"),
-      detail: taxpayer ? recordIntro : population ? overviewIntro : word("unknownCount"),
-      more: readiness,
-    },
-    {
-      title: word("second"),
-      detail: `${word("separate")} ${question}`,
-      more: word("check"),
-    },
-    {
-      title: word("third"),
-      detail: check,
-      more: isC1 ? word("c1Threshold") : word("noAuthority"),
-    },
-    {
-      title: word("evidence"),
-      detail: `${word("reasons")}${reason}`,
-      more: `${word("proof")}${documents}`,
-    },
-    {
-      title: word("decision"),
-      detail: word("officer"),
-    },
-  ];
+  const bilingual = (en: string, bn: string) =>
+    language.toLowerCase().startsWith("bn") ? bn : en;
+  const flowLabel = bilingual("Decision flow", "সিদ্ধান্তের পথ");
+  // These are possible review paths, not an automatic verdict or a finding.
 
   return (
     <section className="audit-signal-flow" aria-label={`${word("title")} ${signalId}`} data-signal-id={signalId}>
@@ -109,29 +86,106 @@ export function AuditSignalLogicFlow({
           {isC1 && <p className="audit-signal-flow__source-note">{word("c1Separate")}</p>}
         </section>
       )}
-      <ol className="audit-signal-flow__steps">
-        {steps.map((step, index) => (
-          <li className="audit-signal-flow__step" key={step.title}>
-            <span className="audit-signal-flow__number" aria-hidden="true">{index + 1}</span>
-            <div className="audit-signal-flow__step-content">
-              <strong>{step.title}</strong>
-              <p>{step.detail}</p>
-              {step.more && <p>{step.more}</p>}
-              {index === steps.length - 1 && (
-                <div className="audit-signal-flow__branches">
-                  {(["evidencePending", "evidenceExplained", "evidenceReview"] as const).map((key) => (
-                    <div className={`audit-signal-flow__branch${key === "evidencePending" ? " audit-signal-flow__branch--hold" : ""}`} key={key}>
-                      <b>{word(key)}</b>
-                      <span>{word(key === "evidencePending" ? "evidencePendingBody"
-                        : key === "evidenceExplained" ? "evidenceExplainedBody" : "evidenceReviewBody")}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+      <div className="audit-decision-map" role="group" aria-label={flowLabel}>
+        <div className="audit-decision-map__start">
+          <strong>{signalId}</strong>
+          <span>{bilingual("Check the signal", "সংকেত যাচাই করুন")}</span>
+        </div>
+        <div className="audit-decision-map__arrow" aria-hidden="true" />
+
+        <div className="audit-decision-map__gate">
+          <div className="audit-decision-map__diamond">
+            <svg viewBox="0 0 240 124" focusable="false" aria-hidden="true">
+              <path d="M120 2 L238 62 L120 122 L2 62 Z" />
+            </svg>
+            <strong>{bilingual("Are the required records available?", "প্রয়োজনীয় নথি কি আছে?")}</strong>
+          </div>
+          <div className="audit-decision-map__fork" aria-hidden="true" />
+          <div className="audit-decision-map__options">
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("No", "না")}</span>
+              <div className="audit-decision-map__box audit-decision-map__box--stop">
+                <strong>{bilingual("Request missing records", "অনুপস্থিত নথি আনুন")}</strong>
+                <p>{bilingual("Keep the signal open. Do not treat missing values as zero.", "যাচাই চলমান রাখুন। অনুপস্থিত তথ্য শূন্য ধরবেন না।")}</p>
+              </div>
             </div>
-          </li>
-        ))}
-      </ol>
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("Yes", "হ্যাঁ")}</span>
+              <div className="audit-decision-map__box">
+                <strong>{bilingual("Compare the filed figures", "দাখিলকৃত হিসাব মিলান")}</strong>
+                <p>{check}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="audit-decision-map__arrow" aria-hidden="true" />
+
+        <div className="audit-decision-map__gate">
+          <div className="audit-decision-map__diamond">
+            <svg viewBox="0 0 240 124" focusable="false" aria-hidden="true">
+              <path d="M120 2 L238 62 L120 122 L2 62 Z" />
+            </svg>
+            <strong>{bilingual("Is the signal condition met?", "সংকেতের শর্ত কি মিলে?")}</strong>
+          </div>
+          <p className="audit-decision-map__question">{question}</p>
+          <div className="audit-decision-map__fork" aria-hidden="true" />
+          <div className="audit-decision-map__options">
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("No", "না")}</span>
+              <div className="audit-decision-map__box audit-decision-map__box--stop">
+                <strong>{bilingual("Record why it does not match", "না মেলার কারণ লিখুন")}</strong>
+                <p>{bilingual("Do not trigger this signal without a verified condition.", "শর্ত যাচাই ছাড়া সংকেত চালু করবেন না।")}</p>
+              </div>
+            </div>
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("Yes", "হ্যাঁ")}</span>
+              <div className="audit-decision-map__box">
+                <strong>{bilingual("Check possible explanations", "সম্ভাব্য ব্যাখ্যা দেখুন")}</strong>
+                <p>{reason}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="audit-decision-map__arrow" aria-hidden="true" />
+
+        <div className="audit-decision-map__gate">
+          <div className="audit-decision-map__diamond">
+            <svg viewBox="0 0 240 124" focusable="false" aria-hidden="true">
+              <path d="M120 2 L238 62 L120 122 L2 62 Z" />
+            </svg>
+            <strong>{bilingual("Does the evidence confirm the concern?", "প্রমাণে অমিল কি নিশ্চিত?")}</strong>
+          </div>
+          <div className="audit-decision-map__fork" aria-hidden="true" />
+          <div className="audit-decision-map__options">
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("No / not yet", "না / এখনো নয়")}</span>
+              <div className="audit-decision-map__box audit-decision-map__box--stop">
+                <strong>{bilingual("Pending or explained", "অপেক্ষমাণ বা ব্যাখ্যা পাওয়া গেছে")}</strong>
+                <p>{bilingual("Request more evidence or record why the concern was resolved.", "প্রমাণ চাইুন অথবা অমিল কেন মিটেছে তা লিখুন।")}</p>
+              </div>
+            </div>
+            <div className="audit-decision-map__option">
+              <span className="audit-decision-map__answer">{bilingual("Yes", "হ্যাঁ")}</span>
+              <div className="audit-decision-map__box">
+                <strong>{bilingual("Send for officer review", "কর্মকর্তার পর্যালোচনায় পাঠান")}</strong>
+                <p>{bilingual("Link independent documents. The officer records the final assessment.", "স্বাধীন প্রমাণ যুক্ত করুন। কর্মকর্তা সিদ্ধান্ত নথিবদ্ধ করবেন।")}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="audit-decision-map__arrow" aria-hidden="true" />
+        <div className="audit-decision-map__end">
+          {bilingual("Record the decision, reasons and evidence in the audit trail", "সিদ্ধান্ত, কারণ ও প্রমাণ অডিট ট্রেইলে লিখুন")}
+        </div>
+      </div>
+      <div className="audit-signal-flow__footnotes">
+        <p><strong>{bilingual("Source check:", "যে নথি দেখবেন:")}</strong> {documents}</p>
+        {taxpayer && <p>{recordIntro}. {readiness}</p>}
+        {population && <p>{overviewIntro}. {readiness}</p>}
+        {isC1 && <p>{word("c1Threshold")}</p>}
+        {!isC1 && <p>{word("noAuthority")}</p>}
+        <p>{word("officer")}</p>
+      </div>
       <details className="audit-signal-flow__formula">
         <summary>{word("noNumeric")}</summary>
         <div>
