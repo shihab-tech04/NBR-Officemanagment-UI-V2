@@ -176,6 +176,19 @@ test('ownership revoked between requests cannot reuse a previously authorized pr
   assert.equal(h.seen.privilegedReads, 0);
 });
 
+test('malformed mock Auth principal never becomes an owner or reservation actor', async () => {
+  // This verifies handler input integrity, NOT a real signed JWT.
+  for (const actorId of ['not-a-uuid', 42, '00000000-0000-0000-0000-000000000000']) {
+    const h = harness({ actorId });
+    const result = await h.request();
+    assert.equal(result.status, 401, String(actorId));
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
 test('service-role credential is not accepted as a taxpayer bearer', async () => {
   const h = harness();
   const r = await h.request({ token: 'synthetic-service-role' });
