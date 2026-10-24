@@ -5009,235 +5009,46 @@
   }
 }
 
-/* Story-first audit signal detail: reuse the Office palette, typography and spacing. */
-.audit-signal-flow {
-  margin-block: var(--space-2);
-  padding: var(--space-3);
-}
-.audit-signal-flow__header { margin-bottom: var(--space-3); }
-.audit-story__figures {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-.audit-story__fact {
-  min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-}
-.audit-story__figures > :last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-  background: var(--color-surface-secondary);
-}
-.audit-story__fact-label {
-  display: block;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  font-size: var(--fs-caption);
-  color: var(--color-text-secondary);
-  font-weight: 600;
-}
-.audit-story__fact-value {
-  margin-block: var(--space-1);
-  font-size: var(--fs-body);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-.audit-signal-flow__preview .detail-section__head {
-  font-size: var(--fs-body-sm);
-}
-.audit-signal-flow__preview {
-  margin-bottom: var(--space-2);
-}
-.audit-signal-flow__source-note { margin: var(--space-2) 0 0; }
-.audit-story__population {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-secondary);
-}
-.audit-story__population-header { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
-.audit-story__population-header strong { font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
-.audit-story__population-header span { font-size: var(--fs-body-sm); }
-.audit-story__population p,
-.audit-story__verification p,
-.audit-story__meaning p,
-.audit-story__next p,
-.audit-story__population-progress p {
-  margin: var(--space-2) 0 0;
-  font-size: var(--fs-body-sm);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.audit-story__verification,
-.audit-story__meaning,
-.audit-story__next,
-.audit-story__population-progress {
-  padding: var(--space-3);
-  margin-top: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  min-width: 0;
-}
-.audit-story__verification { border-left: 3px solid var(--color-primary); }
-.audit-story__next { background: var(--color-primary-alpha-4); }
-.audit-story__verification h4,
-.audit-story__meaning h4,
-.audit-story__next h4,
-.audit-story__population-progress h4 {
-  margin: 0 0 var(--space-1);
-  font-size: var(--fs-body-sm);
-  font-weight: 700;
-  color: var(--color-primary);
-}
-.audit-story__verification strong { font-size: var(--fs-body); }
-.audit-story__context { color: var(--color-text-secondary); }
-.audit-story__documents { color: var(--color-text-secondary); }
-.audit-story__progress-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-.audit-story__progress-grid > div {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-2);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.audit-story__progress-grid span { font-size: var(--fs-caption); overflow-wrap: anywhere; }
-.audit-story__progress-grid strong { font-size: var(--fs-caption); color: var(--color-text-secondary); }
-.audit-story__decision,
-.audit-story__source,
-.audit-story__reference {
-  margin-top: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  min-width: 0;
-}
-.audit-story__decision summary,
-.audit-story__source summary,
-.audit-story__reference summary {
-  cursor: pointer;
-  padding: var(--space-3);
-  font-size: var(--fs-body-sm);
-  font-weight: 700;
-  color: var(--color-primary);
-}
-.audit-story__decision-body,
-.audit-story__reference-body,
-.audit-story__source .audit-signal-flow__footnotes {
-  padding: 0 var(--space-3) var(--space-3);
-  min-width: 0;
-}
-.audit-story__decision .audit-decision-map { padding-top: var(--space-2); }
-.audit-story__reference .detail-section { margin-block: var(--space-2); }
-.audit-story__reference .drawer-field__value { overflow-wrap: anywhere; }
-@media (max-width: 540px) {
-  .audit-story__progress-grid { grid-template-columns: minmax(0,1fr); }
-  .audit-story__figures { gap: var(--space-1); }
-  .audit-story__fact { padding: var(--space-2); }
-  .audit-signal-flow { padding: var(--space-2); }
-  .audit-story__verification,
-  .audit-story__meaning,
-  .audit-story__next,
-  .audit-story__population-progress { padding: var(--space-2); }
-}
 
-/* Audit signal review inherits only the currently selected Office palette.
-   Keep all nested labels and decision paths readable in dark and light modes. */
-.audit-explainer-drawer .audit-signal-flow,
-.audit-explainer-drawer .audit-story__fact,
-.audit-explainer-drawer .audit-story__verification,
-.audit-explainer-drawer .audit-story__meaning,
-.audit-explainer-drawer .audit-story__next,
-.audit-explainer-drawer .audit-story__population,
-.audit-explainer-drawer .audit-story__population-progress,
-.audit-explainer-drawer .audit-story__decision,
-.audit-explainer-drawer .audit-story__source,
-.audit-explainer-drawer .audit-story__reference,
-.audit-explainer-drawer .audit-decision-map__box,
-.audit-explainer-drawer .audit-decision-map__start,
-.audit-explainer-drawer .audit-decision-map__end {
-  color: var(--color-text-primary);
-}
-.audit-explainer-drawer .audit-story__fact-label,
-.audit-explainer-drawer .audit-story__context,
-.audit-explainer-drawer .audit-story__documents,
-.audit-explainer-drawer .audit-signal-flow__historical,
-.audit-explainer-drawer .audit-signal-flow__source-note {
-  color: var(--color-text-secondary);
-}
-.audit-explainer-drawer .audit-story__decision summary:focus-visible,
-.audit-explainer-drawer .audit-story__source summary:focus-visible,
-.audit-explainer-drawer .audit-story__reference summary:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-}
-
-/* AUDIT GOLDEN UI — compact story, not a nested card stack.
-   Scoped to the two Audit explanation drawers; shared surfaces remain unchanged. */
-.audit-summary-drawer .audit-summary-drawer__content {
-  gap: var(--space-3);
-}
-.audit-summary-drawer .detail-section,
-.audit-explainer-drawer .audit-explainer-drawer__content > .detail-section,
-.audit-explainer-drawer .audit-story__reference .detail-section,
-.audit-explainer-drawer .audit-signal-flow__preview {
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-}
-.audit-summary-drawer .detail-section__head,
-.audit-explainer-drawer .detail-section__head {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--color-primary);
-  padding: 0 0 var(--space-2);
-  margin: 0;
-}
-.audit-summary-drawer .detail-section + .detail-section {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
+/* Audit explanation surfaces — SAME canonical drawer card, header and field-grid
+   language as Register-4. This block replaces the contradictory story-first
+   overrides. Do not flatten .detail-section or shared components. */
+.audit-summary-drawer__content { min-width: 0; gap: var(--space-3); }
 .audit-summary-drawer__meta,
+.audit-summary-drawer__copy {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-md);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.audit-summary-drawer__meta { color: var(--color-text-secondary); }
 .audit-summary-drawer__signals {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 0;
   padding: 0;
 }
-.audit-summary-drawer__copy {
-  padding: var(--space-2) var(--space-3);
-}
-.audit-summary-drawer .drawer-field-grid,
-.audit-summary-drawer__figures .drawer-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 0;
-}
-.audit-summary-drawer .drawer-field {
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
+.audit-summary-drawer__signal {
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
   border: 0;
-  border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
-  background: transparent;
   border-radius: 0;
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
 }
-.audit-summary-drawer .drawer-field:nth-child(2n) { border-right: 0; }
-.audit-summary-drawer .drawer-field:last-child:nth-child(odd) {
+.audit-summary-drawer__signal:last-child { border-bottom: 0; }
+.audit-summary-drawer__signal:hover,
+.audit-summary-drawer__signal:focus-visible { background: var(--color-primary-alpha-4); }
+.audit-summary-drawer__figures .drawer-field-grid {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+}
+.audit-summary-drawer__figures .drawer-field:last-child:nth-child(odd) {
   grid-column: 1 / -1;
-  border-right: 0;
-  background: transparent;
 }
 .audit-summary-drawer .drawer-field__label {
   white-space: normal;
@@ -5247,49 +5058,78 @@
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
-.audit-summary-drawer__signal {
+
+/* One Register-4-style outer review card, not boxes nested within boxes. */
+.audit-explainer-drawer .audit-signal-flow {
+  min-width: 0;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-primary);
+}
+.audit-explainer-drawer .audit-signal-flow__header {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
   border: 0;
   border-bottom: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
-  min-height: 44px;
-  padding: var(--space-3) var(--space-2);
-  align-items: center;
+  background: var(--color-primary-alpha-4);
+  color: var(--color-primary);
+  gap: var(--space-2);
 }
-.audit-summary-drawer__signals { gap: 0; }
-.audit-summary-drawer__signal:last-child { border-bottom: 0; }
-.audit-summary-drawer__figures .drawer-field-grid {
-  border-top: 1px solid var(--color-border);
+.audit-explainer-drawer .audit-signal-flow__header h3 {
+  font-size: var(--fs-caption);
+  letter-spacing: .04em;
 }
-.audit-explainer-drawer .audit-signal-flow {
+.audit-explainer-drawer .audit-signal-flow__body {
+  padding: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+.audit-explainer-drawer .audit-signal-flow__preview {
+  margin: 0;
+  padding: 0;
   border: 0;
   box-shadow: none;
   background: transparent;
-  padding: 0;
-  margin: var(--space-2) 0 0;
 }
-.audit-explainer-drawer .audit-signal-flow__header {
-  border-bottom: 1px solid var(--color-border);
-  padding: 0 0 var(--space-2);
+.audit-explainer-drawer .audit-signal-flow__subhead {
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: var(--fs-body-sm);
   margin: 0 0 var(--space-2);
 }
 .audit-explainer-drawer .audit-story__figures {
-  gap: 0;
-  border-top: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 1px;
+  min-width: 0;
+  background: var(--color-border);
 }
 .audit-explainer-drawer .audit-story__fact {
   border: 0;
-  border-bottom: 1px solid var(--color-border);
-  border-right: 1px solid var(--color-border);
-  background: transparent;
-  box-shadow: none;
   border-radius: 0;
+  min-width: 0;
   padding: var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: none;
 }
-.audit-explainer-drawer .audit-story__fact:nth-child(2n) { border-right: 0; }
 .audit-explainer-drawer .audit-story__figures > :last-child:nth-child(odd) {
-  border-right: 0;
-  background: transparent;
+  grid-column: 1 / -1;
+  background: var(--color-surface);
+}
+.audit-explainer-drawer .audit-story__fact-label,
+.audit-explainer-drawer .audit-signal-flow__historical {
+  color: var(--color-text-secondary);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.audit-explainer-drawer .audit-story__fact-value {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 .audit-explainer-drawer .audit-story__verification,
 .audit-explainer-drawer .audit-story__meaning,
@@ -5297,57 +5137,158 @@
 .audit-explainer-drawer .audit-story__population,
 .audit-explainer-drawer .audit-story__population-progress {
   border: 0;
+  border-top: 1px solid var(--color-border);
+  border-left: 0;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
   padding: var(--space-3) 0 0;
+  margin: var(--space-3) 0 0;
+  min-width: 0;
+}
+.audit-explainer-drawer .audit-story__verification h4,
+.audit-explainer-drawer .audit-story__meaning h4,
+.audit-explainer-drawer .audit-story__next h4,
+.audit-explainer-drawer .audit-story__population-progress h4 {
+  color: var(--color-primary);
+  font-size: var(--fs-body-sm);
+  margin: 0 0 var(--space-1);
+}
+.audit-explainer-drawer .audit-story__verification p,
+.audit-explainer-drawer .audit-story__meaning p,
+.audit-explainer-drawer .audit-story__next p,
+.audit-explainer-drawer .audit-story__population p,
+.audit-explainer-drawer .audit-story__population-progress p {
+  font-size: var(--fs-body-sm);
+  line-height: 1.5;
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.audit-explainer-drawer .audit-story__documents {
+  color: var(--color-text-secondary);
+}
+.audit-explainer-drawer .audit-story__progress-grid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: var(--space-2);
   margin-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
 }
-.audit-explainer-drawer .audit-story__verification {
-  border-left: 3px solid var(--color-primary);
-  border-top: 0;
-  padding: var(--space-2) 0 var(--space-2) var(--space-3);
+.audit-explainer-drawer .audit-story__progress-grid > div {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
 }
-.audit-explainer-drawer .audit-story__next { font-weight: 500; }
+
+/* Disclosure rows belong to the same review card, not additional cards. */
 .audit-explainer-drawer .audit-story__decision,
 .audit-explainer-drawer .audit-story__source,
-.audit-explainer-drawer .audit-story__reference,
 .audit-explainer-drawer .audit-signal-flow__formula {
-  background: transparent;
+  display: block;
   border: 0;
   border-top: 1px solid var(--color-border);
   border-radius: 0;
   box-shadow: none;
+  background: transparent;
   padding: 0;
-  margin-top: var(--space-3);
+  margin: var(--space-3) 0 0;
 }
 .audit-explainer-drawer .audit-story__decision summary,
 .audit-explainer-drawer .audit-story__source summary,
-.audit-explainer-drawer .audit-story__reference summary,
 .audit-explainer-drawer .audit-signal-flow__formula summary {
+  cursor: pointer;
+  min-height: 44px;
   padding: var(--space-3) 0;
+  color: var(--color-primary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+}
+.audit-explainer-drawer .audit-story__decision summary:focus-visible,
+.audit-explainer-drawer .audit-story__source summary:focus-visible,
+.audit-explainer-drawer .audit-signal-flow__formula summary:focus-visible,
+.audit-explainer-drawer .audit-story__reference summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 .audit-explainer-drawer .audit-story__decision-body,
-.audit-explainer-drawer .audit-story__reference-body,
 .audit-explainer-drawer .audit-story__source .audit-signal-flow__footnotes {
   padding: 0 0 var(--space-3);
+  min-width: 0;
+}
+.audit-explainer-drawer .audit-signal-flow__footnotes p {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+/* Separate optional detail card: use the real .detail-section styling. */
+.audit-explainer-drawer .audit-story__reference {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.audit-explainer-drawer .audit-story__reference > summary {
+  display: list-item;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  min-height: 44px;
+  cursor: pointer;
+  border-bottom: 0;
+  border-radius: 0;
+  background: var(--color-primary-alpha-4);
+  color: var(--color-primary);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.audit-explainer-drawer .audit-story__reference[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+}
+.audit-explainer-drawer .audit-story__reference-body {
+  padding: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+.audit-explainer-drawer .audit-story__definition-group + .audit-story__definition-group {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.audit-explainer-drawer .audit-story__definition-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: var(--fs-body-sm);
+}
+.audit-explainer-drawer .audit-story__reference .drawer-field-grid {
+  min-width: 0;
+  background: var(--color-border);
 }
 .audit-explainer-drawer .audit-story__reference .drawer-field {
+  min-width: 0;
+  padding: var(--space-3);
   border: 0;
-  border-bottom: 1px solid var(--color-border);
-  background: transparent;
   border-radius: 0;
+  background: var(--color-surface);
 }
-.audit-explainer-drawer .audit-story__progress-grid > div {
-  background: transparent;
-  border: 0;
-  border-left: 2px solid var(--color-border);
-  border-radius: 0;
+.audit-explainer-drawer .audit-story__reference .drawer-field__label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.audit-explainer-drawer .audit-story__reference-note {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 1.5;
 }
 @media (max-width: 540px) {
-  .audit-summary-drawer .drawer-field,
-  .audit-explainer-drawer .audit-story__fact {
-    padding: var(--space-2);
-  }
+  .audit-explainer-drawer .audit-signal-flow__body,
+  .audit-explainer-drawer .audit-story__reference-body { padding: var(--space-3); }
+  .audit-explainer-drawer .audit-story__fact { padding: var(--space-2); }
+  .audit-explainer-drawer .audit-story__progress-grid { grid-template-columns: minmax(0,1fr); }
 }
