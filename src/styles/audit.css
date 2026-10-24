@@ -4805,6 +4805,24 @@
   flex: 0 0 auto;
   margin-top: 2px;
 }
+.audit-signal-flow__preview {
+  min-width: 0;
+  margin-top: var(--space-3);
+}
+.audit-signal-flow__preview .drawer-field-grid { min-width: 0; }
+.audit-signal-flow__preview .drawer-field { min-width: 0; }
+.audit-signal-flow__preview .drawer-field__value {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.audit-signal-flow__historical,
+.audit-signal-flow__source-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
 @media (max-width: 390px) {
   .audit-signal-flow { padding: var(--space-2); }
   .audit-signal-flow__step-content { padding: var(--space-2); }
