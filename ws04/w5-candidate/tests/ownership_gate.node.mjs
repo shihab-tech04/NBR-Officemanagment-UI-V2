@@ -290,6 +290,26 @@ test('cross-year request is denied against synthetic authoritative year before r
   assert.equal(h.seen.privilegedReads, 0, 'no privileged rule reads');
 });
 
+test('draft, disabled and absent owner-scoped SQL years cannot consume reservation slots', async () => {
+  for (const yearData of [
+    { assessment_year: '2026-27', income_year: '2025-26',
+      state: 'draft', is_executable: false },
+    { assessment_year: '2026-27', income_year: '2025-26',
+      state: 'active', is_executable: false },
+    null,
+  ]) {
+    const h = harness({ yearData });
+    const r = await h.request();
+    assert.equal(r.status, yearData === null ? 404 : 409);
+    if (yearData !== null) assert.equal(r.body.code, 'UNAPPROVED_YEAR');
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0,
+      'unapproved or missing authoritative year must not consume a replay key');
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
 test('malformed reservation responses never authorize rule reads', async () => {
   for (const reservationData of [null, [], 'RESERVED', { state: true }]) {
     const h = harness({ reservationData });
