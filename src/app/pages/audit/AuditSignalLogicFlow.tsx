@@ -85,9 +85,6 @@ export function AuditSignalLogicFlow({
               </div>
             ))}
           </div>
-          <p className="audit-signal-flow__source-note">{word("snapshotCaution")}</p>
-          {signalId.startsWith("R-E") && <p className="audit-signal-flow__source-note">{word("externalProof")}</p>}
-          {isC1 && <p className="audit-signal-flow__source-note">{word("c1Separate")}</p>}
         </section>
       )}
       {population && (
@@ -103,12 +100,8 @@ export function AuditSignalLogicFlow({
       <section className="audit-story__verification" aria-label={bilingual("Current verification", "বর্তমান যাচাই")}>
         <div>
           <h4>{bilingual("Current verification", "বর্তমান যাচাই")}</h4>
-          <strong>{bilingual("Needs source verification", "মূল নথি যাচাই দরকার")}</strong>
+          <strong>{bilingual("Source check pending", "মূল নথি যাচাই বাকি")}</strong>
         </div>
-        <p>{taxpayer
-          ? bilingual("The signal and displayed figures are not proof. Filed amounts, the applicable approved rule and supporting evidence must be checked before a decision.", "সংকেত ও প্রোফাইলের সংখ্যা চূড়ান্ত প্রমাণ নয়। সিদ্ধান্তের আগে মূল রিটার্ন, প্রযোজ্য অনুমোদিত নিয়ম ও নথি যাচাই করতে হবে।")
-          : bilingual("This overview contains signal counts, not case-by-case verification outcomes. Do not count any record as confirmed or resolved from this chart.", "এখানে সংকেতের সংখ্যা আছে, প্রতিটি রিটার্নের যাচাইয়ের ফল নেই। এই চার্ট দেখে কোনো রিটার্নকে নিশ্চিত বা নিষ্পত্তি ধরা যাবে না।")}</p>
-        {taxpayer && <p className="audit-story__context">{recordIntro}</p>}
       </section>
       {impact && <section className="audit-story__meaning">
         <h4>{bilingual("Why it matters", "কেন এটি গুরুত্বপূর্ণ")}</h4>
@@ -131,7 +124,6 @@ export function AuditSignalLogicFlow({
               bilingual("Evidence reviewed", "প্রমাণ পর্যালোচনা"),
             ].map((label) => <div key={label}><span>{label}</span><strong>{bilingual("Not reported", "তথ্য নেই")}</strong></div>)}
           </div>
-          <p>{bilingual("Open an individual return to see what can be checked. No case-level verification totals are provided in this view.", "আলাদা যাচাইয়ের জন্য নির্দিষ্ট রিটার্ন খুলুন। এখানে যাচাইকৃত রিটার্নের সংখ্যা দেওয়া নেই।")}</p>
         </section>
       ) : (
         <details className="audit-story__decision">
@@ -237,6 +229,8 @@ export function AuditSignalLogicFlow({
               <div className="audit-signal-flow__footnotes">
                 <p><strong>{bilingual("Source check:", "যে নথি দেখবেন:")}</strong> {documents}</p>
                 {taxpayer && <p>{recordIntro}. {readiness}</p>}
+                {isC1 && <p>{word("c1Separate")}</p>}
+                {signalId.startsWith("R-E") && <p>{word("externalProof")}</p>}
                 {population && <p>{overviewIntro}. {readiness}</p>}
                 {isC1 && <p>{word("c1Threshold")}</p>}
                 {!isC1 && <p>{word("noAuthority")}</p>}
