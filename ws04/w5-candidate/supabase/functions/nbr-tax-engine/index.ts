@@ -1073,6 +1073,24 @@ Deno.serve(async (req) => {
       return json({ error:"Taxpayer record access denied", status:"FAIL_CLOSED", code:"TAXPAYER_ACCESS_DENIED" }, 403);
     }
 
+    // Read only the owner-authorized year metadata before reserving an
+    // idempotency slot. A known AY/IY mismatch must not consume a reservation.
+    // This is NOT a privileged rule/parameter read or a substitute for the
+    // authoritative WS02 owner/tenant contract.
+    const { data: year, error: yearError } = await supabase
+      .from("nbr_tax_years")
+      .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
+      .eq("assessment_year", assessmentYear)
+      .maybeSingle();
+    if (yearError) throw yearError;
+    if (!year) return json({ error: "Assessment year not found" }, 404);
+    if (!year.is_executable || year.state !== "active") {
+      return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
+    }
+    if (year.income_year !== body.incomeYear) {
+      return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
+    }
+
     // Atomic reserve or replay denial must be implemented by WS02 in an
     // isolated migration; without it no privileged calculation may proceed.
     const authorizedRequestHash = await sha256(canonical({
@@ -1096,19 +1114,6 @@ Deno.serve(async (req) => {
         error:"Duplicate or conflicting evaluation request denied" }, 409);
     }
 
-    const { data: year, error: yearError } = await supabase
-      .from("nbr_tax_years")
-      .select("id,assessment_year,income_year,state,coverage,is_executable,is_immutable,source_registry_version,legal_cutoff")
-      .eq("assessment_year", assessmentYear)
-      .maybeSingle();
-    if (yearError) throw yearError;
-    if (!year) return json({ error: "Assessment year not found" }, 404);
-    if (!year.is_executable || year.state !== "active") {
-      return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
-    }
-    if (year.income_year !== body.incomeYear) {
-      return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
-    }
     // REVIEW-ONLY safety boundary. A transaction event cannot be assumed to
     // belong to a prior income year merely because the later legal source
     // cutoff covers the event. This standard July-June label check is a
