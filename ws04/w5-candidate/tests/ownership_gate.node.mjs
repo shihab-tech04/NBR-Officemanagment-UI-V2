@@ -281,7 +281,8 @@ test('cross-year request is denied against synthetic authoritative year before r
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'YEAR_MISMATCH');
   assert.equal(h.seen.ownerCalls, 1);
-  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.reserveCalls, 0,
+    'a known SQL income-year mismatch must not consume an idempotency reservation');
   assert.equal(h.seen.privilegedReads, 1); // authoritative year only
 });
 
