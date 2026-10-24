@@ -202,5 +202,6 @@
   "taxpayerDetailScope": "Linked payment records are shown below. Verified returns, tax liabilities and tax credits are not yet available from the shared ledger.",
   "taxPositionNotVerified": "Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.",
   "ledgerNotVerified": "A verified tax ledger is not connected. Open Payments to inspect linked sample transactions; they do not establish tax credits.",
-  "search_taxpayers": "Search by taxpayer name or TIN"
+  "search_taxpayers": "Search by taxpayer name or TIN",
+  "correctionsNotVerified": "No verified correction cases are linked to this taxpayer yet. Example cases from other profiles are deliberately excluded."
 }
