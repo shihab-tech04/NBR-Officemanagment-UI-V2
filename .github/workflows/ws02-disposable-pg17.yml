@@ -1,0 +1,199 @@
+name: WS02 disposable PostgreSQL 17 capability (no deployment)
+on:
+  pull_request:
+    paths:
+      - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/isolated_owner_receipt_contract.sql'
+      - 'ws02/evidence/**'
+      - '.github/workflows/ws02-disposable-pg17.yml'
+  push:
+    branches:
+      - 'ws02/disposable-pg17-sql-test-runner-20261022'
+    paths:
+      - 'ws02/isolated_pg17_capability_smoke.sql'
+      - 'ws02/isolated_owner_receipt_contract.sql'
+      - 'ws02/evidence/**'
+      - '.github/workflows/ws02-disposable-pg17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pg17-isolated-capability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ws02_disposable
+          POSTGRES_PASSWORD: disposable_pg17_ci_only
+          POSTGRES_DB: ws02_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ws02_disposable -d ws02_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: ws02_disposable
+      PGPASSWORD: disposable_pg17_ci_only
+      PGDATABASE: ws02_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PostgreSQL client
+        shell: bash
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -q
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+      - name: Run real disposable PostgreSQL 17 privilege and rollback smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_pg17_capability_smoke.sql
+      - name: Verify isolated ownership, atomic replay and receipt finalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_owner_receipt_contract.sql
+      - name: Verify real two-session owner-row revocation serialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Disposable database only; extract committed DDL before synthetic tests.
+          awk '/^INSERT INTO ws02_owner.owners\(record_id,assessment_year,actor_id,state\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_owner_ddl.sql
+          echo 'COMMIT;' >> /tmp/ws02_owner_ddl.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_owner_ddl.sql >/tmp/ws02_setup.log
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000001','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
+          cat > /tmp/ws02_owner_session_a.sql <<'SQL'
+          BEGIN;
+          -- Test the actual atomic RPC, not just its private lock helper.
+          -- All rows are synthetic in the disposable PostgreSQL service.
+          SET LOCAL ROLE ws02_owner_engine;
+          DO $atomic_session$
+          DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+                  record uuid:='50000000-0000-4000-8000-000000000001';
+                  idem text:='concurrent-atomic-receipt-00001';
+                  req text:=repeat('a',64);
+                  receipt text:=repeat('b',64);
+                  audit jsonb; reservation jsonb;
+          BEGIN
+            reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+              actor,record,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+              RAISE EXCEPTION 'CONCURRENT_ATOMIC_RESERVATION_FAILED'; END IF;
+            audit:=jsonb_build_object(
+              'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+              'assessment_year','2026-27','income_year','2025-26',
+              'authorized_request_hash',req,'receipt_hash',receipt,
+              'idempotency_key',idem,'result_status','NEEDS_FACTS',
+              'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+              actor,record,'2026-27',idem,req,receipt,repeat('c',64),
+              'NEEDS_FACTS',audit) THEN
+              RAISE EXCEPTION 'CONCURRENT_ATOMIC_COMMIT_FAILED'; END IF;
+          END $atomic_session$;
+          \echo ATOMIC_RECEIPT_LOCK_HELD
+          SELECT pg_sleep(6);
+          COMMIT;
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_owner_session_a.sql > /tmp/ws02_owner_session_a.log 2>&1 &
+          holder=$!
+          acquired=0
+          for i in $(seq 1 80); do
+            if grep -q 'ATOMIC_RECEIPT_LOCK_HELD' /tmp/ws02_owner_session_a.log; then acquired=1; break; fi
+            if ! kill -0 "$holder" 2>/dev/null; then break; fi
+            sleep 0.1
+          done
+          if [[ "$acquired" -ne 1 ]]; then cat /tmp/ws02_owner_session_a.log; exit 1; fi
+          set +e
+          psql -X -v ON_ERROR_STOP=1 -c "SET lock_timeout='750ms'; UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000001' AND assessment_year='2026-27';" > /tmp/ws02_revoke_attempt.log 2>&1
+          revoke_rc=$?
+          set -e
+          if [[ "$revoke_rc" -eq 0 ]] || ! grep -q 'lock timeout' /tmp/ws02_revoke_attempt.log; then cat /tmp/ws02_revoke_attempt.log; exit 1; fi
+          active=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000001';")
+          [[ "$active" == 'ACTIVE' ]] || { echo 'OWNER_CHANGED_WHILE_RECEIPT_LOCK_HELD'; exit 1; }
+          wait "$holder"
+          # The receipt must have committed exactly once with its audit trace
+          # before owner revocation succeeds.
+          finalized=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM ws02_owner.slots s JOIN ws02_owner.evaluation_logs e USING(actor_id,record_id,assessment_year,idem_key) WHERE s.idem_key='concurrent-atomic-receipt-00001' AND s.state='FINALIZED' AND s.receipt_hash=repeat('b',64) AND e.result_state='NEEDS_FACTS' AND e.audit_trace->>'income_year'='2025-26' AND e.audit_trace->>'idempotency_key'=s.idem_key;")
+          [[ "$finalized" == "1" ]] || { echo 'ATOMIC_RECEIPT_NOT_COMMITTED_EXACTLY_ONCE'; exit 1; }
+          psql -X -v ON_ERROR_STOP=1 -c "UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000001';"
+          revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000001';")
+          [[ "$revoked" == 'REVOKED' ]] || { echo 'REVOCATION_AFTER_COMMIT_FAILED'; exit 1; }
+          # Separate two-session rollback proof: a successful atomic call must
+          # leave NO persisted receipt, slot or trace if its transaction aborts.
+          # This is synthetic PostgreSQL behavior, not signed JWT revocation.
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000002','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
+          cat > /tmp/ws02_owner_rollback_session_a.sql <<'SQL'
+          BEGIN;
+          SET LOCAL ROLE ws02_owner_engine;
+          DO $atomic_rollback_session$
+          DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+                  record uuid:='50000000-0000-4000-8000-000000000002';
+                  idem text:='rollback-atomic-receipt-00001';
+                  req text:=repeat('a',64); receipt text:=repeat('b',64);
+                  audit jsonb; reservation jsonb;
+          BEGIN
+            reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+              actor,record,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+              RAISE EXCEPTION 'ROLLBACK_RESERVATION_FAILED'; END IF;
+            audit:=jsonb_build_object(
+              'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+              'assessment_year','2026-27','income_year','2025-26',
+              'authorized_request_hash',req,'receipt_hash',receipt,
+              'idempotency_key',idem,'result_status','NEEDS_FACTS',
+              'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+              actor,record,'2026-27',idem,req,receipt,repeat('c',64),
+              'NEEDS_FACTS',audit) THEN
+              RAISE EXCEPTION 'ROLLBACK_ATOMIC_COMMIT_CALL_FAILED'; END IF;
+          END $atomic_rollback_session$;
+          \echo ATOMIC_ROLLBACK_LOCK_HELD
+          SELECT pg_sleep(6);
+          ROLLBACK;
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_owner_rollback_session_a.sql > /tmp/ws02_owner_rollback_session_a.log 2>&1 &
+          rollback_holder=$!
+          rollback_acquired=0
+          for i in $(seq 1 80); do
+            if grep -q 'ATOMIC_ROLLBACK_LOCK_HELD' /tmp/ws02_owner_rollback_session_a.log; then rollback_acquired=1; break; fi
+            if ! kill -0 "$rollback_holder" 2>/dev/null; then break; fi
+            sleep 0.1
+          done
+          if [[ "$rollback_acquired" -ne 1 ]]; then cat /tmp/ws02_owner_rollback_session_a.log; exit 1; fi
+          set +e
+          psql -X -v ON_ERROR_STOP=1 -c "SET lock_timeout='750ms'; UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000002' AND assessment_year='2026-27';" > /tmp/ws02_rollback_revoke_attempt.log 2>&1
+          rollback_revoke_rc=$?
+          set -e
+          if [[ "$rollback_revoke_rc" -eq 0 ]] || ! grep -q 'lock timeout' /tmp/ws02_rollback_revoke_attempt.log; then cat /tmp/ws02_rollback_revoke_attempt.log; exit 1; fi
+          wait "$rollback_holder"
+          rollback_owner=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000002';")
+          [[ "$rollback_owner" == 'ACTIVE' ]] || { echo 'OWNER_CHANGED_BEFORE_ROLLBACK'; exit 1; }
+          rollback_rows=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM ws02_owner.slots WHERE idem_key='rollback-atomic-receipt-00001') + (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='rollback-atomic-receipt-00001');")
+          [[ "$rollback_rows" == '0' ]] || { echo 'ATOMIC_ROLLBACK_LEFT_ORPHAN_SLOT_OR_TRACE'; exit 1; }
+          psql -X -v ON_ERROR_STOP=1 -c "UPDATE ws02_owner.owners SET state='REVOKED' WHERE record_id='50000000-0000-4000-8000-000000000002';"
+          rollback_revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000002';")
+          [[ "$rollback_revoked" == 'REVOKED' ]] || { echo 'OWNER_REVOCATION_AFTER_ROLLBACK_FAILED'; exit 1; }
+          echo 'TWO_SESSION_ATOMIC_RECEIPT_ROLLBACK_NO_ORPHANS_PASS_ONLY'
+          # Remove role-owned default ACL records as well as schema objects; otherwise
+          # PostgreSQL correctly refuses to drop the synthetic definer roles.
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          echo 'TWO_SESSION_ATOMIC_RECEIPT_OWNER_REVOCATION_SERIALIZATION_PASS_ONLY'
+      - name: Verify read-only candidate overlay integrity (not law approval)
+        shell: bash
+        run: node ws02/evidence/verify-temporal-review.mjs
+      - name: Explicit acceptance boundary
+        shell: bash
+        run: |
+          echo 'PASS applies ONLY to a fresh disposable PG17 service, synthetic privilege check and rollback.'
+          echo 'NOT TESTED: WS02 archived migration SQL, Supabase Auth users/JWT, ownership RPC, signed legal review, NBR Project Agent, source-to-value correctness.'
+          echo 'No connection to any real Supabase project or production taxpayer data.'
