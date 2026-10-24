@@ -290,6 +290,23 @@ test('cross-year request is denied against synthetic authoritative year before r
   assert.equal(h.seen.privilegedReads, 0, 'no privileged rule reads');
 });
 
+test('mismatched SQL assessment-year metadata cannot reserve or access privileged rules', async () => {
+  // The query must not trust an inconsistent row merely because it arrived
+  // through a year-filtered PostgREST response. Synthetic SQL data only.
+  const h = harness({ yearData: {
+    assessment_year: '2027-28', income_year: '2025-26',
+    state: 'active', is_executable: true,
+  } });
+  const r = await h.request();
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, 'YEAR_MISMATCH');
+  assert.equal(h.seen.ownerCalls, 1);
+  assert.equal(h.seen.yearReads, 1);
+  assert.equal(h.seen.reserveCalls, 0,
+    'a mismatched authoritative assessment year must not consume a replay key');
+  assert.equal(h.seen.privilegedReads, 0);
+});
+
 test('draft, disabled and absent owner-scoped SQL years cannot consume reservation slots', async () => {
   for (const yearData of [
     { assessment_year: '2026-27', income_year: '2025-26',
