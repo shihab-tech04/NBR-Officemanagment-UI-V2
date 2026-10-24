@@ -433,7 +433,7 @@ export function resolveAuditExplanation(
         ? pick(l("One or more values are unusable for the affected calculation/rule and must not be silently coerced to zero.", "এক বা একাধিক value affected calculation/rule-এর জন্য unusable; এগুলোকে silently zero করা যাবে না।"), lang)
         : incomplete
           ? pick(l("Required information for one or more checks is missing. Missing values remain NULL, not zero.", "এক বা একাধিক check-এর প্রয়োজনীয় তথ্য missing। Missing value NULL থাকবে, zero নয়।"), lang)
-          : pick(l("Available values passed the prototype's basic data-quality gate for the checks shown.", "Available value prototype-এর basic data-quality gate pass করেছে।"), lang),
+          : pick(l("Available values passed the basic data checks shown. Verify the required source documents separately.", "দেখানো তথ্যের প্রাথমিক মান যাচাই হয়েছে। প্রয়োজনীয় মূল নথি আলাদাভাবে মিলিয়ে দেখুন।"), lang),
       effect: pick(l("Data Quality is separate from Coverage, Risk Signal, Risk Level and Control Flag.", "Data Quality, Coverage, Risk Signal, Risk Level ও Control Flag আলাদা dimension।"), lang),
       nextStep: invalid || incomplete
         ? pick(l("Resolve the affected data state before relying on rules that need those fields.", "যে rule ওই field চায়, তার ওপর নির্ভর করার আগে data state সমাধান করুন।"), lang)
