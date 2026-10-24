@@ -8,7 +8,7 @@ export const AUDIT_MANUAL_DEMO_SECTIONS: ManualSection[] = [
     number: "A",
     area: "demo",
     sourceOrder: "Illustrative data",
-    title: mt("Illustrative / Demo Data in the source", "Source-এর Illustrative / Demo Data"),
+    title: mt("Examples in the source material", "মূল নথিতে থাকা উদাহরণ"),
     description: mt(
       "These values are explicitly labelled illustrative in the source and are not actual NBR data. They are retained here because they are part of the framework document.",
       "Source এগুলোকে স্পষ্টভাবে illustrative বলে; এগুলো actual NBR data নয়। Framework document-এর অংশ বলে এখানে সংরক্ষিত।"
