@@ -505,3 +505,33 @@ test('SQL legal cutoff mismatch and post-cutoff event cannot reserve or read rul
     assert.equal(h.seen.privilegedReads, 0, 'invalid legal cutoff cannot read tax rules');
   }
 });
+
+test('payment-event period and date violations are denied before idempotency reservation', async () => {
+  // Payment-event claims are also time-bound. They must not bypass the
+  // transaction-only pre-reservation guard by using paymentRuleIds/paymentEvents.
+  // Synthetic year and owner stubs only; no payment credit is authorized.
+  const cases = [
+    { bodyOverrides: { legalEventDate: '2026-07-10',
+      paymentRuleIds: ['WH-R4-04'] }, status: 409,
+      code: 'TRANSACTION_PERIOD_REVIEW_REQUIRED' },
+    { bodyOverrides: { legalEventDate: '2026-07-10',
+      paymentEvents: { 'WH-R4-04': { eventDate: '2026-07-10', amount: '100' } } },
+      status: 409, code: 'TRANSACTION_PERIOD_REVIEW_REQUIRED' },
+    { bodyOverrides: { paymentEvents: { 'WH-R4-04': { amount: '100' } } },
+      status: 422, code: 'PAYMENT_EVENT_DATE_REQUIRED' },
+    { bodyOverrides: { paymentEvents: { 'WH-R4-04': {
+      eventDate: '2026-07-10', amount: '100' } } },
+      status: 409, code: 'PAYMENT_EVENT_DATE_CONFLICT' },
+  ];
+  for (const { bodyOverrides, status, code } of cases) {
+    const h = harness({ reservationError: { message: 'payment event must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, status, code);
+    assert.equal(result.body.code, code);
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0, 'payment event must not consume a replay key');
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
