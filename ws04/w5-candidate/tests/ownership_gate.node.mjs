@@ -23,7 +23,7 @@ const ownedRecord = '50000000-0000-4000-8000-000000000001';
 function harness({
   ownerData = true, ownerError = null,
   reservationData = { state: 'RESERVED' }, reservationError = null,
-  yearData = null,
+  yearData = null, actorId = signedActor,
 } = {}) {
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
     privilegedReads: 0, ownerArgs: null, reserveArgs: null };
@@ -33,7 +33,7 @@ function harness({
       async getUser(token) {
         seen.authCalls++;
         return token === 'valid.synthetic.token'
-          ? { data: { user: { id: signedActor } }, error: null }
+          ? { data: { user: { id: actorId } }, error: null }
           : { data: { user: null }, error: { message: 'Invalid or revoked mock token' } };
       },
     },
@@ -236,4 +236,39 @@ test('malformed reservation responses never authorize rule reads', async () => {
     assert.equal(h.seen.reserveCalls, 1);
     assert.equal(h.seen.privilegedReads, 0);
   }
+});
+
+test('actor-bound canonical request hash is stable only for the same signed principal and facts', async () => {
+  const stop = { message: 'synthetic stop before privileged rule reads' };
+  async function reservation(args = {}) {
+    const h = harness({ reservationError: stop, ...args });
+    const r = await h.request();
+    assert.equal(r.status, 503);
+    assert.equal(r.body.code, 'REPLAY_GATE_UNAVAILABLE');
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.reserveCalls, 1);
+    assert.equal(h.seen.privilegedReads, 0);
+    assert.match(h.seen.reserveArgs.p_request_hash, /^[a-f0-9]{64}$/);
+    assert.equal(h.seen.reserveArgs.p_auth_user_id, h.seen.ownerArgs.p_auth_user_id);
+    assert.equal(h.seen.reserveArgs.p_idempotency_key, 'synthetic-owner-bound-00001');
+    return h.seen.reserveArgs;
+  }
+  const first = await reservation();
+  const repeat = await reservation();
+  assert.equal(repeat.p_request_hash, first.p_request_hash,
+    'identical signed actor and request must produce deterministic hash');
+  const otherActor = await reservation({ actorId: '60000000-0000-4000-8000-000000000002' });
+  assert.notEqual(otherActor.p_request_hash, first.p_request_hash,
+    'same idempotency key must not make a different signed actor the same request');
+  assert.equal(otherActor.p_auth_user_id, '60000000-0000-4000-8000-000000000002');
+
+  const h = harness({ reservationError: stop });
+  const changed = await h.request({ bodyOverrides: {
+    returnData: { incomeHeads: { employment: '1' } },
+  } });
+  assert.equal(changed.status, 503);
+  assert.equal(changed.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.notEqual(h.seen.reserveArgs.p_request_hash, first.p_request_hash,
+    'changed taxpayer facts must not share an authorized request hash');
+  assert.equal(h.seen.privilegedReads, 0);
 });
