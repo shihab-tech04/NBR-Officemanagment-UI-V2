@@ -484,6 +484,12 @@ function AuditOverviewPage() {
 
     setExplanation({
       ...resolved,
+      signalContext: metric === "signals" ? {
+        scope: "population" as const,
+        count,
+        total: denominator,
+        filterContext,
+      } : resolved.signalContext,
       sections:[
         {
           title:t("overview.explainer.currentView"),

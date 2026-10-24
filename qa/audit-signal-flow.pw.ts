@@ -26,19 +26,19 @@ for (const width of [1366,768,390,360]) {
     await expect(detail).toBeVisible();
     const flow=detail.locator('.audit-signal-flow[data-signal-id="R-C1"]');
     await expect(flow).toBeVisible();
-    await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(6);
-    await expect(flow).toContainText('Data & coverage gate');
-    await expect(flow).toContainText('Independence gate');
-    await expect(flow).toContainText('Gap = 10');
-    await expect(flow).toContainText('max(Sources');
-    await expect(flow).toContainText('shadow-only');
-    await expect(flow).toContainText('not executed');
-    await expect(flow).toContainText('not establish an audit finding');
+    await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
+    await expect(flow).toContainText('Check the available records');
+    await expect(flow).toContainText('Compare the right figures');
+    await expect(flow).toContainText('line 10 minus line 7');
+    await expect(flow).toContainText('approved rule');
+    await expect(flow).toContainText('approved limit');
+    await expect(flow).toContainText('This taxpayer');
+    await expect(flow).toContainText('not an audit finding');
     await expect(flow).not.toContainText('D ≥');
     await expect(flow).not.toContainText('₹');
-    await flow.getByText('Show exact IT-10B calculation').click();
-    await expect(flow).toContainText('8(a–k)');
-    await expect(flow).toContainText('ΔNet Wealth');
+    await flow.locator('.audit-signal-flow__formula summary').click();
+    await expect(flow).toContainText('IT-10B sources');
+    await expect(flow).toContainText('line 10 − line 7');
     const bounds = await flow.evaluate(el=>({
       own:el.scrollWidth-el.clientWidth,
       document:document.documentElement.scrollWidth-innerWidth,
@@ -60,10 +60,10 @@ test('R-E2 uses its own actual condition, without inventing R-C1 thresholds', as
   const detail=page.getByRole('dialog',{name:/R-E2/i});
   const flow=detail.locator('.audit-signal-flow[data-signal-id="R-E2"]');
   await expect(flow).toBeVisible();
-  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(4);
-  await expect(flow).toContainText('legally permitted registry');
-  await expect(flow).toContainText('ownership');
-  await expect(flow).toContainText('not an executed or certified assessment');
+  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
+  await expect(flow).toContainText('lawful access');
+  await expect(flow).toContainText('ownership share');
+  await expect(flow).toContainText('not an audit finding');
   await expect(flow).not.toContainText('10%');
   await expect(flow).not.toContainText('line 10');
 });
@@ -77,10 +77,44 @@ test('Bengali C1 steps, conditions and evidence outcomes are localized',async({p
   await summary.getByRole('button',{name:/R-C1:/}).click();
   const flow=page.locator('.audit-signal-flow[data-signal-id="R-C1"]');
   await expect(flow).toBeVisible();
-  await expect(flow).toContainText('সিদ্ধান্তের যুক্তিপথ');
-  await expect(flow).toContainText('তথ্য ও কভারেজ যাচাই');
-  await expect(flow).toContainText('অযাচাইকৃত');
-  await expect(flow).toContainText('আইনগত সীমা নয়');
-  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(6);
+  await expect(flow).toContainText('এই সংকেত কীভাবে যাচাই হয়');
+  await expect(flow).toContainText('যে তথ্য আছে তা যাচাই করুন');
+  await expect(flow).toContainText('অনুমোদিত');
+  await expect(flow).toContainText('অনুমোদিত সীমা');
+  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
   expect(await flow.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThanOrEqual(2);
+});
+
+test('dashboard signal explanation uses filtered population, not one taxpayer coverage tier',async({page})=>{
+  await page.setViewportSize({width:1366,height:865});
+  await page.goto('/audit/audit-overview');
+  await page.locator('.audit-overview-v5__parameters').getByRole('button',{name:'Risk signal',exact:true}).click();
+  const firstRow=page.locator('.audit-overview-v5__chart-detail').first();
+  await expect(firstRow).toBeVisible();
+  const code=(await firstRow.locator('.audit-overview-v5__bar-label').textContent())?.trim();
+  expect(code).toMatch(/^R-[A-E]\d$/);
+  await firstRow.click();
+  const dialog=page.getByRole('dialog',{name:new RegExp(code!)});
+  const flow=dialog.locator('.audit-signal-flow');
+  await expect(flow).toContainText('Selected returns');
+  await expect(flow).toContainText('36');
+  await expect(flow).toContainText('Each return has its own data availability');
+  await expect(flow).not.toContainText('Assessment year:');
+  await expect(flow).not.toContainText('Data quality: Complete');
+  await expect(flow).not.toContainText('Reference only');
+});
+
+test('record detail shows its actual coverage and source context, without inventing an approved threshold',async({page})=>{
+  await page.goto(first);
+  await page.getByRole('button',{name:'Quick summary'}).click();
+  await page.getByRole('dialog',{name:'Quick summary'}).getByRole('button',{name:/R-C1: .*fund/i}).click();
+  const detail=page.getByRole('dialog',{name:/R-C1/i});
+  const flow=detail.locator('.audit-signal-flow');
+  await expect(flow).toContainText('This taxpayer');
+  await expect(flow).toContainText('Return: RET-2026-10482');
+  await expect(flow).toContainText('Available-data level:');
+  await expect(flow).toContainText('Assessment year: 2025-26');
+  await expect(flow).not.toContainText('200,000');
+  await expect(flow).not.toContainText('10%');
+  await expect(flow).not.toContainText('Reference only');
 });

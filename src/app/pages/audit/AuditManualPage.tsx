@@ -50,10 +50,10 @@ const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
 const COPY = {
   title: mt("Audit Manual", "অডিট ম্যানুয়াল"),
   description: mt(
-    "Complete searchable reference for the Audit framework. It preserves the source logic, tables, formulas, examples, tests, unresolved dependencies and demo data while presenting them in the existing NBR Audit design system.",
-    "Audit framework-এর সম্পূর্ণ searchable reference। Source-এর logic, table, formula, example, test, unresolved dependency ও demo data অক্ষত রেখে বিদ্যমান NBR Audit design system-এ সহজভাবে সাজানো হয়েছে।"
+    "Find Audit signals, calculations, checks, documents and working procedures in one place.",
+    "নিরীক্ষার সংকেত, হিসাব, যাচাইয়ের ধাপ, নথি ও কাজের নির্দেশনা এক জায়গায় দেখুন।"
   ),
-  libraryTitle: mt("Audit framework library", "অডিট ফ্রেমওয়ার্ক লাইব্রেরি"),
+  libraryTitle: mt("Audit guidance library", "নিরীক্ষা নির্দেশনা"),
   sections: mt("sections", "section"),
   search: mt("Search the Audit Manual", "অডিট ম্যানুয়াল খুঁজুন"),
   searchPlaceholder: mt("Search rule, signal, formula, section, test case, dependency…", "Rule, signal, formula, section, test case, dependency খুঁজুন…"),
@@ -66,11 +66,11 @@ const COPY = {
   print: mt("Print", "প্রিন্ট"),
   noResults: mt("No matching framework section found.", "Matching framework section পাওয়া যায়নি।"),
   noResultsHelp: mt("Try a broader search or clear the active filters.", "Search আরও broad করুন অথবা active filter clear করুন।"),
-  rowDetails: mt("Reference row details", "Reference row details"),
+  rowDetails: mt("Details", "Reference row details"),
   sourceLabel: mt("Source location", "Source location"),
   callout: mt("Important", "গুরুত্বপূর্ণ"),
   formula: mt("Formula / logic", "Formula / logic"),
-  list: mt("Reference points", "Reference point"),
+  list: mt("Key points", "Reference point"),
   matrixLegend: mt("Legend", "Legend"),
   sideNote: mt("Side path / note", "Side path / note"),
 };

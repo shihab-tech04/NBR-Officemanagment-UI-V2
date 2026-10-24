@@ -916,7 +916,7 @@
   },
   "signalFlow": {
     "title": "Decision logic",
-    "notExecuted": "Reference only",
+    "notExecuted": "Review steps",
     "yes": "Yes",
     "no": "No",
     "eligible": "Eligible",
@@ -943,7 +943,7 @@
     "supportedScreening": "Evidence supports screening signal; human review still required.",
     "humanTitle": "Human decision & audit trail",
     "humanReview": "Deduplicate by underlying fact; evaluate independent evidence and record the officer decision. A signal alone is not a tax finding.",
-    "genericWarning": "Signal conditions come from the existing Audit reference. Numeric criteria or legal authority not specified here are not inferred. This visual flow is not an executed or certified assessment.",
+    "genericWarning": "Confirm the source records before recording any decision.",
     "c1": {
       "eligibility": "Confirm applicable IT-10B, complete DT1 wealth/expense data and valid numeric fields. NULL is not zero.",
       "eligible": "Required fields available and validated.",
@@ -957,18 +957,18 @@
       "formulaVerified": "Arithmetic reconciles; proceed.",
       "formulaHold": "Arithmetic/source mismatch → separate control review; no reliable C1 outcome.",
       "materialityTitle": "Materiality gate",
-      "materiality": "Illustrative framework CONFIG: M = max(Sources × 10%, ৳200,000). Only an approved effective-dated policy configuration could authorize use.",
-      "noTrigger": "|Gap| ≤ M → R-C1 does not trigger under this example configuration.",
-      "evaluateStrength": "|Gap| > M → consider sign and size under this example configuration.",
+      "materiality": "Apply the approved comparison limit for the correct year. If no approved limit is available, leave the result undecided.",
+      "noTrigger": "Compare the verified gap with the approved limit. If it does not exceed the limit, this signal does not trigger.",
+      "evaluateStrength": "If the verified gap exceeds the approved limit, review its direction, amount and underlying evidence.",
       "strengthTitle": "Example signal strength",
-      "strength": "Positive Gap: >3M strong, otherwise meaningful. Negative Gap: |Gap| >3M meaningful, otherwise weak. These are illustrative policy classifications, not statutory thresholds.",
+      "strength": "A larger confirmed difference may need priority review, but only the approved rule can assign a level.",
       "formulaTitle": "Show exact IT-10B calculation",
       "formulaSource": "Sources = 1(a) income + 1(b) exempt income + 1(c) gifts/other receipts; line 3 = Sources + line 2 prior net wealth.",
       "formulaGross": "Uses = 4(a) IT-10BB + 4(b) other expenses/loss; line 5 = line 3 − Uses; line 7 = line 5 + line 6 personal liabilities.",
       "formulaAssets": "Line 10 = 8(a–k) asset components + line 9; must be independent of line 7.",
       "formulaGap": "Gap = line 10 − line 7.",
       "formulaIdentity": "Cross-check: Gap = ΔNet Wealth − (Sources − Uses). Verify period, treatment of loans/tax and double counting.",
-      "approvalWarning": "Framework-only, not executed against this taxpayer. Materiality, source-line independence and policy approval remain unverified; this flow does not establish an audit finding."
+      "approvalWarning": "Check the filed figures and approved rule before recording a conclusion."
     }
   }
 }
