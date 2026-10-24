@@ -153,3 +153,63 @@ test('record detail shows its actual coverage and source context, without invent
   await expect(flow).not.toContainText('10%');
   await expect(flow).not.toContainText('Reference only');
 });
+
+
+/* Cross-theme contract: compare the rendered Audit surfaces with the shared
+   Office dark palette, not just the presence of a dark-mode class. */
+for (const width of [1366, 390]) {
+  test(`Dark Mode taxpayer signal uses Office palette at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.addInitScript(() => {
+      localStorage.setItem('gov_ui_settings', JSON.stringify({
+        assessmentYear: '2024-25', themeId: 'dark-mode',
+        fontId: 'poppins', fontSizeId: 'standard', languageId: 'en',
+      }));
+    });
+    await page.goto(first);
+    await page.getByRole('button', { name: 'Quick summary' }).click();
+    await page.getByRole('dialog', { name: 'Quick summary' })
+      .getByRole('button', { name: /R-C1: .*fund/i }).click();
+    const detail = page.getByRole('dialog', { name: /R-C1/i });
+    const flow = detail.locator('.audit-signal-flow');
+    await expect(detail).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark-mode');
+    await expect(page.locator('html')).toHaveClass(/theme-dark/);
+    await expect(page.locator('body')).toHaveCSS('color', 'rgb(232, 234, 237)');
+    await expect(detail).toHaveCSS('background-color', 'rgb(43, 44, 47)');
+    await expect(flow).toHaveCSS('background-color', 'rgb(43, 44, 47)');
+    await expect(flow).toHaveCSS('color', 'rgb(232, 234, 237)');
+    await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('background-color', 'rgb(43, 44, 47)');
+    await expect(flow.locator('.audit-story__fact').first()).toHaveCSS('color', 'rgb(232, 234, 237)');
+    await expect(flow.locator('.audit-story__fact-label').first()).toHaveCSS('color', 'rgb(189, 193, 198)');
+    await expect(flow.locator('.audit-story__decision')).toHaveCSS('background-color', 'rgb(43, 44, 47)');
+    await expect(flow.locator('.audit-story__decision summary')).toHaveCSS('color', 'rgb(138, 180, 248)');
+    const overflow = await detail.evaluate(el => el.scrollWidth - el.clientWidth);
+    expect(overflow, 'dark mode drawer stays within its width').toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/audit-dark-R-C1-${width}.png`, animations: 'disabled' });
+    await flow.locator('.audit-story__decision summary').click();
+    await expect(flow.locator('.audit-decision-map__diamond')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__diamond strong').first()).toHaveCSS('color', 'rgb(232, 234, 237)');
+  });
+}
+
+test('Dark Mode Audit Overview keeps population panels and labels on Office tokens', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 865 });
+  await page.addInitScript(() => {
+    localStorage.setItem('gov_ui_settings', JSON.stringify({
+      assessmentYear: '2024-25', themeId: 'dark-mode',
+      fontId: 'poppins', fontSizeId: 'standard', languageId: 'en',
+    }));
+  });
+  await page.goto('/audit/audit-overview');
+  await page.locator('.audit-overview-v5__parameters')
+    .getByRole('button', { name: 'Risk signal', exact: true }).click();
+  await page.locator('.audit-overview-v5__chart-detail').first().click();
+  const flow = page.getByRole('dialog').locator('.audit-signal-flow');
+  await expect(flow).toBeVisible();
+  await expect(flow.locator('.audit-story__population')).toHaveCSS('color', 'rgb(232, 234, 237)');
+  await expect(flow.locator('.audit-story__population')).toHaveCSS('background-color', 'rgb(48, 49, 52)');
+  await expect(flow.locator('.audit-story__population-progress')).toHaveCSS('background-color', 'rgb(43, 44, 47)');
+  await expect(flow.locator('.audit-story__progress-grid > div').first()).toHaveCSS('background-color', 'rgb(48, 49, 52)');
+  await page.screenshot({ path: 'test-results/audit-dark-overview.png', animations: 'disabled' });
+});
