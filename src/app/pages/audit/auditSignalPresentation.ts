@@ -83,4 +83,64 @@ export function auditSignalQuestion(signalId: string, language: string): string 
   return pairValue ? pairValue[language.toLowerCase().startsWith("bn") ? "bn" : "en"] : null;
 }
 
+
+/** How to reproduce each recorded signal from the underlying documents. */
+const recordChecks: Record<string, Pair> = {
+  "R-A1": pair("Compare income (return line 11), payable tax (line 16) and assets (IT-10B line 10). Check that both return amounts are zero and declared assets are positive.", "রিটার্নের আয় (লাইন ১১), প্রদেয় কর (লাইন ১৬) ও আইটি-১০বি সম্পদ (লাইন ১০) মিলিয়ে দেখুন। আয় ও কর শূন্য, কিন্তু সম্পদ শূন্যের বেশি কি না যাচাই করুন।"),
+  "R-A2": pair("Check whether return line 11 shows income while line 16 shows zero tax. Review rebates, exemptions and the applicable taxpayer category.", "রিটার্নের ১১ নম্বর লাইনে আয় এবং ১৬ নম্বর লাইনে শূন্য কর আছে কি না দেখুন। কর রেয়াত, করমুক্ত আয় ও করদাতার শ্রেণি যাচাই করুন।"),
+  "R-A3": pair("Match each source-tax certificate to the same income source, rate, person and period. Compare its supported income with the income declared for that source.", "উৎসে কর কাটার সনদে আয়ের উৎস, হার, ব্যক্তি ও বছর মিলিয়ে দেখুন। সনদ অনুযায়ী আয় ও ঘোষিত আয় তুলনা করুন।"),
+  "R-B1": pair("Compare the same asset totals in this year and the previous return. Review the increase against the approved comparison limit for that year; no limit is assumed.", "এ বছর ও আগের বছরের একই ধরনের সম্পদের মোট অঙ্ক তুলনা করুন। ওই বছরের অনুমোদিত সীমা থাকলে তার সঙ্গে মিলিয়ে দেখুন; নিজে কোনো সীমা ধরবেন না।"),
+  "R-B2": pair("Check that declared income fell and asset totals rose within the same period, using both filed returns.", "দুই বছরের রিটার্ন দেখে একই সময়ে ঘোষিত আয় কমেছে এবং মোট সম্পদ বেড়েছে কি না মিলিয়ে দেখুন।"),
+  "R-C1": pair("Calculate IT-10B line 10 separately from asset entries and line 7 from sources, expenses and liabilities. The difference is line 10 minus line 7. Do not substitute the dashboard fund-flow difference.", "আইটি-১০বি-র সম্পদ অংশ থেকে লাইন ১০ এবং আয়, ব্যয় ও দায় থেকে লাইন ৭ আলাদা করে হিসাব করুন। অমিল = লাইন ১০ − লাইন ৭। ড্যাশবোর্ডের অর্থের উৎসের পার্থক্যকে এই অমিল ধরবেন না।"),
+  "R-C2": pair("Reconcile the difference for each linked year. Look for repeated differences in the same direction or a growing total over the required years; use the approved materiality rule.", "একাধিক বছরের অমিল আলাদা করে হিসাব করুন। একই ধরনের অমিল বারবার হচ্ছে কি না বা জমা হচ্ছে কি না দেখুন। অনুমোদিত গুরুত্বের সীমা ব্যবহার করুন।"),
+  "R-C3": pair("Compare this year's opening net wealth with last year's closing net wealth, accounting for a filed revision where relevant.", "এ বছরের শুরুর নিট সম্পদ ও আগের বছরের শেষের নিট সম্পদ মিলিয়ে দেখুন। সংশোধিত রিটার্ন থাকলে সেটিও দেখুন।"),
+  "R-C4": pair("Compare household spending with the earlier period and any approved spending rule. Check whether household circumstances changed.", "পারিবারিক ব্যয় আগের বছরের সঙ্গে এবং অনুমোদিত ব্যয়-যাচাই নিয়মের সঙ্গে তুলনা করুন। পরিবারের পরিস্থিতি বদলেছে কি না দেখুন।"),
+  "R-D1": pair("Review at least three linked years and check repeated zero income or tax in the correct return fields.", "পরপর অন্তত তিন বছরের রিটার্নে আয় বা কর বারবার শূন্য দেখানো হয়েছে কি না যাচাই করুন।"),
+  "R-D2": pair("Compare income, assets and expenses across at least three linked years to verify that the pattern repeats.", "অন্তত তিন বছরের আয়, সম্পদ ও ব্যয় একসঙ্গে দেখে একই ধরনের ওঠানামা আবার হচ্ছে কি না যাচাই করুন।"),
+  "R-D3": pair("Match the date of a review flag with the filed revised-return date. Use only the approved time window.", "যাচাইয়ের সংকেত ওঠার তারিখ ও সংশোধিত রিটার্ন জমার তারিখ মিলিয়ে দেখুন। শুধু অনুমোদিত সময়সীমা ব্যবহার করুন।"),
+  "R-E1": pair("Confirm that third-party data can be used, then match the taxpayer, employment period and reported income with the return.", "তৃতীয় পক্ষের তথ্য ব্যবহারের অনুমতি নিশ্চিত করে করদাতা, চাকরির সময় ও আয় রিটার্নের সঙ্গে মিলিয়ে দেখুন।"),
+  "R-E2": pair("Confirm lawful access to the asset registry. Check the taxpayer, ownership share, record date and comparable value before marking a mismatch.", "সম্পদ নিবন্ধনের তথ্য আইনগতভাবে ব্যবহার করা যাবে কি না নিশ্চিত করুন। করদাতা, মালিকানার অংশ, তারিখ ও তুলনাযোগ্য মূল্য মিলিয়ে দেখুন।"),
+  "R-E3": pair("Confirm lawful access and match the VAT period, BIN–TIN link, turnover and reported business figures. Turnover is not automatically taxable profit.", "ভ্যাটের তথ্য ব্যবহারের অনুমতি, সময়কাল, বিআইএন–টিআইএন সম্পর্ক, বিক্রি ও ব্যবসার হিসাব মিলিয়ে দেখুন। বিক্রি মানেই করযোগ্য লাভ নয়।"),
+};
+const reasonCopies: Record<string, Pair> = {
+  "R-A1": pair("Retirement, family ownership or an earlier purchase.", "অবসর, পারিবারিক মালিকানা বা আগের কেনাকাটা।"),
+  "R-A2": pair("Tax relief, exempt income or a special taxpayer category.", "কর রেয়াত, করমুক্ত আয় বা বিশেষ করদাতা শ্রেণি।"),
+  "R-A3": pair("A wrong TIN, different tax rate or a different reporting period.", "ভুল টিআইএন, ভিন্ন করহার বা ভিন্ন হিসাবের সময়।"),
+  "R-B1": pair("Loan, inheritance, gift or selling and buying another asset.", "ঋণ, উত্তরাধিকার, উপহার বা আগের সম্পদ বিক্রি করে নতুন সম্পদ কেনা।"),
+  "R-B2": pair("Income stopped but savings, gratuity or inherited assets grew.", "আয় বন্ধ হলেও সঞ্চয়, আনুতোষিক বা উত্তরাধিকার থেকে সম্পদ বেড়েছে।"),
+  "R-C1": pair("Gift, asset valuation difference, recording error or a real loss.", "উপহার, সম্পদের মূল্যায়নের পার্থক্য, হিসাবের ভুল বা প্রকৃত ক্ষতি।"),
+  "R-C2": pair("Repeated valuation differences or family support over several years.", "বারবার মূল্যায়নের পার্থক্য বা কয়েক বছর ধরে পরিবারের আর্থিক সহায়তা।"),
+  "R-C3": pair("A corrected earlier return or a data-transfer error.", "আগের রিটার্ন সংশোধন বা তথ্য স্থানান্তরের ভুল।"),
+  "R-C4": pair("Another family member pays expenses, or living circumstances changed.", "পরিবারের অন্য সদস্য ব্যয় বহন করেন, অথবা জীবনযাপনের পরিস্থিতি বদলেছে।"),
+  "R-D1": pair("Retirement, no earnings or income below the applicable tax threshold.", "অবসর, আয় না থাকা বা প্রযোজ্য করসীমার নিচে আয়।"),
+  "R-D2": pair("Seasonal or project-based earnings.", "মৌসুমি বা প্রকল্পভিত্তিক আয়।"),
+  "R-D3": pair("An ordinary filing error corrected after a notice.", "নোটিশের পরে সাধারণ ভুল সংশোধন।"),
+  "R-E1": pair("Employer error, wrong TIN or reporting-period mismatch.", "নিয়োগকর্তার ভুল, ভুল টিআইএন বা সময়ের অমিল।"),
+  "R-E2": pair("Shared ownership, old registry data or a different valuation basis.", "যৌথ মালিকানা, পুরোনো নিবন্ধন তথ্য বা মূল্য নির্ধারণের ভিন্ন পদ্ধতি।"),
+  "R-E3": pair("Low profit margin, different accounting periods or group registration.", "কম মুনাফা, ভিন্ন হিসাবের সময় বা যৌথ নিবন্ধন।"),
+};
+const documentCopies: Record<string, Pair> = {
+  "R-A1": pair("Asset purchase, source-of-funds and ownership documents.", "সম্পদ কেনা, অর্থের উৎস ও মালিকানার নথি।"),
+  "R-A2": pair("Tax calculation, rebate and exemption documents.", "কর হিসাব, রেয়াত ও করমুক্ত আয়ের নথি।"),
+  "R-A3": pair("Tax-deduction certificates and income-source records.", "উৎসে কর কাটার সনদ ও আয়ের উৎসের নথি।"),
+  "R-B1": pair("Both returns, purchase papers and financing records.", "দুই বছরের রিটার্ন, ক্রয়ের দলিল ও অর্থের উৎসের নথি।"),
+  "R-B2": pair("Income history, asset purchase and savings records.", "আয়ের ইতিহাস, সম্পদ কেনা ও সঞ্চয়ের নথি।"),
+  "R-C1": pair("Filed IT-10B entries, bank statements and supporting receipts.", "দাখিল করা আইটি-১০বি, ব্যাংক বিবরণী ও প্রাপ্তির প্রমাণ।"),
+  "R-C2": pair("Linked returns and the year-by-year reconciliation.", "সংশ্লিষ্ট বছরের রিটার্ন ও বছরভিত্তিক হিসাব মিল।"),
+  "R-C3": pair("Last year's closing statement and any revised return.", "আগের বছরের শেষের সম্পদ বিবরণী ও সংশোধিত রিটার্ন।"),
+  "R-C4": pair("Household expenses and proof of who paid them.", "পারিবারিক ব্যয় ও কে সেই ব্যয় বহন করেছেন তার প্রমাণ।"),
+  "R-D1": pair("Returns and income records for the linked years.", "সংশ্লিষ্ট বছরগুলোর রিটার্ন ও আয়ের প্রমাণ।"),
+  "R-D2": pair("Three-year income, asset and expense records.", "তিন বছরের আয়, সম্পদ ও ব্যয়ের নথি।"),
+  "R-D3": pair("Flag notice, revised return and explanation for the change.", "যাচাইয়ের নোটিশ, সংশোধিত রিটার্ন ও সংশোধনের কারণ।"),
+  "R-E1": pair("Employer record, TIN match and income or TDS certificate.", "নিয়োগকর্তার তথ্য, টিআইএন মিল ও আয় বা উৎসে করের সনদ।"),
+  "R-E2": pair("Dated registry extract and ownership documents.", "তারিখসহ নিবন্ধনের তথ্য ও মালিকানার দলিল।"),
+  "R-E3": pair("VAT return and records linking the business to the taxpayer.", "ভ্যাট রিটার্ন ও ব্যবসা-করদাতার সম্পর্কের নথি।"),
+};
+function localized(value: Pair | undefined, language: string): string | null {
+  return value ? value[language.toLowerCase().startsWith("bn") ? "bn" : "en"] : null;
+}
+export function auditSignalCheck(id: string, language: string): string | null { return localized(recordChecks[id], language); }
+export function auditSignalReason(id: string, language: string): string | null { return localized(reasonCopies[id], language); }
+export function auditSignalDocuments(id: string, language: string): string | null { return localized(documentCopies[id], language); }
+
 export const AUDIT_SIGNAL_IDS = Object.freeze(Object.keys(questions));
