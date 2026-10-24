@@ -1322,12 +1322,12 @@ END $amount_shape_readback$;
 -- Synthetic strings only; this does not certify tax arithmetic, legal sources,
 -- signed JWT identity, or real taxpayer ownership.
 INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
- ('50000000-0000-4000-8000-000000000005','2026-27',
+ ('50000000-0000-4000-8000-000000000006','2026-27',
   '60000000-0000-4000-8000-000000000001','ACTIVE');
 SET LOCAL ROLE ws02_owner_engine;
 DO $calculated_shape_negative$
 DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
- rec uuid:='50000000-0000-4000-8000-000000000005';
+ rec uuid:='50000000-0000-4000-8000-000000000006';
  idem text:='calculated-shape-atomic-00001';
  req text:=repeat('a',64); receipt text:=repeat('b',64);
  audit jsonb; bad jsonb;
@@ -1365,7 +1365,7 @@ END $calculated_shape_denial_readback$;
 SET LOCAL ROLE ws02_owner_engine;
 DO $calculated_shape_positive$
 DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
- rec uuid:='50000000-0000-4000-8000-000000000005';
+ rec uuid:='50000000-0000-4000-8000-000000000006';
  idem text:='calculated-shape-atomic-00001';
  req text:=repeat('a',64); receipt text:=repeat('b',64);
  audit jsonb;
