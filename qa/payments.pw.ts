@@ -176,7 +176,7 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.goto('/payments/taxpayer-360');
   await expect(page.locator('.payment-module__table-card .card-table tbody tr').first()).toBeVisible({timeout:18000});
   await page.locator('.payment-module__table-card .card-table tbody tr').first().click();
-  await expect(page).toHaveURL(/\\/payments\\/taxpayer-360\\/1111111111111$/);
+  await expect(page).toHaveURL(new RegExp('/payments/taxpayer-360/1111111111111$'));
   await expect(page.getByRole('button',{name:'Back to taxpayers'})).toBeVisible();
   await page.getByRole('tab',{name:'Tax position'}).click();
   await expect(page.getByText('Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.')).toBeVisible();
@@ -185,7 +185,7 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.getByRole('tab',{name:'Returns'}).click();
   await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
   await page.getByRole('button',{name:'Back to taxpayers'}).click();
-  await expect(page).toHaveURL(/\\/payments\\/taxpayer-360$/);
+  await expect(page).toHaveURL(new RegExp('/payments/taxpayer-360$'));
 });
 // Payment-specific acceptance: rendered compact filters, translated column
 // headings and meaningful sort values, checked against actual DOM geometry.
