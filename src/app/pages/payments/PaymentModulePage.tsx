@@ -117,7 +117,7 @@ type DraftKind = 'corrections' | 'incidents' | 'offline-events';
 type Details = { title:string; record:TableRow } | null;
 const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
-export function PaymentModulePage({page}: {page: string}) {
+export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?:string}) {
   const {t,i18n} = useTranslation('payment');
   const {t:translateTables} = useTranslation('tables');
   const displayNumber = (value:number) => formatLocalizedNumber(value,i18n.resolvedLanguage);
@@ -150,7 +150,8 @@ export function PaymentModulePage({page}: {page: string}) {
   const [liveError,setLiveError] = useState('');
   const [liveLoading,setLiveLoading] = useState(true);
   const [kpiOpen,setKpiOpen] = useState(true);
-  const [selectedTin,setSelectedTin] = useState<string>(demoProfiles[0].tin);
+  const [selectedTin,setSelectedTin] = useState<string>(taxpayerTin??'');
+  useEffect(()=>{setSelectedTin(taxpayerTin??'');},[taxpayerTin]);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
@@ -261,9 +262,32 @@ export function PaymentModulePage({page}: {page: string}) {
   const scopedOriginal=referencePayments.filter(p=>scopeYear==='all'||p.ay.replace('–','-')===scopeYear);
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
     options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear)),...storyRows.flatMap(row=>row.assessment_year.split(', ').map(year=>year.trim().replace('–','-')).filter(year=>year!=='—'))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
-  const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??demoProfiles[0];
+  // One taxpayer register derived from the same mirrored SQL Story 1 rows as Transactions.
+  // These are linked synthetic records, not an official taxpayer registry or liability ledger.
+  const taxpayerAccounts=(()=>{
+    const accounts=new Map<string,{key:string;tin:string;taxpayer_name:string;records:number;last_activity:string}>();
+    for(const payment of storyRows){
+      const tins=String(payment.tin??'').split(',').map(v=>v.trim());
+      const names=String(payment.taxpayer_name??'').split(',').map(v=>v.trim());
+      for(let index=0;index<tins.length;index++){
+        const tin=tins[index];
+        if(!/^[0-9]{12,13}$/.test(tin))continue;
+        const item=accounts.get(tin);
+        const name=names.length===tins.length&&names[index]&&names[index]!=='—'?names[index]:'TIN '+tin;
+        if(item){item.records++;continue;}
+        accounts.set(tin,{key:tin,tin,taxpayer_name:name,records:1,last_activity:payment.date});
+      }
+    }
+    return Array.from(accounts.values()).sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
+  })();
+  const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
+  const taxP=[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??{
+    name:connectedTaxpayer?.taxpayer_name??'—',tin:selectedTin,
+    nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
+  };
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
-  const taxPayments=isDemo?liveAllocationRows(liveTransactions).filter(p=>p.tin===selectedTin && (scopeYear==='all'||p.assessment_year.replace('–','-')===scopeYear)):scopedPayments.filter(p=>p.tin===selectedTin);
+  const taxPayments=storyRows.filter(p=>String(p.tin??'').split(',').map(v=>v.trim()).includes(selectedTin)
+    && (scopeYear==='all'||String(p.assessment_year).split(',').some(y=>y.trim().replace('–','-')===scopeYear)));
   const beneficiaryNotices=isDemo?liveNotices:[];
   const original=scopedOriginal.filter(p=>p.tin===selectedTin);
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
@@ -338,25 +362,37 @@ export function PaymentModulePage({page}: {page: string}) {
     {!storyLoading&&!storyError&&scopedPayments.length===0?<p className="table-page__desc" role="status">No payments submitted yet.</p>:null}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
-  const taxpayer=()=> <>
+  const taxpayer=()=> !taxpayerTin ? <>
     {toolbar(t('taxpayer360'))}
-    <p className="table-page__desc">Connected SQL simulation profile (no official tax credit). {liveError?'Synchronization error: '+liveError:liveLoading?'Loading…':'Live transaction data refreshed automatically.'}</p>
-    <div className="payment-module__filters"><AppSelectField id="payment-taxpayer" label={t('taxpayer')} value={selectedTin} onChange={setSelectedTin}
-      options={[...demoProfiles.map(p=>({value:p.tin,label:`${p.name} · Demo only`})),...referenceTaxpayers.map(p=>({value:p.tin,label:`${p.name} · ${p.tin}${/^\d{12}$/.test(p.tin)?'':` (${t('invalidReference')})`}`}))]} searchableAfter={5}/></div>
+    <p className="table-page__desc">{t('taxpayerRegisterScope')}</p>
+    {storyLoading && <p role="status" className="table-page__desc">{t('loadingTaxpayers')}</p>}
+    {storyError && <p role="alert" className="table-page__desc">{storyError}</p>}
+    <PaymentRecordList kind="taxpayers" title={t('taxpayerRegister')} rows={taxpayerAccounts}
+      columns={[
+        {type:'col',col:{key:'taxpayer_name',label:t('name'),truncate:'normal'}},
+        {type:'col',col:{key:'tin',label:t('tin'),truncate:'normal'}},
+        {type:'col',col:{key:'records',label:t('linkedPaymentRecords'),truncate:'normal'}},
+        {type:'col',col:{key:'last_activity',label:t('colDate'),truncate:'normal'}}
+      ]} mobileMapping={{primary:'taxpayer_name',identifier:'tin',meta:['records'],date:'last_activity'}}
+      onOpen={record=>navigate('/payments/taxpayer-360/'+encodeURIComponent(String(record.tin??'')))}/>
+  </> : <>
+    <SecondaryButton size="sm" onClick={()=>navigate('/payments/taxpayer-360')}>{t('backToTaxpayers')}</SecondaryButton>
+    {toolbar(t('taxpayer360'))}
+    <p className="table-page__desc">{t('taxpayerDetailScope')}</p>
     <div className="payment-module__year-control">{yearSelect}</div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
-      kpi(t('payments'),displayNumber(isDemo?taxPayments.length:original.length),CreditCard),
-      kpi(t('received'),displayMoney(totalReceived(original)),Landmark,'success'),
-      kpi(t('eligible'),displayMoney(totalEligible(original)),CheckCircle2,'success'),
-      kpi(t('blocked'),displayNumber(original.filter(p=>p.tax_credit_status==='Blocked — under review').length),ShieldAlert,'warning'),
+      kpi(t('payments'),displayNumber(taxPayments.length),CreditCard),
+      kpi(t('received'),'—',Landmark,'neutral'),
+      kpi(t('eligible'),'—',CheckCircle2,'neutral'),
+      kpi(t('blocked'),'—',ShieldAlert,'neutral'),
     ])}
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
     </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? table(keys.correction,referenceCorrections.filter(c=>c.taxpayer===taxP.name && (scopeYear==='all'||(c.before.startsWith('AY ')&&c.before.slice(3).replace('–','-')===scopeYear))).map(c=>({...c,ay:c.before.startsWith('AY ')?c.before.slice(3):'',amount:money(c.amount)})),'corrections',queueFilters,correctionMapping) :
-      taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionSummary')}</p><div className="payment-module__identity-grid">{[[t('received'),displayMoney(totalReceived(original))],[t('eligible'),displayMoney(totalEligible(original))],[t('blocked'),displayNumber(original.filter(p=>p.tax_credit_status==='Blocked — under review').length)]].map(([label,value])=><div key={label}><p className="payment-module__field-label">{label}</p><p>{value}</p></div>)}</div></section> :
-      taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('creditPreview')}</p>{taxPayments.length?table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping):<p>{t('noSampleRecords')}</p>}</section> :
+      taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
+      taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
           <p><strong>{n.messageCode}</strong> · {n.transactionId}</p>
