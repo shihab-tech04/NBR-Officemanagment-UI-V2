@@ -355,3 +355,21 @@ test('authorization hash binds year, legal pins, record and replay key before ru
       Object.keys(changed)[0]);
   }
 });
+
+test('invalid source-cutoff calendar dates are denied before ownership and reservation', async () => {
+  // A YYYY-MM-DD shape alone is insufficient evidence of a real legal cutoff.
+  for (const expectedSourceCutoff of [
+    '2026-02-30', '2026-06-31', '2026-13-01', '2026-00-01',
+  ]) {
+    const h = harness({
+      reservationError: { message: 'synthetic stop if cutoff bypasses validation' },
+    });
+    const result = await h.request({ bodyOverrides: { expectedSourceCutoff } });
+    assert.equal(result.status, 422, expectedSourceCutoff);
+    assert.equal(result.body.code, 'VERSIONED_CONTRACT_REQUIRED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0, 'invalid legal cutoff must not reach owner RPC');
+    assert.equal(h.seen.reserveCalls, 0, 'invalid legal cutoff must not reserve');
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
