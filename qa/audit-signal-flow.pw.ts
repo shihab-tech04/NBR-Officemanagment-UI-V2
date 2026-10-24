@@ -28,9 +28,13 @@ for (const width of [1366,768,390,360]) {
     await expect(detail).toBeVisible();
     const flow=detail.locator('.audit-signal-flow[data-signal-id="R-C1"]');
     await expect(flow).toBeVisible();
-    await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
-    await expect(flow).toContainText('Check the available records');
-    await expect(flow).toContainText('Compare the right figures');
+    await expect(flow.locator('.audit-decision-map__diamond')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__options')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__answer')).toHaveCount(6);
+    await expect(flow).toContainText('Are the required records available?');
+    await expect(flow).toContainText('Is the signal condition met?');
+    await expect(flow).toContainText('Does the evidence confirm the concern?');
+    await expect(flow).toContainText('Compare the filed figures');
     await expect(flow).toContainText('line 10 minus line 7');
     await expect(flow).toContainText('approved rule');
     await expect(flow).toContainText('approved limit');
@@ -39,6 +43,10 @@ for (const width of [1366,768,390,360]) {
     await expect(flow.locator('.audit-signal-flow__preview .drawer-field')).toHaveCount(3);
     await expect(flow).toContainText('source-of-funds comparison is separate');
     await expect(flow).toContainText('not an audit finding');
+    await expect(detail).toContainText('What it means');
+    await expect(detail).toContainText('What it affects');
+    await expect(detail).toContainText('Signal definitions');
+    await expect(detail).toContainText('Next step');
     await expect(flow).not.toContainText('D ≥');
     await expect(flow).not.toContainText('₹');
     await flow.locator('.audit-signal-flow__formula summary').click();
@@ -65,7 +73,9 @@ test('R-E2 uses its own actual condition, without inventing R-C1 thresholds', as
   const detail=page.getByRole('dialog',{name:/R-E2/i});
   const flow=detail.locator('.audit-signal-flow[data-signal-id="R-E2"]');
   await expect(flow).toBeVisible();
-  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
+  await expect(flow.locator('.audit-decision-map__diamond')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__options')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__answer')).toHaveCount(6);
   await expect(flow).toContainText('lawful access');
   await expect(flow).toContainText('ownership share');
   await expect(flow).toContainText('matching external record is not shown here');
@@ -84,10 +94,14 @@ test('Bengali C1 steps, conditions and evidence outcomes are localized',async({p
   const flow=page.locator('.audit-signal-flow[data-signal-id="R-C1"]');
   await expect(flow).toBeVisible();
   await expect(flow).toContainText('এই সংকেত কীভাবে যাচাই হয়');
-  await expect(flow).toContainText('যে তথ্য আছে তা যাচাই করুন');
+  await expect(flow).toContainText('প্রয়োজনীয় নথি কি আছে?');
+  await expect(flow).toContainText('সংকেতের শর্ত কি মিলে?');
+  await expect(flow).toContainText('প্রমাণে অমিল কি নিশ্চিত?');
   await expect(flow).toContainText('অনুমোদিত');
   await expect(flow).toContainText('অনুমোদিত সীমা');
-  await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
+  await expect(flow.locator('.audit-decision-map__diamond')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__options')).toHaveCount(3);
+    await expect(flow.locator('.audit-decision-map__answer')).toHaveCount(6);
   expect(await flow.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThanOrEqual(2);
 });
 
