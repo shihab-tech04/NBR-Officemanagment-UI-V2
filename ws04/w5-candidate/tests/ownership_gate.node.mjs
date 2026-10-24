@@ -450,3 +450,29 @@ test('zero or negative parameter revision is rejected before owner and reservati
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+test('transaction period and event-date denials do not consume owner-bound idempotency slots', async () => {
+  // These are isolated synthetic facts; no statutory event approval is inferred.
+  const rejected = [
+    { legalEventDate: '2026-07-10', transactionRuleIds: ['WH-R4-04'],
+      expectedCode: 'TRANSACTION_PERIOD_REVIEW_REQUIRED' },
+    { legalEventDate: '2026-06-30',
+      transactions: { 'WH-R4-04': { eventDate: '2026-07-10', grossBill: '1000' } },
+      expectedCode: 'TRANSACTION_EVENT_DATE_CONFLICT' },
+    { legalEventDate: '2026-06-30',
+      ruleFacts: { 'WH-R4-04': { baseAmount: '1000', eventDate: '2026-07-10' } },
+      expectedCode: 'RULE_EVENT_DATE_CONFLICT' },
+  ];
+  for (const { expectedCode, ...bodyOverrides } of rejected) {
+    const h = harness({ reservationError: { message: 'reservation must not be reached' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 409, expectedCode);
+    assert.equal(r.body.code, expectedCode);
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0,
+      'known invalid event must not consume an idempotency slot: ' + expectedCode);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
