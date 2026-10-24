@@ -30,6 +30,7 @@ jobs:
         shell: bash
         run: |
           node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
+          node --test ws04/w5-candidate/tests/ownership_gate.node.mjs
           echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, 89-case harness, PostgreSQL/Auth or Agent certification.'
       - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
         shell: bash
