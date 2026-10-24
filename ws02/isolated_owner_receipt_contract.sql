@@ -15,6 +15,10 @@ CREATE SCHEMA ws02_owner;
 -- at the disposable function creator's global default privilege scope.
 -- All changes are inside this isolated transaction and rolled back.
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+-- Cover functions created under either non-login SECURITY DEFINER owner.
+-- Creator-specific default ACLs do not inherit the migration role's defaults.
+ALTER DEFAULT PRIVILEGES FOR ROLE ws02_owner_rpc REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE ws02_owner_lock REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 REVOKE ALL ON SCHEMA ws02_owner FROM PUBLIC;
 GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_engine,ws02_owner_rpc,ws02_owner_lock;
 CREATE TABLE ws02_owner.owners(
@@ -310,6 +314,41 @@ BEGIN
  ) THEN RAISE EXCEPTION 'FUTURE_PRIVATE_FUNCTION_PUBLIC_ACL_LEAK'; END IF;
 END $future_function_default_denial$;
 DROP FUNCTION ws02_owner.nbr_future_private_probe();
+-- Future owner-created functions must also be default-denied. These two
+-- temporary role-owned schemas and functions exist only inside disposable PG17.
+-- Neither private owner is granted CREATE on the actual ws02_owner schema.
+CREATE SCHEMA ws02_future_rpc AUTHORIZATION ws02_owner_rpc;
+CREATE SCHEMA ws02_future_lock AUTHORIZATION ws02_owner_lock;
+SET LOCAL ROLE ws02_owner_rpc;
+CREATE FUNCTION ws02_future_rpc.private_probe() RETURNS boolean
+ LANGUAGE sql SECURITY INVOKER AS $owner_probe$ SELECT true $owner_probe$;
+RESET ROLE;
+SET LOCAL ROLE ws02_owner_lock;
+CREATE FUNCTION ws02_future_lock.private_probe() RETURNS boolean
+ LANGUAGE sql SECURITY INVOKER AS $owner_probe$ SELECT true $owner_probe$;
+RESET ROLE;
+DO $owner_future_default_denial$
+DECLARE fn text; caller name;
+BEGIN
+ FOREACH fn IN ARRAY ARRAY[
+  'ws02_future_rpc.private_probe()',
+  'ws02_future_lock.private_probe()'] LOOP
+  FOREACH caller IN ARRAY ARRAY[
+   'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine'] LOOP
+   IF has_function_privilege(caller,fn,'EXECUTE') THEN
+    RAISE EXCEPTION 'OWNER_CREATED_FUTURE_FUNCTION_EXECUTE_LEAK_%_%',fn,caller;
+   END IF;
+  END LOOP;
+  IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p,
+     LATERAL pg_catalog.aclexplode(p.proacl) acl
+   WHERE p.oid=fn::regprocedure
+     AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
+  ) THEN RAISE EXCEPTION 'OWNER_CREATED_FUTURE_FUNCTION_PUBLIC_ACL_%',fn; END IF;
+ END LOOP;
+END $owner_future_default_denial$;
+DROP SCHEMA ws02_future_rpc CASCADE;
+DROP SCHEMA ws02_future_lock CASCADE;
 -- Disposable PostgREST-style spoofed-claim denial: untrusted request.jwt.*
 -- GUCs cannot grant private function access to synthetic anon/auth roles.
 -- These are forged settings, NOT cryptographically verified Supabase JWTs.
