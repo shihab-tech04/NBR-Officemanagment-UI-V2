@@ -1522,6 +1522,11 @@ export function AuditCandidatesPage({
       .filter((section) => section.metrics.length > 0);
     const displayedComparison = comparisonView === "focus" ? focusedComparison : comparison;
     const lookupMetric = (key: string) => allComparisonMetrics.find((metric) => metric.key === key);
+    const quickSummaryFigures: SignalLinkedMetric[] = currentSignals.includes("R-C1")
+      ? ["sourceOfFund", "fundOutflow", "difference"]
+          .map(lookupMetric)
+          .filter((metric): metric is SignalLinkedMetric => Boolean(metric))
+      : keyIndicators.slice(0, 3);
     const fundSource = lookupMetric("sourceOfFund")?.values[2];
     const fundOutflowValue = lookupMetric("fundOutflow")?.values[2];
     const reportedDifference = lookupMetric("difference")?.values[2];
@@ -2112,17 +2117,26 @@ export function AuditCandidatesPage({
                 </div>
               </section>
             )}
-            {auditNoteIndicator && (
-              <section className="detail-section">
-                <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.auditNote.issue")}</h3>
+            {quickSummaryFigures.length > 0 && (
+              <section className="detail-section audit-summary-drawer__figures">
+                <h3 className="detail-section__head detail-section__head--static">
+                  {language.startsWith("bn") ? "যে হিসাবগুলো মিলিয়ে দেখতে হবে" : "Figures to check"}
+                </h3>
                 <div className="drawer-field-grid">
-                  <div className="drawer-field drawer-field--wide">
-                    <span className="drawer-field__label">{auditNoteIndicator.label}</span>
-                    <div className="drawer-field__value">
-                      <strong>{formatMoney(auditNoteIndicator.values[2], language)}</strong>
+                  {quickSummaryFigures.map((metric) => (
+                    <div className="drawer-field" key={metric.key}>
+                      <span className="drawer-field__label">{metric.label}</span>
+                      <div className="drawer-field__value">
+                        <strong>{formatMoney(metric.values[2], language)}</strong>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
+                <p className="audit-summary-drawer__caution">
+                  {language.startsWith("bn")
+                    ? "এগুলো প্রোফাইলের হিসাব। সিদ্ধান্তের আগে মূল রিটার্ন ও প্রমাণপত্র মিলিয়ে দেখুন।"
+                    : "These are figures from this profile. Compare with the filed return and supporting evidence before deciding."}
+                </p>
               </section>
             )}
             <section className="detail-section">
