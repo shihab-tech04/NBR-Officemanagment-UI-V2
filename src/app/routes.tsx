@@ -128,8 +128,8 @@ export function preloadAllRoutes() {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 function PaymentRoute() {
-  const { subNav } = useParams<{ subNav: string }>();
-  return <PaymentModulePage page={subNav || "overview"} />;
+  const { subNav, tin } = useParams<{ subNav: string; tin?: string }>();
+  return <PaymentModulePage page={subNav || "overview"} taxpayerTin={tin} />;
 }
 
 export const router = createBrowserRouter([
@@ -159,6 +159,7 @@ export const router = createBrowserRouter([
       { path: "audit/:subNav",   Component: AuditModulePage },
       { path: "payments",        loader: async () => redirect("/payments/overview") },
       { path: "payments/overview", Component: PaymentsOverviewPage },
+      { path: "payments/taxpayer-360/:tin", Component: PaymentRoute },
       { path: "payments/:subNav", Component: PaymentRoute },
       { path: "administration",  Component: PlaceholderPage },
 
