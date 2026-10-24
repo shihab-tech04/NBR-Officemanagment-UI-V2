@@ -1398,5 +1398,92 @@ BEGIN
     AND audit_trace->'amounts'->>'synthetic_only'='123.45')<>1 THEN
   RAISE EXCEPTION 'CALCULATED_ATOMIC_TRACE_RECEIPT_READBACK_FAILED'; END IF;
 END $calculated_shape_positive_readback$;
+-- Synthetic reassignment between reservation and atomic receipt. The old
+-- principal must lose access immediately, and the new principal must not
+-- inherit an old principal's reserved idempotency slot. This is NOT proof
+-- of actual signed JWT identity, legal ownership, or a production transfer.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000007','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $owner_transfer_reserve$
+DECLARE r jsonb;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001',
+  '50000000-0000-4000-8000-000000000007','2026-27',
+  'owner-transfer-atomic-00001',repeat('a',64),
+  'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'OWNER_TRANSFER_INITIAL_RESERVATION_FAILED'; END IF;
+END $owner_transfer_reserve$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET actor_id='60000000-0000-4000-8000-000000000002'
+ WHERE record_id='50000000-0000-4000-8000-000000000007'
+ AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $owner_transfer_denial$
+DECLARE old_actor uuid:='60000000-0000-4000-8000-000000000001';
+ new_actor uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000007';
+ idem text:='owner-transfer-atomic-00001';
+ audit jsonb;
+BEGIN
+ audit:=jsonb_build_object(
+  'actor_user_id',old_actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',repeat('a',64),'receipt_hash',repeat('b',64),
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_owner.nbr_authorize_citizen_evaluation(old_actor,rec,'2026-27')
+ OR (ws02_owner.nbr_reserve_citizen_evaluation(
+  old_actor,rec,'2026-27',idem,repeat('a',64),
+  'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state') IS DISTINCT FROM 'OWNER_DENIED'
+ OR ws02_owner.nbr_commit_evaluation_atomically(
+  old_actor,rec,'2026-27',idem,repeat('a',64),repeat('b',64),
+  repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'FORMER_OWNER_TRANSFER_AUTHORIZATION_BYPASS'; END IF;
+ audit:=jsonb_set(audit,'{actor_user_id}',to_jsonb(new_actor::text));
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  new_actor,rec,'2026-27',idem,repeat('a',64),repeat('b',64),
+  repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'NEW_OWNER_INHERITED_FORMER_OWNER_SLOT'; END IF;
+ IF (ws02_owner.nbr_reserve_citizen_evaluation(
+  new_actor,rec,'2026-27',idem,repeat('a',64),
+  'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state') IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'NEW_OWNER_INDEPENDENT_RESERVATION_FAILED'; END IF;
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  new_actor,rec,'2026-27',idem,repeat('a',64),repeat('b',64),
+  repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'NEW_OWNER_INDEPENDENT_ATOMIC_RECEIPT_FAILED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  new_actor,rec,'2026-27',idem,repeat('a',64),repeat('b',64),
+  repeat('c',64),'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'NEW_OWNER_DUPLICATE_ATOMIC_RECEIPT_ACCEPTED'; END IF;
+END $owner_transfer_denial$;
+RESET ROLE;
+DO $owner_transfer_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE record_id='50000000-0000-4000-8000-000000000007'
+    AND idem_key='owner-transfer-atomic-00001'
+    AND actor_id='60000000-0000-4000-8000-000000000001'
+    AND state='RESERVED' AND receipt_hash IS NULL)<>1
+ OR (SELECT count(*) FROM ws02_owner.slots
+  WHERE record_id='50000000-0000-4000-8000-000000000007'
+    AND idem_key='owner-transfer-atomic-00001'
+    AND actor_id='60000000-0000-4000-8000-000000000002'
+    AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id='50000000-0000-4000-8000-000000000007'
+    AND idem_key='owner-transfer-atomic-00001'
+    AND actor_id='60000000-0000-4000-8000-000000000002'
+    AND result_state='FAIL_CLOSED'
+    AND audit_trace->>'actor_user_id'='60000000-0000-4000-8000-000000000002')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id='50000000-0000-4000-8000-000000000007'
+    AND idem_key='owner-transfer-atomic-00001')<>1 THEN
+  RAISE EXCEPTION 'OWNER_TRANSFER_TRACE_OR_RECEIPT_ISOLATION_FAILED'; END IF;
+END $owner_transfer_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
