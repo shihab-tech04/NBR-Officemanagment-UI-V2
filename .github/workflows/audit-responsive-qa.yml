@@ -31,7 +31,7 @@ jobs:
       - run: npm install --no-save --no-audit --no-fund @playwright/test
       - run: npx playwright install --with-deps chromium
       - name: Run evidence-bound Quick summary unit tests
-        run: npm test -- src/app/pages/audit/auditQuickSummary.test.ts src/app/pages/audit/auditFinancialPresentation.test.ts src/app/pages/audit/auditFinancialReconciliation.test.ts src/app/pages/audit/auditSignalSource.test.ts
+        run: npm test -- src/app/pages/audit/auditQuickSummary.test.ts src/app/pages/audit/auditFinancialPresentation.test.ts src/app/pages/audit/auditFinancialReconciliation.test.ts src/app/pages/audit/auditSignalSource.test.ts src/app/pages/audit/auditSignalPresentation.test.ts
       - name: Build Audit dashboard
         run: npm run build
       - name: Check Audit Overview at eight widths and five parameter modes
