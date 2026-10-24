@@ -21,6 +21,8 @@ for (const width of [1366,768,390,360]) {
     await page.getByRole('button',{name:'Quick summary'}).click();
     const summary=page.getByRole('dialog',{name:'Quick summary'});
     await expect(summary).toBeVisible();
+    await expect(summary.locator('.audit-summary-drawer__figures .drawer-field')).toHaveCount(3);
+    await expect(summary).toContainText('Figures to check');
     await summary.getByRole('button',{name:/R-C1: .*fund/i}).click();
     const detail=page.getByRole('dialog',{name:/R-C1/i});
     await expect(detail).toBeVisible();
@@ -33,6 +35,9 @@ for (const width of [1366,768,390,360]) {
     await expect(flow).toContainText('approved rule');
     await expect(flow).toContainText('approved limit');
     await expect(flow).toContainText('This taxpayer');
+    await expect(flow).toContainText('Figures in this taxpayer profile');
+    await expect(flow.locator('.audit-signal-flow__preview .drawer-field')).toHaveCount(3);
+    await expect(flow).toContainText('source-of-funds comparison is separate');
     await expect(flow).toContainText('not an audit finding');
     await expect(flow).not.toContainText('D ≥');
     await expect(flow).not.toContainText('₹');
@@ -63,6 +68,7 @@ test('R-E2 uses its own actual condition, without inventing R-C1 thresholds', as
   await expect(flow.locator('.audit-signal-flow__step')).toHaveCount(5);
   await expect(flow).toContainText('lawful access');
   await expect(flow).toContainText('ownership share');
+  await expect(flow).toContainText('matching external record is not shown here');
   await expect(flow).toContainText('not an audit finding');
   await expect(flow).not.toContainText('10%');
   await expect(flow).not.toContainText('line 10');
@@ -97,6 +103,7 @@ test('dashboard signal explanation uses filtered population, not one taxpayer co
   const dialog=page.getByRole('dialog',{name:new RegExp(code!)});
   const flow=dialog.locator('.audit-signal-flow');
   await expect(flow).toContainText('Selected returns');
+  await expect(flow.locator('.audit-signal-flow__preview')).toHaveCount(0);
   await expect(flow).toContainText('36');
   await expect(flow).toContainText('Each return has its own data availability');
   await expect(flow).not.toContainText('Assessment year:');

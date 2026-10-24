@@ -389,13 +389,17 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
           </div>
         ) : (
           <>
-            {textSection(t("explainer.whatItMeans"), activeExplanation.definition)}
-            {selectedSignalId && (
-              <AuditSignalLogicFlow signalId={selectedSignalId} language={i18n.resolvedLanguage ?? "en"} context={activeExplanation.signalContext} />
-            )}
-            {textSection(t("explainer.whatItAffects"), activeExplanation.effect)}
-
-            {activeExplanation.sections.map((section, sectionIndex) => (
+            {selectedSignalId ? (
+              <AuditSignalLogicFlow
+                signalId={selectedSignalId}
+                language={i18n.resolvedLanguage ?? "en"}
+                context={activeExplanation.signalContext}
+              />
+            ) : (
+              <>
+                {textSection(t("explainer.whatItMeans"), activeExplanation.definition)}
+                {textSection(t("explainer.whatItAffects"), activeExplanation.effect)}
+                {activeExplanation.sections.map((section, sectionIndex) => (
               <section className="detail-section" key={`${section.title}-${sectionIndex}`}>
                 <h3 className="detail-section__head detail-section__head--static">{section.title}</h3>
                 <div className="drawer-field-grid">
@@ -417,8 +421,10 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
               </section>
             ))}
 
-            {activeExplanation.nextStep && textSection(t("explainer.nextStep"), activeExplanation.nextStep)}
-            {activeExplanation.important && textSection(t("explainer.important"), activeExplanation.important)}
+                {activeExplanation.nextStep && textSection(t("explainer.nextStep"), activeExplanation.nextStep)}
+                {activeExplanation.important && textSection(t("explainer.important"), activeExplanation.important)}
+              </>
+            )}
           </>
         )}
       </div>

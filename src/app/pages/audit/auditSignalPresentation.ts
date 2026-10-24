@@ -13,6 +13,14 @@ export interface AuditSignalContext {
   count?: number;
   total?: number;
   filterContext?: string;
+  /** Displayed profile comparison, never accepted as independent source proof. */
+  displayedFacts?: Array<{
+    label: string;
+    current: number;
+    previous?: number;
+    currentYear: string;
+    previousYear?: string;
+  }>;
 }
 
 type Pair = { en: string; bn: string };
@@ -38,6 +46,20 @@ const questions: Record<string, Pair> = {
 
 const copy = {
   title: pair("How this signal is checked", "এই সংকেত কীভাবে যাচাই হয়"),
+  snapshot: pair("Figures in this taxpayer profile", "এই করদাতার প্রোফাইলের হিসাব"),
+  change: pair("Change", "পরিবর্তন"),
+  snapshotCaution: pair(
+    "These are figures shown in the profile. Check the original return and supporting records before deciding whether the signal is confirmed.",
+    "এগুলো প্রোফাইলে দেখানো হিসাব। সংকেত নিশ্চিত করার আগে মূল রিটার্ন ও প্রমাণপত্র মিলিয়ে দেখুন।"
+  ),
+  externalProof: pair(
+    "The matching external record is not shown here. Obtain a dated record through the approved lawful process and check ownership or period first.",
+    "মিলিয়ে দেখার বাইরের নথিটি এখানে নেই। অনুমোদিত বৈধ পদ্ধতিতে তারিখসহ নথি নিয়ে মালিকানা ও সময়কাল যাচাই করুন।"
+  ),
+  c1Separate: pair(
+    "This source-of-funds comparison is separate from the IT-10B line 10 minus line 7 check. The filed IT-10B figures are required for an R-C1 decision.",
+    "এখানে অর্থের উৎসের তুলনা দেখানো হয়েছে। R-C1 সিদ্ধান্তের জন্য মূল আইটি-১০বি-র লাইন ১০ থেকে লাইন ৭ বাদ দিয়ে আলাদা যাচাই দরকার।"
+  ),
   single: pair("This taxpayer", "এই করদাতা"),
   group: pair("Selected returns", "নির্বাচিত রিটার্নসমূহ"),
   first: pair("Check the available records", "যে তথ্য আছে তা যাচাই করুন"),

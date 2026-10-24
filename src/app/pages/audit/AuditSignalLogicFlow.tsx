@@ -36,6 +36,9 @@ export function AuditSignalLogicFlow({
   const documents = auditSignalDocuments(signalId, language) ?? signal.evidence;
   const locale = language.toLowerCase().startsWith("bn") ? "bn-BD" : "en-BD";
   const count = (value: number) => new Intl.NumberFormat(locale).format(value);
+  const money = (value: number) => (value < 0 ? "−" : "") +
+    "৳" + new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.abs(value));
+  const displayedFacts = taxpayer ? (context?.displayedFacts ?? []) : [];
   const recordIntro = [
     context?.assessmentYear ? `${word("singleContext")}: ${context.assessmentYear}` : "",
     context?.returnId ? `${word("returnId")}: ${context.returnId}` : "",
@@ -85,6 +88,27 @@ export function AuditSignalLogicFlow({
         <h3>{word("title")}</h3>
         <span className="audit-signal-flow__mode">{taxpayer ? word("single") : word("group")}</span>
       </div>
+      {taxpayer && displayedFacts.length > 0 && (
+        <section className="detail-section audit-signal-flow__preview" aria-label={word("snapshot")}>
+          <h4 className="detail-section__head detail-section__head--static">{word("snapshot")}</h4>
+          <div className="drawer-field-grid">
+            {displayedFacts.map((fact) => (
+              <div className="drawer-field" key={fact.label}>
+                <span className="drawer-field__label">{fact.label} · {fact.currentYear}</span>
+                <div className="drawer-field__value"><strong>{money(fact.current)}</strong></div>
+                {fact.previous !== undefined && fact.previousYear && (
+                  <p className="audit-signal-flow__historical">
+                    {fact.previousYear}: {money(fact.previous)} · {word("change")}: {money(fact.current - fact.previous)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="audit-signal-flow__source-note">{word("snapshotCaution")}</p>
+          {signalId.startsWith("R-E") && <p className="audit-signal-flow__source-note">{word("externalProof")}</p>}
+          {isC1 && <p className="audit-signal-flow__source-note">{word("c1Separate")}</p>}
+        </section>
+      )}
       <ol className="audit-signal-flow__steps">
         {steps.map((step, index) => (
           <li className="audit-signal-flow__step" key={step.title}>
