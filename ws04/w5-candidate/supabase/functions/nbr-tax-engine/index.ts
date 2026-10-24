@@ -1119,7 +1119,9 @@ Deno.serve(async (req) => {
     // selector before release, including any source-backed special periods.
     const transactionClaimed = (
       (Array.isArray(body.transactionRuleIds) && body.transactionRuleIds.length > 0) ||
+      (Array.isArray(body.paymentRuleIds) && body.paymentRuleIds.length > 0) ||
       (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0) ||
+      (objectRecord(body.paymentEvents) && Object.keys(body.paymentEvents).length > 0) ||
       (objectRecord(body.ruleFacts) && Object.keys(body.ruleFacts).length > 0)
     );
     const recordedYearStart = Number(year.income_year.slice(0, 4));
@@ -1160,6 +1162,31 @@ Deno.serve(async (req) => {
         if (eventDates.some((date) => date !== body.legalEventDate)) {
           return json({ status:"FAIL_CLOSED", code:"TRANSACTION_EVENT_DATE_CONFLICT",
             error:"Per-transaction dates disagree with the requested legal event date" }, 409);
+        }
+      }
+    }
+    // Payment events also select time-sensitive rules. A caller must not
+    // bypass the transaction date guard through paymentEvents/paymentRuleIds.
+    // This validates shape/consistency only; no payment credit is approved.
+    if (body.paymentEvents !== undefined) {
+      if (!objectRecord(body.paymentEvents)) {
+        return json({ status:"FAIL_CLOSED", code:"PAYMENT_FACTS_UNVERIFIED",
+          error:"A typed map of dated payment events is required" }, 422);
+      }
+      for (const value of Object.values(body.paymentEvents)) {
+        if (!objectRecord(value)) {
+          return json({ status:"FAIL_CLOSED", code:"PAYMENT_FACTS_UNVERIFIED",
+            error:"Each payment event must contain dated facts" }, 422);
+        }
+        const eventDates = ["eventDate", "legalEventDate", "transactionEventDate"]
+          .filter((key) => value[key] !== undefined).map((key) => value[key]);
+        if (eventDates.length === 0 || eventDates.some((date) => !validIsoDate(date))) {
+          return json({ status:"FAIL_CLOSED", code:"PAYMENT_EVENT_DATE_REQUIRED",
+            error:"Payment event date is missing or invalid" }, 422);
+        }
+        if (eventDates.some((date) => date !== body.legalEventDate)) {
+          return json({ status:"FAIL_CLOSED", code:"PAYMENT_EVENT_DATE_CONFLICT",
+            error:"Payment event date conflicts with evaluated legal event date" }, 409);
         }
       }
     }
