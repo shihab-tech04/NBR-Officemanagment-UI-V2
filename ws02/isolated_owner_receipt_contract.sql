@@ -173,6 +173,13 @@ BEGIN
  OR p_audit_trace->>'receipt_hash' IS DISTINCT FROM p_receipt_hash
  OR p_audit_trace->>'idempotency_key' IS DISTINCT FROM p_idempotency_key
  OR p_audit_trace->>'result_status' IS DISTINCT FROM p_result_state
+ -- No payable-looking amounts for incomplete or blocked evaluations.
+ -- This is an isolated shape guard, not statutory calculation approval.
+ OR (p_result_state='CALCULATED' AND
+     jsonb_typeof(p_audit_trace->'amounts') IS DISTINCT FROM 'object')
+ OR (p_result_state IN ('NEEDS_FACTS','FAIL_CLOSED') AND
+     p_audit_trace ? 'amounts' AND
+     p_audit_trace->'amounts' IS DISTINCT FROM 'null'::jsonb)
  OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
  THEN RETURN false; END IF;
  -- Narrow definer helper holds the owner row lock until transaction end.
@@ -1260,5 +1267,56 @@ BEGIN
 END $temp_ledger_shadow_readback$;
 DROP TABLE pg_temp.evaluation_logs;
 DROP TABLE pg_temp.slots;
+-- Synthetic audit amount-shape rejection and atomic receipt recovery.
+-- All changes are rolled back; no actual tax values or citizen data.
+SET LOCAL ROLE ws02_owner_engine;
+DO $amount_shape_gate$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000001';
+ idem text:='amount-shape-denial-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ audit jsonb; r jsonb; state text;
+BEGIN
+ r:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'AMOUNT_SHAPE_RESERVATION_FAILED'; END IF;
+ audit:=jsonb_build_object('actor_user_id',actor::text,
+  'taxpayer_record_id',rec::text,'assessment_year','2026-27',
+  'income_year','2025-26','authorized_request_hash',req,
+  'receipt_hash',receipt,'idempotency_key',idem,
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ FOREACH state IN ARRAY ARRAY['NEEDS_FACTS','FAIL_CLOSED'] LOOP
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,repeat('c',64),state,
+   audit||jsonb_build_object('result_status',state,'amounts',
+    jsonb_build_object('synthetic_only','123.45'))) THEN
+   RAISE EXCEPTION 'BLOCKED_AMOUNT_LEAK_%',state; END IF;
+ END LOOP;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,repeat('c',64),'CALCULATED',
+  audit||jsonb_build_object('result_status','CALCULATED','amounts',null)) THEN
+  RAISE EXCEPTION 'CALCULATED_MISSING_AMOUNT_OBJECT'; END IF;
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,repeat('c',64),'NEEDS_FACTS',
+  audit||jsonb_build_object('result_status','NEEDS_FACTS','amounts',null)) THEN
+  RAISE EXCEPTION 'VALID_NEEDS_FACTS_RECEIPT_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,repeat('c',64),'NEEDS_FACTS',
+  audit||jsonb_build_object('result_status','NEEDS_FACTS','amounts',null)) THEN
+  RAISE EXCEPTION 'DUPLICATE_AMOUNT_SHAPE_RECEIPT_ACCEPTED'; END IF;
+END $amount_shape_gate$;
+RESET ROLE;
+DO $amount_shape_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE idem_key='amount-shape-denial-00001'
+   AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE idem_key='amount-shape-denial-00001'
+   AND result_state='NEEDS_FACTS'
+   AND audit_trace->'amounts'='null'::jsonb)<>1 THEN
+  RAISE EXCEPTION 'AMOUNT_SHAPE_ATOMIC_READBACK_FAILED'; END IF;
+END $amount_shape_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
