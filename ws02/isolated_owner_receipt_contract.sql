@@ -1142,5 +1142,54 @@ BEGIN
   AND l.result_state='FAIL_CLOSED' AND l.audit_trace->>'income_year'='2026-27')
  THEN RAISE EXCEPTION 'CROSS_YEAR_ATOMIC_TRACE_RECEIPT_CONTAMINATION'; END IF;
 END $cross_year_readback$;
+-- Defense-in-depth against session-local object shadowing. PostgreSQL searches
+-- pg_temp implicitly for relations, even in SECURITY DEFINER functions.
+-- Synthetic engine session deliberately supplies a forged active owner row
+-- with an attacker-controlled search_path. Qualified private reads MUST win.
+-- This is NOT a signed JWT, actual taxpayer mapping, or PostgREST exposure.
+SET LOCAL ROLE ws02_owner_engine;
+SET LOCAL search_path=pg_temp,public;
+CREATE TEMP TABLE owners(
+ record_id uuid,assessment_year text,actor_id uuid,state text
+) ON COMMIT DROP;
+INSERT INTO owners VALUES(
+ '50000000-0000-4000-8000-000000000001','2026-27',
+ '60000000-0000-4000-8000-000000000002','ACTIVE');
+DO $temp_owner_shadow_denial$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000002';
+ record uuid:='50000000-0000-4000-8000-000000000001';
+ idem text:='temp-shadow-owner-00001'; req text:=repeat('a',64);
+ receipt text:=repeat('b',64); audit jsonb; result jsonb;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_temp.owners
+  WHERE record_id=record AND actor_id=actor AND state='ACTIVE') THEN
+  RAISE EXCEPTION 'TEMP_OWNER_SHADOW_SETUP_FAILED'; END IF;
+ IF ws02_owner.nbr_authorize_citizen_evaluation(actor,record,'2026-27') THEN
+  RAISE EXCEPTION 'TEMP_OWNER_SHADOW_AUTHORIZED'; END IF;
+ result:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,record,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF result->>'state' IS DISTINCT FROM 'OWNER_DENIED' THEN
+  RAISE EXCEPTION 'TEMP_OWNER_SHADOW_RESERVED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',record::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,record,'2026-27',idem,req,receipt,repeat('c',64),
+  'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'TEMP_OWNER_SHADOW_ATOMIC_COMMIT_ACCEPTED'; END IF;
+END $temp_owner_shadow_denial$;
+RESET ROLE;
+DO $temp_owner_shadow_readback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+  WHERE idem_key='temp-shadow-owner-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+  WHERE idem_key='temp-shadow-owner-00001') THEN
+  RAISE EXCEPTION 'TEMP_OWNER_SHADOW_LEFT_RECEIPT_OR_TRACE'; END IF;
+END $temp_owner_shadow_readback$;
+DROP TABLE pg_temp.owners;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
