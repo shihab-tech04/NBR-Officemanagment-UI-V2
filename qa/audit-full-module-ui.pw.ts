@@ -44,6 +44,14 @@ for (const route of routes) {
       await expect(page.locator('#root')).toBeVisible({ timeout: 20000 });
       await expect(page.locator('html')).toHaveAttribute('data-theme', mode.theme);
       await expect(page.locator('body')).toHaveCSS('color', mode.text);
+      // Routes are lazy-loaded. The theme can be ready while main still shows
+      // the loading region; wait for the actual route, not merely #root.
+      await expect.poll(
+        async () => page.locator('main').locator(
+          '.audit-candidates-page, .audit-overview-v5, .table-page, .audit-manual-page, .responsive-overlay, [class*="audit-"]'
+        ).count(),
+        { timeout: 20000, message: 'Wait for the Audit route content after lazy loading' }
+      ).toBeGreaterThan(0);
       const state = await page.evaluate(() => {
         const root = document.documentElement;
         const tokens = getComputedStyle(root);
