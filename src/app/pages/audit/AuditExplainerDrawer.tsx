@@ -391,7 +391,7 @@ export function AuditExplainerDrawer({ explanation, onClose, onBack }: AuditExpl
           <>
             {textSection(t("explainer.whatItMeans"), activeExplanation.definition)}
             {selectedSignalId && (
-              <AuditSignalLogicFlow signalId={selectedSignalId} language={i18n.resolvedLanguage ?? "en"} />
+              <AuditSignalLogicFlow signalId={selectedSignalId} language={i18n.resolvedLanguage ?? "en"} context={activeExplanation.signalContext} />
             )}
             {textSection(t("explainer.whatItAffects"), activeExplanation.effect)}
 
