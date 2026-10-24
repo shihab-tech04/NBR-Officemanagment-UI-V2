@@ -29,7 +29,7 @@ export function paymentDateOrdinal(value:unknown):number|null {
 type Props = {
   title: string; rows: TableRow[]; columns: ColDef[];
   filters?: FilterDef[]; mobileMapping?: MobileCardMapping;
-  kind: 'transactions' | 'corrections' | 'offline-events' | 'incidents';
+  kind: 'transactions' | 'corrections' | 'offline-events' | 'incidents' | 'taxpayers';
   onOpen: (record: TableRow) => void;
 };
 
@@ -100,7 +100,7 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
     return key;
   });
   const hasActiveFilters = Object.values(applied).some(value=>Boolean(value)&&value!=='All') || (!isDesktop && !!sort);
-  const sortOptions = kind === 'transactions'
+  const sortOptions = (kind === 'transactions' || kind === 'taxpayers')
     ? ['', '-date','date','taxpayer_name','-taxpayer_name','amount','-amount']
     : kind === 'incidents'
       ? ['', '-date','date','taxpayer','-taxpayer','id','-id']
