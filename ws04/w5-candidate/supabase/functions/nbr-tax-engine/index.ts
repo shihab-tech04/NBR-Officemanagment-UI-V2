@@ -1136,6 +1136,24 @@ Deno.serve(async (req) => {
         error:"The transaction event is outside the recorded standard income period; reviewed event/year and savings applicability is required",
       }, 409);
     }
+    // An event-rule selector alone is not dated evidence. Every selected
+    // withholding/payment rule must have a matching typed event entry;
+    // existing per-event date checks below still apply. Reject before
+    // consuming an owner-bound idempotency slot or reading privileged rules.
+    for (const [ids, events] of [
+      [body.transactionRuleIds, body.transactions],
+      [body.paymentRuleIds, body.paymentEvents],
+    ]) {
+      if (ids === undefined) continue;
+      if (!Array.isArray(ids) ||
+          ids.some((id) => typeof id !== "string" ||
+            !/^[A-Za-z0-9_.-]{1,128}$/.test(id)) ||
+          (ids.length > 0 && (!objectRecord(events) ||
+            ids.some((id) => !Object.prototype.hasOwnProperty.call(events, id))))) {
+        return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
+          error:"Selected transaction/payment rules require matching dated event facts" }, 422);
+      }
+    }
     // No single caller-supplied legalEventDate can prove multiple transaction
     // dates. Fail closed on absent, malformed, or contradictory per-event dates.
     // This is an unapproved safety restriction; the future source-verified
