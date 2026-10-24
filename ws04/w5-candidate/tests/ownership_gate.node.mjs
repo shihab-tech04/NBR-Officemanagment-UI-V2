@@ -23,6 +23,7 @@ const ownedRecord = '50000000-0000-4000-8000-000000000001';
 function harness({
   ownerData = true, ownerError = null,
   reservationData = { state: 'RESERVED' }, reservationError = null,
+  yearData = null,
 } = {}) {
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
     privilegedReads: 0, ownerArgs: null, reserveArgs: null };
@@ -51,6 +52,15 @@ function harness({
     },
     from(name) {
       seen.privilegedReads++;
+      // Only the synthetic authoritative-year lookup is permitted in the
+      // cross-year fixture; every later rules/parameters read must still fail.
+      if (name === 'nbr_tax_years' && yearData) {
+        return { select() {
+          return { eq() {
+            return { async maybeSingle() { return { data: yearData, error: null }; } };
+          } };
+        } };
+      }
       throw Error('Privileged read reached before owner/reservation gate: ' + name);
     },
   };
@@ -185,6 +195,44 @@ test('conflicting or replayed idempotency slot fails closed', async () => {
     const r = await h.request();
     assert.equal(r.status, 409);
     assert.equal(r.body.code, 'REPLAY_NOT_ACCEPTED');
+    assert.equal(h.seen.reserveCalls, 1);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
+test('invalid income-year label is rejected before ownership or reservation RPC', async () => {
+  for (const incomeYear of ['2025-99', '2025/26', null]) {
+    const h = harness();
+    const r = await h.request({ bodyOverrides: { incomeYear } });
+    assert.equal(r.status, 422);
+    assert.equal(r.body.code, 'INCOME_YEAR_REQUIRED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
+test('cross-year request is denied against synthetic authoritative year before rule reads', async () => {
+  const h = harness({ yearData: {
+    assessment_year: '2026-27', income_year: '2025-26',
+    state: 'active', is_executable: true,
+  } });
+  const r = await h.request({ bodyOverrides: { incomeYear: '2024-25' } });
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, 'YEAR_MISMATCH');
+  assert.equal(h.seen.ownerCalls, 1);
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 1); // authoritative year only
+});
+
+test('malformed reservation responses never authorize rule reads', async () => {
+  for (const reservationData of [null, [], 'RESERVED', { state: true }]) {
+    const h = harness({ reservationData });
+    const r = await h.request();
+    assert.equal(r.status, 503);
+    assert.equal(r.body.code, 'REPLAY_GATE_UNAVAILABLE');
+    assert.equal(h.seen.ownerCalls, 1);
     assert.equal(h.seen.reserveCalls, 1);
     assert.equal(h.seen.privilegedReads, 0);
   }
