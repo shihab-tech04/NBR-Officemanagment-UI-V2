@@ -23,10 +23,12 @@ const ownedRecord = '50000000-0000-4000-8000-000000000001';
 function harness({
   ownerData = true, ownerError = null,
   reservationData = { state: 'RESERVED' }, reservationError = null,
-  yearData = null, actorId = signedActor, revokeAfterFirstAuth = false,
+  yearData = { assessment_year: '2026-27', income_year: '2025-26',
+    state: 'active', is_executable: true },
+  actorId = signedActor, revokeAfterFirstAuth = false,
 } = {}) {
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
-    privilegedReads: 0, ownerArgs: null, reserveArgs: null };
+    privilegedReads: 0, yearReads: 0, ownerArgs: null, reserveArgs: null };
   let handler;
   const client = {
     auth: {
@@ -52,17 +54,18 @@ function harness({
       throw Error('Unexpected privileged RPC: ' + name);
     },
     from(name) {
-      seen.privilegedReads++;
-      // Only the synthetic authoritative-year lookup is permitted in the
-      // cross-year fixture; every later rules/parameters read must still fail.
-      if (name === 'nbr_tax_years' && yearData) {
+      // A scoped, owner-authorized year metadata lookup is not a tax-rule read.
+      // It must precede idempotency reservation to reject mismatched years.
+      if (name === 'nbr_tax_years') {
+        seen.yearReads++;
         return { select() {
           return { eq() {
             return { async maybeSingle() { return { data: yearData, error: null }; } };
           } };
         } };
       }
-      throw Error('Privileged read reached before owner/reservation gate: ' + name);
+      seen.privilegedReads++;
+      throw Error('Privileged rule read reached before reservation gate: ' + name);
     },
   };
   const runtime = {
@@ -283,7 +286,8 @@ test('cross-year request is denied against synthetic authoritative year before r
   assert.equal(h.seen.ownerCalls, 1);
   assert.equal(h.seen.reserveCalls, 0,
     'a known SQL income-year mismatch must not consume an idempotency reservation');
-  assert.equal(h.seen.privilegedReads, 1); // authoritative year only
+  assert.equal(h.seen.yearReads, 1, 'authoritative year is checked once');
+  assert.equal(h.seen.privilegedReads, 0, 'no privileged rule reads');
 });
 
 test('malformed reservation responses never authorize rule reads', async () => {
