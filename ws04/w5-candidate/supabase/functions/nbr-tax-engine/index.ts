@@ -1096,6 +1096,15 @@ Deno.serve(async (req) => {
     if (year.income_year !== body.incomeYear) {
       return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
     }
+    // The SQL year source cutoff is authoritative. Reject stale caller pins
+    // and post-cutoff events before consuming an idempotency reservation or
+    // reading privileged rule/parameter data; the SQL commit must revalidate.
+    if (!validIsoDate(year.legal_cutoff) ||
+        year.legal_cutoff !== body.expectedSourceCutoff ||
+        body.legalEventDate > year.legal_cutoff) {
+      return json({ status:"FAIL_CLOSED", code:"LEGAL_EVENT_CUTOFF_UNVERIFIED",
+        error:"Legal event falls outside source-reviewed cutoff or cutoff is missing" }, 409);
+    }
 
     // REVIEW-ONLY safety boundary. A transaction event cannot be assumed to
     // belong to a prior income year merely because the later legal source
@@ -1266,13 +1275,6 @@ Deno.serve(async (req) => {
       .in("gate_code", [...RELEASE_GATES]);
     if (releaseGateError) {
       return json({ error:"Engine release certification lookup failed", status:"FAIL_CLOSED" }, 503);
-    }
-    if (year.legal_cutoff !== body.expectedSourceCutoff ||
-        typeof year.legal_cutoff !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(year.legal_cutoff) ||
-        body.legalEventDate > year.legal_cutoff) {
-      return json({ status:"FAIL_CLOSED", code:"LEGAL_EVENT_CUTOFF_UNVERIFIED",
-        error:"Legal event falls outside source-reviewed cutoff or cutoff is missing" }, 409);
     }
     const pendingGates = missingReleaseGates(releaseGates ?? [], ruleSetHash);
     if (pendingGates.length > 0) {
