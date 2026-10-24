@@ -2132,18 +2132,12 @@ export function AuditCandidatesPage({
                     </div>
                   ))}
                 </div>
-                <p className="audit-summary-drawer__caution">
-                  {language.startsWith("bn")
-                    ? "এগুলো প্রোফাইলের হিসাব। সিদ্ধান্তের আগে মূল রিটার্ন ও প্রমাণপত্র মিলিয়ে দেখুন।"
-                    : "These are figures from this profile. Compare with the filed return and supporting evidence before deciding."}
-                </p>
               </section>
             )}
             <section className="detail-section">
               <h3 className="detail-section__head detail-section__head--static">{t("candidates.detail.auditNote.nextActionLabel")}</h3>
               <p className="audit-summary-drawer__copy">{auditNextAction}</p>
             </section>
-            <p className="audit-summary-drawer__caution">{t("candidates.detail.guardrailShort")}</p>
           </div>
         </ResponsiveOverlay>
         <AuditExplainerDrawer
