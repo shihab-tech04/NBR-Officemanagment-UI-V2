@@ -92,7 +92,7 @@ test('dashboard signal explanation uses filtered population, not one taxpayer co
   const firstRow=page.locator('.audit-overview-v5__chart-detail').first();
   await expect(firstRow).toBeVisible();
   const code=(await firstRow.locator('.audit-overview-v5__bar-label').textContent())?.trim();
-  expect(code).toMatch(/^R-[A-E]\\d$/);
+  expect(code).toMatch(/^R-[A-E]\d$/);
   await firstRow.click();
   const dialog=page.getByRole('dialog',{name:new RegExp(code!)});
   const flow=dialog.locator('.audit-signal-flow');
