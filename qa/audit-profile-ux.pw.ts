@@ -47,14 +47,14 @@ for(const viewport of [{width:1366,height:865},{width:1024,height:768},{width:39
     await page.screenshot({path:`test-results/audit-compact-ux-${viewport.width}.png`,animations:"disabled",fullPage:true});
   });
 }
-test("year mismatch and illustrative evidence explained by accessible info control",async({page})=>{
+test("year context and source verification explained by accessible info control",async({page})=>{
   await page.goto(profile);
   const year=page.locator(".audit-candidate-ay-tag");
   await year.hover();
-  await expect(page.getByRole("tooltip").filter({hasText:"top-bar AY selector"})).toBeVisible();
+  await expect(page.getByRole("tooltip").filter({hasText:"top-bar year selector"})).toBeVisible();
   const head=page.locator(".audit-comparison-card__title-row .audit-inline-help");
   await head.focus();
-  await expect(page.getByRole("tooltip").filter({hasText:"not actual verified taxpayer eReturns"})).toBeVisible();
+  await expect(page.getByRole("tooltip").filter({hasText:"not independently verified filed returns"})).toBeVisible();
 });
 test("Bengali candidate labels, source explanations and reconciliation stay visible",async({page})=>{
   await page.goto(profile);

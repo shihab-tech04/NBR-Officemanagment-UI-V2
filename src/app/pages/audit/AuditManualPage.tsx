@@ -33,7 +33,7 @@ const AREA_LABELS: Record<ManualArea, ManualText> = {
   workflow: mt("Verification & workflow", "ভেরিফিকেশন ও ওয়ার্কফ্লো"),
   governance: mt("Governance & architecture", "গভর্ন্যান্স ও আর্কিটেকচার"),
   testing: mt("Tests & assurance", "টেস্ট ও অ্যাস্যুরেন্স"),
-  demo: mt("Illustrative data", "নমুনা ডেটা"),
+  demo: mt("Source examples", "মূল নথির উদাহরণ"),
 };
 
 const SOURCE_LABELS: Record<string, ManualText> = {
@@ -42,7 +42,7 @@ const SOURCE_LABELS: Record<string, ManualText> = {
   Analyze: mt("Analyze", "বিশ্লেষণ"),
   Reference: mt("Reference", "রেফারেন্স"),
   Management: mt("Management", "ম্যানেজমেন্ট"),
-  "Illustrative data": mt("Illustrative data", "নমুনা ডেটা"),
+  "Illustrative data": mt("Source examples", "মূল নথির উদাহরণ"),
 };
 
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -54,9 +54,9 @@ const COPY = {
     "নিরীক্ষার সংকেত, হিসাব, যাচাইয়ের ধাপ, নথি ও কাজের নির্দেশনা এক জায়গায় দেখুন।"
   ),
   libraryTitle: mt("Audit guidance library", "নিরীক্ষা নির্দেশনা"),
-  sections: mt("sections", "section"),
+  sections: mt("sections", "বিভাগ"),
   search: mt("Search the Audit Manual", "অডিট ম্যানুয়াল খুঁজুন"),
-  searchPlaceholder: mt("Search rule, signal, formula, section, test case, dependency…", "Rule, signal, formula, section, test case, dependency খুঁজুন…"),
+  searchPlaceholder: mt("Search rule, signal, formula, section, test case, dependency…", "নিয়ম, সংকেত, সূত্র, বিভাগ, পরীক্ষা বা নির্ভরতা খুঁজুন…"),
   area: mt("Content area", "কনটেন্ট এরিয়া"),
   sourceView: mt("Source view", "সোর্স ভিউ"),
   allAreas: mt("All content areas", "সব কনটেন্ট এরিয়া"),
@@ -64,15 +64,15 @@ const COPY = {
   expandAll: mt("Expand all", "সব খুলুন"),
   collapseAll: mt("Collapse all", "সব বন্ধ করুন"),
   print: mt("Print", "প্রিন্ট"),
-  noResults: mt("No matching framework section found.", "Matching framework section পাওয়া যায়নি।"),
-  noResultsHelp: mt("Try a broader search or clear the active filters.", "Search আরও broad করুন অথবা active filter clear করুন।"),
-  rowDetails: mt("Details", "Reference row details"),
-  sourceLabel: mt("Source location", "Source location"),
+  noResults: mt("No matching section found.", "মিলে যায় এমন কোনো বিভাগ পাওয়া যায়নি।"),
+  noResultsHelp: mt("Try a broader search or clear the active filters.", "অন্য শব্দ দিয়ে খুঁজুন অথবা সক্রিয় ফিল্টার সরিয়ে দিন।"),
+  rowDetails: mt("Details", "বিস্তারিত তথ্য"),
+  sourceLabel: mt("Source location", "মূল নথিতে অবস্থান"),
   callout: mt("Important", "গুরুত্বপূর্ণ"),
-  formula: mt("Formula / logic", "Formula / logic"),
-  list: mt("Key points", "Reference point"),
-  matrixLegend: mt("Legend", "Legend"),
-  sideNote: mt("Side path / note", "Side path / note"),
+  formula: mt("Formula / logic", "সূত্র ও যাচাইয়ের ধাপ"),
+  list: mt("Key points", "মূল বিষয়"),
+  matrixLegend: mt("Legend", "চিহ্নের ব্যাখ্যা"),
+  sideNote: mt("Additional note", "অতিরিক্ত তথ্য"),
 };
 
 const SECTION_ORDER = [
