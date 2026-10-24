@@ -1009,7 +1009,8 @@ Deno.serve(async (req) => {
       return json({ error: "Authenticated taxpayer session required" }, 401);
     }
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !authData?.user?.id) {
+    if (authError || typeof authData?.user?.id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authData.user.id)) {
       return json({ error: "Authenticated taxpayer session required" }, 401);
     }
 
