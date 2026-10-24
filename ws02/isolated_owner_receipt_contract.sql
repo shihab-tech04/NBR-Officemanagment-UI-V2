@@ -1318,5 +1318,85 @@ BEGIN
    AND audit_trace->'amounts'='null'::jsonb)<>1 THEN
   RAISE EXCEPTION 'AMOUNT_SHAPE_ATOMIC_READBACK_FAILED'; END IF;
 END $amount_shape_readback$;
+-- Positive CALCULATED atomic-receipt path and malformed amount-shape denials.
+-- Synthetic strings only; this does not certify tax arithmetic, legal sources,
+-- signed JWT identity, or real taxpayer ownership.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000005','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $calculated_shape_negative$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000005';
+ idem text:='calculated-shape-atomic-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ audit jsonb; bad jsonb;
+BEGIN
+ IF (ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state')
+  IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'CALCULATED_SHAPE_RESERVATION_FAILED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','CALCULATED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ FOREACH bad IN ARRAY ARRAY[
+   'null'::jsonb, '[]'::jsonb, '"123.45"'::jsonb
+ ] LOOP
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,repeat('c',64),
+   'CALCULATED',audit||jsonb_build_object('amounts',bad)) THEN
+   RAISE EXCEPTION 'MALFORMED_CALCULATED_AMOUNTS_ACCEPTED'; END IF;
+ END LOOP;
+END $calculated_shape_negative$;
+RESET ROLE;
+DO $calculated_shape_denial_readback$
+BEGIN
+ IF (SELECT state FROM ws02_owner.slots
+   WHERE idem_key='calculated-shape-atomic-00001') IS DISTINCT FROM 'RESERVED'
+ OR (SELECT receipt_hash FROM ws02_owner.slots
+   WHERE idem_key='calculated-shape-atomic-00001') IS NOT NULL
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+   WHERE idem_key='calculated-shape-atomic-00001') THEN
+  RAISE EXCEPTION 'MALFORMED_CALCULATED_ATTEMPT_MUTATED_LEDGER'; END IF;
+END $calculated_shape_denial_readback$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $calculated_shape_positive$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000005';
+ idem text:='calculated-shape-atomic-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ audit jsonb;
+BEGIN
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','CALCULATED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW',
+  'amounts',jsonb_build_object('synthetic_only','123.45'));
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,repeat('c',64),
+  'CALCULATED',audit) THEN
+  RAISE EXCEPTION 'VALID_CALCULATED_ATOMIC_COMMIT_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,repeat('c',64),
+  'CALCULATED',audit) THEN
+  RAISE EXCEPTION 'DUPLICATE_CALCULATED_ATOMIC_COMMIT_ACCEPTED'; END IF;
+END $calculated_shape_positive$;
+RESET ROLE;
+DO $calculated_shape_positive_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+   WHERE idem_key='calculated-shape-atomic-00001'
+    AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE idem_key='calculated-shape-atomic-00001'
+    AND result_state='CALCULATED' AND trace_hash=repeat('c',64)
+    AND audit_trace->'amounts'->>'synthetic_only'='123.45')<>1 THEN
+  RAISE EXCEPTION 'CALCULATED_ATOMIC_TRACE_RECEIPT_READBACK_FAILED'; END IF;
+END $calculated_shape_positive_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
