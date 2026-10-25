@@ -1084,6 +1084,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (yearError) throw yearError;
     if (!year) return json({ error: "Assessment year not found" }, 404);
+    // The owner-scoped year row must carry a real immutable SQL identity.
+    // Without it a replay slot could be consumed before a rule read fails.
+    if (typeof year.id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(year.id)) {
+      return json({ status:"FAIL_CLOSED", code:"YEAR_METADATA_UNVERIFIED",
+        error:"Authoritative assessment-year record identity is missing or invalid" }, 503);
+    }
     // Fail closed if a year-filtered response contains a different AY.
     // Ownership authorization does not permit a cross-year metadata fallback.
     if (year.assessment_year !== assessmentYear) {
