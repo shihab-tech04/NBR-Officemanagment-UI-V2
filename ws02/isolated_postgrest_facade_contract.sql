@@ -174,5 +174,55 @@ BEGIN
  OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1
  THEN RAISE EXCEPTION 'FACADE_ATOMIC_TRACE_RECEIPT_OR_REVOCATION_READBACK_FAILED'; END IF;
 END $readback$;
+-- Independent facade-level transaction-abort proof, distinct from the private
+-- RPC rollback suite. A successful synthetic wrapper call must leave no
+-- reservation, audit trace or receipt after the caller rolls back its savepoint.
+-- This is PostgreSQL transaction behavior, NOT signed JWT/owner approval.
+SAVEPOINT ws02_facade_rollback;
+SET LOCAL ROLE ws02_owner_engine;
+DO $facade_rollback$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000002';
+ idem text:='facade-rollback-atomic-00001';
+ req text:=repeat('d',64); receipt text:=repeat('e',64);
+ trace text:=repeat('f',64); reservation jsonb; audit jsonb;
+BEGIN
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FACADE_ROLLBACK_RESERVATION_FAILED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'FACADE_ROLLBACK_ATOMIC_CALL_FAILED'; END IF;
+END $facade_rollback$;
+RESET ROLE;
+DO $facade_pre_rollback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='facade-rollback-atomic-00001'
+       AND state='FINALIZED' AND receipt_hash=repeat('e',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+     WHERE idem_key='facade-rollback-atomic-00001'
+       AND result_state='FAIL_CLOSED' AND trace_hash=repeat('f',64)
+       AND audit_trace->>'income_year'='2025-26')<>1 THEN
+  RAISE EXCEPTION 'FACADE_SAVEPOINT_PRE_ROLLBACK_RECEIPT_MISSING'; END IF;
+END $facade_pre_rollback$;
+ROLLBACK TO SAVEPOINT ws02_facade_rollback;
+RELEASE SAVEPOINT ws02_facade_rollback;
+DO $facade_post_rollback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+     WHERE idem_key='facade-rollback-atomic-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE idem_key='facade-rollback-atomic-00001')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1 THEN
+  RAISE EXCEPTION 'FACADE_SAVEPOINT_ROLLBACK_LEFT_SLOT_TRACE_OR_RECEIPT'; END IF;
+END $facade_post_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
