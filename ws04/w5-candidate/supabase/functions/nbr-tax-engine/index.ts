@@ -1261,6 +1261,26 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // A dated ruleFacts record can trigger runtime applicability even when
+    // no rule selector was supplied. Until the authoritative typed WS02 rule
+    // binding contract exists, deny unselected dated facts before reservation.
+    // This is a conservative synthetic safety check, not statutory approval.
+    if (objectRecord(body.ruleFacts)) {
+      const selectedRuleIds = new Set([
+        ...(body.claimRuleIds ?? []),
+        ...(body.transactionRuleIds ?? []),
+        ...(body.paymentRuleIds ?? []),
+      ]);
+      for (const [ruleId, facts] of Object.entries(body.ruleFacts)) {
+        if (objectRecord(facts) &&
+            ["eventDate", "legalEventDate", "transactionEventDate"]
+              .some((field) => facts[field] !== undefined) &&
+            !selectedRuleIds.has(ruleId)) {
+          return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
+            error:"Dated rule facts require an explicit matching rule selector" }, 422);
+        }
+      }
+    }
     // Deny known invalid transaction event dates and periods before reserving
     // an idempotency key. WS02 must still recheck owner/year inside atomic SQL.
     // Atomic reserve or replay denial must be implemented by WS02 in an
