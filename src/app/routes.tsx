@@ -129,7 +129,7 @@ export function preloadAllRoutes() {
 
 function PaymentRoute() {
   const { subNav, tin } = useParams<{ subNav: string; tin?: string }>();
-  return <PaymentModulePage page={subNav || "overview"} taxpayerTin={tin} />;
+  return <PaymentModulePage page={tin ? "taxpayer-360" : (subNav || "overview")} taxpayerTin={tin} />;
 }
 
 export const router = createBrowserRouter([
