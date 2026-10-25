@@ -1148,9 +1148,6 @@ Deno.serve(async (req) => {
       if (!Array.isArray(ids) ||
           ids.some((id) => typeof id !== "string" ||
             !/^[A-Za-z0-9_.-]{1,128}$/.test(id)) ||
-          // A rule can have only one dated event binding in this candidate.
-          // Repeated selectors are ambiguous and could double-count downstream.
-          new Set(ids).size !== ids.length ||
           // When an explicit selector is supplied, no unselected event key
           // may be passed onward to the calculation pipeline.
           (objectRecord(events) && Object.keys(events).some((key) => !ids.includes(key))) ||
