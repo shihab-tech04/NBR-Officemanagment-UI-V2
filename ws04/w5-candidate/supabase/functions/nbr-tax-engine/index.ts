@@ -1272,8 +1272,10 @@ Deno.serve(async (req) => {
         ...(body.paymentRuleIds ?? []),
       ]);
       for (const [ruleId, facts] of Object.entries(body.ruleFacts)) {
+        // Undated monetary operands can also select runtime applicability.
+        // Require an explicit reviewed selector before any replay reservation.
         if (objectRecord(facts) &&
-            ["eventDate", "legalEventDate", "transactionEventDate"]
+            ["eventDate", "legalEventDate", "transactionEventDate", "baseAmount", "quantity"]
               .some((field) => facts[field] !== undefined) &&
             !selectedRuleIds.has(ruleId)) {
           return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
