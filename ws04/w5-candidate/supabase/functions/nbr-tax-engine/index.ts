@@ -64,7 +64,9 @@ function nonnegativeMoney(value: unknown): boolean {
   // Require canonical decimal evidence; stripping separators/whitespace can
   // let malformed values reserve an idempotency slot before decimal() rejects them.
   const raw = String(value);
-  return /^\d+(?:\.\d{1,10})?$/.test(raw) &&
+  // Match the isolated WS02 atomic receipt's canonical decimal syntax:
+  // no leading-zero integer forms, including nested transaction/payment facts.
+  return /^(?:0|[1-9]\d*)(?:\.\d{1,10})?$/.test(raw) &&
     // Do not accept a binary float as the source of tax decimal evidence.
     (typeof value !== "number" || Number.isSafeInteger(value));
 }
