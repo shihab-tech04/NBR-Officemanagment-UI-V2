@@ -249,7 +249,7 @@ test('atomic trace and call pin user, record, request, receipt, version and stat
   const j=source.indexOf('const { data: atomicCommit',i);
   assert.ok(i>0 && j>i);
   const trace=source.slice(i,j);
-  for(const token of ['individual: individual.trace','rules: results',
+  for(const token of ['individual: safeIndividual.trace','rules: results',
     'actor_user_id: authData.user.id','taxpayer_record_id: taxpayerRecordId',
     'assessment_year: assessmentYear','income_year: body.incomeYear',
     'authorized_request_hash: authorizedRequestHash','idempotency_key: body.idempotencyKey',
