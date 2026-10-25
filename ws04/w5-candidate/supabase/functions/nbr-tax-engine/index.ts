@@ -1100,6 +1100,13 @@ Deno.serve(async (req) => {
     if (!year.is_executable || year.state !== "active") {
       return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
     }
+    // An executable year is not an immutable legal-rule snapshot. Reject a
+    // mutable or missing SQL freeze flag before consuming any replay slot or
+    // accessing privileged rules. This is not legal provenance certification.
+    if (year.is_immutable !== true) {
+      return json({ status:"FAIL_CLOSED", code:"YEAR_NOT_IMMUTABLE",
+        error:"Assessment-year ruleset is not frozen for reproducible evaluation" }, 409);
+    }
     if (year.income_year !== body.incomeYear) {
       return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
     }
