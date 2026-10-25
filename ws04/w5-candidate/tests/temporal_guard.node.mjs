@@ -151,7 +151,7 @@ test('unknown structured fact outside the income period is conservatively held f
 
 test('in-period structured rule facts do not become approved tax calculation without full registry',async()=>{
   const h=harness();
-  const r=await h.request({legalEventDate:'2026-06-30',ruleFacts:{'WH-R4-04':{baseAmount:'1000'}}});
+  const r=await h.request({legalEventDate:'2026-06-30',claimRuleIds:['WH-R4-04'],ruleFacts:{'WH-R4-04':{baseAmount:'1000'}}});
   assert.equal(r.code,503);
   assert.equal(r.body.status,'FAIL_CLOSED');
   assert.equal(h.seen.ruleReads,1);
