@@ -112,6 +112,24 @@ function invalidCalculationFacts(body: Record<string, any>): string[] {
           !nonnegativeMoney(returnData[key])) invalid.push(key);
     }
   }
+  // Dated event maps can carry caller-controlled monetary evidence even when
+  // their explicit selectors and dates match. Reject noncanonical values
+  // before ownership lookup and owner-bound idempotency reservation. Only
+  // validate named monetary operands already present in isolated fixtures;
+  // this is NOT approval of an event schema, payment credit or legal rate.
+  for (const [mapName, operand] of [
+    ["transactions", "grossBill"],
+    ["paymentEvents", "amount"],
+  ] as const) {
+    const events = body[mapName];
+    if (!objectRecord(events)) continue; // Event-map shape is checked later.
+    for (const [ruleId, event] of Object.entries(events)) {
+      if (objectRecord(event) && event[operand] !== undefined &&
+          !nonnegativeMoney(event[operand])) {
+        invalid.push(`${mapName}.${ruleId}.${operand}`);
+      }
+    }
+  }
   // Never coerce malformed caller-selected rule identifiers to strings or
   // silently discard a non-array transaction claim. Either behavior could
   // defeat a transaction-period guard before legal rule selection.
