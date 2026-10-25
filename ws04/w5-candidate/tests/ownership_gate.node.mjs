@@ -1004,3 +1004,40 @@ test('noncanonical money cannot reserve an owner-bound idempotency slot', async 
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+// Regression: nested event money is still caller-controlled even when an
+// explicit rule selector and matching event date are supplied. Synthetic
+// pre-reservation shape only; no payment entitlement or legal rule approval.
+test('malformed nested transaction/payment money cannot consume replay reservations', async () => {
+  const cases = [
+    { transactionRuleIds: ['WH-R4-04'],
+      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1,000' } },
+      invalidPath: 'transactions.WH-R4-04.grossBill' },
+    { transactionRuleIds: ['WH-R4-04'],
+      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1e3' } },
+      invalidPath: 'transactions.WH-R4-04.grossBill' },
+    { paymentRuleIds: ['PAY-SYN-001'],
+      paymentEvents: { 'PAY-SYN-001': { eventDate: '2026-06-30', amount: ' 200' } },
+      invalidPath: 'paymentEvents.PAY-SYN-001.amount' },
+  ];
+  for (const { invalidPath, ...bodyOverrides } of cases) {
+    const h = harness({ reservationError: { message: 'nested invalid money must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.ok(r.body.invalidFacts?.includes(invalidPath), invalidPath);
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+  const h = harness({ reservationError: { message: 'synthetic stop at replay' } });
+  const valid = await h.request({ bodyOverrides: {
+    transactionRuleIds: ['WH-R4-04'],
+    transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000.00' } },
+  } });
+  assert.equal(valid.status, 503);
+  assert.equal(valid.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 0);
+});
