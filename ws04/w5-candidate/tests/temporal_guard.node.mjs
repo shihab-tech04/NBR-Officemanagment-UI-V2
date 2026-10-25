@@ -203,7 +203,7 @@ test('conflicting structured ruleFacts eventDate is not ignored',async()=>{
 
 test('same-date explicitly dated transaction passes the date guard but cannot bypass frozen-rule coverage',async()=>{
   const h=harness();
-  const r=await h.request({legalEventDate:'2026-06-30',
+  const r=await h.request({legalEventDate:'2026-06-30',transactionRuleIds:['WH-R4-04'],
     transactions:{'WH-R4-04':{eventDate:'2026-06-30',grossBill:'1000'}}});
   assert.equal(r.code,503);
   assert.equal(r.body.status,'FAIL_CLOSED');
