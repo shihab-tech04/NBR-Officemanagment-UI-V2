@@ -16,7 +16,7 @@ const executable = stripTypeScriptTypes(source.replace(
 ));
 
 function harness(year = {
-  id:'isolated-year', assessment_year:'2026-27', income_year:'2025-26',
+  id:'70000000-0000-4000-8000-000000000001', assessment_year:'2026-27', income_year:'2025-26',
   state:'active', is_executable:true, legal_cutoff:'2026-09-30',
 }) {
   const seen = { ruleReads:0, authCalls:0, ownershipCalls:0, reserveCalls:0 };
@@ -123,7 +123,7 @@ test('a non-transaction event is not silently treated as a withholding transacti
 });
 
 test('the next income year remains draft and denies calculation',async()=>{
-  const h=harness({id:'isolated-year',assessment_year:'2027-28',income_year:'2026-27',
+  const h=harness({id:'70000000-0000-4000-8000-000000000001',assessment_year:'2027-28',income_year:'2026-27',
     state:'draft',is_executable:false,legal_cutoff:null});
   const r=await h.request({assessmentYear:'2027-28',incomeYear:'2026-27',
     legalEventDate:'2026-07-10',transactionRuleIds:['WH-R4-04']});
