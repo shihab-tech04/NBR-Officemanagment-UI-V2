@@ -189,9 +189,9 @@ BEGIN
   IF NOT (p_audit_trace->'amounts' ?& ARRAY[
    'totalIncome','taxFreeThreshold','grossTax','rebate',
    'netTax','taxPaid','balanceDue'])
-   OR (p_audit_trace->'amounts' - 'totalIncome' - 'taxFreeThreshold'
-       - 'grossTax' - 'rebate' - 'netTax' - 'taxPaid'
-       - 'balanceDue') <> '{}'::jsonb
+   OR ((p_audit_trace->'amounts') - ARRAY[
+       'totalIncome','taxFreeThreshold','grossTax','rebate',
+       'netTax','taxPaid','balanceDue']::text[]) <> '{}'::jsonb
   THEN RETURN false; END IF;
   FOR amount_key, amount_value IN
    SELECT key,value FROM pg_catalog.jsonb_each(p_audit_trace->'amounts')
