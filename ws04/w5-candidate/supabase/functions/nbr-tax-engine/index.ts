@@ -1263,7 +1263,7 @@ Deno.serve(async (req) => {
     }
     // A dated ruleFacts record can trigger runtime applicability even when
     // no rule selector was supplied. Until the authoritative typed WS02 rule
-    // binding contract exists, deny unselected dated facts before reservation.
+    // binding contract exists, deny unselected dated or monetary facts before reservation.
     // This is a conservative synthetic safety check, not statutory approval.
     if (objectRecord(body.ruleFacts)) {
       const selectedRuleIds = new Set([
@@ -1279,7 +1279,7 @@ Deno.serve(async (req) => {
               .some((field) => facts[field] !== undefined) &&
             !selectedRuleIds.has(ruleId)) {
           return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
-            error:"Dated rule facts require an explicit matching rule selector" }, 422);
+            error:"Dated or monetary rule facts require an explicit matching rule selector" }, 422);
         }
       }
     }
