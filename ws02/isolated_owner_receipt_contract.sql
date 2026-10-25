@@ -155,6 +155,7 @@ CREATE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
 ) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,ws02_owner AS $atomic$
 DECLARE slot ws02_owner.slots%ROWTYPE; affected integer;
+ amount_key text; amount_value jsonb;
 BEGIN
  IF NOT ws02_owner.nbr_authorize_citizen_evaluation(
    p_auth_user_id,p_taxpayer_record_id,p_assessment_year)
@@ -182,6 +183,25 @@ BEGIN
      p_audit_trace->'amounts' IS DISTINCT FROM 'null'::jsonb)
  OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
  THEN RETURN false; END IF;
+ -- CALCULATED receipt transport: exactly seven pinned W5 monetary fields,
+ -- each nonnegative fixed-decimal string (<=10 places). Not legal approval.
+ IF p_result_state='CALCULATED' THEN
+  IF NOT (p_audit_trace->'amounts' ?& ARRAY[
+   'totalIncome','taxFreeThreshold','grossTax','rebate',
+   'netTax','taxPaid','balanceDue'])
+   OR (p_audit_trace->'amounts' - 'totalIncome' - 'taxFreeThreshold'
+       - 'grossTax' - 'rebate' - 'netTax' - 'taxPaid'
+       - 'balanceDue') <> '{}'::jsonb
+  THEN RETURN false; END IF;
+  FOR amount_key, amount_value IN
+   SELECT key,value FROM pg_catalog.jsonb_each(p_audit_trace->'amounts')
+  LOOP
+   IF pg_catalog.jsonb_typeof(amount_value) IS DISTINCT FROM 'string'
+      OR COALESCE(amount_value #>> '{}','')
+         !~ '^(0|[1-9][0-9]*)(\\.[0-9]{1,10})?$'
+   THEN RETURN false; END IF;
+  END LOOP;
+ END IF;
  -- Narrow definer helper holds the owner row lock until transaction end.
  -- Do not grant the engine UPDATE on owners merely to obtain FOR SHARE.
  IF NOT ws02_owner.nbr_lock_active_owner(
@@ -1343,7 +1363,22 @@ BEGIN
   'idempotency_key',idem,'result_status','CALCULATED',
   'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
  FOREACH bad IN ARRAY ARRAY[
-   'null'::jsonb, '[]'::jsonb, '"123.45"'::jsonb
+   'null'::jsonb, '[]'::jsonb, '"123.45"'::jsonb,
+   '{}'::jsonb,
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax','0','rebate','0','netTax','0','taxPaid','0'),
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax','0','rebate','0','netTax','0','taxPaid','0',
+     'balanceDue','0','unexpected','0'),
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax',0,'rebate','0','netTax','0','taxPaid','0','balanceDue','0'),
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax','1e3','rebate','0','netTax','0','taxPaid','0','balanceDue','0'),
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax','0.00000000001','rebate','0','netTax','0','taxPaid','0',
+     'balanceDue','0'),
+   jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+     'grossTax','0','rebate','0','netTax','0','taxPaid','0','balanceDue',null)
  ] LOOP
   IF ws02_owner.nbr_commit_evaluation_atomically(
    actor,rec,'2026-27',idem,req,receipt,repeat('c',64),
@@ -1376,7 +1411,8 @@ BEGIN
   'authorized_request_hash',req,'receipt_hash',receipt,
   'idempotency_key',idem,'result_status','CALCULATED',
   'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW',
-  'amounts',jsonb_build_object('synthetic_only','123.45'));
+  'amounts',jsonb_build_object('totalIncome','0','taxFreeThreshold','0',
+   'grossTax','0','rebate','0','netTax','0','taxPaid','0','balanceDue','0'));
  IF NOT ws02_owner.nbr_commit_evaluation_atomically(
   actor,rec,'2026-27',idem,req,receipt,repeat('c',64),
   'CALCULATED',audit) THEN
@@ -1395,7 +1431,9 @@ BEGIN
  OR (SELECT count(*) FROM ws02_owner.evaluation_logs
    WHERE idem_key='calculated-shape-atomic-00001'
     AND result_state='CALCULATED' AND trace_hash=repeat('c',64)
-    AND audit_trace->'amounts'->>'synthetic_only'='123.45')<>1 THEN
+    AND audit_trace->'amounts'->>'balanceDue'='0'
+    AND audit_trace->'amounts'->>'grossTax'='0'
+    AND audit_trace->'amounts'->>'taxPaid'='0')<>1 THEN
   RAISE EXCEPTION 'CALCULATED_ATOMIC_TRACE_RECEIPT_READBACK_FAILED'; END IF;
 END $calculated_shape_positive_readback$;
 -- Synthetic reassignment between reservation and atomic receipt. The old
