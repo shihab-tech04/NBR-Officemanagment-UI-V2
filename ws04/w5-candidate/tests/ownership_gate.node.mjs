@@ -530,16 +530,19 @@ test('unbacked event rule selectors are denied before idempotency reservation', 
   }
 });
 
-// Duplicate rule selectors can ambiguously double-select one event while
-// consuming an owner-bound replay slot. Reject before reservation and rule reads.
-test('duplicate transaction or payment rule selectors fail closed before reservation', async () => {
+// A selected rule must not be accompanied by unrelated dated event facts.
+// Extra keys could otherwise influence downstream rule evaluation after a
+// replay slot has been consumed. This is an isolated fail-closed shape check.
+test('unselected transaction or payment event facts fail closed before reservation', async () => {
   for (const bodyOverrides of [
-    { transactionRuleIds: ['WH-R4-04', 'WH-R4-04'],
-      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000' } } },
-    { paymentRuleIds: ['WH-R4-04', 'WH-R4-04'],
-      paymentEvents: { 'WH-R4-04': { eventDate: '2026-06-30', amount: '100' } } },
+    { transactionRuleIds: ['WH-R4-04'],
+      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000' },
+        'WH-R4-05': { eventDate: '2026-06-30', grossBill: '1000' } } },
+    { paymentRuleIds: ['WH-R4-04'],
+      paymentEvents: { 'WH-R4-04': { eventDate: '2026-06-30', amount: '100' },
+        'WH-R4-05': { eventDate: '2026-06-30', amount: '100' } } },
   ]) {
-    const h = harness({ reservationError: { message: 'duplicate selector must not reserve' } });
+    const h = harness({ reservationError: { message: 'unselected event must not reserve' } });
     const result = await h.request({ bodyOverrides });
     assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
     assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
