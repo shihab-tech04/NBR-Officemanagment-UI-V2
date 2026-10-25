@@ -4,6 +4,7 @@ on:
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
       - 'ws02/isolated_owner_receipt_contract.sql'
+      - 'ws02/isolated_postgrest_facade_contract.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'ws02/isolated_pg17_capability_smoke.sql'
       - 'ws02/isolated_owner_receipt_contract.sql'
+      - 'ws02/isolated_postgrest_facade_contract.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   workflow_dispatch:
@@ -188,6 +190,19 @@ jobs:
           # PostgreSQL correctly refuses to drop the synthetic definer roles.
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'TWO_SESSION_ATOMIC_RECEIPT_OWNER_REVOCATION_SERIALIZATION_PASS_ONLY'
+      - name: Verify narrow PostgREST-style facade and negative owner/receipt cases in disposable PG17
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This isolated schema is NOT configured in Supabase/PostgREST or deployed.
+          # Bootstrap the same private WS02 DDL before fixture data, then roll back
+          # all facade tests and drop synthetic roles/schemas.
+          awk '/^INSERT INTO ws02_owner.owners\\(record_id,assessment_year,actor_id,state\\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_facade_ddl.sql
+          echo 'COMMIT;' >> /tmp/ws02_facade_ddl.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_facade_ddl.sql >/tmp/ws02_facade_setup.log
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_postgrest_facade_contract.sql
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          echo 'PASS_DISPOSABLE_FACADE_NOT_AUTH_JWT_OR_PRODUCTION_APPROVAL'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
