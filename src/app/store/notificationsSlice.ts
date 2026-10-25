@@ -9,11 +9,14 @@ export type { Notification, NotificationType, NotificationPriority };
 // ── State ─────────────────────────────────────────────────────────────────────
 interface NotificationsState {
   items: Notification[];
+  // Timestamp of the last mark-all-read action; closes races with delayed SQL fetches.
+  readThroughMs: number | null;
 }
 
 const initialState: NotificationsState = {
   // Payment notices must come from mirrored SQL, not the old fictional payment fixture.
   items: MOCK_NOTIFICATIONS.filter(notice => notice.type !== "payment"),
+  readThroughMs: null,
 };
 
 // ── Slice ─────────────────────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ const notificationsSlice = createSlice({
     },
     markAllNotificationsRead(state) {
       state.items.forEach((n) => { n.isRead = true; });
+      state.readThroughMs = Date.now();
     },
     syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; language: "en" | "bn" }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
@@ -48,7 +52,7 @@ const notificationsSlice = createSlice({
                       : "TaxPay payment simulation recorded in Office. No government settlement is confirmed.",
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
-          isRead: previousRead.get(id) ?? false,
+          isRead: previousRead.get(id) ?? (state.readThroughMs !== null && Date.parse(event.createdAt) <= state.readThroughMs),
           destination: { main: "payments", sub: "transactions" },
         });
       }
