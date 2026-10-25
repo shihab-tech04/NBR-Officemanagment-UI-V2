@@ -1265,9 +1265,9 @@ Deno.serve(async (req) => {
         }
       }
     }
-    // A dated ruleFacts record can trigger runtime applicability even when
-    // no rule selector was supplied. Until the authoritative typed WS02 rule
-    // binding contract exists, deny unselected dated or monetary facts before reservation.
+    // Any structured rule fact can trigger runtime applicability, including
+    // nonmonetary predicates. Require an explicit matching rule selector
+    // before reservation; no client fact may silently choose a legal rule.
     // This is a conservative synthetic safety check, not statutory approval.
     if (objectRecord(body.ruleFacts)) {
       const selectedRuleIds = new Set([
@@ -1276,14 +1276,10 @@ Deno.serve(async (req) => {
         ...(body.paymentRuleIds ?? []),
       ]);
       for (const [ruleId, facts] of Object.entries(body.ruleFacts)) {
-        // Undated monetary operands can also select runtime applicability.
-        // Require an explicit reviewed selector before any replay reservation.
-        if (objectRecord(facts) &&
-            ["eventDate", "legalEventDate", "transactionEventDate", "baseAmount", "quantity"]
-              .some((field) => facts[field] !== undefined) &&
+        if (objectRecord(facts) && Object.keys(facts).length > 0 &&
             !selectedRuleIds.has(ruleId)) {
           return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
-            error:"Dated or monetary rule facts require an explicit matching rule selector" }, 422);
+            error:"Structured rule facts require an explicit matching rule selector" }, 422);
         }
       }
     }
