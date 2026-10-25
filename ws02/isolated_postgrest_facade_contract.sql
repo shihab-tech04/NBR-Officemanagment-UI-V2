@@ -107,6 +107,24 @@ BEGIN
   END LOOP;
  END LOOP;
 END $private_boundary$;
+-- Guard against schema-level DDL privilege drift. EXECUTE/USAGE denials alone
+-- are insufficient if an untrusted or runtime role can create shadow objects
+-- in either the exposed facade schema or the private owner schema.
+-- These are disposable PG17 role ACL assertions, NOT hosted Auth evidence.
+DO $schema_ddl_boundary$
+DECLARE caller name; schema_name text;
+BEGIN
+ FOREACH caller IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+  'ws02_owner_rpc','ws02_owner_lock'] LOOP
+  FOREACH schema_name IN ARRAY ARRAY['ws02_api','ws02_owner'] LOOP
+   IF pg_catalog.has_schema_privilege(caller,schema_name,'CREATE') THEN
+    RAISE EXCEPTION 'UNTRUSTED_OR_RUNTIME_ROLE_CAN_CREATE_IN_SCHEMA_%_%',
+     caller,schema_name;
+   END IF;
+  END LOOP;
+ END LOOP;
+END $schema_ddl_boundary$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
