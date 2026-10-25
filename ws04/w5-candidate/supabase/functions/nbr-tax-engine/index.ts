@@ -1148,8 +1148,9 @@ Deno.serve(async (req) => {
       if (!Array.isArray(ids) ||
           ids.some((id) => typeof id !== "string" ||
             !/^[A-Za-z0-9_.-]{1,128}$/.test(id)) ||
-          // One dated event cannot be selected twice under the same rule ID.
-          new Set(ids).size !== ids.length ||
+          // When an explicit selector is supplied, no unselected event key
+          // may be passed onward to the calculation pipeline.
+          (objectRecord(events) && Object.keys(events).some((key) => !ids.includes(key))) ||
           (ids.length > 0 && (!objectRecord(events) ||
             ids.some((id) => !Object.prototype.hasOwnProperty.call(events, id))))) {
         return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
