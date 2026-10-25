@@ -31,7 +31,8 @@ function harness({
     privilegedReads: 0, yearReads: 0, ownerArgs: null, reserveArgs: null };
   let handler;
   const scopedYearData = yearData === null ? null : {
-    id: '70000000-0000-4000-8000-000000000001', is_immutable: true, ...yearData,
+    id: '70000000-0000-4000-8000-000000000001', is_immutable: true,
+    source_registry_version: 'FINAL_2026_09_30', ...yearData,
   };
   const client = {
     auth: {
@@ -687,6 +688,26 @@ test('SQL year executable flag must be boolean true before idempotency reservati
     assert.equal(r.status, 409, String(isExecutable));
     assert.equal(r.body.code, 'UNAPPROVED_YEAR', String(isExecutable));
     assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
+// Isolated SQL metadata mock: version identity is a necessary but not
+// sufficient legal-source gate; it cannot certify the underlying 366 bytes.
+test('unverified SQL registry version cannot consume a replay reservation', async () => {
+  for (const source_registry_version of [undefined, null, 1, 'FINAL_2026_09_29', '']) {
+    const h = harness({
+      yearData: { assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: true, is_immutable: true,
+        legal_cutoff: '2026-09-30', source_registry_version },
+      reservationError: { message: 'replay must not be reached' },
+    });
+    const r = await h.request();
+    assert.equal(r.status, 409, String(source_registry_version));
+    assert.equal(r.body.code, 'REGISTRY_VERSION_UNVERIFIED');
     assert.equal(h.seen.ownerCalls, 1);
     assert.equal(h.seen.yearReads, 1);
     assert.equal(h.seen.reserveCalls, 0);
