@@ -42,8 +42,14 @@ BEGIN
     OR function_language IS DISTINCT FROM 'sql'
     OR return_type IS DISTINCT FROM 'boolean'::regtype::oid
     OR function_config IS NULL
-    OR NOT ('search_path=pg_catalog,ws02_owner'=ANY(function_config))
- THEN RAISE EXCEPTION 'FACADE_SECURITY_INVOKER_METADATA_DRIFT'; END IF;
+    OR NOT EXISTS (
+      SELECT 1 FROM unnest(function_config) AS setting
+      WHERE split_part(setting,'=',1)='search_path'
+        AND replace(split_part(setting,'=',2),' ','')='pg_catalog,ws02_owner')
+ THEN RAISE EXCEPTION
+   'FACADE_SECURITY_INVOKER_METADATA_DRIFT sec=% vol=% lang=% ret=% config=%',
+   security_definer,function_volatility,function_language,return_type,function_config;
+ END IF;
 END $facade_metadata$;
 DO $acl$
 DECLARE caller name;
