@@ -909,3 +909,36 @@ test('overall non-CALCULATED status redacts an otherwise CALCULATED individual t
   assert.ok(!handler.includes('individual:individual.trace'),
     'raw individual trace must not bypass redaction');
 });
+
+ 
+// Regression: caller-provided benefitClaims must not silently select an
+// unrequested legal benefit. These are synthetic pre-reservation shape tests,
+// not a certification of the benefit's legal entitlement or signed Auth.
+test('unselected or malformed benefit claims cannot consume replay reservations', async () => {
+  const selected = 'S78-GENERAL-REBATE-FA2026';
+  for (const bodyOverrides of [
+    { benefitClaims: { [selected]: { claimed: true } } },
+    { claimRuleIds: ['OTHER-RULE'], benefitClaims: { [selected]: { claimed: true } } },
+    { claimRuleIds: [selected], benefitClaims: { [selected]: true } },
+    { claimRuleIds: [selected], benefitClaims: { [selected]: {} } },
+    { claimRuleIds: [selected], benefitClaims: null },
+  ]) {
+    const h = harness({ reservationError: { message: 'invalid benefit claim must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.code, 'BENEFIT_CLAIM_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+  const h = harness({ reservationError: { message: 'expected stop at synthetic replay gate' } });
+  const accepted = await h.request({ bodyOverrides: {
+    claimRuleIds: [selected], benefitClaims: { [selected]: { claimed: true } },
+  } });
+  assert.equal(accepted.status, 503);
+  assert.equal(accepted.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.reserveCalls, 1, 'matched structured claim may reach mocked replay gate');
+  assert.equal(h.seen.privilegedReads, 0);
+});
