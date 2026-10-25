@@ -46,6 +46,41 @@ BEGIN
    WHERE n.nspname='public' AND p.proname='nbr_commit_evaluation_atomically')
  THEN RAISE EXCEPTION 'FACADE_LEAST_PRIVILEGE_OR_PUBLIC_EXPOSURE_FAILURE'; END IF;
 END $acl$;
+-- Negative role-escalation and private-object ACL proof. An exposed API schema
+-- is not sufficient protection if a caller can inherit or SET the engine role,
+-- call its private SECURITY DEFINER RPC, or read receipt/owner tables directly.
+-- All identities/roles here are synthetic; this does not validate real JWTs.
+DO $private_boundary$
+DECLARE caller name; elevated name; signature text; relation_name text;
+BEGIN
+ FOREACH caller IN ARRAY ARRAY['ws02_owner_anon','ws02_owner_auth'] LOOP
+  FOREACH elevated IN ARRAY ARRAY[
+   'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock'] LOOP
+   IF pg_catalog.pg_has_role(caller,elevated,'MEMBER')
+      OR pg_catalog.pg_has_role(caller,elevated,'USAGE')
+      OR pg_catalog.pg_has_role(caller,elevated,'SET') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_CAN_ASSUME_PRIVILEGED_ROLE_%_%',caller,elevated;
+   END IF;
+  END LOOP;
+  FOREACH signature IN ARRAY ARRAY[
+   'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+   'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)',
+   'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   'ws02_owner.nbr_finalize_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'] LOOP
+   IF pg_catalog.has_function_privilege(caller,signature,'EXECUTE') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_CAN_EXECUTE_PRIVATE_RPC_%_%',caller,signature;
+   END IF;
+  END LOOP;
+  FOREACH relation_name IN ARRAY ARRAY[
+   'ws02_owner.owners','ws02_owner.slots','ws02_owner.evaluation_logs'] LOOP
+   IF pg_catalog.has_table_privilege(caller,relation_name,
+    'SELECT,INSERT,UPDATE,DELETE') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_HAS_PRIVATE_TABLE_ACCESS_%_%',caller,relation_name;
+   END IF;
+  END LOOP;
+ END LOOP;
+END $private_boundary$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
