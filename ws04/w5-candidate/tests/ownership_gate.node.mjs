@@ -673,3 +673,23 @@ test('mutable or unverified SQL tax year cannot consume an owner-bound reservati
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+// This is an isolated malformed-SQL-response guard, NOT a verified live schema.
+test('SQL year executable flag must be boolean true before idempotency reservation', async () => {
+  for (const isExecutable of ['true', 'false', 1, null, undefined]) {
+    const h = harness({
+      yearData: { assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: isExecutable, is_immutable: true,
+        legal_cutoff: '2026-09-30' },
+      reservationError: { message: 'malformed SQL execution flag must not reserve' },
+    });
+    const r = await h.request();
+    assert.equal(r.status, 409, String(isExecutable));
+    assert.equal(r.body.code, 'UNAPPROVED_YEAR', String(isExecutable));
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
