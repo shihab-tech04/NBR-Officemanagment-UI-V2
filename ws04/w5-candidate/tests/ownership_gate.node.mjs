@@ -810,3 +810,25 @@ test('SQL non-CALCULATED base responses redact unverified monetary trace', () =>
       'unverified SQL threshold must never appear in a failed receipt trace');
   }
 });
+
+// Regression: nonmonetary ruleFacts can also activate runtime applicability.
+// A synthetic caller cannot implicitly choose a statutory rule by supplying
+// a free-form fact field; the selector must be explicit and match the rule ID.
+// This is isolated handler authorization only, not legal source certification.
+test('unselected nonmonetary structured rule facts cannot reserve an evaluation', async () => {
+  for (const bodyOverrides of [
+    { ruleFacts: { 'WH-R4-04': { taxpayerClass: 'individual' } } },
+    { ruleFacts: { 'WH-R4-04': { supportingDocument: 'synthetic-proof' } }, claimRuleIds: [] },
+    { ruleFacts: { 'WH-R4-04': { statutoryPredicate: true } }, claimRuleIds: ['OTHER-RULE'] },
+  ]) {
+    const h = harness({ reservationError: { message: 'unselected structured fact must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
