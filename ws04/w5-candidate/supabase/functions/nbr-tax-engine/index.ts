@@ -1097,7 +1097,7 @@ Deno.serve(async (req) => {
       return json({ error:"Assessment-year metadata is inconsistent with the authorized request",
         status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
     }
-    if (!year.is_executable || year.state !== "active") {
+    if (year.is_executable !== true || year.state !== "active") {
       return json({ error: "Assessment year is not active for citizen calculation", status:"FAIL_CLOSED", code:"UNAPPROVED_YEAR" }, 409);
     }
     // An executable year is not an immutable legal-rule snapshot. Reject a
