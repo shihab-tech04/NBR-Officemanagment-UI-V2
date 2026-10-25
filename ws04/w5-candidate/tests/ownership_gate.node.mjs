@@ -652,3 +652,24 @@ test('missing or malformed owner-authorized SQL year identity cannot reserve', a
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+// A year marked executable is not enough if its source-backed rule snapshot
+// can still change. This is an isolated metadata guard, not legal certification.
+test('mutable or unverified SQL tax year cannot consume an owner-bound reservation', async () => {
+  for (const immutability of [false, null, undefined, 'true']) {
+    const h = harness({
+      yearData: { assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: true, is_immutable: immutability,
+        legal_cutoff: '2026-09-30' },
+      reservationError: { message: 'mutable year must not reserve' },
+    });
+    const r = await h.request();
+    assert.equal(r.status, 409, String(immutability));
+    assert.equal(r.body.code, 'YEAR_NOT_IMMUTABLE', String(immutability));
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
