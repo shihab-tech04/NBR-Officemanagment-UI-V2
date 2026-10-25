@@ -530,6 +530,27 @@ test('unbacked event rule selectors are denied before idempotency reservation', 
   }
 });
 
+// Duplicate rule selectors can ambiguously double-select one event while
+// consuming an owner-bound replay slot. Reject before reservation and rule reads.
+test('duplicate transaction or payment rule selectors fail closed before reservation', async () => {
+  for (const bodyOverrides of [
+    { transactionRuleIds: ['WH-R4-04', 'WH-R4-04'],
+      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000' } } },
+    { paymentRuleIds: ['WH-R4-04', 'WH-R4-04'],
+      paymentEvents: { 'WH-R4-04': { eventDate: '2026-06-30', amount: '100' } } },
+  ]) {
+    const h = harness({ reservationError: { message: 'duplicate selector must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
 test('payment-event period and date violations are denied before idempotency reservation', async () => {
   // Payment-event claims are also time-bound. They must not bypass the
   // transaction-only pre-reservation guard by using paymentRuleIds/paymentEvents.
