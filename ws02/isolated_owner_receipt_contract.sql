@@ -198,7 +198,7 @@ BEGIN
   LOOP
    IF pg_catalog.jsonb_typeof(amount_value) IS DISTINCT FROM 'string'
       OR COALESCE(amount_value #>> '{}','')
-         !~ '^(0|[1-9][0-9]*)(\\.[0-9]{1,10})?$'
+         !~ '^(0|[1-9][0-9]*)(\.[0-9]{1,10})?$'
    THEN RETURN false; END IF;
   END LOOP;
  END IF;
