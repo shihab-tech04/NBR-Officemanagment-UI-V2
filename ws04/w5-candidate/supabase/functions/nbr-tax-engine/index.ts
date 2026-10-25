@@ -856,6 +856,26 @@ function computeIndividualFromSqlBase(
   };
 }
 
+
+/**
+ * An individually CALCULATED SQL base is not a certified payable result when
+ * any other calculation/submission rule still blocks the overall return.
+ * Receipt, audit and HTTP must share this same redacted projection.
+ * This is a safety boundary, not statutory or source-law certification.
+ */
+function redactNonCalculatedIndividual(
+  individual: Record<string, any>,
+  fullReturnStatus: string,
+) {
+  if (fullReturnStatus === "CALCULATED") return individual;
+  return {
+    status: individual.status,
+    ...(typeof individual.code === "string" ? { code: individual.code } : {}),
+    missingFacts: Array.isArray(individual.missingFacts) ? individual.missingFacts : [],
+    trace: { disclosure: "WITHHELD_NON_CALCULATED_RETURN" },
+  };
+}
+
 Deno.serve(async (req) => {
   // Fail closed on cross-origin callers; allow only exact, configured HTTPS origins.
   const origin = req.headers.get("origin");
@@ -1502,6 +1522,7 @@ Deno.serve(async (req) => {
         : individual.status === "NEEDS_FACTS" || relevantNeedsFacts > 0
           ? "NEEDS_FACTS"
           : "CALCULATED";
+    const safeIndividual = redactNonCalculatedIndividual(individual, fullReturnStatus);
     // Tax arithmetic acceptance is never equivalent to filing permission.
     const submissionReady = false;
     const computationComplete =
@@ -1518,7 +1539,7 @@ Deno.serve(async (req) => {
       inputHash, evaluationStatus: fullReturnStatus,
       computationComplete, submissionReady,
       ruleVersions: rows.map((row:any) => ({ id:row.rule_key, revision:row.revision_no })),
-      trace: { individual:individual.trace, rules:results },
+      trace: { individual:safeIndividual.trace, rules:results },
       amounts: fullReturnStatus === "CALCULATED" ? individual.values : null,
     };
     const receiptHash = await sha256(canonical(receipt));
@@ -1526,7 +1547,7 @@ Deno.serve(async (req) => {
     // Candidate stays disabled until WS02 has source-backed owner mapping,
     // approved private RPC permissions, legal gating and integration E2E.
     const auditTrace = {
-      individual: individual.trace,
+      individual: safeIndividual.trace,
       rules: results,
       amounts: fullReturnStatus === "CALCULATED" ? individual.values : null,
       engine_version: ENGINE_VERSION,
@@ -1599,9 +1620,7 @@ Deno.serve(async (req) => {
         allRuleNodesEvaluated: results.length === (rows ?? []).length && unhandled === 0,
         submissionReady,
       },
-      individual: fullReturnStatus === "CALCULATED" ? individual : {
-        ...individual, values: undefined, // failed/unknown responses never masquerade as tax amounts
-      },
+      individual: safeIndividual,
       rules: results,
       parameterSet: scheduleRow ? {
         revision: scheduleRow.revision_no,
