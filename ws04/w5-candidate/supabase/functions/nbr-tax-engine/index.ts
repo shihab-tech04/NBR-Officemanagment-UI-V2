@@ -61,7 +61,9 @@ function objectRecord(value: unknown): value is Record<string, unknown> {
 
 function nonnegativeMoney(value: unknown): boolean {
   if (typeof value !== "number" && typeof value !== "string") return false;
-  const raw = String(value).trim().replace(/,/g, "");
+  // Require canonical decimal evidence; stripping separators/whitespace can
+  // let malformed values reserve an idempotency slot before decimal() rejects them.
+  const raw = String(value);
   return /^\d+(?:\.\d{1,10})?$/.test(raw) &&
     // Do not accept a binary float as the source of tax decimal evidence.
     (typeof value !== "number" || Number.isSafeInteger(value));
