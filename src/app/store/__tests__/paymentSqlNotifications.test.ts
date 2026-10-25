@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import reducer, { markNotificationRead, syncMirroredPaymentNotices } from "../notificationsSlice";
+import reducer, { markNotificationRead, markAllNotificationsRead, syncMirroredPaymentNotices } from "../notificationsSlice";
 
 const paymentId = "33333333-3333-4333-8333-333333333333";
 const first = { id: 91, paymentId, type: "NEW_SIMULATED_PAYMENT", createdAt: "2026-10-25T04:00:00Z" };
@@ -32,4 +32,13 @@ describe("Office SQL-backed payment bell", () => {
     const state = reducer(undefined, syncMirroredPaymentNotices({ notices: events, language: "en" }));
     expect(state.items.some(item => item.type === "payment")).toBe(false);
   });
+  it("does not reintroduce old unread events when a delayed SQL response follows mark-all-read", () => {
+    const original = reducer(undefined, syncMirroredPaymentNotices({ notices: [first], language: "en" }));
+    const viewed = reducer(original, markAllNotificationsRead());
+    const late = reducer(viewed, syncMirroredPaymentNotices({
+      notices: [{ ...first, id: 95, createdAt: "2026-10-24T02:00:00Z" }, first], language: "en"
+    }));
+    expect(late.items.filter(item => item.type === "payment" && !item.isRead)).toHaveLength(0);
+  });
+
 });
