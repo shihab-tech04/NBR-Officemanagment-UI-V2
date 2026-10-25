@@ -1211,6 +1211,20 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // A dated event map can trigger downstream rule applicability even when
+    // the corresponding explicit selector was omitted. Require a reviewed,
+    // exact selector before the idempotency reservation. Validate event dates
+    // first so malformed evidence keeps its specific fail-closed diagnostic.
+    for (const [events, ids] of [
+      [body.transactions, body.transactionRuleIds],
+      [body.paymentEvents, body.paymentRuleIds],
+    ]) {
+      if (objectRecord(events) && Object.keys(events).length > 0 &&
+          (!Array.isArray(ids) || ids.length === 0)) {
+        return json({ status:"FAIL_CLOSED", code:"EVENT_RULE_FACTS_UNVERIFIED",
+          error:"Dated transaction/payment events require explicit matching rule selectors" }, 422);
+      }
+    }
     // Existing ruleFacts carries multiple event types. If it does declare
     // transaction dates, a contradictory date cannot override the request
     // date used for legal-source and effective-period selection.
