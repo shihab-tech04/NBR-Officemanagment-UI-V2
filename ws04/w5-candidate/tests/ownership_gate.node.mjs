@@ -756,3 +756,28 @@ test('undated unselected monetary rule facts are rejected before reservation', a
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+
+// SQL base-tax NEEDS_FACTS is a non-payable state, not an exception.
+// Synthetic helper-only coverage: no real calculation, SQL, JWT or legal approval.
+test('SQL NEEDS_FACTS propagates without leaking unverified monetary fields', () => {
+  const start = source.indexOf('function computeIndividualFromSqlBase(');
+  const end = source.indexOf('\nDeno.serve(', start);
+  assert.ok(start >= 0 && end > start, 'isolated SQL base helper source present');
+  const compute = runInNewContext(
+    stripTypeScriptTypes(source.slice(start, end)) + '\ncomputeIndividualFromSqlBase;',
+    { sumObjectValues: () => 0n },
+  );
+  for (const sqlBase of [
+    { status: 'NEEDS_FACTS', missingFacts: ['UNVERIFIED_THRESHOLD'] },
+    { status: 'NEEDS_FACTS', missingFacts: ['UNVERIFIED_THRESHOLD'],
+      grossTax: '1234.56', taxFreeThreshold: '100.00' },
+  ]) {
+    const result = compute(sqlBase, null, { returnData: { incomeHeads: {} } });
+    assert.equal(result.status, 'NEEDS_FACTS');
+    assert.deepEqual(Array.from(result.missingFacts), ['UNVERIFIED_THRESHOLD']);
+    assert.equal(result.values, undefined);
+    assert.ok(!JSON.stringify(result.trace).includes('1234.56'),
+      'unverified SQL amount must not appear in trace');
+  }
+});
