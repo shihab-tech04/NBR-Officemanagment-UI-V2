@@ -872,3 +872,40 @@ test('SQL base provisional amounts are absent from non-CALCULATED individual res
   assert.equal(valid.values.grossTax, '987654321',
     'valid CALCULATED values remain available in isolated happy path');
 });
+
+
+// Regression: individual SQL arithmetic can be CALCULATED while a separate
+// source-backed rule requires facts or blocks the full return. Its provisional
+// monetary trace/values must not enter the atomic receipt, audit or response.
+// This is isolated serialization coverage only, not a real tax calculation.
+test('overall non-CALCULATED status redacts an otherwise CALCULATED individual trace', () => {
+  const start = source.indexOf('function redactNonCalculatedIndividual(');
+  const end = source.indexOf('\nDeno.serve(', start);
+  assert.ok(start >= 0 && end > start, 'non-CALCULATED redaction helper exists');
+  const redact = runInNewContext(
+    stripTypeScriptTypes(source.slice(start, end)) + '\nredactNonCalculatedIndividual;',
+  );
+  const provisional = {
+    status: 'CALCULATED', missingFacts: [], code: 'PROVISIONAL',
+    values: { grossTax: '87654321.99', balanceDue: '87654321.99' },
+    trace: { baseTax: { grossTax: '87654321.99' },
+      rebate: { investmentLimb: '87654321.99' } },
+  };
+  for (const fullStatus of ['NEEDS_FACTS', 'FAIL_CLOSED']) {
+    const safe = redact(provisional, fullStatus);
+    assert.equal(safe.status, 'CALCULATED', 'preserve individual status for diagnostics');
+    assert.equal(safe.values, undefined);
+    assert.ok(!JSON.stringify(safe).includes('87654321.99'),
+      'unapproved provisional amount must be absent from serialized receipt');
+    assert.equal(safe.code, 'PROVISIONAL');
+  }
+  assert.equal(redact(provisional, 'CALCULATED'), provisional,
+    'fully CALCULATED output must retain approved individual fields');
+  const handler = source.slice(source.indexOf('const fullReturnStatus ='));
+  assert.ok(handler.includes('individual: safeIndividual.trace'),
+    'receipt and audit must use redacted individual trace');
+  assert.ok(handler.includes('individual: safeIndividual,'),
+    'HTTP response must use the same redacted individual');
+  assert.ok(!handler.includes('individual:individual.trace'),
+    'raw individual trace must not bypass redaction');
+});
