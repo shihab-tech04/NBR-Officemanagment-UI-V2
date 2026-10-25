@@ -30,6 +30,9 @@ function harness({
   const seen = { authCalls: 0, ownerCalls: 0, reserveCalls: 0,
     privilegedReads: 0, yearReads: 0, ownerArgs: null, reserveArgs: null };
   let handler;
+  const scopedYearData = yearData === null ? null : {
+    id: '70000000-0000-4000-8000-000000000001', ...yearData,
+  };
   const client = {
     auth: {
       async getUser(token) {
@@ -60,7 +63,7 @@ function harness({
         seen.yearReads++;
         return { select() {
           return { eq() {
-            return { async maybeSingle() { return { data: yearData, error: null }; } };
+            return { async maybeSingle() { return { data: scopedYearData, error: null }; } };
           } };
         } };
       }
@@ -618,7 +621,30 @@ test('duplicate event rule selectors are denied before consuming a reservation',
     const h = harness({ reservationError: { message: 'duplicate selector must not reserve' } });
     const result = await h.request({ bodyOverrides });
     assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
-    assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.ok(result.body.invalidFacts?.includes(
+      bodyOverrides.transactionRuleIds ? 'transactionRuleIds' : 'paymentRuleIds'));
+    // Existing generic input validation already rejects duplicates before owner lookup.
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.yearReads, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
+
+
+test('missing or malformed owner-authorized SQL year identity cannot reserve', async () => {
+  // The year lookup must supply an actual row UUID, not only a matching label.
+  // This is synthetic shape validation, not approval of a tax year.
+  for (const id of [null, '', 'not-a-uuid', 42]) {
+    const h = harness({
+      yearData: { id, assessment_year: '2026-27', income_year: '2025-26',
+        state: 'active', is_executable: true, legal_cutoff: '2026-09-30' },
+      reservationError: { message: 'invalid SQL year must not reserve' },
+    });
+    const result = await h.request();
+    assert.equal(result.status, 503, String(id));
+    assert.equal(result.body.code, 'YEAR_METADATA_UNVERIFIED', String(id));
     assert.equal(h.seen.authCalls, 1);
     assert.equal(h.seen.ownerCalls, 1);
     assert.equal(h.seen.yearReads, 1);
