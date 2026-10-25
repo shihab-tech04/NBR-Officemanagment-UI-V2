@@ -754,20 +754,22 @@ function computeIndividualFromSqlBase(
     ? baseTax.missingFacts.map((value: unknown) => String(value))
     : [];
 
+  // A reviewed SQL base can legitimately request more facts without exposing
+  // provisional monetary values. Do not misclassify this as an engine failure.
+  if (baseTax?.status === "NEEDS_FACTS") {
+    return {
+      status: "NEEDS_FACTS",
+      missingFacts: missingFacts.length ? missingFacts : ["INDIVIDUAL_TAX_SCHEDULE"],
+      trace: { sqlBaseStatus: "NEEDS_FACTS" },
+    };
+  }
+
   if (!baseTax || baseTax.status !== "CALCULATED" ||
       typeof baseTax.grossTax !== "string" || typeof baseTax.taxFreeThreshold !== "string" ||
       !nonnegativeMoney(baseTax.grossTax) || !nonnegativeMoney(baseTax.taxFreeThreshold)) {
     return {
       status: "FAIL_CLOSED",
       missingFacts: missingFacts.length ? missingFacts : ["INDIVIDUAL_TAX_SCHEDULE"],
-      trace: { baseTax },
-    };
-  }
-
-  if (baseTax.status === "NEEDS_FACTS") {
-    return {
-      status: "NEEDS_FACTS",
-      missingFacts,
       trace: { baseTax },
     };
   }
