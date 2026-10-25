@@ -832,3 +832,43 @@ test('unselected nonmonetary structured rule facts cannot reserve an evaluation'
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+
+// WS04 isolated regression: a SQL CALCULATED base may be non-payable when
+// payment-credit evidence or rebate facts are unresolved. Never serialize
+// provisional monetary amounts into failed/NEEDS_FACTS audit traces or expose
+// provisional 'values'. Synthetic only: no signed Auth, actual SQL, or tax PASS.
+test('SQL base provisional amounts are absent from non-CALCULATED individual results', () => {
+  const start = source.indexOf('function computeIndividualFromSqlBase(');
+  const end = source.indexOf('\nDeno.serve(', start);
+  assert.ok(start >= 0 && end > start);
+  const compute = runInNewContext(
+    stripTypeScriptTypes(source.slice(start, end)) + '\ncomputeIndividualFromSqlBase;',
+    {
+      sumObjectValues: values => Object.keys(values ?? {}).length ? 1n : 0n,
+      nonnegativeMoney: value => typeof value === 'string' && /^\\d+(?:\\.\\d{1,10})?$/.test(value),
+      decimal: value => BigInt(value),
+      decimalString: value => String(value),
+      add: (left, right) => left + right,
+      sub: (left, right) => left - right,
+      max: (left, right) => left > right ? left : right,
+    },
+  );
+  const sqlBase = { status: 'CALCULATED', grossTax: '987654321', taxFreeThreshold: '100' };
+  const cases = [
+    [{ returnData: { incomeHeads: {}, taxDeductedAtSource: '1' } }, null, 'FAIL_CLOSED'],
+    [{ returnData: { incomeHeads: {}, taxRebates: { investment: '1' } } }, null, 'FAIL_CLOSED'],
+    [{ returnData: { incomeHeads: {}, taxRebates: { investment: '1' } } }, {}, 'NEEDS_FACTS'],
+  ];
+  for (const [body, rebateVerification, expectedStatus] of cases) {
+    const result = compute(sqlBase, rebateVerification, body);
+    assert.equal(result.status, expectedStatus);
+    assert.equal(result.values, undefined, 'non-CALCULATED must not carry provisional amounts');
+    assert.ok(!JSON.stringify(result.trace).includes('987654321'),
+      'unverified SQL grossTax must not enter non-payable audit trace');
+  }
+  const valid = compute(sqlBase, null, { returnData: { incomeHeads: {} } });
+  assert.equal(valid.status, 'CALCULATED');
+  assert.equal(valid.values.grossTax, '987654321',
+    'valid CALCULATED values remain available in isolated happy path');
+});
