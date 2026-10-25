@@ -770,7 +770,9 @@ function computeIndividualFromSqlBase(
     return {
       status: "FAIL_CLOSED",
       missingFacts: missingFacts.length ? missingFacts : ["INDIVIDUAL_TAX_SCHEDULE"],
-      trace: { baseTax },
+      // SQL non-CALCULATED or malformed monetary fields are not verified
+      // evidence. Never persist provisional values in a receipt/audit trace.
+      trace: { sqlBaseStatus: "FAIL_CLOSED" },
     };
   }
 
