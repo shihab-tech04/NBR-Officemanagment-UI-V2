@@ -736,3 +736,23 @@ test('dated ruleFacts cannot implicitly select an unbound event rule before repl
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+// Regression: undated financial ruleFacts must not silently select a runtime
+// rule through its baseAmount/quantity alone. Synthetic only; no legal PASS.
+test('undated unselected monetary rule facts are rejected before reservation', async () => {
+  for (const bodyOverrides of [
+    { ruleFacts: { 'WH-R4-04': { baseAmount: '1000' } } },
+    { ruleFacts: { 'WH-R4-04': { quantity: '2' } }, claimRuleIds: [] },
+    { ruleFacts: { 'WH-R4-04': { baseAmount: '1000' } }, claimRuleIds: ['OTHER-RULE'] },
+  ]) {
+    const h = harness({ reservationError: { message: 'unselected financial facts must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
