@@ -979,3 +979,28 @@ test('returnContext events cannot implicitly select or forge return rules', asyn
   assert.equal(h.seen.reserveCalls, 1);
   assert.equal(h.seen.privilegedReads, 0);
 });
+
+
+// Regression: punctuation and surrounding whitespace are not canonical tax
+// decimals. The old validator stripped commas/whitespace, allowing malformed
+// money to consume an owner-bound replay slot before decimal() rejected it.
+// Synthetic handler boundary only; not a statutory monetary acceptance test.
+test('noncanonical money cannot reserve an owner-bound idempotency slot', async () => {
+  const malformed = [
+    { returnData: { incomeHeads: { employment: '1,000' } } },
+    { returnData: { incomeHeads: { employment: '0' },
+      taxRebates: { investment: '1,,000' } } },
+    { returnData: { incomeHeads: { employment: '0' },
+      advanceTaxPaid: ' 1' } },
+  ];
+  for (const bodyOverrides of malformed) {
+    const h = harness({ reservationError: { message: 'malformed monetary evidence must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(result.body.status, 'FAIL_CLOSED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
