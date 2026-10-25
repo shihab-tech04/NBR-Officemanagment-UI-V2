@@ -17,7 +17,8 @@ const executable = stripTypeScriptTypes(source.replace(
 
 function harness(year = {
   id:'70000000-0000-4000-8000-000000000001', assessment_year:'2026-27', income_year:'2025-26',
-  state:'active', is_executable:true, is_immutable:true, legal_cutoff:'2026-09-30',
+  state:'active', is_executable:true, is_immutable:true,
+  source_registry_version:'FINAL_2026_09_30', legal_cutoff:'2026-09-30',
 }) {
   const seen = { ruleReads:0, authCalls:0, ownershipCalls:0, reserveCalls:0 };
   let handler;
