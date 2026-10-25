@@ -1041,3 +1041,34 @@ test('malformed nested transaction/payment money cannot consume replay reservati
   assert.equal(h.seen.reserveCalls, 1);
   assert.equal(h.seen.privilegedReads, 0);
 });
+
+// WS02 atomic CALCULATED receipt accepts only canonical fixed-decimal strings:
+// 0 or a nonzero-leading integer, optionally with <=10 decimal places.
+// Reject caller-controlled leading-zero evidence before the owner RPC or replay
+// reservation so the Edge/SQL transport contracts cannot disagree. Synthetic
+// handler shape only; not a tax calculation or signed-Auth certification.
+test('noncanonical leading-zero decimals must not reserve an owner-bound slot', async () => {
+  const cases = [
+    { bodyOverrides: { returnData: { incomeHeads: { employment: '0001.00' } } },
+      invalidPath: 'incomeHeads.employment' },
+    { bodyOverrides: { returnData: { incomeHeads: { employment: '0' },
+      taxRebates: { investment: '00.50' } } }, invalidPath: 'taxRebates.investment' },
+    { bodyOverrides: { transactionRuleIds: ['WH-R4-04'],
+      transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '00100' } } },
+      invalidPath: 'transactions.WH-R4-04.grossBill' },
+    { bodyOverrides: { paymentRuleIds: ['PAY-SYN-001'],
+      paymentEvents: { 'PAY-SYN-001': { eventDate: '2026-06-30', amount: '0002' } } },
+      invalidPath: 'paymentEvents.PAY-SYN-001.amount' },
+  ];
+  for (const { bodyOverrides, invalidPath } of cases) {
+    const h = harness({ reservationError: { message: 'leading-zero evidence must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.ok(r.body.invalidFacts?.includes(invalidPath), invalidPath);
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
