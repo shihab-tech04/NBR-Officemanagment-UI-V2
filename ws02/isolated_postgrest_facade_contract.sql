@@ -25,6 +25,26 @@ REVOKE ALL ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
  uuid,uuid,text,text,text,text,text,text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
  uuid,uuid,text,text,text,text,text,text,jsonb) TO ws02_owner_engine;
+-- Fail closed if the exposed facade ever drifts to SECURITY DEFINER,
+-- a mutable search_path, or a non-boolean/non-volatile implementation.
+-- This guards the callable metadata, not merely the text of this fixture.
+DO $facade_metadata$
+DECLARE security_definer boolean; function_volatility "char";
+        function_language name; function_config text[]; return_type oid;
+BEGIN
+ SELECT p.prosecdef,p.provolatile,l.lanname,p.proconfig,p.prorettype
+ INTO security_definer,function_volatility,function_language,function_config,return_type
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF NOT FOUND OR security_definer IS DISTINCT FROM false
+    OR function_volatility IS DISTINCT FROM 'v'
+    OR function_language IS DISTINCT FROM 'sql'
+    OR return_type IS DISTINCT FROM 'boolean'::regtype::oid
+    OR function_config IS NULL
+    OR NOT ('search_path=pg_catalog,ws02_owner'=ANY(function_config))
+ THEN RAISE EXCEPTION 'FACADE_SECURITY_INVOKER_METADATA_DRIFT'; END IF;
+END $facade_metadata$;
 DO $acl$
 DECLARE caller name;
 BEGIN
