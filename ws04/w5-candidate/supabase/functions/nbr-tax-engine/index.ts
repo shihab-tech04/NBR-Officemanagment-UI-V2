@@ -828,16 +828,20 @@ function computeIndividualFromSqlBase(
     return {
       status: "FAIL_CLOSED", code: "CREDIT_EVIDENCE_NOT_VERIFIED",
       missingFacts: ["ownerVerifiedPaymentCredits", "duplicateAndReversalCheck"],
-      trace: { baseTax, rebateStatus, creditDisposition: "EVIDENCE_ONLY_NOT_APPLIED" },
+      trace: { sqlBaseStatus: "CALCULATED", rebateStatus, creditDisposition: "EVIDENCE_ONLY_NOT_APPLIED" },
     };
   }
   const taxPaid = 0n;
   const balanceDue = max(0n, sub(netTax, taxPaid));
 
+  const resultStatus = rebateStatus === "FAIL_CLOSED"
+    ? "FAIL_CLOSED" : missingFacts.length ? "NEEDS_FACTS" : "CALCULATED";
   return {
-    status: rebateStatus === "FAIL_CLOSED" ? "FAIL_CLOSED" : missingFacts.length ? "NEEDS_FACTS" : "CALCULATED",
+    status: resultStatus,
     missingFacts: [...new Set(missingFacts)],
-    values: {
+    // Only a fully CALCULATED result may carry monetary values or a detailed
+    // SQL/rebate trace. Unresolved facts are never payable evidence.
+    ...(resultStatus === "CALCULATED" ? { values: {
       totalIncome: decimalString(totalIncome),
       taxFreeThreshold: decimalString(decimal(baseTax.taxFreeThreshold)),
       grossTax: decimalString(grossTax),
@@ -845,12 +849,10 @@ function computeIndividualFromSqlBase(
       netTax: decimalString(netTax),
       taxPaid: decimalString(taxPaid),
       balanceDue: decimalString(balanceDue),
-    },
-    trace: {
-      baseTax,
-      rebateStatus,
-      rebate: rebateTrace,
-    },
+    } } : {}),
+    trace: resultStatus === "CALCULATED"
+      ? { baseTax, rebateStatus, rebate: rebateTrace }
+      : { sqlBaseStatus: "CALCULATED", rebateStatus },
   };
 }
 
