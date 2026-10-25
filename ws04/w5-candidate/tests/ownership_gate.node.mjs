@@ -583,3 +583,25 @@ test('payment-event period and date violations are denied before idempotency res
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+test('dated transaction and payment event maps without explicit selectors cannot reserve', async () => {
+  // A valid dated event is not authority to select its tax rule implicitly.
+  // The source runtime currently treats a map entry as an applicability trigger.
+  // Deny unselected map entries before any idempotency reservation.
+  for (const bodyOverrides of [
+    { transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000' } } },
+    { transactionRuleIds: [], transactions: { 'WH-R4-04': { eventDate: '2026-06-30', grossBill: '1000' } } },
+    { paymentEvents: { 'WH-R4-04': { eventDate: '2026-06-30', amount: '100' } } },
+    { paymentRuleIds: [], paymentEvents: { 'WH-R4-04': { eventDate: '2026-06-30', amount: '100' } } },
+  ]) {
+    const h = harness({ reservationError: { message: 'unselected event must not reserve' } });
+    const result = await h.request({ bodyOverrides });
+    assert.equal(result.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(result.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
