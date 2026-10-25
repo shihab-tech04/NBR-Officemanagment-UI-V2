@@ -942,3 +942,40 @@ test('unselected or malformed benefit claims cannot consume replay reservations'
   assert.equal(h.seen.reserveCalls, 1, 'matched structured claim may reach mocked replay gate');
   assert.equal(h.seen.privilegedReads, 0);
 });
+
+
+// Regression: returnContext is a caller-controlled RETURN_EVENT trigger. Unlike
+// the transaction/payment selectors, it must not silently select legal rules
+// through an untyped events map, string.includes, or unsupported shapes.
+// Isolated pre-reservation only; no signed Auth, legal or tax certification.
+test('returnContext events cannot implicitly select or forge return rules', async () => {
+  const ruleId = 'RET-REQUIRED-166-001';
+  const invalid = [
+    { returnContext: { events: { [ruleId]: { eventType: 'filed' } } } },
+    { returnContext: { ruleIds: ruleId, events: { [ruleId]: { eventType: 'filed' } } } },
+    { returnContext: { ruleIds: ['OTHER-RULE'], events: { [ruleId]: { eventType: 'filed' } } } },
+    { returnContext: { ruleIds: [ruleId], events: { [ruleId]: true } } },
+    { returnContext: { ruleIds: [ruleId], events: { [ruleId]: {} } } },
+    { returnContext: { ruleIds: [ruleId], events: null } },
+    { returnContext: { ruleIds: [ruleId, ruleId], events: { [ruleId]: { eventType: 'filed' } } } },
+  ];
+  for (const bodyOverrides of invalid) {
+    const h = harness({ reservationError: { message: 'invalid return event must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.code, 'RETURN_CONTEXT_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+  const h = harness({ reservationError: { message: 'expected synthetic replay stop' } });
+  const valid = await h.request({ bodyOverrides: {
+    returnContext: { ruleIds: [ruleId], events: { [ruleId]: { eventType: 'filed' } } },
+  } });
+  assert.equal(valid.status, 503);
+  assert.equal(valid.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 0);
+});
