@@ -714,3 +714,25 @@ test('unverified SQL registry version cannot consume a replay reservation', asyn
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+ 
+// Regression: dated ruleFacts can otherwise trigger a runtime rule without
+// any explicit reviewed selector. Synthetic Edge/SQL stubs only; no legal PASS.
+test('dated ruleFacts cannot implicitly select an unbound event rule before replay reservation', async () => {
+  const datedRuleFacts = { 'WH-R4-04': { eventDate: '2026-06-30', baseAmount: '1000' } };
+  for (const bodyOverrides of [
+    { ruleFacts: datedRuleFacts },
+    { ruleFacts: datedRuleFacts, transactionRuleIds: [], paymentRuleIds: [] },
+    { ruleFacts: datedRuleFacts, claimRuleIds: ['OTHER-RULE'] },
+  ]) {
+    const h = harness({ reservationError: { message: 'unbound dated rule fact must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.code, 'EVENT_RULE_FACTS_UNVERIFIED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 1);
+    assert.equal(h.seen.yearReads, 1);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
