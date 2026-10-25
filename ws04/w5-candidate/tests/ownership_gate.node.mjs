@@ -781,3 +781,32 @@ test('SQL NEEDS_FACTS propagates without leaking unverified monetary fields', ()
       'unverified SQL amount must not appear in trace');
   }
 });
+
+// A malformed or FAIL_CLOSED SQL base-tax response is not verified monetary
+// evidence. It must not be copied into an audit/receipt trace, even if an
+// unavailable SQL RPC returned provisional numbers alongside its error.
+test('SQL non-CALCULATED base responses redact unverified monetary trace', () => {
+  const start = source.indexOf('function computeIndividualFromSqlBase(');
+  const end = source.indexOf('\nDeno.serve(', start);
+  assert.ok(start >= 0 && end > start);
+  const compute = runInNewContext(
+    stripTypeScriptTypes(source.slice(start, end)) + '\ncomputeIndividualFromSqlBase;',
+    { sumObjectValues: () => 0n },
+  );
+  for (const sqlBase of [
+    { status: 'FAIL_CLOSED', missingFacts: ['UNVERIFIED_RATE'],
+      grossTax: '999999.99', taxFreeThreshold: '1234.56' },
+    { status: 'UNKNOWN_SQL_STATE', grossTax: '999999.99',
+      taxFreeThreshold: '1234.56' },
+    { status: 'CALCULATED', grossTax: '999999.99',
+      taxFreeThreshold: null },
+  ]) {
+    const result = compute(sqlBase, null, { returnData: { incomeHeads: {} } });
+    assert.equal(result.status, 'FAIL_CLOSED');
+    assert.equal(result.values, undefined);
+    assert.ok(!JSON.stringify(result.trace).includes('999999.99'),
+      'unverified SQL grossTax must never appear in a failed receipt trace');
+    assert.ok(!JSON.stringify(result.trace).includes('1234.56'),
+      'unverified SQL threshold must never appear in a failed receipt trace');
+  }
+});
