@@ -1305,6 +1305,19 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // A caller-supplied benefit claim must not implicitly select a statutory
+    // benefit through truthiness alone. Require an explicit matching rule ID
+    // and nonempty structured facts before any replay reservation. This only
+    // checks shape and selection; legal entitlement remains uncertified.
+    if (body.benefitClaims !== undefined &&
+        (!objectRecord(body.benefitClaims) ||
+         Object.entries(body.benefitClaims).some(([ruleId, facts]) =>
+           !Array.isArray(body.claimRuleIds) ||
+           !body.claimRuleIds.includes(ruleId) ||
+           !objectRecord(facts) || Object.keys(facts).length === 0))) {
+      return json({ status:"FAIL_CLOSED", code:"BENEFIT_CLAIM_FACTS_UNVERIFIED",
+        error:"Benefit claims require matching explicit rule selectors and structured facts" }, 422);
+    }
     // Deny known invalid transaction event dates and periods before reserving
     // an idempotency key. WS02 must still recheck owner/year inside atomic SQL.
     // Atomic reserve or replay denial must be implemented by WS02 in an
