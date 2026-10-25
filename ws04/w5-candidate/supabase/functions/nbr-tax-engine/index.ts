@@ -1318,6 +1318,29 @@ Deno.serve(async (req) => {
       return json({ status:"FAIL_CLOSED", code:"BENEFIT_CLAIM_FACTS_UNVERIFIED",
         error:"Benefit claims require matching explicit rule selectors and structured facts" }, 422);
     }
+    // Caller-controlled returnContext can trigger RETURN_EVENT applicability.
+    // Do not let an untyped events map, string.includes, or selector-only
+    // claim choose a legal rule before owner-bound replay reservation.
+    // This validates shape and exact selection only; it is not proof of a
+    // legally applicable filing event or a certified return-year mapping.
+    if (body.returnContext !== undefined) {
+      const context = body.returnContext;
+      const ids = objectRecord(context) ? context.ruleIds : null;
+      const events = objectRecord(context) ? context.events : null;
+      if (!objectRecord(context) || !Array.isArray(ids) ||
+          ids.length > FROZEN_BASELINE_RULE_COUNT ||
+          ids.some((id) => typeof id !== "string" ||
+            !/^[A-Za-z0-9_.-]{1,128}$/.test(id)) ||
+          new Set(ids).size !== ids.length ||
+          !objectRecord(events) ||
+          Object.keys(events).length !== ids.length ||
+          ids.some((id) => !Object.prototype.hasOwnProperty.call(events, id) ||
+            !objectRecord(events[id]) || Object.keys(events[id]).length === 0) ||
+          Object.keys(events).some((id) => !ids.includes(id))) {
+        return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_FACTS_UNVERIFIED",
+          error:"Return/workflow events require matching explicit rule selectors and structured facts" }, 422);
+      }
+    }
     // Deny known invalid transaction event dates and periods before reserving
     // an idempotency key. WS02 must still recheck owner/year inside atomic SQL.
     // Atomic reserve or replay denial must be implemented by WS02 in an
