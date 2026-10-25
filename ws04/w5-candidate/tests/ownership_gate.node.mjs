@@ -846,7 +846,7 @@ test('SQL base provisional amounts are absent from non-CALCULATED individual res
     stripTypeScriptTypes(source.slice(start, end)) + '\ncomputeIndividualFromSqlBase;',
     {
       sumObjectValues: values => Object.keys(values ?? {}).length ? 1n : 0n,
-      nonnegativeMoney: value => typeof value === 'string' && /^\\d+(?:\\.\\d{1,10})?$/.test(value),
+      nonnegativeMoney: value => typeof value === 'string' && /^[0-9]+(?:[.][0-9]{1,10})?$/.test(value),
       decimal: value => BigInt(value),
       decimalString: value => String(value),
       add: (left, right) => left + right,
