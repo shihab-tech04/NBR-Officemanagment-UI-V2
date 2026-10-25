@@ -31,7 +31,7 @@ function harness({
     privilegedReads: 0, yearReads: 0, ownerArgs: null, reserveArgs: null };
   let handler;
   const scopedYearData = yearData === null ? null : {
-    id: '70000000-0000-4000-8000-000000000001', ...yearData,
+    id: '70000000-0000-4000-8000-000000000001', is_immutable: true, ...yearData,
   };
   const client = {
     auth: {
