@@ -10,6 +10,7 @@ const ENGINE_VERSION = "NBR-TAX-ENGINE-1.5.0-WS04-REVIEW-ONLY";
 const CONTRACT_VERSION = "NBR_ENGINE_CITIZEN_V2_REVIEW";
 // Release gates are separate from the historical seed gates marked PASS in October 2026.
 // These evidence records must be created only by an approved legal/security/QA workflow.
+const FROZEN_REGISTRY_VERSION = "FINAL_2026_09_30";
 const FROZEN_REGISTRY_SHA256 = "34902bac07a459a4f0c051b90bfe3b4c492f2465d06c661bab18ab7f36252184";
 const FROZEN_BASELINE_RULE_COUNT = 366;
 // SHA-256 of the 366 FINAL_2026_09_30 rule_id values, sorted lexically and
@@ -1106,6 +1107,13 @@ Deno.serve(async (req) => {
     if (year.is_immutable !== true) {
       return json({ status:"FAIL_CLOSED", code:"YEAR_NOT_IMMUTABLE",
         error:"Assessment-year ruleset is not frozen for reproducible evaluation" }, 409);
+    }
+    // A frozen-rule identity/count gate cannot authorize a year referencing a
+    // different or missing canonical source registry. This string pin is only
+    // an early denial: it does NOT prove registry bytes or legal provenance.
+    if (year.source_registry_version !== FROZEN_REGISTRY_VERSION) {
+      return json({ status:"FAIL_CLOSED", code:"REGISTRY_VERSION_UNVERIFIED",
+        error:"Assessment-year source registry version is not the frozen reviewed baseline" }, 409);
     }
     if (year.income_year !== body.incomeYear) {
       return json({ error:"Income year is inconsistent with approved assessment-year record", status:"FAIL_CLOSED", code:"YEAR_MISMATCH" }, 409);
