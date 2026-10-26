@@ -114,5 +114,53 @@
         "sourcePdfSha256": null
       }
     ]
+  },
+  "priorRepealConflict": {
+    "status": "OFFICIAL_NBR_CIRCULAR_PRIOR_REPEAL_VS_2025_AMENDMENT_CONFLICT_HOLD",
+    "purpose": "Historical source-chain discrepancy intake only. No revival, savings, taxpayer applicability or tax calculation inferred.",
+    "baseSro": {
+      "sro": "158-Ain/IncomeTax/2014",
+      "gazetteDate": "2014-06-26",
+      "officialNBRIndex": "https://nbr.gov.bd/regulations/sros/income-tax-sros/120/ban",
+      "officialNBRIndexEntryNumber": 150,
+      "officialNBRIndexDescription": "স্বায়ত্বশাসিত প্রতিষ্ঠান সংক্রান্ত",
+      "officialNBRPdfLink": "https://nbr.gov.bd/uploads/sros/514.pdf",
+      "sourcePdfRetrieved": false,
+      "sourcePdfSha256": null,
+      "sourceTextFullyCompared": false
+    },
+    "priorRepeal": {
+      "sro": "169-Ain/IncomeTax/2023",
+      "gazetteDate": "2023-05-23",
+      "sourceKind": "NBR_OFFICIAL_2023_24_CIRCULAR_REPRODUCED_NOTIFICATION",
+      "officialCircular": "https://nbr.gov.bd/uploads/paripatra/%E0%A6%86%E0%A7%9F%E0%A6%95%E0%A6%B0_%E0%A6%AA%E0%A6%B0%E0%A6%BF%E0%A6%AA%E0%A6%A4%E0%A7%8D%E0%A6%B0_%E0%A7%A8%E0%A7%A6%E0%A7%A8%E0%A7%A9-%E0%A7%A8%E0%A7%AA.pdf",
+      "locator": "Appendix 8, printed page 241",
+      "statutoryPower": "Income-tax Ordinance 1984 section 44(4)(b)",
+      "namedRepealTarget": "158-Ain/IncomeTax/2014",
+      "originalGazettePdfIndependentlyVerified": false,
+      "circularPdfSha256": null
+    },
+    "laterAmendment": {
+      "sro": "154-Ain/IncomeTax-9/2025",
+      "gazetteDate": "2025-05-26",
+      "effectiveFrom": "2025-07-01",
+      "amendsSro": "158-Ain/IncomeTax/2014",
+      "laterRepealedBy": "268-Ain/IncomeTax-13/2025",
+      "repealEffectiveFrom": "2025-07-01"
+    },
+    "conflict": "NBR 2023-24 circular reproduces SRO169/2023 expressly naming SRO158/2014 as repealed; NBR 2025 SRO154 purports to amend SRO158/2014; SRO268/2025 later repeals SRO154 with same effective date.",
+    "needsLegalReview": [
+      "2014 original Gazette and complete text",
+      "2023 SRO169 original Gazette, commencement and savings",
+      "2025 SRO154 scope, amendment validity and commencement",
+      "2025 SRO268 repeal, same-day effect and savings",
+      "AY/IY and taxpayer-class applicability",
+      "intervening reinstatement or subsequent amendments"
+    ],
+    "ws01Adjudicated": false,
+    "revivalInferred": false,
+    "savingsInferred": false,
+    "taxpayerApplicabilityApproved": false,
+    "engineActivation": false
   }
 }
