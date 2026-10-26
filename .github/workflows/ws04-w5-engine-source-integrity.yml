@@ -39,6 +39,10 @@ jobs:
         run: |
           node --test ws04/w5-candidate/tests/legal_source_hold.node.mjs
           echo 'Review-only official source lineage; Gazette PDF digest, WS01 legal signoff and rule applicability are NOT certified.'
+      - name: Validate 2014-2017-2023-2025 SRO158 historical source chain (review-only)
+        run: |
+          node --test ws04/w5-candidate/tests/sro158_2014_chain.node.mjs
+          echo 'Source-graph integrity only: original PDF SHA, savings, revival and AY/IY effects remain unverified.'
       - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
         shell: bash
         run: |
