@@ -64,6 +64,57 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- The metadata checks above do not constrain a replacement SQL body. A
+-- SECURITY INVOKER facade with unchanged signature, ACL and search_path could
+-- still be replaced with SELECT true, bypassing private owner/receipt checks.
+-- Pin the exact reviewed forwarding body in this disposable fixture only.
+-- No hosted RPC is created, modified or exposed by this test.
+DO $facade_body_integrity$
+DECLARE expected_source text := $reviewed_body$
+ SELECT ws02_owner.nbr_commit_evaluation_atomically(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,
+  p_idempotency_key,p_request_hash,p_receipt_hash,
+  p_trace_hash,p_result_state,p_audit_trace);
+$reviewed_body$;
+        observed_source text;
+BEGIN
+ SELECT p.prosrc INTO observed_source
+ FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF observed_source IS DISTINCT FROM expected_source THEN
+  RAISE EXCEPTION 'FACADE_REVIEWED_SQL_BODY_DRIFT';
+ END IF;
+ -- Negative mutation: retain identical argument names, SECURITY INVOKER,
+ -- VOLATILE and search_path while replacing the forwarding call with a
+ -- permissive result. The exception subtransaction MUST restore the body.
+ BEGIN
+  EXECUTE $facade_mutation$
+   CREATE OR REPLACE FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+    p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+    p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+    p_trace_hash text,p_result_state text,p_audit_trace jsonb
+   ) RETURNS boolean LANGUAGE sql VOLATILE SECURITY INVOKER
+   SET search_path=pg_catalog,ws02_owner AS $unsafe_body$
+    SELECT true;
+   $unsafe_body$;
+  $facade_mutation$;
+  SELECT p.prosrc INTO observed_source
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF observed_source IS NOT DISTINCT FROM expected_source THEN
+   RAISE EXCEPTION 'FACADE_BODY_MUTATION_WAS_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_BODY_MUTATION';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_BODY_MUTATION' THEN RAISE; END IF;
+ END;
+ SELECT p.prosrc INTO observed_source
+ FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF observed_source IS DISTINCT FROM expected_source THEN
+  RAISE EXCEPTION 'FACADE_BODY_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $facade_body_integrity$;
 -- API-surface drift guard: a second overload or future RPC in the exposed
 -- schema could bypass the reviewed signature-specific ACL checks. The isolated
 -- PostgREST-style schema must contain only this one reviewed facade, and no
