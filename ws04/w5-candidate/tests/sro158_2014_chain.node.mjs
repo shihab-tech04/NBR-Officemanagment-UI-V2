@@ -28,7 +28,7 @@ function assertSourceChain(r) {
     const u = new URL(s.officialPdf ?? s.officialCircular);
     assert.equal(u.protocol, 'https:');
     assert.equal(u.hostname, 'nbr.gov.bd');
-    assert.equal(s.pdfSha256 ?? s.sourceSha256, null);
+    assert.equal(s.pdfSha256 === undefined ? s.sourceSha256 : s.pdfSha256, null);
   }
   assert.equal(new URL(base.officialPdf).pathname, '/uploads/sros/514.pdf');
   assert.equal(base.evidenceLevel, 'OFFICIAL_NBR_SEARCH_INDEX_AND_PARTIAL_PDF_TEXT_ONLY');
