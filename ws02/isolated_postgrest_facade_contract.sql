@@ -51,6 +51,38 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- API-surface drift guard: a second overload or future RPC in the exposed
+-- schema could bypass the reviewed signature-specific ACL checks. The isolated
+-- PostgREST-style schema must contain only this one reviewed facade, and no
+-- untrusted role may EXECUTE any function in it. No hosted schema is changed.
+DO $facade_surface$
+DECLARE rpc_count integer;
+BEGIN
+ SELECT count(*) INTO rpc_count
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ws02_api';
+ IF rpc_count<>1 THEN
+  RAISE EXCEPTION 'FACADE_API_SURFACE_DRIFT_FUNCTION_COUNT_%',rpc_count;
+ END IF;
+ IF EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public'
+    AND p.proname='nbr_commit_evaluation_atomically'
+ ) THEN
+  RAISE EXCEPTION 'FACADE_PUBLIC_SHADOW_RPC_PRESENT';
+ END IF;
+ IF EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='ws02_api'
+    AND (pg_catalog.has_function_privilege('ws02_owner_anon',p.oid,'EXECUTE')
+      OR pg_catalog.has_function_privilege('ws02_owner_auth',p.oid,'EXECUTE'))
+ ) THEN
+  RAISE EXCEPTION 'FACADE_UNTRUSTED_ROLE_CAN_EXECUTE_API_ROUTINE';
+ END IF;
+END $facade_surface$;
 DO $acl$
 DECLARE caller name;
 BEGIN
