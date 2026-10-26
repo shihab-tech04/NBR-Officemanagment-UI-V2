@@ -352,7 +352,7 @@ DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
  revoked_rec uuid:='50000000-0000-4000-8000-000000000004';
  idem text:='facade-proof-atomic-00001';
  req text:=repeat('a',64); receipt text:=repeat('b',64);
- trace text:=repeat('c',64); audit jsonb; revoked_audit jsonb;
+ trace text:=repeat('c',64); audit jsonb; revoked_audit jsonb; audit_patch jsonb;
 BEGIN
  audit:=jsonb_build_object(
   'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
@@ -374,6 +374,21 @@ BEGIN
    actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',
    audit||jsonb_build_object('amounts',jsonb_build_object('balanceDue','99')))
  THEN RAISE EXCEPTION 'FACADE_ACCEPTED_WRONG_ACTOR_YEAR_REVOKED_HASH_OR_TRACE'; END IF;
+ -- PostgREST-safe facade must inherit the private RPC's consecutive-label
+ -- check; these synthetic negative calls must not consume the reserved slot.
+ -- This is a format check, not legal AY/IY applicability certification.
+ FOR audit_patch IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
+  jsonb_build_object('income_year','2025-25'),
+  jsonb_build_object('income_year','2025-99'),
+  jsonb_build_object('income_year','2025-00'),
+  jsonb_build_object('income_year','2099-99')
+ )) LOOP
+  IF ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',
+   audit||audit_patch) THEN
+   RAISE EXCEPTION 'FACADE_NONCONSECUTIVE_INCOME_YEAR_ACCEPTED_%',audit_patch;
+  END IF;
+ END LOOP;
  IF NOT ws02_api.nbr_commit_evaluation_atomically(
    actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
  THEN RAISE EXCEPTION 'FACADE_VALID_ATOMIC_COMMIT_DENIED'; END IF;
