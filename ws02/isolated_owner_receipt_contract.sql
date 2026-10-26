@@ -183,6 +183,13 @@ BEGIN
      p_audit_trace->'amounts' IS DISTINCT FROM 'null'::jsonb)
  OR p_audit_trace->>'contract_version' IS DISTINCT FROM 'NBR_ENGINE_CITIZEN_V2_REVIEW'
  THEN RETURN false; END IF;
+ -- Shape-only consecutive income-year label guard. Reject impossible labels
+ -- (e.g. 2025-99 or 2025-25) without inferring statutory AY/IY linkage.
+ -- The prior regex/NULL guard ensures both casts are safe.
+ IF substring(p_audit_trace->>'income_year',6,2)::integer IS DISTINCT FROM
+    (substring(p_audit_trace->>'income_year',1,4)::integer + 1) % 100 THEN
+  RETURN false;
+ END IF;
  -- CALCULATED receipt transport: exactly seven pinned W5 monetary fields,
  -- each nonnegative fixed-decimal string (<=10 places). Not legal approval.
  IF p_result_state='CALCULATED' THEN
@@ -641,6 +648,20 @@ BEGIN
  actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
  audit||jsonb_build_object('income_year','INVALID')) THEN
   RAISE EXCEPTION 'MISSING_OR_MALFORMED_INCOME_YEAR_ACCEPTED'; END IF;
+ -- A correctly shaped but nonconsecutive year label must not be stored as
+ -- authoritative audit provenance. These tests do not certify AY/IY pairing.
+ FOR audit_patch IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
+  jsonb_build_object('income_year','2025-25'),
+  jsonb_build_object('income_year','2025-99'),
+  jsonb_build_object('income_year','2025-00'),
+  jsonb_build_object('income_year','2099-99')
+ )) LOOP
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,record,'2026-27',request_key,reqhash,receipt,trace,'NEEDS_FACTS',
+   audit||audit_patch) THEN
+   RAISE EXCEPTION 'NONCONSECUTIVE_AUDIT_INCOME_YEAR_ACCEPTED_%',audit_patch;
+  END IF;
+ END LOOP;
  -- Bind every server-derived atomic RPC parameter to the persisted trace.
  -- These negative calls must not insert logs or finalize the reserved slot.
  FOR audit_patch IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
