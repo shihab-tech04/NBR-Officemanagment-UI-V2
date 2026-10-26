@@ -1,0 +1,41 @@
+{
+  "recordId": "T3-REG-11-SRO-268-2025",
+  "purpose": "Authoritative-source intake only; not an executable rule or a legal certification",
+  "authority": "Bangladesh Gazette / National Board of Revenue",
+  "source": {
+    "sro": "268-Ain/IncomeTax-13/2025",
+    "officialPdf": "https://nbr.gov.bd/uploads/sros/%E0%A6%8F%E0%A6%B8.%E0%A6%86%E0%A6%B0_.%E0%A6%93_%E0%A6%A8%E0%A6%82-%E0%A7%A8%E0%A7%AC%E0%A7%AE-%E0%A7%A8%E0%A7%A6%E0%A7%A8%E0%A7%AB%2C_%E0%A6%A4%E0%A6%BE%E0%A6%B0%E0%A6%BF%E0%A6%96%E0%A6%83_%E0%A7%A8%E0%A7%AA_%E0%A6%9C%E0%A7%81%E0%A6%A8%2C_%E0%A7%A8%E0%A7%A6%E0%A7%A8%E0%A7%AB_.pdf",
+    "officialIndex": "https://nbr.gov.bd/frontend_controllers/budget_controller/fetch_sros_by_year_slug/",
+    "gazetteDate": "2025-06-24",
+    "indexDate": "2025-06-25",
+    "effectiveFrom": "2025-07-01",
+    "pdfSha256": null,
+    "evidenceLevel": "OFFICIAL_PDF_VISUALLY_READ_UNHASHED",
+    "indexGazetteDateMismatch": true
+  },
+  "repealTargets": [
+    {
+      "sroNumber": 156,
+      "year": 2024,
+      "kind": "IncomeTax",
+      "date": "2024-05-29"
+    },
+    {
+      "sroNumber": 154,
+      "year": 2025,
+      "kind": "IncomeTax",
+      "date": "2025-05-26"
+    }
+  ],
+  "applicability": {
+    "status": "LEGAL_REVIEW_HOLD",
+    "taxpayerScope": "UNDETERMINED",
+    "savingsAnalysis": "PENDING_WS01",
+    "assessmentYearEffect": "UNDETERMINED",
+    "incomeYearEffect": "UNDETERMINED",
+    "engineActivation": false,
+    "sourceLineageCorrectedForReviewOnly": true
+  },
+  "frozenRegistryModified": false,
+  "original137MatrixModified": false
+}
