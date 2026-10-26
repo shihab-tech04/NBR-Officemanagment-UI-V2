@@ -35,6 +35,10 @@ jobs:
           node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
           node --test ws04/w5-candidate/tests/ownership_gate.node.mjs
           echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, private frozen-registry runtime, PostgreSQL/Auth or Agent certification.'
+      - name: Validate official SRO268 source-intake HOLD and negative drift cases
+        run: |
+          node --test ws04/w5-candidate/tests/legal_source_hold.node.mjs
+          echo 'Review-only official source lineage; Gazette PDF digest, WS01 legal signoff and rule applicability are NOT certified.'
       - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
         shell: bash
         run: |
