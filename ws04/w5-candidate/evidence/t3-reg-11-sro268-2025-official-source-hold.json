@@ -34,8 +34,36 @@
     "assessmentYearEffect": "UNDETERMINED",
     "incomeYearEffect": "UNDETERMINED",
     "engineActivation": false,
-    "sourceLineageCorrectedForReviewOnly": true
+    "sourceLineageCorrectedForReviewOnly": true,
+    "originalPredecessorTextsIndependentlyCompared": false,
+    "laterAmendmentSearchCertified": false,
+    "circularCorroborationDoesNotLiftHold": true
   },
   "frozenRegistryModified": false,
-  "original137MatrixModified": false
+  "original137MatrixModified": false,
+  "officialCircularCorroboration": {
+    "url": "https://nbr.gov.bd/uploads/paripatra/Income-tax_Paripatra_2025-2026.pdf",
+    "appendix": "Appendix 7",
+    "pdfPageIndexZeroBased": 157,
+    "printedPage": 152,
+    "verifiedBy": "Official NBR circular text extraction; source PDF bytes and SHA-256 not recovered",
+    "pdfSha256": null,
+    "sro": "268-Ain/IncomeTax-13/2025",
+    "gazetteDate": "2025-06-24",
+    "effectiveFrom": "2025-07-01",
+    "repealTargets": [
+      {
+        "sroNumber": 156,
+        "year": 2024,
+        "date": "2024-05-29"
+      },
+      {
+        "sroNumber": 154,
+        "year": 2025,
+        "date": "2025-05-26"
+      }
+    ],
+    "legalAuthority": "Income Tax Act 2023, section 76(3)",
+    "doesNotDetermineTaxpayerOrAssessmentYearApplicability": true
+  }
 }
