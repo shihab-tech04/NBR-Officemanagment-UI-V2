@@ -518,6 +518,15 @@ function evaluateRule(
     return { ...traceBase, state:"NEEDS_FACTS", missingFacts:applicability.missingFacts ?? ["applicability"], reason:applicability.reason };
   }
 
+  // A special central rebate route must never override the canonical rule's
+  // fail-closed, historical-only or not-applicable execution state.
+  // The central Section 78 evaluator is reachable only after these gates.
+  if (kind === "FAIL_CLOSED") {
+    return { ...traceBase, state: "FAIL_CLOSED", reason: rule.blocker ?? rule.conflict_blocker ?? rule.failure_behavior ?? "Execution blocked by certified rule state." };
+  }
+  if (kind === "HISTORICAL_ONLY") return { ...traceBase, state: "HISTORICAL_ONLY" };
+  if (kind === "NOT_APPLICABLE") return { ...traceBase, state: "NOT_APPLICABLE" };
+
   if (ruleId === "S78-GENERAL-REBATE-FA2026") {
     return {
       ...traceBase,
@@ -526,12 +535,6 @@ function evaluateRule(
       output:rule.benefit_type ?? rule.output ?? null,
     };
   }
-
-  if (kind === "FAIL_CLOSED") {
-    return { ...traceBase, state: "FAIL_CLOSED", reason: rule.blocker ?? rule.conflict_blocker ?? rule.failure_behavior ?? "Execution blocked by certified rule state." };
-  }
-  if (kind === "HISTORICAL_ONLY") return { ...traceBase, state: "HISTORICAL_ONLY" };
-  if (kind === "NOT_APPLICABLE") return { ...traceBase, state: "NOT_APPLICABLE" };
 
   if (facts.branch !== undefined && facts.branch !== "primary" && facts.branch !== "alternate") {
     return { ...traceBase, state: "FAIL_CLOSED", reason: "Unknown rate branch; an unrecognized branch cannot fall back to primary." };
