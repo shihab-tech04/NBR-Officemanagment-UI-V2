@@ -265,6 +265,29 @@ test('return-context impossible explicit date is rejected before replay reservat
   assert.equal(h.seen.ruleReads,0);
 });
 
+test('undated return-context event cannot trigger RETURN_EVENT applicability', async () => {
+  const h = harness();
+  const r = await h.request({legalEventDate:'2026-06-30',returnContext:{
+    ruleIds:['RETURN-REVIEW-ONLY'],
+    events:{'RETURN-REVIEW-ONLY':{eventType:'filing'}},
+  }});
+  assert.equal(r.code,422);
+  assert.equal(r.body.code,'RETURN_CONTEXT_EVENT_DATE_REQUIRED');
+  assert.equal(h.seen.reserveCalls,0);
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('explicit matching return-context date passes shape guard but not frozen rule gate', async () => {
+  const h = harness();
+  const r = await h.request({legalEventDate:'2026-06-30',returnContext:{
+    ruleIds:['RETURN-REVIEW-ONLY'],
+    events:{'RETURN-REVIEW-ONLY':{eventDate:'2026-06-30',eventType:'filing'}},
+  }});
+  assert.equal(r.code,503);
+  assert.equal(r.body.status,'FAIL_CLOSED');
+  assert.equal(h.seen.ruleReads,1);
+});
+
 // Source-only atomic boundary checks; real PG17/Auth is separate.
 test('no direct audit insert or split receipt finalize remains in the candidate',()=>{
   assert.equal(source.includes('supabase.from("nbr_engine_evaluation_log").insert'),false);
