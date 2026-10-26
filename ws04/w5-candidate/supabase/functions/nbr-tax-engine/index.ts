@@ -1651,7 +1651,7 @@ Deno.serve(async (req) => {
       actor_user_id: authData.user.id,
       taxpayer_record_id: taxpayerRecordId,
       assessment_year: assessmentYear,
-      income_year: body.incomeYear,
+      income_year: year.income_year,
       authorized_request_hash: authorizedRequestHash,
       idempotency_key: body.idempotencyKey,
       receipt_hash: receiptHash,
