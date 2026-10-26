@@ -31,6 +31,29 @@ function assertReviewHold(record) {
   assert.equal(record.applicability.assessmentYearEffect, 'UNDETERMINED');
   assert.equal(record.applicability.incomeYearEffect, 'UNDETERMINED');
   assert.equal(record.applicability.engineActivation, false);
+  // Official NBR Income Tax Circular 2025–26, Appendix 7 (printed p.152,
+  // PDF zero-based page 157), independently repeats the Gazette repeal chain.
+  // This is textual corroboration, NOT a PDF byte-hash or legal applicability approval.
+  const circular = record.officialCircularCorroboration;
+  const circularUrl = new URL(circular.url);
+  assert.equal(circularUrl.protocol, 'https:');
+  assert.equal(circularUrl.hostname, 'nbr.gov.bd');
+  assert.equal(circularUrl.pathname, '/uploads/paripatra/Income-tax_Paripatra_2025-2026.pdf');
+  assert.equal(circular.appendix, 'Appendix 7');
+  assert.equal(circular.pdfPageIndexZeroBased, 157);
+  assert.equal(circular.printedPage, 152);
+  assert.equal(circular.pdfSha256, null);
+  assert.equal(circular.sro, record.source.sro);
+  assert.equal(circular.gazetteDate, record.source.gazetteDate);
+  assert.equal(circular.effectiveFrom, record.source.effectiveFrom);
+  assert.deepEqual(circular.repealTargets,
+    record.repealTargets.map(({sroNumber,year,date})=>({sroNumber,year,date})));
+  assert.equal(circular.legalAuthority, 'Income Tax Act 2023, section 76(3)');
+  assert.equal(circular.doesNotDetermineTaxpayerOrAssessmentYearApplicability, true);
+  assert.equal(record.applicability.originalPredecessorTextsIndependentlyCompared, false);
+  assert.equal(record.applicability.laterAmendmentSearchCertified, false);
+  assert.equal(record.applicability.circularCorroborationDoesNotLiftHold, true);
+
   assert.equal(record.frozenRegistryModified, false);
   assert.equal(record.original137MatrixModified, false);
 }
@@ -49,6 +72,13 @@ for (const [name,mutate] of [
   ['wrong predecessor substitution', r=>{r.repealTargets[0].sroNumber=999;}],
   ['index date treated as Gazette date', r=>{r.source.gazetteDate='2025-06-25';}],
   ['unverified PDF digest claim', r=>{r.source.pdfSha256='a'.repeat(64);}],
+  ['circular wrong repealed SRO year', r=>{r.officialCircularCorroboration.repealTargets[1].year=2024;}],
+  ['circular false Gazette date', r=>{r.officialCircularCorroboration.gazetteDate='2025-06-25';}],
+  ['circular invented digest', r=>{r.officialCircularCorroboration.pdfSha256='f'.repeat(64);}],
+  ['circular treated as legal approval', r=>{r.applicability.circularCorroborationDoesNotLiftHold=false;}],
+  ['circular wrong official source', r=>{r.officialCircularCorroboration.url='https://example.org/unknown.pdf';}],
+  ['unreviewed predecessor texts claimed reviewed', r=>{r.applicability.originalPredecessorTextsIndependentlyCompared=true;}],
+  ['unreviewed later amendments claimed certified', r=>{r.applicability.laterAmendmentSearchCertified=true;}],
   ['frozen registry edit', r=>{r.frozenRegistryModified=true;}],
 ]) {
   test('rejects '+name, () => {
