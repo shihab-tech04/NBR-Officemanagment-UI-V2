@@ -106,6 +106,46 @@ function assertReviewHold(record) {
   // SRO was repealed. Both predecessor lines still require legal adjudication.
   assert.equal(record.applicability.originalPredecessorTextsIndependentlyCompared, false);
 
+  // NBR's 2023–24 official circular (Appendix 8, printed p.241)
+  // reproduces SRO169/2023 expressly repealing SRO158/2014. Yet the
+  // 2025 Gazette SRO154 purports to amend that 2014 notification.
+  // Record this conflict without inferring revival, legal validity or savings.
+  const chain = record.priorRepealConflict;
+  assert.equal(chain.status, 'OFFICIAL_NBR_CIRCULAR_PRIOR_REPEAL_VS_2025_AMENDMENT_CONFLICT_HOLD');
+  assert.equal(chain.ws01Adjudicated, false);
+  assert.equal(chain.revivalInferred, false);
+  assert.equal(chain.savingsInferred, false);
+  assert.equal(chain.taxpayerApplicabilityApproved, false);
+  assert.equal(chain.engineActivation, false);
+  assert.equal(chain.baseSro.sro, '158-Ain/IncomeTax/2014');
+  assert.equal(chain.baseSro.gazetteDate, '2014-06-26');
+  assert.equal(chain.baseSro.officialNBRIndexEntryNumber, 150);
+  assert.equal(chain.baseSro.officialNBRIndexDescription, 'স্বায়ত্বশাসিত প্রতিষ্ঠান সংক্রান্ত');
+  for (const url of [chain.baseSro.officialNBRIndex, chain.baseSro.officialNBRPdfLink, chain.priorRepeal.officialCircular]) {
+    const parsed = new URL(url);
+    assert.equal(parsed.protocol, 'https:');
+    assert.equal(parsed.hostname, 'nbr.gov.bd');
+  }
+  assert.equal(new URL(chain.baseSro.officialNBRPdfLink).pathname, '/uploads/sros/514.pdf');
+  assert.equal(chain.baseSro.sourcePdfRetrieved, false);
+  assert.equal(chain.baseSro.sourcePdfSha256, null);
+  assert.equal(chain.baseSro.sourceTextFullyCompared, false);
+  assert.equal(chain.priorRepeal.sro, '169-Ain/IncomeTax/2023');
+  assert.equal(chain.priorRepeal.gazetteDate, '2023-05-23');
+  assert.equal(chain.priorRepeal.sourceKind, 'NBR_OFFICIAL_2023_24_CIRCULAR_REPRODUCED_NOTIFICATION');
+  assert.equal(chain.priorRepeal.locator, 'Appendix 8, printed page 241');
+  assert.equal(chain.priorRepeal.statutoryPower, 'Income-tax Ordinance 1984 section 44(4)(b)');
+  assert.equal(chain.priorRepeal.namedRepealTarget, chain.baseSro.sro);
+  assert.equal(chain.priorRepeal.originalGazettePdfIndependentlyVerified, false);
+  assert.equal(chain.priorRepeal.circularPdfSha256, null);
+  assert.equal(chain.laterAmendment.sro, amendment.sro);
+  assert.equal(chain.laterAmendment.amendsSro, chain.baseSro.sro);
+  assert.equal(chain.laterAmendment.effectiveFrom, amendment.effectiveFrom);
+  assert.equal(chain.laterAmendment.laterRepealedBy, record.source.sro);
+  assert.equal(chain.laterAmendment.repealEffectiveFrom, record.source.effectiveFrom);
+  assert.equal(chain.needsLegalReview.length, 6);
+  assert.equal(record.applicability.status, 'LEGAL_REVIEW_HOLD');
+
   assert.equal(record.frozenRegistryModified, false);
   assert.equal(record.original137MatrixModified, false);
 }
@@ -139,6 +179,16 @@ for (const [name,mutate] of [
   ['SRO154 Gazette replaced by untrusted host', r=>{r.predecessorSourceReadback.records[1].sourceUrl='https://example.org/fake.pdf';}],
   ['SRO154 PDF checksum fabricated', r=>{r.predecessorSourceReadback.records[1].sourcePdfSha256='0'.repeat(64);}],
   ['predecessor readback treated as legal approval', r=>{r.predecessorSourceReadback.taxpayerApplicabilityApproved=true;}],
+  ['prior 2023 repeal erased', r=>{r.priorRepealConflict.priorRepeal.namedRepealTarget='154-Ain/IncomeTax-9/2025';}],
+  ['2023 repealing SRO substituted', r=>{r.priorRepealConflict.priorRepeal.sro='168-Ain/IncomeTax/2023';}],
+  ['2023 repealing date falsified', r=>{r.priorRepealConflict.priorRepeal.gazetteDate='2025-05-23';}],
+  ['2014 base official PDF link substituted', r=>{r.priorRepealConflict.baseSro.officialNBRPdfLink='https://example.org/fake.pdf';}],
+  ['2014 original PDF falsely marked retrieved', r=>{r.priorRepealConflict.baseSro.sourcePdfRetrieved=true;}],
+  ['2023 circular digest fabricated', r=>{r.priorRepealConflict.priorRepeal.circularPdfSha256='f'.repeat(64);}],
+  ['prior repeal silently interpreted as revival', r=>{r.priorRepealConflict.revivalInferred=true;}],
+  ['unreviewed prior repeal legally approved', r=>{r.priorRepealConflict.ws01Adjudicated=true;}],
+  ['same-day 2025 repeal effective date falsified', r=>{r.priorRepealConflict.laterAmendment.repealEffectiveFrom='2025-06-24';}],
+  ['unresolved 2023 repeal conflict activated', r=>{r.priorRepealConflict.engineActivation=true;}],
   ['frozen registry edit', r=>{r.frozenRegistryModified=true;}],
 ]) {
   test('rejects '+name, () => {
