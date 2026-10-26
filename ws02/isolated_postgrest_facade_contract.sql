@@ -176,21 +176,28 @@ BEGIN
        AND c.relrowsecurity)<>3 THEN
   RAISE EXCEPTION 'PRIVATE_OWNER_TABLE_RLS_DISABLED';
  END IF;
- WITH expected(relname,polname,cmd,roles) AS (
+ WITH expected(relname,polname,cmd,roles,permissive,using_expr,check_expr) AS (
+  -- Policy names, roles and commands alone are insufficient: a changed
+  -- USING/WITH CHECK predicate or RESTRICTIVE/PERMISSIVE switch can silently
+  -- change the trusted-definer's effective row access. Pin the actual PG17
+  -- catalog expressions in this synthetic-only contract.
   VALUES
-   ('owners','owners_rpc_lock_read','r',ARRAY['ws02_owner_lock','ws02_owner_rpc']::text[]),
-   ('owners','owners_lock_update','w',ARRAY['ws02_owner_lock']::text[]),
-   ('slots','slots_rpc_read','r',ARRAY['ws02_owner_rpc']::text[]),
-   ('slots','slots_engine_insert','a',ARRAY['ws02_owner_rpc']::text[]),
-   ('slots','slots_engine_update','w',ARRAY['ws02_owner_rpc']::text[]),
-   ('evaluation_logs','logs_rpc_read','r',ARRAY['ws02_owner_rpc']::text[]),
-   ('evaluation_logs','logs_engine_insert','a',ARRAY['ws02_owner_rpc']::text[])
+   ('owners','owners_rpc_lock_read','r',ARRAY['ws02_owner_lock','ws02_owner_rpc']::text[],true,'true',NULL::text),
+   ('owners','owners_lock_update','w',ARRAY['ws02_owner_lock']::text[],true,'true','true'),
+   ('slots','slots_rpc_read','r',ARRAY['ws02_owner_rpc']::text[],true,'true',NULL::text),
+   ('slots','slots_engine_insert','a',ARRAY['ws02_owner_rpc']::text[],true,NULL::text,'true'),
+   ('slots','slots_engine_update','w',ARRAY['ws02_owner_rpc']::text[],true,'true','true'),
+   ('evaluation_logs','logs_rpc_read','r',ARRAY['ws02_owner_rpc']::text[],true,'true',NULL::text),
+   ('evaluation_logs','logs_engine_insert','a',ARRAY['ws02_owner_rpc']::text[],true,NULL::text,'true')
  ), observed AS (
   SELECT c.relname::text AS relname,p.polname::text AS polname,
    p.polcmd::text AS cmd,
    ARRAY(SELECT r.rolname::text FROM unnest(p.polroles) AS u(role_oid)
          JOIN pg_catalog.pg_roles r ON r.oid=u.role_oid
-         ORDER BY r.rolname) AS roles
+         ORDER BY r.rolname) AS roles,
+   p.polpermissive AS permissive,
+   pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+   pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
   FROM pg_catalog.pg_policy p
   JOIN pg_catalog.pg_class c ON c.oid=p.polrelid
   JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
