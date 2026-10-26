@@ -1366,8 +1366,16 @@ Deno.serve(async (req) => {
       // event used to select source versions. Absence of a date is NOT treated
       // as evidence of a filing event; statutory applicability remains HOLD.
       for (const event of Object.values(events as Record<string, Record<string, unknown>>)) {
-        for (const key of ["eventDate", "legalEventDate", "transactionEventDate"]) {
-          if (!Object.prototype.hasOwnProperty.call(event, key)) continue;
+        const explicitDateKeys = ["eventDate", "legalEventDate", "transactionEventDate"]
+          .filter((key) => Object.prototype.hasOwnProperty.call(event, key));
+        // A selector and eventType without a civil date cannot establish a
+        // legal filing event. Do not allow an undated RETURN_EVENT to become
+        // APPLICABLE through a truthy context.events entry.
+        if (explicitDateKeys.length === 0) {
+          return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_REQUIRED",
+            error:"Return/workflow event requires an explicit civil date" }, 422);
+        }
+        for (const key of explicitDateKeys) {
           if (!validIsoDate(event[key])) {
             return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_REQUIRED",
               error:"Explicit return/workflow event date must be a valid civil date" }, 422);
