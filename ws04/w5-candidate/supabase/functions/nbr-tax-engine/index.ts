@@ -24,6 +24,11 @@ const RELEASE_GATES = [
   "AGENT_32_V2_1",
   "PERSISTED_E2E_6",
 ] as const;
+const KNOWN_EXECUTION_STATUSES = new Set([
+  "CURRENT_EXECUTABLE","EXECUTABLE_AS_RECORDED","EXECUTABLE_CURRENT","EXECUTABLE_WITH_GUARD",
+  "FACT_GATED","FAIL_CLOSED","FAIL_CLOSED_PUBLIC_EVIDENCE","HISTORICAL_ONLY",
+  "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE","NOT_APPLICABLE",
+]);
 const SCALE_DIGITS = 10n;
 const SCALE = 10n ** SCALE_DIGITS;
 
@@ -437,6 +442,9 @@ function resolveApplicability(
 }
 
 function ruleRuntimeKind(status: string, rule: Record<string, unknown>): string {
+  // Unrecognized SQL execution states are not executable, even if a rate is present.
+  // The same allowlist drives the read-only coverage/health view.
+  if (!KNOWN_EXECUTION_STATUSES.has(status)) return "FAIL_CLOSED";
   if (status === "FAIL_CLOSED" || status === "FAIL_CLOSED_PUBLIC_EVIDENCE" || status === "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE") return "FAIL_CLOSED";
   if (status === "HISTORICAL_ONLY") return "HISTORICAL_ONLY";
   if (status === "NOT_APPLICABLE") return "NOT_APPLICABLE";
@@ -980,11 +988,7 @@ Deno.serve(async (req) => {
         const key = String(row.execution_status ?? "UNSPECIFIED");
         executionStateCounts[key] = (executionStateCounts[key] ?? 0) + 1;
       }
-      const recognizedStatuses = new Set([
-        "CURRENT_EXECUTABLE","EXECUTABLE_AS_RECORDED","EXECUTABLE_CURRENT","EXECUTABLE_WITH_GUARD",
-        "FACT_GATED","FAIL_CLOSED","FAIL_CLOSED_PUBLIC_EVIDENCE","HISTORICAL_ONLY",
-        "NON_EXECUTABLE_UNLESS_CANONICAL_OVERRIDE","NOT_APPLICABLE"
-      ]);
+      const recognizedStatuses = KNOWN_EXECUTION_STATUSES;
       const unhandledRuleCount = (statusRows ?? []).filter((row:any)=>!recognizedStatuses.has(String(row.execution_status ?? ""))).length;
 
       const { data:bindingRows, error:bindingError } = await supabase

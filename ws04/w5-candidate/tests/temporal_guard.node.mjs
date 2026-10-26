@@ -380,3 +380,41 @@ for (const [status, expected] of [
     assert.notEqual(result.state, 'APPLIED');
   });
 }
+
+ 
+// An unknown SQL canonical execution status must not fall through to a
+// numeric-rate calculation. Test the real evaluator with a valid numeric
+// rate and explicit facts so a missing allowlist guard would calculate.
+for (const status of [
+  'UNREVIEWED',
+  'EXECUTABLE_TYPO',
+  'current_executable',
+  'CURRENT_EXECUTABLE ',
+]) {
+  test('unknown canonical execution status fails closed: ' + JSON.stringify(status), () => {
+    const h = harness();
+    const result = h.evaluateRule({
+      rule_key:'SYNTHETIC-EXECUTION-STATE',
+      revision_no:1,
+      execution_status:status,
+      rule_data:{rate_primary:'0.10'},
+    }, {runtime_mode:'ALWAYS', affects_calculation:true}, {
+      taxpayer:{entityType:'individual'},
+    }, {'SYNTHETIC-EXECUTION-STATE':{baseAmount:'1000'}});
+    assert.equal(result.state,'FAIL_CLOSED');
+    assert.notEqual(result.state,'CALCULATED');
+  });
+}
+
+test('known current executable status still reaches the existing numeric path', () => {
+  const h = harness();
+  const result = h.evaluateRule({
+    rule_key:'SYNTHETIC-EXECUTION-STATE',
+    revision_no:1,
+    execution_status:'CURRENT_EXECUTABLE',
+    rule_data:{rate_primary:'0.10'},
+  }, {runtime_mode:'ALWAYS', affects_calculation:true}, {
+    taxpayer:{entityType:'individual'},
+  }, {'SYNTHETIC-EXECUTION-STATE':{baseAmount:'1000'}});
+  assert.equal(result.state,'CALCULATED');
+});
