@@ -157,6 +157,57 @@ BEGIN
   END LOOP;
  END LOOP;
 END $schema_ddl_boundary$;
+-- Runtime-role capability and ownership drift guard. A NOLOGIN facade role
+-- must not become a login, BYPASSRLS, superuser, DDL/replication role, or
+-- owner/member of a private relation owner. RLS and ACL checks alone would
+-- miss an accidental role attribute or inherited table-owner bypass.
+-- All roles and tables are synthetic in this disposable PG17 database.
+DO $runtime_role_boundary$
+DECLARE role_name name; role_row record; rel record;
+BEGIN
+ FOR role_row IN
+  SELECT rolname,rolsuper,rolbypassrls,rolcanlogin,rolcreatedb,
+         rolcreaterole,rolreplication
+  FROM pg_catalog.pg_roles
+  WHERE rolname IN ('ws02_owner_anon','ws02_owner_auth',
+    'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock')
+ LOOP
+  IF role_row.rolsuper OR role_row.rolbypassrls OR role_row.rolcanlogin
+    OR role_row.rolcreatedb OR role_row.rolcreaterole
+    OR role_row.rolreplication THEN
+   RAISE EXCEPTION 'SYNTHETIC_RUNTIME_ROLE_ELEVATED_%',role_row.rolname;
+  END IF;
+ END LOOP;
+ IF (SELECT count(*) FROM pg_catalog.pg_roles
+     WHERE rolname IN ('ws02_owner_anon','ws02_owner_auth',
+       'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock'))<>5 THEN
+  RAISE EXCEPTION 'SYNTHETIC_RUNTIME_ROLE_MISSING';
+ END IF;
+ FOR rel IN
+  SELECT c.oid,c.relname,c.relowner
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='ws02_owner'
+    AND c.relname IN ('owners','slots','evaluation_logs')
+    AND c.relkind IN ('r','p')
+ LOOP
+  FOREACH role_name IN ARRAY ARRAY[
+    'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+    'ws02_owner_rpc','ws02_owner_lock'] LOOP
+   IF pg_catalog.pg_has_role(role_name,rel.relowner,'MEMBER') THEN
+    RAISE EXCEPTION 'RUNTIME_ROLE_INHERITS_PRIVATE_TABLE_OWNER_%_%',
+      role_name,rel.relname;
+   END IF;
+  END LOOP;
+ END LOOP;
+ IF (SELECT count(*) FROM pg_catalog.pg_class c
+     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='ws02_owner'
+       AND c.relname IN ('owners','slots','evaluation_logs')
+       AND c.relkind IN ('r','p'))<>3 THEN
+  RAISE EXCEPTION 'PRIVATE_RELATION_INVENTORY_DRIFT';
+ END IF;
+END $runtime_role_boundary$;
 -- Policy inventory regression: ACL denial is not enough if a later change
 -- disables RLS or adds a permissive policy for a new/untrusted role.
 -- Pin the seven private policies and their exact role/command boundaries.
