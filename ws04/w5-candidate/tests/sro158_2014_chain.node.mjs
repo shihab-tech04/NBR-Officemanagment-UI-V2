@@ -25,7 +25,7 @@ function assertSourceChain(r) {
     '2014-06-26', '2017-06-21', '2023-05-23', '2025-05-26', '2025-06-24',
   ]);
   for (const s of r.sources) {
-    const u = new URL(s.officialPdf ?? s.officialCircular);
+    const u = new URL(s.officialPdf ?? s.officialCircular ?? s.officialIndex);
     assert.equal(u.protocol, 'https:');
     assert.equal(u.hostname, 'nbr.gov.bd');
     assert.equal(s.pdfSha256 === undefined ? s.sourceSha256 : s.pdfSha256, null);
