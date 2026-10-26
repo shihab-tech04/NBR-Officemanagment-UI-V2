@@ -26,6 +26,9 @@ jobs:
           echo '4b90008db8c169e37df9818801c831f53d5ea4f437a2dd9d59291d46ad04dbe2  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
           echo '4a1c0ffe22a77282d67e87d060e427b59e07c344dcfac5557757ec360b6fcc47  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+          echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -
+      - name: Self-test offline private frozen registry verifier (synthetic only)
+        run: node ws04/w5-candidate/tests/verify_frozen_registry.mjs --self-test
       - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
         shell: bash
         run: |
