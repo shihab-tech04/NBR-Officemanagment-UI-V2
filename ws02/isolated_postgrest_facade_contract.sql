@@ -78,6 +78,17 @@ BEGIN
  IF rpc_count<>1 THEN
   RAISE EXCEPTION 'FACADE_API_SURFACE_DRIFT_FUNCTION_COUNT_%',rpc_count;
  END IF;
+ -- PostgREST exposes granted relations as well as RPCs. A later view,
+ -- table, foreign table, materialized view or sequence in the nominated
+ -- API schema must never be silently accepted by this reviewed facade.
+ IF EXISTS(
+  SELECT 1 FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='ws02_api'
+    AND c.relkind IN ('r','p','v','m','f','S')
+ ) THEN
+  RAISE EXCEPTION 'FACADE_API_SURFACE_DRIFT_RELATION_PRESENT';
+ END IF;
  IF EXISTS(
   SELECT 1 FROM pg_catalog.pg_proc p
   JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
@@ -96,6 +107,41 @@ BEGIN
   RAISE EXCEPTION 'FACADE_UNTRUSTED_ROLE_CAN_EXECUTE_API_ROUTINE';
  END IF;
 END $facade_surface$;
+-- Negative fixture: verify that the catalog check sees BOTH a new table and
+-- a new view. Each probe is rolled back by its own PL/pgSQL subtransaction.
+-- This is not a hosted PostgREST or citizen-data integration test.
+DO $facade_relation_probe$
+DECLARE relation_kind text; discovered boolean;
+BEGIN
+ FOREACH relation_kind IN ARRAY ARRAY['TABLE','VIEW'] LOOP
+  BEGIN
+   IF relation_kind='TABLE' THEN
+    EXECUTE 'CREATE TABLE ws02_api.__exposure_probe (synthetic integer)';
+   ELSE
+    EXECUTE 'CREATE VIEW ws02_api.__exposure_probe AS SELECT 1 AS synthetic';
+   END IF;
+   SELECT EXISTS(
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='ws02_api'
+      AND c.relkind IN ('r','p','v','m','f','S')
+   ) INTO discovered;
+   IF NOT discovered THEN
+    RAISE EXCEPTION 'FACADE_RELATION_EXPOSURE_NOT_DETECTED_%',relation_kind;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_RELATION';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_RELATION' THEN RAISE; END IF;
+  END;
+ END LOOP;
+ IF EXISTS(
+  SELECT 1 FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='ws02_api' AND c.relname='__exposure_probe'
+ ) THEN
+  RAISE EXCEPTION 'FACADE_NEGATIVE_RELATION_PROBE_NOT_ROLLED_BACK';
+ END IF;
+END $facade_relation_probe$;
 DO $acl$
 DECLARE caller name;
 BEGIN
