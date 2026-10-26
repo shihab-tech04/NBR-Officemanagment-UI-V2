@@ -25,7 +25,7 @@ jobs:
         run: |
           echo '20baa7b6f97139a2c3bdecbd671a994184d90f7f41225f3efb4b9c350927b9da  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
-          echo '5ea86090b00628aebf1afa1b6b794e4a6efbffbc7f02c4ee72593430f2454ea2  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+          echo '19df1c23bcbfd3eb13ce419db72decf295964e74336ef08122f00b2c28008192  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
       - name: Verify cross-income-year transaction denial using actual W5 Edge handler (isolated mocks)
         shell: bash
         run: |
