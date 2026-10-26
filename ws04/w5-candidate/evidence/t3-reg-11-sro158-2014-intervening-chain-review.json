@@ -1,0 +1,75 @@
+{
+  "recordId": "T3-REG-11-SRO158-2014-INTERVENING-CHAIN",
+  "purpose": "Independent historical amendment-chain source intake; not current-law adjudication, executable rule, or taxpayer entitlement",
+  "status": "LEGAL_REVIEW_HOLD",
+  "sources": [
+    {
+      "sro": "158-Ain/IncomeTax/2014",
+      "kind": "BASE_NOTIFICATION",
+      "notificationDate": "2014-06-26",
+      "officialPdf": "https://nbr.gov.bd/uploads/sros/514.pdf",
+      "evidenceLevel": "OFFICIAL_NBR_SEARCH_INDEX_AND_PARTIAL_PDF_TEXT_ONLY",
+      "pdfSha256": null,
+      "pdfBytesVerified": false,
+      "fullTextCompared": false,
+      "reportedHistoricalRate": "25%",
+      "reportedHistoricalScope": "Non-capital income of listed autonomous public-service authorities; applicability not independently certified",
+      "engineRateApproved": false
+    },
+    {
+      "sro": "207-Ain/IncomeTax/2017",
+      "kind": "INTERVENING_AMENDMENT",
+      "notificationDate": "2017-06-21",
+      "gazettePublicationDate": "2017-06-22",
+      "effectiveFrom": "2017-07-01",
+      "amends": "158-Ain/IncomeTax/2014",
+      "officialPdf": "https://nbr.gov.bd/uploads/sros/%E0%A6%8F%E0%A6%B8%2C_%E0%A6%86%E0%A6%B0%2C_%E0%A6%93_%E0%A6%A8%E0%A6%82_%E0%A7%A8%E0%A7%A6%E0%A7%AD-%E0%A6%86%E0%A6%87%E0%A6%A8%E0%A6%86%E0%A7%9F%E0%A6%95%E0%A6%B0_%E0%A7%A8%E0%A7%A6%E0%A7%A7%E0%A7%AD_%E0%A5%A4--%E0%A6%8F%E0%A6%B8%2C_%E0%A6%86%E0%A6%B0%2C_%E0%A6%93_%E0%A6%A8%E0%A6%82_%E0%A7%A7%E0%A7%AB%E0%A7%AE-%E0%A6%86%E0%A6%87%E0%A6%A8%E0%A6%86%E0%A7%9F%E0%A6%95%E0%A6%B0_%E0%A7%A8%E0%A7%A6%E0%A7%A7%E0%A7%AA_%E0%A6%8F%E0%A6%B0_%E0%A6%B8%E0%A6%82%E0%A6%B6%E0%A7%8B%E0%A6%A7%E0%A6%A8_%E0%A6%AA%E0%A7%8D%E0%A6%B0%E0%A6%B8%E0%A6%99%E0%A7%8D%E0%A6%97%E0%A7%87%E0%A5%A4.pdf",
+      "evidenceLevel": "NBR_HOSTED_GAZETTE_EXTRACTED_TEXT_UNHASHED",
+      "pdfSha256": null,
+      "pdfBytesVerified": false,
+      "reportedChange": "Adds Bangladesh Economic Zones Authority to the listed entities",
+      "engineEffectApproved": false
+    },
+    {
+      "sro": "169-Ain/IncomeTax/2023",
+      "kind": "REPEAL",
+      "notificationDate": "2023-05-23",
+      "repeals": "158-Ain/IncomeTax/2014",
+      "officialCircular": "https://nbr.gov.bd/uploads/paripatra/%E0%A6%86%E0%A7%9F%E0%A6%95%E0%A6%B0_%E0%A6%AA%E0%A6%B0%E0%A6%BF%E0%A6%AA%E0%A6%A4%E0%A7%8D%E0%A6%B0_%E0%A7%A8%E0%A7%A6%E0%A7%A8%E0%A7%A9-%E0%A7%A8%E0%A7%AA.pdf",
+      "locator": "Appendix 8, printed page 241",
+      "originalGazetteVerified": false,
+      "sourceSha256": null
+    },
+    {
+      "sro": "154-Ain/IncomeTax-9/2025",
+      "kind": "PURPORTED_AMENDMENT_AFTER_REPEAL",
+      "notificationDate": "2025-05-26",
+      "effectiveFrom": "2025-07-01",
+      "amends": "158-Ain/IncomeTax/2014",
+      "officialPdf": "https://nbr.gov.bd/uploads/sros/IT_SRO-154.pdf",
+      "sourceSha256": null
+    },
+    {
+      "sro": "268-Ain/IncomeTax-13/2025",
+      "kind": "REPEAL_OF_2025_AMENDMENT",
+      "notificationDate": "2025-06-24",
+      "effectiveFrom": "2025-07-01",
+      "repeals": "154-Ain/IncomeTax-9/2025",
+      "officialIndexDate": "2025-06-25",
+      "sourceSha256": null
+    }
+  ],
+  "review": {
+    "original2014PdfBytesVerified": false,
+    "intervening2014To2023AmendmentsComplete": false,
+    "priorRepealSavingsAdjudicated": false,
+    "revivalLegallyEstablished": false,
+    "sameDay2025RepealAdjudicated": false,
+    "taxpayerScopeApproved": false,
+    "assessmentIncomeYearApproved": false,
+    "ws01LegalSignoff": false,
+    "engineActivation": false
+  },
+  "frozenRegistryModified": false,
+  "original137MatrixModified": false
+}
