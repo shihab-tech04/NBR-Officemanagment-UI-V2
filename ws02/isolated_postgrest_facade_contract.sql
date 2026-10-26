@@ -31,9 +31,13 @@ GRANT EXECUTE ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
 DO $facade_metadata$
 DECLARE security_definer boolean; function_volatility "char";
         function_language name; function_config text[]; return_type oid;
+        argument_names text[]; default_count integer; variadic_type oid;
+        returns_set boolean;
 BEGIN
- SELECT p.prosecdef,p.provolatile,l.lanname,p.proconfig,p.prorettype
- INTO security_definer,function_volatility,function_language,function_config,return_type
+ SELECT p.prosecdef,p.provolatile,l.lanname,p.proconfig,p.prorettype,
+        p.proargnames,p.pronargdefaults,p.provariadic,p.proretset
+ INTO security_definer,function_volatility,function_language,function_config,return_type,
+      argument_names,default_count,variadic_type,returns_set
  FROM pg_catalog.pg_proc p
  JOIN pg_catalog.pg_language l ON l.oid=p.prolang
  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
@@ -41,6 +45,15 @@ BEGIN
     OR function_volatility IS DISTINCT FROM 'v'
     OR function_language IS DISTINCT FROM 'sql'
     OR return_type IS DISTINCT FROM 'boolean'::regtype::oid
+    -- PostgREST resolves named JSON arguments. A positional type signature
+    -- alone misses renamed parameters, optional defaults and variadic drift.
+    OR argument_names IS DISTINCT FROM ARRAY[
+      'p_auth_user_id','p_taxpayer_record_id','p_assessment_year',
+      'p_idempotency_key','p_request_hash','p_receipt_hash',
+      'p_trace_hash','p_result_state','p_audit_trace']::text[]
+    OR default_count IS DISTINCT FROM 0
+    OR variadic_type IS DISTINCT FROM 0::oid
+    OR returns_set IS DISTINCT FROM false
     OR function_config IS NULL
     OR NOT EXISTS (
       SELECT 1 FROM unnest(function_config) AS setting
