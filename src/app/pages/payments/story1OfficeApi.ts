@@ -45,4 +45,11 @@ export async function getStoryPayments():Promise<StoryPayment[]> {
   }
   throw Error('Transaction history exceeds the retrieval limit');
 }
+/** One page paired with the Office bell's newest SQL events (not a history scan). */
+export async function getRecentStoryPayments(): Promise<StoryPayment[]> {
+  const page = await get<{items:StoryPayment[];total:number;page:number}>('/payments?page=1&perPage=100');
+  if(!Array.isArray(page.items)||!Number.isSafeInteger(page.total)||page.total<0)
+    throw Error('Invalid latest simulated transactions');
+  return page.items.filter(payment=>!knownLegacyBrowserTest(payment));
+}
 export const getStoryNotices=()=>get<StoryNotice[]>('/notifications');
