@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           echo '4b90008db8c169e37df9818801c831f53d5ea4f437a2dd9d59291d46ad04dbe2  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
-          echo '988c5a78f696b68764b55adda9ce7b4b7b3ddae2227f0038dbfe582ca24dacbb  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
+          echo '6af7452f56a6a608d64f65d8616c54106b70ba17fd9b66a9039faaa2cab2b1ff  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
           echo '4a1c0ffe22a77282d67e87d060e427b59e07c344dcfac5557757ec360b6fcc47  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
           echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -
       - name: Self-test offline private frozen registry verifier (synthetic only)
@@ -34,7 +34,7 @@ jobs:
         run: |
           node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
           node --test ws04/w5-candidate/tests/ownership_gate.node.mjs
-          echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, 89-case harness, PostgreSQL/Auth or Agent certification.'
+          echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, private frozen-registry runtime, PostgreSQL/Auth or Agent certification.'
       - name: Validate Edge TypeScript syntax and non-activation boundaries (not statutory tests)
         shell: bash
         run: |
@@ -60,5 +60,5 @@ jobs:
           if (s.includes('"Access-Control-Allow-Origin": "*"')) throw Error('Unrestricted CORS');
           console.log('PASS: exact candidate syntax/integrity/static security boundaries');
           console.log('NOT RUN IN CI: original 366-rule frozen library and Auth/PG17 fixture are not in public repository');
-          console.log('The separate controlled source bundle has local 89/89 synthetic handler tests, NOT law certification');
+          console.log('The private frozen-registry runtime is executed offline only; this CI does not certify original Agent or legal law');
           NODE
