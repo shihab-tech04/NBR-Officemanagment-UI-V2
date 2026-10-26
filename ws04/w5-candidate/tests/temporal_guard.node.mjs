@@ -238,6 +238,33 @@ for (const [field, invalidSelection] of [
   });
 }
 
+// A RETURN_EVENT may carry a separately dated event. Even in this review-only
+// candidate, contradictory explicit dates must not be silently ignored.
+// These checks do not establish statutory filing-event applicability.
+test('return-context explicit event dates cannot conflict with the evaluated legal event', async () => {
+  const h = harness();
+  const r = await h.request({legalEventDate:'2026-06-30',returnContext:{
+    ruleIds:['RETURN-REVIEW-ONLY'],
+    events:{'RETURN-REVIEW-ONLY':{eventDate:'2026-07-01',eventType:'filing'}},
+  }});
+  assert.equal(r.code,409);
+  assert.equal(r.body.code,'RETURN_CONTEXT_EVENT_DATE_CONFLICT');
+  assert.equal(h.seen.reserveCalls,0);
+  assert.equal(h.seen.ruleReads,0);
+});
+
+test('return-context impossible explicit date is rejected before replay reservation', async () => {
+  const h = harness();
+  const r = await h.request({legalEventDate:'2026-06-30',returnContext:{
+    ruleIds:['RETURN-REVIEW-ONLY'],
+    events:{'RETURN-REVIEW-ONLY':{legalEventDate:'2026-02-30',eventType:'filing'}},
+  }});
+  assert.equal(r.code,422);
+  assert.equal(r.body.code,'RETURN_CONTEXT_EVENT_DATE_REQUIRED');
+  assert.equal(h.seen.reserveCalls,0);
+  assert.equal(h.seen.ruleReads,0);
+});
+
 // Source-only atomic boundary checks; real PG17/Auth is separate.
 test('no direct audit insert or split receipt finalize remains in the candidate',()=>{
   assert.equal(source.includes('supabase.from("nbr_engine_evaluation_log").insert'),false);
