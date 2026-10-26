@@ -66,6 +66,7 @@ function harness(year = {
   assert.equal(typeof handler,'function');
   return {
     seen,
+    evaluateRule: runtime.evaluateRule,
     async request(overrides={}) {
       const body = {
         assessmentYear:year.assessment_year,
@@ -354,3 +355,28 @@ test('atomic audit and receipt bind income year to the server-read year record',
   assert.ok(!audit.includes('income_year: body.incomeYear'));
   assert.ok(source.includes('year.income_year !== body.incomeYear'));
 });
+
+ 
+// Directly execute the real isolated W5 evaluator, not a source-text assertion.
+// A centrally handled rebate rule must still honor its canonical execution
+// state. These synthetic states do NOT certify the legal Section 78 formula.
+for (const [status, expected] of [
+  ['FAIL_CLOSED','FAIL_CLOSED'],
+  ['FAIL_CLOSED_PUBLIC_EVIDENCE','FAIL_CLOSED'],
+  ['HISTORICAL_ONLY','HISTORICAL_ONLY'],
+  ['NOT_APPLICABLE','NOT_APPLICABLE'],
+]) {
+  test('Section 78 central rebate route respects ' + status + ' execution gate', () => {
+    const h = harness();
+    const result = h.evaluateRule({
+      rule_key:'S78-GENERAL-REBATE-FA2026',
+      revision_no:1,
+      execution_status:status,
+      rule_data:{benefit_type:'synthetic-review-only'},
+    }, {runtime_mode:'ALWAYS', affects_calculation:true}, {
+      taxpayer:{entityType:'individual'}, returnData:{taxRebates:{investment:'100'}},
+    }, {});
+    assert.equal(result.state, expected);
+    assert.notEqual(result.state, 'APPLIED');
+  });
+}
