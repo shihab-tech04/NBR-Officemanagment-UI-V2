@@ -972,7 +972,7 @@ test('returnContext events cannot implicitly select or forge return rules', asyn
   }
   const h = harness({ reservationError: { message: 'expected synthetic replay stop' } });
   const valid = await h.request({ bodyOverrides: {
-    returnContext: { ruleIds: [ruleId], events: { [ruleId]: { eventType: 'filed' } } },
+    returnContext: { ruleIds: [ruleId], events: { [ruleId]: { eventType: 'filed', eventDate: '2026-06-30' } } },
   } });
   assert.equal(valid.status, 503);
   assert.equal(valid.body.code, 'REPLAY_GATE_UNAVAILABLE');
