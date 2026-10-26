@@ -192,7 +192,7 @@ BEGIN
   FOREACH relation_name IN ARRAY ARRAY[
    'ws02_owner.owners','ws02_owner.slots','ws02_owner.evaluation_logs'] LOOP
    IF pg_catalog.has_table_privilege(caller,relation_name,
-    'SELECT,INSERT,UPDATE,DELETE') THEN
+    'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
     RAISE EXCEPTION 'UNTRUSTED_ROLE_HAS_PRIVATE_TABLE_ACCESS_%_%',caller,relation_name;
    END IF;
   END LOOP;
@@ -215,7 +215,7 @@ BEGIN
  FOREACH relation_name IN ARRAY ARRAY[
    'ws02_owner.owners','ws02_owner.slots','ws02_owner.evaluation_logs'] LOOP
   IF pg_catalog.has_table_privilege('ws02_owner_engine',relation_name,
-    'SELECT,INSERT,UPDATE,DELETE') THEN
+    'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
    RAISE EXCEPTION 'ENGINE_INHERITS_PRIVATE_RELATION_DML_%',relation_name;
   END IF;
  END LOOP;
@@ -246,6 +246,44 @@ BEGIN
   END IF;
  END LOOP;
 END $engine_membership_negative_probe$;
+-- Private relation privileges beyond row DML matter: TRUNCATE bypasses RLS,
+-- REFERENCES can expose relationship metadata, and TRIGGER can mutate the
+-- audited write path. Neither untrusted API roles nor the Edge runtime may
+-- inherit any of these capabilities on the private owner/receipt relations.
+-- Inject each forbidden grant in a synthetic subtransaction, detect it with
+-- the same PostgreSQL ACL primitive, then prove the grant was rolled back.
+-- This is NOT a signed JWT, real taxpayer ownership or hosted ACL test.
+DO $private_relation_capability_negative_probe$
+DECLARE probe record; detected boolean;
+BEGIN
+ FOR probe IN SELECT * FROM (VALUES
+   ('ws02_owner_engine','ws02_owner.evaluation_logs','TRUNCATE'),
+   ('ws02_owner_auth','ws02_owner.owners','REFERENCES'),
+   ('ws02_owner_anon','ws02_owner.slots','TRIGGER')
+ ) AS cases(caller,relation_name,capability) LOOP
+  IF pg_catalog.has_table_privilege(probe.caller,probe.relation_name,probe.capability) THEN
+   RAISE EXCEPTION 'PRIVATE_RELATION_CAPABILITY_ALREADY_PRESENT_%_%',
+     probe.caller,probe.capability;
+  END IF;
+  BEGIN
+   EXECUTE format('GRANT %s ON TABLE %s TO %I',
+     probe.capability,probe.relation_name,probe.caller);
+   SELECT pg_catalog.has_table_privilege(
+     probe.caller,probe.relation_name,probe.capability) INTO detected;
+   IF NOT detected THEN
+    RAISE EXCEPTION 'FORBIDDEN_RELATION_CAPABILITY_NOT_DETECTED_%_%',
+      probe.caller,probe.capability;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_PRIVATE_RELATION_CAPABILITY';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_PRIVATE_RELATION_CAPABILITY' THEN RAISE; END IF;
+  END;
+  IF pg_catalog.has_table_privilege(probe.caller,probe.relation_name,probe.capability) THEN
+   RAISE EXCEPTION 'PRIVATE_RELATION_CAPABILITY_GRANT_NOT_ROLLED_BACK_%_%',
+     probe.caller,probe.capability;
+  END IF;
+ END LOOP;
+END $private_relation_capability_negative_probe$;
 -- Guard against schema-level DDL privilege drift. EXECUTE/USAGE denials alone
 -- are insufficient if an untrusted or runtime role can create shadow objects
 -- in either the exposed facade schema or the private owner schema.
