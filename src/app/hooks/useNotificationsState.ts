@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
-import { getStoryNotices } from "../pages/payments/story1OfficeApi";
+import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
 import type { RootState, AppDispatch } from "../store/store";
 import {
   markNotificationRead,
@@ -18,8 +18,8 @@ export function useNotificationsState() {
     let active = true;
     const refresh = async () => {
       try {
-        const notices = await getStoryNotices();
-        if (active) dispatch(syncMirroredPaymentNotices({ notices, language }));
+        const [notices, payments] = await Promise.all([getStoryNotices(), getRecentStoryPayments()]);
+        if (active) dispatch(syncMirroredPaymentNotices({ notices, payments, language }));
       } catch {
         // A failed read cannot be interpreted as zero notices or as payment success.
         // Retain the last verified event snapshot until the next successful fetch.

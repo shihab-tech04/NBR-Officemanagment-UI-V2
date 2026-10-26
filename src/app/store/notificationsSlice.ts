@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { MOCK_NOTIFICATIONS } from "../data/mockData";
 import type { Notification, NotificationType, NotificationPriority } from "../data/mockData";
-import type { StoryNotice } from "../pages/payments/story1OfficeApi";
+import type { StoryNotice, StoryPayment } from "../pages/payments/story1OfficeApi";
 
 // Re-export notification types for convenience
 export type { Notification, NotificationType, NotificationPriority };
@@ -32,24 +32,33 @@ const notificationsSlice = createSlice({
       state.items.forEach((n) => { n.isRead = true; });
       state.readThroughMs = Date.now();
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; language: "en" | "bn" }>) {
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn" }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
       const previousRead = new Map(state.items.map(notice => [notice.id, notice.isRead]));
       const seen = new Set<string>();
       const bn = action.payload.language === "bn";
       const mirrored: Notification[] = [];
+      // A notice alone contains no amount. Resolve it only against an exact
+      // matching stored SQL transaction; a missing/invalid amount fails closed.
+      const paymentById = new Map(action.payload.payments.map(payment=>[payment.id,payment]));
       for (const event of action.payload.notices.slice(0, 100)) {
         if (event.type !== "NEW_SIMULATED_PAYMENT" || !Number.isSafeInteger(event.id) || event.id <= 0 ||
             !/^[0-9a-f-]{36}$/i.test(event.paymentId) || !Number.isFinite(Date.parse(event.createdAt))) continue;
         const id = `sql-payment-${event.id}`;
+        const payment = paymentById.get(event.paymentId);
+        if (!payment || payment.status !== "SIMULATED_SUCCESS" ||
+            !Number.isSafeInteger(payment.amountMinor) || payment.amountMinor <= 0) continue;
         if (seen.has(id)) continue;
+        const taka = Math.floor(payment.amountMinor / 100);
+        const poisha = String(payment.amountMinor % 100).padStart(2,"0");
+        const amount = `৳${new Intl.NumberFormat("en-BD").format(taka)}.${poisha}`;
         seen.add(id);
         mirrored.push({
           id, type: "payment", priority: "medium",
           title: bn ? "নতুন পেমেন্ট রেকর্ড" : "New payment record",
-          message: bn ? "TaxPay থেকে পেমেন্ট সিমুলেশনের তথ্য অফিসে সংরক্ষিত হয়েছে। কোনো সরকারি অর্থ পরিশোধ নিশ্চিত হয়নি।"
-                      : "TaxPay payment simulation recorded in Office. No government settlement is confirmed.",
+          message: bn ? `সিমুলেশনের পরিমাণ ${amount}। TaxPay থেকে অফিসে সংরক্ষিত হয়েছে। কোনো সরকারি অর্থ পরিশোধ নিশ্চিত হয়নি।`
+                      : `Simulated amount ${amount} recorded in Office. No government settlement is confirmed.`,
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
           isRead: previousRead.get(id) ?? (state.readThroughMs !== null && Date.parse(event.createdAt) <= state.readThroughMs),
