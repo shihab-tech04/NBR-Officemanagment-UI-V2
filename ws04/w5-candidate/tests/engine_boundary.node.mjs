@@ -142,7 +142,7 @@ function fixture(overrides = {}) {
     finalizeError:null,
     replayCalls:0,
     atomicCalls:0,
-    year: { id: 'synthetic-year', assessment_year: '2026-27', state: 'active', is_executable: true, legal_cutoff: '2026-09-30' },
+    year: { id: '50000000-0000-4000-8000-000000000003', assessment_year: '2026-27', state: 'active', is_executable: true, legal_cutoff: '2026-09-30' },
     rows: STANDARD_ROWS,
     bindings: STANDARD_BINDINGS,
     schedule: SYNTHETIC_SCHEDULE,
@@ -154,7 +154,7 @@ function fixture(overrides = {}) {
     ownershipCalls: 0,
     ...overrides,
   };
-  state.year = { income_year:'2025-26', legal_cutoff:'2026-09-30', ...state.year };
+  state.year = { income_year:'2025-26', legal_cutoff:'2026-09-30', is_immutable:true, source_registry_version:'FINAL_2026_09_30', ...state.year };
   const tableRows = table => {
     if (table === 'nbr_tax_years') return state.year;
     if (table === 'nbr_rule_versions') return state.rows;
@@ -167,7 +167,7 @@ function fixture(overrides = {}) {
     auth: { async getUser(token) {
       state.calls.auth++;
       return state.authenticated && token === 'valid.test.token'
-        ? { data: { user: { id: 'synthetic-user' } }, error: null }
+        ? { data: { user: { id: '50000000-0000-4000-8000-000000000002' } }, error: null }
         : { data: { user: null }, error: { message: 'invalid' } };
     } },
     from(table) {
@@ -248,7 +248,8 @@ function fixture(overrides = {}) {
     const completedBody = {
       taxpayer: { entityType:'individual', residency:'resident', industryCode:'not_applicable', specialCategory:'none' },
       contractVersion:'NBR_ENGINE_CITIZEN_V2_REVIEW',
-      legalEventDate:'2026-07-01',
+      legalEventDate:state.defaultLegalEventDate ?? '2026-07-01',
+      ...(state.defaultClaimRuleIds ? {claimRuleIds:state.defaultClaimRuleIds} : {}),
       idempotencyKey:'synthetic-run-replay-00000001',
       expectedRuleSetHash:releaseEvidence(state.rows,state.bindings,state.schedule)[0].evidence_detail.rule_set_hash,
       expectedParameterRevision:state.schedule?.revision_no ?? 1,
@@ -301,7 +302,7 @@ for (const value of [undefined, null, 202627, '', '2026-26', '2026-27 extra', '2
 }
 
 test('draft tax year is not executable', async () => {
-  const s = fixture({ year: { id: 'synthetic-year', state: 'draft', is_executable: false } });
+  const s = fixture({ year: { id: '50000000-0000-4000-8000-000000000003', state: 'draft', is_executable: false } });
   const r = await s.request({ assessmentYear: '2027-28' });
   assert.equal(r.status, 409);
   assert.equal(s.calls.rpc, 0);
@@ -397,7 +398,7 @@ test('synthetic legal attestations are independent of immutable rule_data', asyn
   gates[0].evidence_detail.rule_verifications = {
     [SPECIAL_RULE_KEY]: {
       status: 'VERIFIED', revision_no: 1, source_sha256: 'a'.repeat(64),
-      provision_locator: 'SYNTHETIC-ONLY', effective_from: '2026-07-01', reviewed_by: 'synthetic-legal-reviewer',
+      provision_locator: 'SYNTHETIC-ONLY', effective_from: '2025-07-01', reviewed_by: 'synthetic-legal-reviewer',
     },
   };
   const s = fixture({ rows, bindings, gates });
@@ -426,12 +427,12 @@ for (const [name, rateText, facts, expectedState, expectedAmount, alternateRate]
     gates[0].evidence_detail.rule_verifications = {
       [id]: {
         status: 'VERIFIED', revision_no: 1, source_sha256: 'a'.repeat(64),
-        provision_locator: 'SYNTHETIC-ONLY', effective_from: '2026-07-01',
+        provision_locator: 'SYNTHETIC-ONLY', effective_from: '2025-07-01',
         reviewed_by: 'synthetic-legal-reviewer',
       },
     };
     const s = fixture({ rows, bindings, gates });
-    const r = await s.request({ assessmentYear: '2026-27', ruleFacts: { [id]: facts } });
+    const r = await s.request({ assessmentYear: '2026-27', legalEventDate:'2026-06-01', claimRuleIds:[id], ruleFacts: { [id]: facts } });
     assert.equal(r.status, 200);
     const result = r.body.rules.find(rule => rule.ruleId === id);
     assert.equal(result.state, expectedState);
@@ -457,7 +458,7 @@ test('fully gated synthetic request retains an explicit fail-closed tax result',
   assert.equal(r.body.status, 'FAIL_CLOSED');
   assert.equal(r.body.submissionReady, false);
   assert.equal(s.lastAuditTrace.result_status, 'FAIL_CLOSED');
-  assert.equal(s.lastAuditTrace.actor_user_id, 'synthetic-user');
+  assert.equal(s.lastAuditTrace.actor_user_id, '50000000-0000-4000-8000-000000000002');
 });
 
 for (const [name, taxpayer, returnData] of [
@@ -560,12 +561,12 @@ function rebateFixture(rebateCalculation, originalLegalProse) {
   gates[0].evidence_detail.rule_verifications = {
     [rebateKey]: {
       status: 'VERIFIED', revision_no: 1, source_sha256: 'b'.repeat(64),
-      provision_locator: 'SYNTHETIC-SECTION-78', effective_from: '2026-07-01',
+      provision_locator: 'SYNTHETIC-SECTION-78', effective_from: '2025-07-01',
       reviewed_by: 'synthetic-legal-reviewer',
       ...(rebateCalculation === undefined ? {} : { rebate_calculation: rebateCalculation }),
     },
   };
-  return fixture({ rows, bindings, gates,
+  return fixture({ rows, bindings, gates, defaultLegalEventDate:'2026-06-01',
     schedule,
     rpcResponse: { status: 'CALCULATED', grossTax: '500', taxFreeThreshold: '100', missingFacts: [] },
   });
@@ -579,7 +580,7 @@ test('arbitrary legal prose containing three percentages is never a rebate formu
   });
   assert.equal(r.status, 200);
   assert.equal(r.body.status, 'FAIL_CLOSED');
-  assert.equal(r.body.individual.trace.rebateStatus, 'FAIL_CLOSED');
+  assert.equal(r.body.individual.trace.disclosure, 'WITHHELD_NON_CALCULATED_RETURN');
   assert.equal(r.body.individual.missingFacts.includes('section78StructuredFormula'), true);
 });
 
@@ -619,7 +620,7 @@ if (process.env.W5_PG_SOCKET) {
     realSql: true,
     gates: releaseEvidence(STANDARD_ROWS, STANDARD_BINDINGS, schedule),
     schedule,
-    year: { id: 'synthetic-year', assessment_year: year, income_year: 'synthetic', state: 'active', is_executable: true },
+    year: { id: '50000000-0000-4000-8000-000000000003', assessment_year: year, income_year: 'synthetic', state: 'active', is_executable: true },
   });
   test('real local SQL + actual Edge handler: synthetic slab result is read through RPC', async () => {
     const s = realDbFixture('2099-00');
@@ -663,7 +664,8 @@ if (process.env.W5_PG_SOCKET) {
       assessmentYear: '2099-00',
       taxpayer: Object.hasOwn(body ?? {}, 'taxpayer') && body.taxpayer === null ? null : { entityType: 'individual', residency:'resident', industryCode:'not_applicable', specialCategory:'none', ...(body?.taxpayer ?? {}) },
       contractVersion: 'NBR_ENGINE_CITIZEN_V2_REVIEW',
-      legalEventDate:'2026-07-01',
+      legalEventDate:state.defaultLegalEventDate ?? '2026-07-01',
+      ...(state.defaultClaimRuleIds ? {claimRuleIds:state.defaultClaimRuleIds} : {}),
       idempotencyKey:'synthetic-run-replay-00000001',
       expectedRuleSetHash: releaseEvidence(state.rows, state.bindings, state.schedule)[0].evidence_detail.rule_set_hash,
       expectedParameterRevision: state.schedule?.revision_no ?? 1,
@@ -686,25 +688,25 @@ test('missing taxpayer record identity fails closed before privileged tax RPC', 
   assert.equal(s.ownershipCalls, 0); assert.equal(s.calls.rpc, 0);
 });
 test('wrong taxpayer or tenant ownership is forbidden, even with valid JWT and synthetic PASS gates', async () => {
-  const s = fixture({ authorizedTaxpayer: false, gates: releaseEvidence(), year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
+  const s = fixture({ authorizedTaxpayer: false, gates: releaseEvidence(), year: {id:'50000000-0000-4000-8000-000000000003', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27' });
   assert.equal(r.status,403); assert.equal(r.body.code,'TAXPAYER_ACCESS_DENIED');
   assert.equal(s.ownershipCalls,1); assert.equal(s.calls.rpc,0); assert.equal(s.calls.atomic,0);
 });
 test('missing WS02 owner RPC fails closed rather than accepting bearer identity as ownership', async () => {
-  const s = fixture({ ownershipError: { message:'function absent' }, gates: releaseEvidence(), year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
+  const s = fixture({ ownershipError: { message:'function absent' }, gates: releaseEvidence(), year: {id:'50000000-0000-4000-8000-000000000003', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27' });
   assert.equal(r.status,503); assert.equal(r.body.code,'OWNERSHIP_GATE_UNAVAILABLE');
   assert.equal(s.calls.rpc,0); assert.equal(s.calls.atomic,0);
 });
 test('forged owner identity in body cannot override verified Auth principal sent to RPC', async () => {
-  const s = fixture({ gates: [], year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
+  const s = fixture({ gates: [], year: {id:'50000000-0000-4000-8000-000000000003', assessment_year:'2026-27', income_year:'2025-26',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27', userId:'attacker', taxpayer:{entityType:'individual',userId:'attacker'} });
-  assert.equal(r.status,409); assert.equal(s.lastOwnershipArgs.p_auth_user_id,'synthetic-user');
+  assert.equal(r.status,409); assert.equal(s.lastOwnershipArgs.p_auth_user_id,'50000000-0000-4000-8000-000000000002');
   assert.equal(s.lastOwnershipArgs.p_taxpayer_record_id,'50000000-0000-4000-8000-000000000001');
 });
 test('mismatched income year rejects evaluation before owner SQL access', async () => {
-  const s = fixture({ year: {id:'synthetic-year', assessment_year:'2026-27', income_year:'2024-25',state:'active',is_executable:true} });
+  const s = fixture({ year: {id:'50000000-0000-4000-8000-000000000003', assessment_year:'2026-27', income_year:'2024-25',state:'active',is_executable:true} });
   const r = await s.request({ assessmentYear:'2026-27' });
   assert.equal(r.status,409); assert.equal(r.body.code,'YEAR_MISMATCH');
   assert.equal(s.ownershipCalls,1); assert.equal(s.calls.rpc,0);
@@ -728,9 +730,9 @@ function syntheticRateCase(rateText) {
   const gates=releaseEvidence(rows,bindings);
   gates[0].evidence_detail.rule_verifications={
     [SPECIAL_RULE_KEY]: {status:'VERIFIED',revision_no:1,source_sha256:'a'.repeat(64),
-      provision_locator:'SYNTHETIC-TEST-ONLY',effective_from:'2026-07-01',reviewed_by:'isolated-mock'}
+      provision_locator:'SYNTHETIC-TEST-ONLY',effective_from:'2025-07-01',reviewed_by:'isolated-mock'}
   };
-  return fixture({rows,bindings,gates,rpcResponse:{status:'CALCULATED',grossTax:'0',taxFreeThreshold:'0',missingFacts:[]}});
+  return fixture({rows,bindings,gates,defaultLegalEventDate:'2026-06-01',defaultClaimRuleIds:[SPECIAL_RULE_KEY],rpcResponse:{status:'CALCULATED',grossTax:'0',taxFreeThreshold:'0',missingFacts:[]}});
 }
 
 test('exact rate 0.0000001% converts to 0.000000001 without a floating point operation',async()=>{
@@ -884,7 +886,7 @@ test('binary float money is rejected before privileged SQL',async()=>{
 test('missing approved legal effective period prevents executable rule even with synthetic PASS gate',async()=>{
   const s=syntheticRateCase('10%');
   s.gates[0].evidence_detail.rule_verifications[SPECIAL_RULE_KEY].effective_from='2026-08-01';
-  const r=await s.request({assessmentYear:'2026-27',legalEventDate:'2026-07-01',ruleFacts:{[SPECIAL_RULE_KEY]:{baseAmount:'100'}}});
+  const r=await s.request({assessmentYear:'2026-27',legalEventDate:'2026-06-01',ruleFacts:{[SPECIAL_RULE_KEY]:{baseAmount:'100'}}});
   assert.equal(r.status,409);assert.equal(r.body.unverifiedCount,1);assert.equal(s.calls.rpc,0);
 });
 
@@ -949,11 +951,11 @@ test('atomic audit RPC binds the verified actor, request, receipt and full synth
   assert.equal(r.status,200);
   assert.equal(s.atomicCalls,1);
   assert.equal(s.calls.atomic,1);
-  assert.equal(s.lastAtomicArgs.p_auth_user_id,'synthetic-user');
+  assert.equal(s.lastAtomicArgs.p_auth_user_id,'50000000-0000-4000-8000-000000000002');
   assert.equal(s.lastAtomicArgs.p_receipt_hash,r.body.receiptHash);
   assert.equal(s.lastAuditTrace.receipt_hash,r.body.receiptHash);
   assert.equal(s.lastAuditTrace.authorized_request_hash,s.lastAtomicArgs.p_request_hash);
-  assert.equal(s.lastAuditTrace.actor_user_id,'synthetic-user');
+  assert.equal(s.lastAuditTrace.actor_user_id,'50000000-0000-4000-8000-000000000002');
   assert.equal(s.lastAuditTrace.result_status,r.body.status);
   assert.equal(s.lastAuditTrace.rules.length,366);
   assert.equal(s.lastAtomicArgs.p_result_state,r.body.status);
