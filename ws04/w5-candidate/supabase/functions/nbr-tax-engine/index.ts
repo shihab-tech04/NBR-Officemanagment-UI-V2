@@ -1362,6 +1362,22 @@ Deno.serve(async (req) => {
         return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_FACTS_UNVERIFIED",
           error:"Return/workflow events require matching explicit rule selectors and structured facts" }, 422);
       }
+      // An explicit dated RETURN_EVENT cannot silently contradict the legal
+      // event used to select source versions. Absence of a date is NOT treated
+      // as evidence of a filing event; statutory applicability remains HOLD.
+      for (const event of Object.values(events as Record<string, Record<string, unknown>>)) {
+        for (const key of ["eventDate", "legalEventDate", "transactionEventDate"]) {
+          if (!Object.prototype.hasOwnProperty.call(event, key)) continue;
+          if (!validIsoDate(event[key])) {
+            return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_REQUIRED",
+              error:"Explicit return/workflow event date must be a valid civil date" }, 422);
+          }
+          if (event[key] !== body.legalEventDate) {
+            return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_CONFLICT",
+              error:"Return/workflow event date conflicts with evaluated legal event date" }, 409);
+          }
+        }
+      }
     }
     // Deny known invalid transaction event dates and periods before reserving
     // an idempotency key. WS02 must still recheck owner/year inside atomic SQL.
