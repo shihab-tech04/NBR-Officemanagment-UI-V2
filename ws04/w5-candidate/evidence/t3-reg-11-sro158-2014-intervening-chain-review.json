@@ -56,7 +56,8 @@
       "effectiveFrom": "2025-07-01",
       "repeals": "154-Ain/IncomeTax-9/2025",
       "officialIndexDate": "2025-06-25",
-      "sourceSha256": null
+      "sourceSha256": null,
+      "officialIndex": "https://nbr.gov.bd/regulations/sros/income-tax-sros/"
     }
   ],
   "review": {
