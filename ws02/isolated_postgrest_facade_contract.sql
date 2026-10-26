@@ -157,6 +157,55 @@ BEGIN
   END LOOP;
  END LOOP;
 END $schema_ddl_boundary$;
+-- Policy inventory regression: ACL denial is not enough if a later change
+-- disables RLS or adds a permissive policy for a new/untrusted role.
+-- Pin the seven private policies and their exact role/command boundaries.
+-- This is disposable PG17 metadata evidence, not hosted Supabase Auth proof.
+DO $rls_policy_boundary$
+DECLARE missing_or_extra integer;
+BEGIN
+ IF (SELECT count(*) FROM pg_catalog.pg_class c
+     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='ws02_owner'
+       AND c.relname IN ('owners','slots','evaluation_logs')
+       AND c.relrowsecurity)=0 OR
+    (SELECT count(*) FROM pg_catalog.pg_class c
+     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+     WHERE n.nspname='ws02_owner'
+       AND c.relname IN ('owners','slots','evaluation_logs')
+       AND c.relrowsecurity)<>3 THEN
+  RAISE EXCEPTION 'PRIVATE_OWNER_TABLE_RLS_DISABLED';
+ END IF;
+ WITH expected(relname,polname,cmd,roles) AS (
+  VALUES
+   ('owners','owners_rpc_lock_read','r',ARRAY['ws02_owner_lock','ws02_owner_rpc']::text[]),
+   ('owners','owners_lock_update','w',ARRAY['ws02_owner_lock']::text[]),
+   ('slots','slots_rpc_read','r',ARRAY['ws02_owner_rpc']::text[]),
+   ('slots','slots_engine_insert','a',ARRAY['ws02_owner_rpc']::text[]),
+   ('slots','slots_engine_update','w',ARRAY['ws02_owner_rpc']::text[]),
+   ('evaluation_logs','logs_rpc_read','r',ARRAY['ws02_owner_rpc']::text[]),
+   ('evaluation_logs','logs_engine_insert','a',ARRAY['ws02_owner_rpc']::text[])
+ ), observed AS (
+  SELECT c.relname::text AS relname,p.polname::text AS polname,
+   p.polcmd::text AS cmd,
+   ARRAY(SELECT r.rolname::text FROM unnest(p.polroles) AS u(role_oid)
+         JOIN pg_catalog.pg_roles r ON r.oid=u.role_oid
+         ORDER BY r.rolname) AS roles
+  FROM pg_catalog.pg_policy p
+  JOIN pg_catalog.pg_class c ON c.oid=p.polrelid
+  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='ws02_owner'
+    AND c.relname IN ('owners','slots','evaluation_logs')
+ ), drift AS (
+  (SELECT * FROM expected EXCEPT SELECT * FROM observed)
+  UNION ALL
+  (SELECT * FROM observed EXCEPT SELECT * FROM expected)
+ )
+ SELECT count(*) INTO missing_or_extra FROM drift;
+ IF missing_or_extra<>0 THEN
+  RAISE EXCEPTION 'PRIVATE_OWNER_RLS_POLICY_ROLE_OR_COMMAND_DRIFT_%',missing_or_extra;
+ END IF;
+END $rls_policy_boundary$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
