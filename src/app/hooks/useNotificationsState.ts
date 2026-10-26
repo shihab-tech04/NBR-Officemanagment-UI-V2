@@ -26,8 +26,24 @@ export function useNotificationsState() {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 7000);
-    return () => { active = false; window.clearInterval(timer); };
+    // Browser timers are throttled in background tabs. Refresh on return to the
+    // Office instead of requiring a full reload or a fresh payment submission.
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    const onFocus = () => void refresh();
+    const onOnline = () => void refresh();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 7000);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+    };
   }, [dispatch, language]);
   const items = useSelector((state: RootState) => state.notifications.items);
   const unreadCount = items.filter((n) => !n.isRead).length;
