@@ -1375,6 +1375,14 @@ Deno.serve(async (req) => {
           return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_REQUIRED",
             error:"Return/workflow event requires an explicit civil date" }, 422);
         }
+        // A dated object alone is not a typed return/workflow event. Require
+        // a bounded discriminator, without assuming any statutory event taxonomy.
+        // Legal event eligibility remains independently uncertified.
+        if (typeof event.eventType !== "string" ||
+            !/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(event.eventType)) {
+          return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_TYPE_UNVERIFIED",
+            error:"Return/workflow event requires a typed event discriminator" }, 422);
+        }
         for (const key of explicitDateKeys) {
           if (!validIsoDate(event[key])) {
             return json({ status:"FAIL_CLOSED", code:"RETURN_CONTEXT_EVENT_DATE_REQUIRED",
