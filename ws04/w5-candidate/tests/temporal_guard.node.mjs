@@ -323,7 +323,7 @@ test('atomic trace and call pin user, record, request, receipt, version and stat
   const trace=source.slice(i,j);
   for(const token of ['individual: safeIndividual.trace','rules: results',
     'actor_user_id: authData.user.id','taxpayer_record_id: taxpayerRecordId',
-    'assessment_year: assessmentYear','income_year: body.incomeYear',
+    'assessment_year: assessmentYear','income_year: year.income_year',
     'authorized_request_hash: authorizedRequestHash','idempotency_key: body.idempotencyKey',
     'receipt_hash: receiptHash','result_status: fullReturnStatus'])
     assert.ok(trace.includes(token),token);
@@ -336,4 +336,21 @@ test('atomic trace and call pin user, record, request, receipt, version and stat
 test('atomic RPC unavailability fails closed',()=>{
   assert.ok(source.includes('atomicCommitError || atomicCommit !== true'));
   assert.ok(source.includes('code:"AUDIT_ATOMIC_COMMIT_UNAVAILABLE"'));
+});
+
+// The signed caller's requested incomeYear is validated against the stored
+// year record, but it must never be the provenance of the persisted audit.
+// Receipt and audit must use the same server-read year value. Isolated source
+// boundary only; no hosted ownership or statutory calculation certified.
+test('atomic audit and receipt bind income year to the server-read year record', () => {
+  const receiptStart = source.indexOf('const receipt = {');
+  const auditStart = source.indexOf('const auditTrace = {', receiptStart);
+  const atomicStart = source.indexOf('const { data: atomicCommit', auditStart);
+  assert.ok(receiptStart > 0 && auditStart > receiptStart && atomicStart > auditStart);
+  const receipt = source.slice(receiptStart, auditStart);
+  const audit = source.slice(auditStart, atomicStart);
+  assert.ok(receipt.includes('incomeYear: year.income_year'));
+  assert.ok(audit.includes('income_year: year.income_year'));
+  assert.ok(!audit.includes('income_year: body.incomeYear'));
+  assert.ok(source.includes('year.income_year !== body.incomeYear'));
 });
