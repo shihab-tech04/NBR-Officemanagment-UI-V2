@@ -198,6 +198,54 @@ BEGIN
   END LOOP;
  END LOOP;
 END $private_boundary$;
+-- A trusted Edge runtime is not a private SQL-definer. Granting it
+-- membership in the receipt/row-lock definer roles would bypass the reviewed
+-- atomic-RPC-only boundary even while anon/auth ACL probes continue to pass.
+-- This is a synthetic role-graph check, NOT hosted Auth authorization.
+DO $engine_definer_membership_boundary$
+DECLARE elevated name; relation_name text;
+BEGIN
+ FOREACH elevated IN ARRAY ARRAY['ws02_owner_rpc','ws02_owner_lock'] LOOP
+  IF pg_catalog.pg_has_role('ws02_owner_engine',elevated,'MEMBER')
+     OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'USAGE')
+     OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'SET') THEN
+   RAISE EXCEPTION 'ENGINE_CAN_ASSUME_PRIVATE_DEFINER_%',elevated;
+  END IF;
+ END LOOP;
+ FOREACH relation_name IN ARRAY ARRAY[
+   'ws02_owner.owners','ws02_owner.slots','ws02_owner.evaluation_logs'] LOOP
+  IF pg_catalog.has_table_privilege('ws02_owner_engine',relation_name,
+    'SELECT,INSERT,UPDATE,DELETE') THEN
+   RAISE EXCEPTION 'ENGINE_INHERITS_PRIVATE_RELATION_DML_%',relation_name;
+  END IF;
+ END LOOP;
+END $engine_definer_membership_boundary$;
+-- Negative role-graph regression: inject each forbidden membership and prove
+-- it is detected; PL/pgSQL exception subtransactions roll back every GRANT.
+DO $engine_membership_negative_probe$
+DECLARE elevated name; detected boolean;
+BEGIN
+ FOREACH elevated IN ARRAY ARRAY['ws02_owner_rpc','ws02_owner_lock'] LOOP
+  BEGIN
+   EXECUTE format('GRANT %I TO ws02_owner_engine',elevated);
+   SELECT pg_catalog.pg_has_role('ws02_owner_engine',elevated,'MEMBER')
+      OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'USAGE')
+      OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'SET')
+   INTO detected;
+   IF NOT detected THEN
+    RAISE EXCEPTION 'FORBIDDEN_ENGINE_MEMBERSHIP_UNDETECTED_%',elevated;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_FORBIDDEN_ENGINE_MEMBERSHIP';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_FORBIDDEN_ENGINE_MEMBERSHIP' THEN RAISE; END IF;
+  END;
+  IF pg_catalog.pg_has_role('ws02_owner_engine',elevated,'MEMBER')
+     OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'USAGE')
+     OR pg_catalog.pg_has_role('ws02_owner_engine',elevated,'SET') THEN
+   RAISE EXCEPTION 'FORBIDDEN_ENGINE_MEMBERSHIP_NOT_ROLLED_BACK_%',elevated;
+  END IF;
+ END LOOP;
+END $engine_membership_negative_probe$;
 -- Guard against schema-level DDL privilege drift. EXECUTE/USAGE denials alone
 -- are insufficient if an untrusted or runtime role can create shadow objects
 -- in either the exposed facade schema or the private owner schema.
