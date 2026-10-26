@@ -294,7 +294,8 @@ BEGIN
  FOREACH caller IN ARRAY ARRAY[
   'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
   'ws02_owner_rpc','ws02_owner_lock'] LOOP
-  FOREACH schema_name IN ARRAY ARRAY['ws02_api','ws02_owner'] LOOP
+  -- A CREATE grant on public also permits an unreviewed shadow RPC.
+  FOREACH schema_name IN ARRAY ARRAY['ws02_api','ws02_owner','public'] LOOP
    IF pg_catalog.has_schema_privilege(caller,schema_name,'CREATE') THEN
     RAISE EXCEPTION 'UNTRUSTED_OR_RUNTIME_ROLE_CAN_CREATE_IN_SCHEMA_%_%',
      caller,schema_name;
@@ -302,6 +303,40 @@ BEGIN
   END LOOP;
  END LOOP;
 END $schema_ddl_boundary$;
+
+-- Regression: each CREATE grant is injected into a disposable subtransaction,
+-- detected by the same catalog primitive, then rolled back. Never hosted.
+DO $schema_ddl_negative_probe$
+DECLARE probe record; detected boolean;
+BEGIN
+ FOR probe IN SELECT * FROM (VALUES
+   ('ws02_owner_auth','ws02_api'),
+   ('ws02_owner_engine','ws02_owner'),
+   ('ws02_owner_anon','public')
+ ) AS cases(caller,schema_name) LOOP
+  IF pg_catalog.has_schema_privilege(probe.caller,probe.schema_name,'CREATE') THEN
+   RAISE EXCEPTION 'SCHEMA_CREATE_PRIVILEGE_ALREADY_PRESENT_%_%',
+     probe.caller,probe.schema_name;
+  END IF;
+  BEGIN
+   EXECUTE format('GRANT CREATE ON SCHEMA %I TO %I',
+     probe.schema_name,probe.caller);
+   SELECT pg_catalog.has_schema_privilege(
+     probe.caller,probe.schema_name,'CREATE') INTO detected;
+   IF NOT detected THEN
+    RAISE EXCEPTION 'SCHEMA_CREATE_GRANT_NOT_DETECTED_%_%',
+      probe.caller,probe.schema_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_SCHEMA_CREATE';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_SCHEMA_CREATE' THEN RAISE; END IF;
+  END;
+  IF pg_catalog.has_schema_privilege(probe.caller,probe.schema_name,'CREATE') THEN
+   RAISE EXCEPTION 'SCHEMA_CREATE_GRANT_NOT_ROLLED_BACK_%_%',
+     probe.caller,probe.schema_name;
+  END IF;
+ END LOOP;
+END $schema_ddl_negative_probe$;
 -- Runtime-role capability and ownership drift guard. A NOLOGIN facade role
 -- must not become a login, BYPASSRLS, superuser, DDL/replication role, or
 -- owner/member of a private relation owner. RLS and ACL checks alone would
