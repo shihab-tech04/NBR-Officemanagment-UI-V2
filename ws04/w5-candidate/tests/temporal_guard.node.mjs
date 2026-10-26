@@ -288,6 +288,28 @@ test('explicit matching return-context date passes shape guard but not frozen ru
   assert.equal(h.seen.ruleReads,1);
 });
 
+// A valid date is not a substitute for a typed filing/workflow event.
+// These are only structural negative tests; no legal event taxonomy is approved.
+for (const [label, event] of [
+  ['missing discriminator', {eventDate:'2026-06-30'}],
+  ['object discriminator', {eventDate:'2026-06-30', eventType:{kind:'filing'}}],
+  ['array discriminator', {eventDate:'2026-06-30', eventType:['filing']}],
+  ['blank discriminator', {eventDate:'2026-06-30', eventType:'   '}],
+  ['unbounded discriminator', {eventDate:'2026-06-30', eventType:'x'.repeat(65)}],
+]) {
+  test('return-context ' + label + ' fails before replay reservation', async () => {
+    const h = harness();
+    const r = await h.request({legalEventDate:'2026-06-30',returnContext:{
+      ruleIds:['RETURN-REVIEW-ONLY'],
+      events:{'RETURN-REVIEW-ONLY':event},
+    }});
+    assert.equal(r.code,422);
+    assert.equal(r.body.code,'RETURN_CONTEXT_EVENT_TYPE_UNVERIFIED');
+    assert.equal(h.seen.reserveCalls,0);
+    assert.equal(h.seen.ruleReads,0);
+  });
+}
+
 // Source-only atomic boundary checks; real PG17/Auth is separate.
 test('no direct audit insert or split receipt finalize remains in the candidate',()=>{
   assert.equal(source.includes('supabase.from("nbr_engine_evaluation_log").insert'),false);
