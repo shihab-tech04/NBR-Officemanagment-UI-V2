@@ -7,6 +7,7 @@ import {
   auditSignalDocuments,
   auditSignalText,
 } from "./auditSignalPresentation";
+import { resolveAuditExplanation } from "./auditKnowledge";
 
 describe("Audit decision UI uses source-based plain language", () => {
   it("has one readable English/Bangla question, comparison, reason and document request for each A–E signal", () => {
@@ -21,6 +22,22 @@ describe("Audit decision UI uses source-based plain language", () => {
         expect(en, id).not.toBe(bn);
         expect(bn, id).toMatch(/[\u0980-\u09ff]/);
         expect(en + bn).not.toMatch(/reference only|framework.only|prototype|demo|shadow.only/i);
+      }
+    }
+  });
+
+  it("shows the actual question once per signal, separately from the officer's next action", () => {
+    for (const id of AUDIT_SIGNAL_IDS) {
+      for (const locale of ["en", "bn-BD"]) {
+        const outcome = resolveAuditExplanation(
+          "signals", id,
+          { return_id: "RET-TEST-01", assessment_year: "2025-26", data_quality: "Complete" },
+          locale
+        );
+        expect(outcome, `${id} ${locale} missing explanation`).not.toBeNull();
+        expect(outcome?.definition).toBe(auditSignalQuestion(id, locale));
+        expect(outcome?.nextStep?.length ?? 0).toBeGreaterThan(20);
+        expect(outcome?.signalContext?.scope).toBe("taxpayer");
       }
     }
   });

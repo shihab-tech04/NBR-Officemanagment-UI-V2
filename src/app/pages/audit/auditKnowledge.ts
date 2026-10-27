@@ -383,7 +383,7 @@ export function resolveAuditExplanation(
         } : { scope: "population" as const },
         category: pick(l("Substantive risk signal", "Substantive risk signal"), lang),
         definition: ids.length === 1
-          ? `${auditSignalQuestion(ids[0], lang) ?? pick(SIGNALS[ids[0]].condition, lang)} ${pick(l("Check the return and supporting documents before drawing a conclusion.", "সিদ্ধান্তের আগে রিটার্ন ও প্রমাণপত্র মিলিয়ে দেখুন।"), lang)}`
+          ? (auditSignalQuestion(ids[0], lang) ?? pick(SIGNALS[ids[0]].condition, lang))
           : pick(l("These signals identify issues to check against the returns and supporting records.", "সংকেতগুলো রিটার্ন ও প্রমাণপত্রের সঙ্গে মিলিয়ে দেখার বিষয় নির্দেশ করে।"), lang),
         effect: pick(l("Check each difference once, even if several signals describe it. The final decision depends on verified documents.", "একই অমিল একাধিক সংকেতে থাকলেও একবারই যাচাই করুন। প্রমাণ যাচাই না করে সিদ্ধান্ত নেবেন না।"), lang),
         nextStep: pick(l("Open the relevant return, compare the source figures and attach the documents to this signal.", "সংশ্লিষ্ট রিটার্ন খুলুন, সংখ্যাগুলো মিলিয়ে দেখুন এবং এই সংকেতের সঙ্গে প্রমাণ যুক্ত করুন।"), lang),
