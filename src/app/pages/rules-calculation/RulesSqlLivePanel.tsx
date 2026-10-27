@@ -1,24 +1,18 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { readPublicRuleYears, type PublicRuleYear } from "../../services/nbrRulesGatewayClient";
-import { createRulesAdminReadClient } from "../../services/nbrRulesAdminReadClient";
 
-export type AuthorizedRulesClient = ReturnType<typeof createRulesAdminReadClient>;
-
-export function RulesSqlLivePanel({ onAccessChange }: {
-  onAccessChange: (client: AuthorizedRulesClient | null) => void;
-}) {
+export function RulesSqlLivePanel() {
   const { i18n } = useTranslation();
   const bn = i18n.language.toLowerCase().startsWith("bn");
   const [years, setYears] = useState<PublicRuleYear[] | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let active = true;
-    onAccessChange(null);
     void readPublicRuleYears().then(data => { if (active) setYears(data); })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
-  }, [onAccessChange]);
+  }, []);
   return <section className="rules-engine__section" aria-label={bn ? "প্রকাশ্য বিধি তথ্য" : "Public Rules year information"}>
     <p role="status">{error
       ? (bn ? "প্রকাশ্য বিধি তথ্য পাওয়া যায়নি; সংরক্ষিত স্ন্যাপশট দেখানো হচ্ছে।" : "Public Rules data is unavailable; the recorded snapshot remains visible.")

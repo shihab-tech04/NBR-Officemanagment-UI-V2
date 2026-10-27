@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RulesSqlLivePanel, type AuthorizedRulesClient } from "./RulesSqlLivePanel";
+import { useMemo, useState } from "react";
+import { RulesSqlLivePanel } from "./RulesSqlLivePanel";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
@@ -78,67 +78,6 @@ export function RulesCalculationPage() {
   const [rulePage, setRulePage] = useState(1);
   const [rulePerPage, setRulePerPage] = useState(25);
   const [draftWizardOpen, setDraftWizardOpen] = useState(false);
-  const [sqlClient, setSqlClient] = useState<AuthorizedRulesClient | null>(null);
-  const [sqlRows, setSqlRows] = useState<TableRow[]>([]);
-  const [sqlTotal, setSqlTotal] = useState(0);
-  const [sqlYearRows, setSqlYearRows] = useState<TableRow[]>([]);
-  const [sqlReadError, setSqlReadError] = useState("");
-  const onSqlAccessChange = useCallback((client: AuthorizedRulesClient | null) => {
-    setSqlClient(client);
-    setSqlRows([]);
-    setSqlTotal(0);
-    setSqlYearRows([]);
-    setSqlReadError("");
-  }, []);
-  useEffect(() => {
-    if (!sqlClient) return;
-    let active = true;
-    void sqlClient.getYears().then(years => {
-      if (!active) return;
-      setSqlYearRows(years.map(y => ({
-        id: y.assessmentYear,
-        assessment_year: y.assessmentYear,
-        income_year: y.incomeYear,
-        rule_versions: y.ruleCount,
-        sql_state: y.state,
-        coverage: y.coverage,
-        lifecycle: y.lifecycleStage,
-        legal_cutoff: y.legalCutoff ?? "Not recorded",
-        certification: "Independent legal certification required",
-      })));
-    }).catch(() => { if (active) setSqlReadError("Authorized SQL year read failed."); });
-    return () => { active = false; };
-  }, [sqlClient]);
-  useEffect(() => {
-    if (!sqlClient || section !== "rule-library") return;
-    let active = true;
-    setSqlReadError("");
-    setSqlRows([]);
-    void sqlClient.getRules(year, rulePage, rulePerPage).then(result => {
-      if (!active) return;
-      setSqlTotal(result.total);
-      setSqlRows(result.rules.map(rule => {
-        const legalSource = rule.legal_source;
-        const legalText = typeof legalSource === "string" ? legalSource
-          : Array.isArray(legalSource) ? legalSource.filter(x => typeof x === "string").join("; ") : "Not recorded";
-        return {
-          id: rule.rule_id,
-          rule_id: rule.rule_id,
-          group: rule._backend.groupId,
-          rule_group_id: rule._backend.groupId,
-          legal_source: legalText,
-          origin: typeof rule.canonical_source_ref === "string" ? rule.canonical_source_ref : null,
-          source: typeof rule.authority === "string" ? rule.authority : null,
-          applicability: rule._backend.yearApplicabilityStatus,
-          execution: rule._backend.executionStatus,
-          execution_view: rule._backend.executionStatus,
-        };
-      }));
-    }).catch(() => {
-      if (active) { setSqlReadError("Authorized SQL rule read failed."); setSqlTotal(0); setSqlRows([]); }
-    });
-    return () => { active = false; };
-  }, [sqlClient, section, year, rulePage, rulePerPage]);
   const openYearRules = (row: TableRow) => {
     const selected = String(row.assessment_year ?? "");
     if (!TAX_YEAR_SNAPSHOT.some((item) => item.assessmentYear === selected)) return;
@@ -209,21 +148,8 @@ export function RulesCalculationPage() {
     legal_cutoff: item.legalCutoff || "Not verified",
     certification: tr("NOT CERTIFIED (Agent v2.1)", "এজেন্ট v2.1 সার্টিফায়েড নয়"),
   }));
-  const shownRuleRows = sqlClient ? sqlRows : ruleRows.slice((rulePage-1)*rulePerPage,rulePage*rulePerPage);
-  const shownRuleTotal = sqlClient ? sqlTotal : ruleRows.length;
-  const selectedLiveRow = sqlClient && selectedRuleKey ? sqlRows.find(r => r.rule_id === selectedRuleKey) : null;
-  const liveRuleDetails: RuleDetailRecord | null = selectedLiveRow ? {
-    id: String(selectedLiveRow.rule_id),
-    group: String(selectedLiveRow.group || ""),
-    year,
-    incomeYear: selectedYear.incomeYear,
-    source: selectedLiveRow.source ? String(selectedLiveRow.source) : null,
-    origin: selectedLiveRow.origin ? String(selectedLiveRow.origin) : null,
-    legalSource: selectedLiveRow.legal_source ? [String(selectedLiveRow.legal_source)] : [],
-    applicability: String(selectedLiveRow.applicability || "Not recorded"),
-    execution: selectedLiveRow.execution ? String(selectedLiveRow.execution) : null,
-    inherited: year === DRAFT_YEAR,
-  } : null;
+  const shownRuleRows = ruleRows.slice((rulePage-1)*rulePerPage,rulePage*rulePerPage);
+  const shownRuleTotal = ruleRows.length;
   const titles: Record<string, string> = bn ? {
     "tax-years": "করবর্ষ", "year-comparison": "বর্ষ তুলনা", "rule-library": "বিধি লাইব্রেরি",
     "calculation-controls": "হিসাব নিয়ন্ত্রণ", "validation-publish": "যাচাই ও প্রকাশ",
@@ -254,7 +180,7 @@ export function RulesCalculationPage() {
         </p>}
       </div>
 
-      <RulesSqlLivePanel onAccessChange={onSqlAccessChange}/>
+      <RulesSqlLivePanel/>
       {(section === "calculation-controls" || section === "validation-publish") && (
         <div className="rules-engine__year-filter">
           <AppSelectField id="rules-year" label={bn ? "করবর্ষ নির্বাচন" : tr("Assessment year", "করবর্ষ")}
@@ -275,7 +201,7 @@ export function RulesCalculationPage() {
             fc("rule_versions", tr("Recorded identities", "নথিভুক্ত পরিচয়")),
             fc("coverage", tr("Coverage", "কভারেজ")),
             fc("sql_state", tr("SQL record state", "SQL রেকর্ড অবস্থা")),
-          ]} rows={sqlClient ? sqlYearRows : yearRows} onRowClick={openYearRules}
+          ]} rows={yearRows} onRowClick={openYearRules}
             mobileCardMapping={{primary:"assessment_year",meta:["income_year","rule_versions","coverage"]}} />
           <p className="rules-engine__meta rules-engine__after-table">
             {tr("Recorded counts are rule identities, not verified complete tax law or 1:1 eReturn calculations. Historical coverage remains incomplete (SQL snapshot: 10 October 2026).", "১০ অক্টোবর ২০২৬-এর স্ন্যাপশট। SQL রেকর্ড আইনি অনুমোদন নয়; ঐতিহাসিক বিধি এখনও অসম্পূর্ণ।")}
@@ -307,7 +233,7 @@ export function RulesCalculationPage() {
               options={[{value:"",label:tr("All groups","সব গ্রুপ")},
                 ...SQL_RULE_GROUPS.map((g)=>({value:g.id,label:`${bn?g.bn:g.en} (${g.count})`}))]}/>
           </div>
-          {!sqlClient && !isRuleListYear && <p className="rules-engine__scope" role="status">
+          {!isRuleListYear && <p className="rules-engine__scope" role="status">
             {tr("Historical rules have not been reconstructed for this year. No current-year records are copied backward.", "এই করবর্ষের ঐতিহাসিক বিধি পুনর্গঠিত নয়। বর্তমান বিধি পিছনের বছরে অনুলিপি করা হয় না।")}
           </p>}
           <ResponsiveTable aria-label={tr("Year-specific rule library", "করবর্ষভিত্তিক বিধি তালিকা")} cols={[
@@ -322,7 +248,6 @@ export function RulesCalculationPage() {
             <Pagination page={rulePage} total={shownRuleTotal} perPage={rulePerPage} onPage={setRulePage}
               perPageOptions={[10,25,50]} onPerPageChange={(value)=>{setRulePerPage(value);setRulePage(1);}}/>
           </div>
-          {sqlReadError && <p role="status">{sqlReadError}</p>}
           <p className="rules-engine__meta rules-engine__after-table">
             {tr("Administrative groups are not statutory hierarchy. Legal references and execution labels are recorded, not independently approved.", "প্রশাসনিক গ্রুপ আইনি ধারা-বিন্যাস নয়। আইন ও কার্যকর অবস্থার রেফারেন্স নথিভুক্ত, স্বাধীনভাবে অনুমোদিত নয়।")}
           </p>
@@ -353,7 +278,7 @@ export function RulesCalculationPage() {
         </section>
       )}
 
-      <RuleDetailsPanel record={sqlClient ? liveRuleDetails : ruleDetails} onClose={closeRuleDetails} bn={bn}/>
+      <RuleDetailsPanel record={ruleDetails} onClose={closeRuleDetails} bn={bn}/>
       {draftWizardOpen && <TaxYearDraftStepper onClose={() => setDraftWizardOpen(false)} />}
     </div>
   );

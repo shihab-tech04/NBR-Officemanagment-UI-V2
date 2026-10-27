@@ -69,12 +69,10 @@
     "viewPermissions": "View permissions",
     "permissionsCount": "permissions",
     "noModulesAssigned": "No modules assigned to this role",
-    "accountSetup": "Account Setup",
+    "accountSetup": "Staff profile status",
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
-    "sendInvitation": "Send invite email to user",
-    "twoFactorAuth": "Require Two-Factor Authentication (2FA)",
     "saveChanges": "Save Changes",
     "saveUser": "Save User",
     "cancel": "Cancel"
@@ -96,11 +94,9 @@
     "roleAccess": "Role & Access",
     "role": "Role",
     "level": "Level",
-    "twoFactorEnabled": "2FA Enabled",
     "yes": "Yes",
     "no": "No",
     "edit": "Edit",
-    "resetPassword": "Reset Password",
     "deactivate": "Deactivate",
     "activate": "Activate",
     "reassign": "Reassign",
@@ -111,7 +107,6 @@
   "actions": {
     "edit": "Edit",
     "manageRoles": "Manage Roles",
-    "resetPassword": "Reset Password",
     "deactivate": "Deactivate",
     "activate": "Activate",
     "delete": "Delete"

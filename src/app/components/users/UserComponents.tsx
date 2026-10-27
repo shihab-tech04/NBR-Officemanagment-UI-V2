@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { X, RefreshCw, Pencil, Lock, Power, Download, Printer, Trash2 } from "lucide-react";
+import { X, RefreshCw, Pencil, Power, Download, Printer, Trash2 } from "lucide-react";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { SystemUser } from "../../data/mockData";
 import { useRoleRegistry } from "../../hooks/useRoleRegistry";
@@ -139,9 +139,6 @@ export function UserDetailDrawer({ user, onClose, onEdit, onReAssign, onToggleSt
         <button type="button" onClick={onEdit} className="action-btn action-btn--primary">
           <Pencil size={13} strokeWidth={2} />{translate("details.edit")}
         </button>
-        <button type="button" className="action-btn action-btn--secondary">
-          <Lock size={13} strokeWidth={2} />{translate("details.resetPassword")}
-        </button>
         <button type="button" onClick={onToggleStatus}
           className={`action-btn ${isActive ? "action-btn--warning" : "action-btn--secondary"}`}>
           <Power size={13} strokeWidth={2} />
@@ -217,10 +214,6 @@ export function UserDetailDrawer({ user, onClose, onEdit, onReAssign, onToggleSt
           <div className="detail-section">
             {renderDetailRow(translate("details.role"),  user.role)}
             {renderDetailRow(translate("details.level"), user.level)}
-            {renderDetailRow(
-              translate("details.twoFactorEnabled"),
-              user.twoFA ? translate("details.yes") : translate("details.no")
-            )}
           </div>
         )}
 
