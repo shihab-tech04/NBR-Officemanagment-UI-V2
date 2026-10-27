@@ -1544,5 +1544,85 @@ BEGIN
     AND idem_key='owner-transfer-atomic-00001')<>1 THEN
   RAISE EXCEPTION 'OWNER_TRANSFER_TRACE_OR_RECEIPT_ISOLATION_FAILED'; END IF;
 END $owner_transfer_readback$;
+-- Same taxpayer and authenticated synthetic actor across two assessment years:
+-- a repeated opaque idempotency key must be scoped to the year, while request,
+-- receipt and audit-trace hashes must not bleed across years. This is not an
+-- assertion that the real system has an approved multi-year ownership model.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000008','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000008','2027-28',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $cross_year_same_key$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000008';
+ idem text:='cross-year-idem-isolation-00001';
+ yr text; income_yr text; req text; receipt text; trace text;
+ audit jsonb; reservation jsonb;
+BEGIN
+ FOREACH yr IN ARRAY ARRAY['2026-27','2027-28'] LOOP
+  income_yr:=CASE WHEN yr='2026-27' THEN '2025-26' ELSE '2026-27' END;
+  req:=repeat(CASE WHEN yr='2026-27' THEN 'a' ELSE 'd' END,64);
+  receipt:=repeat(CASE WHEN yr='2026-27' THEN 'b' ELSE 'e' END,64);
+  trace:=repeat(CASE WHEN yr='2026-27' THEN 'c' ELSE 'f' END,64);
+  reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+   actor,rec,yr,idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+  IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+   RAISE EXCEPTION 'CROSS_YEAR_SAME_KEY_RESERVATION_DENIED_%',yr; END IF;
+  audit:=jsonb_build_object(
+   'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+   'assessment_year',yr,'income_year',income_yr,
+   'authorized_request_hash',req,'receipt_hash',receipt,
+   'idempotency_key',idem,'result_status','NEEDS_FACTS',
+   'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+  -- A hash from the other year must not finalize this year's reservation.
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,rec,yr,idem,
+   repeat(CASE WHEN yr='2026-27' THEN 'd' ELSE 'a' END,64),
+   receipt,trace,'NEEDS_FACTS',audit) THEN
+   RAISE EXCEPTION 'CROSS_YEAR_FOREIGN_REQUEST_FINALIZED_%',yr; END IF;
+  IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+   actor,rec,yr,idem,req,receipt,trace,'NEEDS_FACTS',audit) THEN
+   RAISE EXCEPTION 'CROSS_YEAR_VALID_ATOMIC_FINALIZATION_DENIED_%',yr; END IF;
+  IF ws02_owner.nbr_commit_evaluation_atomically(
+   actor,rec,yr,idem,req,receipt,trace,'NEEDS_FACTS',audit) THEN
+   RAISE EXCEPTION 'CROSS_YEAR_DUPLICATE_FINALIZATION_ACCEPTED_%',yr; END IF;
+ END LOOP;
+END $cross_year_same_key$;
+RESET ROLE;
+DO $cross_year_same_key_readback$
+DECLARE yr text; req text; receipt text; trace text; income_yr text;
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE record_id='50000000-0000-4000-8000-000000000008'
+    AND idem_key='cross-year-idem-isolation-00001')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id='50000000-0000-4000-8000-000000000008'
+    AND idem_key='cross-year-idem-isolation-00001')<>2 THEN
+  RAISE EXCEPTION 'CROSS_YEAR_SAME_KEY_ROW_COUNT_MISMATCH'; END IF;
+ FOREACH yr IN ARRAY ARRAY['2026-27','2027-28'] LOOP
+  income_yr:=CASE WHEN yr='2026-27' THEN '2025-26' ELSE '2026-27' END;
+  req:=repeat(CASE WHEN yr='2026-27' THEN 'a' ELSE 'd' END,64);
+  receipt:=repeat(CASE WHEN yr='2026-27' THEN 'b' ELSE 'e' END,64);
+  trace:=repeat(CASE WHEN yr='2026-27' THEN 'c' ELSE 'f' END,64);
+  IF (SELECT count(*) FROM ws02_owner.slots
+   WHERE actor_id='60000000-0000-4000-8000-000000000001'
+     AND record_id='50000000-0000-4000-8000-000000000008'
+     AND assessment_year=yr AND idem_key='cross-year-idem-isolation-00001'
+     AND request_hash=req AND receipt_hash=receipt AND state='FINALIZED')<>1
+  OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE actor_id='60000000-0000-4000-8000-000000000001'
+     AND record_id='50000000-0000-4000-8000-000000000008'
+     AND assessment_year=yr AND idem_key='cross-year-idem-isolation-00001'
+     AND request_hash=req AND receipt_hash=receipt AND trace_hash=trace
+     AND result_state='NEEDS_FACTS'
+     AND audit_trace->>'assessment_year'=yr
+     AND audit_trace->>'income_year'=income_yr
+     AND audit_trace->>'authorized_request_hash'=req
+     AND audit_trace->>'receipt_hash'=receipt)<>1 THEN
+   RAISE EXCEPTION 'CROSS_YEAR_TRACE_RECEIPT_LEAK_OR_MISMATCH_%',yr; END IF;
+ END LOOP;
+END $cross_year_same_key_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
