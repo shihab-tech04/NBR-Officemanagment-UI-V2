@@ -222,6 +222,68 @@ BEGIN
   END IF;
  END LOOP;
 END $private_definer_owner_boundary$;
+-- Private SECURITY DEFINER functions must retain the reviewed, immutable
+-- function-local search_path. Pin all four, not only the exposed invoker facade:
+-- an altered private search_path could resolve attacker-controlled objects
+-- under the definer identity. Disposable PG17 catalog evidence only.
+DO $private_definer_search_path_boundary$
+DECLARE candidate text; observed text[];
+BEGIN
+ FOR candidate IN SELECT unnest(ARRAY[
+  'ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+  'ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
+  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+  'ws02_owner.nbr_lock_active_owner(uuid,uuid,text)'
+ ]) LOOP
+  SELECT p.proconfig INTO observed FROM pg_catalog.pg_proc p
+  WHERE p.oid=candidate::regprocedure;
+  IF NOT FOUND OR observed IS NULL
+    OR cardinality(observed) IS DISTINCT FROM 1
+    OR NOT EXISTS (
+      SELECT 1 FROM unnest(observed) AS setting
+      WHERE split_part(setting,'=',1)='search_path'
+        AND replace(split_part(setting,'=',2),' ','')='pg_catalog,ws02_owner'
+    ) THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_SEARCH_PATH_DRIFT_%',candidate;
+  END IF;
+ END LOOP;
+END $private_definer_search_path_boundary$;
+-- Mutation regression: prove a privileged ALTER FUNCTION that redirects the
+-- private definer's lookup path is detected and rolled back, without writes
+-- outside this disposable transaction.
+DO $private_definer_search_path_negative_probe$
+DECLARE signature text:='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)';
+        original_config text[]; mutated_config text[];
+BEGIN
+ SELECT p.proconfig INTO original_config FROM pg_catalog.pg_proc p
+ WHERE p.oid=signature::regprocedure;
+ IF original_config IS NULL OR cardinality(original_config) IS DISTINCT FROM 1
+   OR replace(split_part(original_config[1],'=',2),' ','')<>'pg_catalog,ws02_owner' THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_SEARCH_PATH_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  EXECUTE format('ALTER FUNCTION %s SET search_path = public',signature);
+  SELECT p.proconfig INTO mutated_config FROM pg_catalog.pg_proc p
+  WHERE p.oid=signature::regprocedure;
+  IF mutated_config IS NULL
+    OR cardinality(mutated_config) IS DISTINCT FROM 1
+    OR NOT EXISTS (
+      SELECT 1 FROM unnest(mutated_config) AS setting
+      WHERE split_part(setting,'=',1)='search_path'
+        AND replace(split_part(setting,'=',2),' ','')='public'
+    ) THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_SEARCH_PATH_MUTATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_SEARCH_PATH';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_SEARCH_PATH' THEN RAISE; END IF;
+ END;
+ SELECT p.proconfig INTO mutated_config FROM pg_catalog.pg_proc p
+ WHERE p.oid=signature::regprocedure;
+ IF mutated_config IS DISTINCT FROM original_config THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_SEARCH_PATH_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $private_definer_search_path_negative_probe$;
 -- Negative regression: a privileged migration actor reassigns the atomic
 -- SECURITY DEFINER function to itself without changing its body or grants.
 -- Detect the elevation and verify exception-subtransaction rollback restores
