@@ -5,6 +5,7 @@ on:
       - 'ws02/isolated_pg17_capability_smoke.sql'
       - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/isolated_postgrest_facade_contract.sql'
+      - 'ws02/isolated_audit_trace_digest_candidate.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'ws02/isolated_pg17_capability_smoke.sql'
       - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/isolated_postgrest_facade_contract.sql'
+      - 'ws02/isolated_audit_trace_digest_candidate.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   workflow_dispatch:
@@ -442,6 +444,11 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_postgrest_facade_contract.sql
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'PASS_DISPOSABLE_FACADE_NOT_AUTH_JWT_OR_PRODUCTION_APPROVAL'
+      - name: Validate isolated JSONB digest candidate and tamper negatives
+        shell: bash
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_audit_trace_digest_candidate.sql
+          echo 'PASS_DISPOSABLE_JSONB_DIGEST_CANDIDATE_ONLY_NOT_ATOMIC_RPC_OR_EDGE_PARITY'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
