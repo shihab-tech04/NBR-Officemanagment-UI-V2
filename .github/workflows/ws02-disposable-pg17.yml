@@ -6,6 +6,7 @@ on:
       - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/isolated_postgrest_facade_contract.sql'
       - 'ws02/isolated_audit_trace_digest_candidate.sql'
+      - 'ws02/isolated_versioned_atomic_envelope.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'ws02/isolated_owner_receipt_contract.sql'
       - 'ws02/isolated_postgrest_facade_contract.sql'
       - 'ws02/isolated_audit_trace_digest_candidate.sql'
+      - 'ws02/isolated_versioned_atomic_envelope.sql'
       - 'ws02/evidence/**'
       - '.github/workflows/ws02-disposable-pg17.yml'
   workflow_dispatch:
@@ -490,6 +492,19 @@ jobs:
           node ws02/evidence/ws04_snapshot_atomic_pg17.node.mjs
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'PASS_SCOPED_WS04_TO_WS02_PG17_NO_AUTH_NO_PRODUCTION'
+      - name: Validate private versioned Edge-byte envelope and deny direct atomic RPC bypass (disposable PG17)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This is a NEW isolated service fixture; no Supabase endpoint or credentials.
+          awk '/^INSERT INTO ws02_owner.owners\\(record_id,assessment_year,actor_id,state\\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_versioned_owner_ddl.sql
+          echo 'COMMIT;' >> /tmp/ws02_versioned_owner_ddl.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_versioned_owner_ddl.sql > /tmp/ws02_versioned_setup.log
+          psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_versioned_atomic_envelope.sql
+          node --check ws02/evidence/ws04_versioned_atomic_envelope_pg17.node.mjs
+          node ws02/evidence/ws04_versioned_atomic_envelope_pg17.node.mjs
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          echo 'PASS_SCOPED_VERSIONED_ENVELOPE_NO_SIGNED_AUTH_OR_PUBLIC_EXPOSURE'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
