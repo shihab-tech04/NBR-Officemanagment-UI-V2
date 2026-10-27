@@ -237,6 +237,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
               onChange={handleFilterChange}
               onApply={handleFilterApply}
               onReset={handleFilterReset}
+              showReset={false}
               sortSelectOptions
               searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
             />
@@ -285,6 +286,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
           onChange={handleFilterChange}
           onApply={handleFilterApply}
           onReset={handleFilterReset}
+              showReset={false}
           onClose={handleFilterToggle}
           sortSelectOptions
           searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
