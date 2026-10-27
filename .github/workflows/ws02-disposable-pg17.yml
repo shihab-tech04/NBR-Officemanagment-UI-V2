@@ -186,6 +186,50 @@ jobs:
           rollback_revoked=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT state FROM ws02_owner.owners WHERE record_id='50000000-0000-4000-8000-000000000002';")
           [[ "$rollback_revoked" == 'REVOKED' ]] || { echo 'OWNER_REVOCATION_AFTER_ROLLBACK_FAILED'; exit 1; }
           echo 'TWO_SESSION_ATOMIC_RECEIPT_ROLLBACK_NO_ORPHANS_PASS_ONLY'
+          # Real two-session same-key race: an uncommitted reservation must
+          # block the competing actor call, then replay/conflict must fail closed.
+          # Synthetic PG17 only; this does not validate signed Auth tokens.
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000003','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
+          cat > /tmp/ws02_idempotency_session_a.sql <<'SQL'
+          BEGIN;
+          SET LOCAL ROLE ws02_owner_engine;
+          DO $idem_first$
+          DECLARE outcome jsonb;
+          BEGIN
+            outcome:=ws02_owner.nbr_reserve_citizen_evaluation(
+              '60000000-0000-4000-8000-000000000001',
+              '50000000-0000-4000-8000-000000000003',
+              '2026-27','same-key-two-session-00001',repeat('a',64),
+              'NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF outcome->>'state' IS DISTINCT FROM 'RESERVED' THEN
+              RAISE EXCEPTION 'FIRST_CONCURRENT_IDEMPOTENCY_RESERVATION_FAILED'; END IF;
+          END $idem_first$;
+          \echo IDEMPOTENCY_UNCOMMITTED_SLOT_HELD
+          SELECT pg_sleep(6);
+          COMMIT;
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_idempotency_session_a.sql > /tmp/ws02_idempotency_a.log 2>&1 &
+          idem_holder=$!
+          idem_acquired=0
+          for i in $(seq 1 80); do
+            if grep -q 'IDEMPOTENCY_UNCOMMITTED_SLOT_HELD' /tmp/ws02_idempotency_a.log; then idem_acquired=1; break; fi
+            if ! kill -0 "$idem_holder" 2>/dev/null; then break; fi
+            sleep 0.1
+          done
+          if [[ "$idem_acquired" -ne 1 ]]; then cat /tmp/ws02_idempotency_a.log; exit 1; fi
+          set +e
+          psql -X -v ON_ERROR_STOP=1 -c "SET lock_timeout='750ms'; SET ROLE ws02_owner_engine; SELECT ws02_owner.nbr_reserve_citizen_evaluation('60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000003','2026-27','same-key-two-session-00001',repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW');" > /tmp/ws02_idempotency_collision.log 2>&1
+          idem_collision_rc=$?
+          set -e
+          if [[ "$idem_collision_rc" -eq 0 ]] || ! grep -q 'lock timeout' /tmp/ws02_idempotency_collision.log; then cat /tmp/ws02_idempotency_collision.log; exit 1; fi
+          wait "$idem_holder"
+          idem_replay=$(psql -X -At -v ON_ERROR_STOP=1 -c "SET ROLE ws02_owner_engine; SELECT ws02_owner.nbr_reserve_citizen_evaluation('60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000003','2026-27','same-key-two-session-00001',repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';" | tail -n 1)
+          [[ "$idem_replay" == 'REPLAY_NOT_ACCEPTED' ]] || { echo "CONCURRENT_IDEMPOTENCY_REPLAY_NOT_DENIED: $idem_replay"; exit 1; }
+          idem_conflict=$(psql -X -At -v ON_ERROR_STOP=1 -c "SET ROLE ws02_owner_engine; SELECT ws02_owner.nbr_reserve_citizen_evaluation('60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000003','2026-27','same-key-two-session-00001',repeat('d',64),'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';" | tail -n 1)
+          [[ "$idem_conflict" == 'CONFLICT' ]] || { echo "CONCURRENT_IDEMPOTENCY_HASH_CONFLICT_NOT_DENIED: $idem_conflict"; exit 1; }
+          idem_rows=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM ws02_owner.slots WHERE idem_key='same-key-two-session-00001' AND state='RESERVED' AND receipt_hash IS NULL)::text || ':' || (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='same-key-two-session-00001')::text;")
+          [[ "$idem_rows" == '1:0' ]] || { echo "CONCURRENT_IDEMPOTENCY_SLOT_OR_TRACE_DUPLICATED: $idem_rows"; exit 1; }
+          echo 'TWO_SESSION_IDEMPOTENCY_UNCOMMITTED_COLLISION_REPLAY_CONFLICT_PASS_ONLY'
           # Remove role-owned default ACL records as well as schema objects; otherwise
           # PostgreSQL correctly refuses to drop the synthetic definer roles.
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
