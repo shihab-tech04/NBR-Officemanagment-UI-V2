@@ -332,8 +332,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
       return Array.from({ length: 16 }, (_, i) => {
         const actH   = 9 + (i % 6);
         const actM   = (i * 11 + 25) % 60;
-        const durH   = Math.floor(durMin / 60);
-        const durR   = durMin % 60;
         return {
           circle:                CIRCLES_DATA[i % 8],
           user_id:               `USR-${1000 + i}`,
