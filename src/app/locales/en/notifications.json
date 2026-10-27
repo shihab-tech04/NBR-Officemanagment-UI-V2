@@ -12,6 +12,7 @@
   },
   "new": "new",
   "seeAll": "See all notifications",
+  "viewAllPaymentRecords": "View all payment records",
   "allCaughtUp": "You are all caught up.",
   "empty": {
     "title": "No notifications",

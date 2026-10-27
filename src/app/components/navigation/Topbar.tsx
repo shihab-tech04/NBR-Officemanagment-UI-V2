@@ -127,6 +127,10 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
                 setNotificationPanelOpen(false);
               }}
               onMarkAllRead={markAllRead}
+              onViewAllPayments={() => {
+                startTransition(() => navigate("/payments/transactions"));
+                setNotificationPanelOpen(false);
+              }}
             />
           )}
         </div>

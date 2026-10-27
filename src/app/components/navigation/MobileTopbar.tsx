@@ -103,6 +103,10 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
               setNotificationPanelOpen(false);
             }}
             onMarkAllRead={markAllRead}
+            onViewAllPayments={() => {
+              startTransition(() => navigate("/payments/transactions"));
+              setNotificationPanelOpen(false);
+            }}
             forceBottomSheet
           />
         )}
