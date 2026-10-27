@@ -483,7 +483,7 @@ jobs:
         run: |
           set -euo pipefail
           # Isolated synthetic DDL only. Never connect to a Supabase project.
-          awk '/^INSERT INTO ws02_owner.owners\\(record_id,assessment_year,actor_id,state\\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_ws04_snapshot_ddl.sql
+          awk '/^INSERT INTO ws02_owner.owners\(record_id,assessment_year,actor_id,state\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_ws04_snapshot_ddl.sql
           echo 'COMMIT;' >> /tmp/ws02_ws04_snapshot_ddl.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_ws04_snapshot_ddl.sql > /tmp/ws02_ws04_snapshot_setup.log
           node --check ws02/evidence/ws04_snapshot_atomic_pg17.node.mjs
