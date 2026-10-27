@@ -107,6 +107,7 @@ function controlFlagIds(value: unknown): string[] {
 }
 
 function getSourceTaxpayer(candidate: AuditCandidateRecord): TableRow | undefined {
+  if (isSharedAuditMode()) return undefined;
   return ALL_TAXPAYER_ROWS.find(
     (row) =>
       (String(row.return_id ?? "") === candidate.return_id &&
@@ -1201,7 +1202,7 @@ export function AuditCandidatesPage({
   );
 
   const comparison = useMemo(
-    () => (selectedCandidate ? buildComparison(selectedCandidate) : []),
+    () => (selectedCandidate && !isSharedAuditMode() ? buildComparison(selectedCandidate) : []),
     [selectedCandidate],
   );
 
@@ -1837,6 +1838,7 @@ export function AuditCandidatesPage({
           </details>
         </section>
 
+        {!isSharedAuditMode() && (
         <section
           className="audit-detail-card audit-comparison-card"
           aria-labelledby="return-comparison-title"
@@ -2103,6 +2105,7 @@ export function AuditCandidatesPage({
               </table>
             </div>
         </section>
+        )}
         <ResponsiveOverlay
           open={quickSummaryOpen}
           onClose={() => setQuickSummaryCandidateId(null)}
