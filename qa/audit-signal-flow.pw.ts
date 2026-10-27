@@ -47,7 +47,7 @@ for (const width of [1366,768,390,360]) {
     await expect(flow).toContainText('This taxpayer');
     await expect(flow).toContainText('Figures in this taxpayer profile');
     await expect(flow.locator('.audit-story__figures .audit-story__fact')).toHaveCount(3);
-    await expect(flow.locator('.audit-story__verification')).toContainText('Source check pending');
+    await expect(flow.locator('.audit-story__verification')).toContainText('Source evidence not verified in this view');
     // The signal review uses the exact same canonical section border, surface and
     // header fill as the other Office drawer cards. The only inset grid is facts.
     const sections = await detail.evaluate(root => {
