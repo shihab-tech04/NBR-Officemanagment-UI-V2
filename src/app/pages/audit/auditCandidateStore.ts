@@ -1,5 +1,6 @@
 import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
+import { createSharedAuditBatch, isSharedAuditMode, listSharedAuditCandidates } from "./auditSharedSql";
 
 export interface AuditCandidateRecord extends TableRow {
   candidate_id: string;
@@ -174,6 +175,8 @@ function normalizeCandidate(item: AuditCandidateRecord): AuditCandidateRecord {
 }
 
 export function getAuditCandidates(): AuditCandidateRecord[] {
+  // The shared service is asynchronous; never pass local synthetic records off as SQL.
+  if (isSharedAuditMode()) return [];
   const seeded = seedCandidates();
   if (!canUseStorage()) return seeded;
 
@@ -215,15 +218,17 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
   }
 }
 
-export async function loadAuditCandidates(assessmentYear:string):Promise<AuditCandidateRecord[]> {
-  return getAuditCandidates().filter(candidate => candidate.assessment_year === assessmentYear);
+export async function loadAuditCandidates(assessmentYear?:string):Promise<AuditCandidateRecord[]> {
+  if (isSharedAuditMode()) return listSharedAuditCandidates(assessmentYear);
+  return getAuditCandidates().filter(candidate => !assessmentYear || candidate.assessment_year === assessmentYear);
 }
 
 export async function saveAuditCandidates(
   rows: TableRow[],
   meta: Parameters<typeof addAuditCandidates>[1],
 ): Promise<AuditCandidateRecord[]> {
-  // The Office prototype stores demo selections only. This is not shared SQL persistence.
+  if (isSharedAuditMode()) return createSharedAuditBatch(rows, meta);
+  // A separate prototype mode is intentionally local-only and is never shared SQL.
   return addAuditCandidates(rows, meta);
 }
 
@@ -242,6 +247,7 @@ export function addAuditCandidates(
     finalCandidates: number;
   },
 ): AuditCandidateRecord[] {
+  if (isSharedAuditMode()) throw new Error("Local Audit candidate writes are disabled in shared mode");
   const existing = getAuditCandidates();
   const selectedOn = new Date().toISOString().slice(0, 10);
   const batchToken = Date.now().toString();
