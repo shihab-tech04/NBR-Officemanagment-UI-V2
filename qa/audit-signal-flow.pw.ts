@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   await page.addInitScript((lang) => {
     sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings',JSON.stringify({
-      assessmentYear:'2024-25',themeId:'indigo-blue',
+      assessmentYear:'2025-26',themeId:'indigo-blue',
       fontId:'poppins',fontSizeId:'standard',languageId:lang
     }));
     localStorage.setItem('i18nextLng',lang);
@@ -194,7 +194,7 @@ for (const width of [1366, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.addInitScript(() => {
       localStorage.setItem('gov_ui_settings', JSON.stringify({
-        assessmentYear: '2024-25', themeId: 'dark-mode',
+        assessmentYear: '2025-26', themeId: 'dark-mode',
         fontId: 'poppins', fontSizeId: 'standard', languageId: 'en',
       }));
     });
@@ -229,7 +229,7 @@ test('Dark Mode Audit Overview keeps population panels and labels on Office toke
   await page.setViewportSize({ width: 1366, height: 865 });
   await page.addInitScript(() => {
     localStorage.setItem('gov_ui_settings', JSON.stringify({
-      assessmentYear: '2024-25', themeId: 'dark-mode',
+      assessmentYear: '2025-26', themeId: 'dark-mode',
       fontId: 'poppins', fontSizeId: 'standard', languageId: 'en',
     }));
   });
