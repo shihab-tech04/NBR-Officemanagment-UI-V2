@@ -207,7 +207,7 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
   "user-activity-report": {
     title: "User Activity Report",
     overview:
-      "Provides a complete audit log of all user actions within the system — logins, record modifications, approvals, exports, and data entry operations.",
+      "Shows fictional prototype user actions such as record modifications, approvals, exports and data entry. No real login or security sessions are tracked.",
     workflow: [
       "Select a user, date range, or action type to filter the activity log.",
       "Review the activity table — each row shows user, action, module, timestamp.",
@@ -218,7 +218,7 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
       { q: "Who can view the User Activity Report?", a: "Only Tax Commissioners and Admin Users have access to this report." },
       { q: "How long is activity data retained?", a: "Activity data is retained for the current and previous two assessment years by default." },
       { q: "Can I track who exported data?", a: "Yes — all export actions are logged with user, timestamp, and file details." },
-      { q: "What does 'Failed Login' mean in the log?", a: "It records unsuccessful login attempts, which is important for security monitoring." },
+      { q: "Does this page verify sign-in activity?", a: "No. Office demo entry is local-only; displayed operational activity is illustrative and not an authenticated audit log." },
       { q: "Can activity data be deleted?", a: "No — activity logs are immutable for audit and compliance purposes." },
     ],
     relatedPages: ["dashboard-main"],

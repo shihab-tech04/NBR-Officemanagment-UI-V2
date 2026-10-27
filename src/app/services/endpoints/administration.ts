@@ -51,7 +51,6 @@ export async function getSystemUsers(params?: QueryParams): Promise<PaginatedRes
     id: String(r.id), circle: String(r.circle), userId: String(r.user_id),
     designation: String(r.designation), userName: String(r.user_name),
     email: String(r.email), phone: String(r.phone),
-    lastLogin: String(r.last_login), lastPassChange: String(r.last_pass_change),
     activeStatus: r.active_status as SystemUser["activeStatus"],
     entryToday: Number(r.entry_today), entryUpto: Number(r.entry_upto),
   }));

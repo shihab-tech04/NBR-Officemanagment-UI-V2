@@ -40,8 +40,6 @@ export interface SystemUser {
   userName: string;
   email: string;
   phone: string;
-  lastLogin: string;
-  lastPassChange: string;
   activeStatus: ActiveStatus;
   entryToday: number;
   entryUpto: number;

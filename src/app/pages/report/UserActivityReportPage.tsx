@@ -95,8 +95,6 @@ const USER_ACTIVITY_COLS: ColDef[] = [
   fc("user_name", "User Name", { headerKey: "headers.userName", mobileCard: true, truncate: "normal" }),
   fc("email", "Email", { headerKey: "headers.email", truncate: "long" }),
   fc("phone", "Phone", { headerKey: "headers.phone", truncate: "compact" }),
-  fc("last_login", "Last Login", { headerKey: "headers.lastLogin", mobileCard: true }),
-  fc("last_pass_change", "Last Pass. Change", { headerKey: "headers.lastPassChange" }),
   fc("active_status", "Active/Released", { headerKey: "headers.activeReleased", badge: true, mobileCard: true }),
   fc("zone", "Zone", { headerKey: "headers.zone", truncate: "normal" }),
   fc("circle", "Circle", { headerKey: "headers.circle", truncate: "normal" }),
@@ -113,8 +111,6 @@ const ZONAL_COLS: ColDef[] = [
   fc("user_name", "User Name", { headerKey: "headers.userName", mobileCard: true, truncate: "normal" }),
   fc("email", "Email", { headerKey: "headers.email", truncate: "long" }),
   fc("phone", "Phone", { headerKey: "headers.phone", truncate: "compact" }),
-  fc("last_login", "Last Login", { headerKey: "headers.lastLogin", mobileCard: true }),
-  fc("last_pass_change", "Last Pass. Change", { headerKey: "headers.lastPassChange" }),
   fc("active_status", "Active/Released", { headerKey: "headers.activeReleased", badge: true, mobileCard: true }),
 ];
 
@@ -126,8 +122,6 @@ const CIRCLE_COLS: ColDef[] = [
   fc("user_name", "User Name", { headerKey: "headers.userName", mobileCard: true, truncate: "normal" }),
   fc("email", "Email", { headerKey: "headers.email", truncate: "long" }),
   fc("phone", "Phone", { headerKey: "headers.phone", truncate: "compact" }),
-  fc("last_login", "Last Login", { headerKey: "headers.lastLogin", mobileCard: true }),
-  fc("last_pass_change", "Last Pass. Change", { headerKey: "headers.lastPassChange" }),
   fc("active_status", "Active/Released", { headerKey: "headers.activeReleased", badge: true, mobileCard: true }),
   fc("entry_today", "Entry Today", { headerKey: "headers.entryToday", truncate: "compact" }),
   fc("entry_upto", "Entry Up to", { headerKey: "headers.entryUpto", truncate: "compact" }),

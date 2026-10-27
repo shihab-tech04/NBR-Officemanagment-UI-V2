@@ -27,7 +27,6 @@ export function mapSystemUser(r: SystemUser): TableRow {
   return {
     id: r.id, circle: r.circle, user_id: r.userId, designation: r.designation,
     user_name: r.userName, email: r.email, phone: r.phone,
-    last_login: r.lastLogin, last_pass_change: r.lastPassChange,
     active_status: r.activeStatus, entry_today: r.entryToday, entry_upto: r.entryUpto,
   };
 }

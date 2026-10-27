@@ -268,8 +268,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
       fc("user_name",      "User Name",       { headerKey: "headers.userName",      mobileCard: true }),
       fc("designation",    "Designation",     { headerKey: "headers.designation",   mobileCard: true }),
       fc("email",          "Email",           { headerKey: "headers.email" }),
-      fc("last_login",     "Last Login",      { headerKey: "headers.lastLogin",     mobileCard: true }),
-      fc("login_location", "Login Location",  { headerKey: "headers.loginLocation", mobileCard: true }),
       { type: "col", col: { key: "active_status", label: "Active Status", badge: true, headerKey: "headers.activeStatus", mobileCard: true } },
       fc("entry_today",    "Entry Today",     { headerKey: "headers.entryToday" }),
       fc("entry_upto",     "Entry Up to",     { headerKey: "headers.entryUpto" }),
@@ -283,15 +281,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
         { key: "user_name",   label: "User Name",   headerKey: "headers.userName" },
         { key: "email",       label: "Email",       headerKey: "headers.email" },
         { key: "phone",       label: "Phone",       headerKey: "headers.phone" },
-      ]}},
-      { type: "group", group: { label: "Login Details", groupKey: "groups.loginDetails", cols: [
-        { key: "last_login",           label: "Last Login",            headerKey: "headers.lastLogin" },
-        { key: "login_location",       label: "Login Location",        headerKey: "headers.loginLocation" },
-        { key: "login_ip",             label: "Login IP",              headerKey: "headers.loginIp" },
-        { key: "device_browser",       label: "Device / Browser",      headerKey: "headers.deviceBrowser" },
-        { key: "login_status",         label: "Login Status",          headerKey: "headers.loginStatus" },
-        { key: "session_duration",     label: "Session Duration",      headerKey: "headers.sessionDuration" },
-        { key: "failed_login_attempts",label: "Failed Login Attempts", headerKey: "headers.failedLoginAttempts" },
       ]}},
       { type: "group", group: { label: "System Activity", groupKey: "groups.systemActivity", cols: [
         { key: "last_activity_time",  label: "Last Activity Time",   headerKey: "headers.lastActivityTime" },
@@ -307,10 +296,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
         { key: "reports_downloaded", label: "Reports Downloaded", headerKey: "headers.reportsDownloaded" },
         { key: "prints_taken",       label: "Prints Taken",       headerKey: "headers.printsTaken" },
       ]}},
-      { type: "group", group: { label: "Security Activity", groupKey: "groups.securityActivity", cols: [
-        { key: "last_pass_change",      label: "Last Password Change",  headerKey: "headers.lastPassChange" },
-        { key: "password_change_count", label: "Password Change Count", headerKey: "headers.passwordChangeCount" },
-      ]}},
       { type: "group", group: { label: "Latest Action", groupKey: "groups.latestAction", cols: [
         { key: "last_action",      label: "Last Action",      headerKey: "headers.lastAction" },
         { key: "activity_summary", label: "Activity Summary", headerKey: "headers.activitySummary" },
@@ -324,14 +309,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
         "Morsheda Khatun",
       ];
       const DESIGS = ["Circle Officer", "Inspector", "Superintendent", "Joint Commissioner", "Additional Commissioner"];
-      const LOCATIONS = ["Dhaka Main Office", "Circle Office 1", "Remote – VPN", "Circle Office 2", "Home – VPN"];
-      const IPS = ["192.168.1.101", "192.168.1.102", "10.0.0.55", "192.168.2.10", "172.16.0.34"];
-      const DEVICES = [
-        "Chrome 124 / Windows 11", "Firefox 125 / Windows 10",
-        "Edge 123 / Windows 11",   "Chrome / Android 14",
-        "Safari / iOS 17",
-      ];
-      const LOGIN_STATUSES = ["Active", "Active", "Active", "Idle", "Logged Out", "Session Expired", "Active"];
       const LAST_ACTIONS = [
         "Approved return for TIN-1234567890",
         "Rejected return – incomplete documents",
@@ -345,19 +322,16 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
       const SUMMARIES = [
         "27 actions today; 15 returns approved, 5 rejected, 7 reports viewed.",
         "12 actions; attended 3 taxpayer cases, downloaded 2 reports.",
-        "Idle since 11:30 AM; 8 records updated earlier.",
-        "No activity recorded for today's session.",
+        "No new activity since 11:30 AM; 8 records updated earlier.",
+        "No activity recorded today.",
         "43 actions; bulk approval of 30 returns, 3 reports generated.",
-        "Session expired after inactivity; 6 entries made before logout.",
+        "6 entries recorded before inactivity.",
         "19 actions; mixed approvals and rejections with 4 prints taken.",
-        "Active session; 5 appeals verified, 2 demands reviewed.",
+        "5 appeals verified, 2 demands reviewed.",
       ];
       return Array.from({ length: 16 }, (_, i) => {
-        const loginH = 8 + (i % 4);
-        const loginM = (i * 7) % 60;
-        const actH   = loginH + 1 + (i % 3);
-        const actM   = (loginM + 25) % 60;
-        const durMin = 15 + i * 11;
+        const actH   = 9 + (i % 6);
+        const actM   = (i * 11 + 25) % 60;
         const durH   = Math.floor(durMin / 60);
         const durR   = durMin % 60;
         return {
@@ -367,16 +341,9 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
           user_name:             USER_NAMES[i],
           email:                 `${USER_NAMES[i].toLowerCase().replace(/[^a-z]/g, "").slice(0, 8)}${i + 1}@taxbd.gov.bd`,
           phone:                 `017${String(10000000 + i * 1111111).slice(0, 8)}`,
-          last_login:            `2026-06-${String(14 - (i % 7)).padStart(2, "0")} ${String(loginH).padStart(2, "0")}:${String(loginM).padStart(2, "0")}`,
-          last_pass_change:      `2026-0${(i % 5) + 1}-01`,
           active_status:         i % 7 === 6 ? "Inactive" : "Active",
           entry_today:           String(5 + i * 2),
           entry_upto:            String(200 + i * 30),
-          login_location:        LOCATIONS[i % 5],
-          login_ip:              IPS[i % 5],
-          device_browser:        DEVICES[i % 5],
-          login_status:          LOGIN_STATUSES[i % 7],
-          session_duration:      LOGIN_STATUSES[i % 7] === "Logged Out" ? "—" : `${durH}h ${String(durR).padStart(2, "0")}m`,
           last_activity_time:    `2026-06-${String(14 - (i % 7)).padStart(2, "0")} ${String(actH).padStart(2, "0")}:${String(actM).padStart(2, "0")}`,
           total_actions_today:   String(3 + i * 3),
           records_created:       String(1 + (i % 5)),
@@ -385,8 +352,6 @@ export const REPORT_CFGS: Record<string, ReportCfg> = {
           records_rejected:      String(i % 3),
           reports_downloaded:    String(i % 4),
           prints_taken:          String(i % 6),
-          password_change_count: String(1 + (i % 5)),
-          failed_login_attempts: String(i % 4),
           last_action:           LAST_ACTIONS[i % 8],
           activity_summary:      SUMMARIES[i % 8],
         };
@@ -498,8 +463,6 @@ export const REPORT_DRAWER_FIELDS: Record<string, { label: string; key: string }
     { label: "Designation", key: "designation" },
     { label: "Email", key: "email" },
     { label: "Phone", key: "phone" },
-    { label: "Last Login", key: "last_login" },
-    { label: "Last Password Change", key: "last_pass_change" },
     { label: "Active Status", key: "active_status" },
     { label: "Entry Today", key: "entry_today" },
     { label: "Entry Upto", key: "entry_upto" },
