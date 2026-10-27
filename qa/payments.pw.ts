@@ -359,3 +359,30 @@ test('transaction details footer opens the exact TaxPay certificate for view, pr
   expect(new URL(links[1]).searchParams.get('docAction')).toBe('print');
   expect(new URL(links[2]).searchParams.get('docAction')).toBe('download');
 });
+
+
+for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+  test(`SQL-backed payment notice opens full transaction history at ${viewport.width}px`,async({page})=>{
+    await page.setViewportSize(viewport);
+    const recordId='00000000-0000-4000-8000-000000000001';
+    await page.route('**/functions/v1/demo-story1-office/notifications',route=>
+      route.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({success:true,data:[{
+          id:1512,paymentId:recordId,type:'NEW_SIMULATED_PAYMENT',
+          createdAt:'2026-10-27T09:37:57.633Z'
+        }],simulationOnly:true})})
+    );
+    await page.goto('/payments/overview');
+    const bell=page.locator(viewport.width>=1024?'.topbar__notification-button':'.mobile-topbar__notification-button');
+    await expect(bell).toBeVisible();
+    await bell.click();
+    await expect(page.getByText('New payment record')).toBeVisible();
+    await expect(page.getByText(/Simulated amount .*42,500.00.*No government settlement is confirmed/)).toBeVisible();
+    const history=page.getByRole('button',{name:'View all payment records'});
+    await expect(history).toBeVisible();
+    await history.click();
+    await expect(page).toHaveURL(/\/payments\/transactions$/);
+    await expect(page.locator('[data-testid="payment-transactions"]')).toBeVisible();
+    await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
+  });
+}
