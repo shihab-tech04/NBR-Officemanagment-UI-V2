@@ -278,3 +278,114 @@ assert.equal(pinnedEdgeEncodingPreflight("{bad}", hash("{bad}"), ENVELOPE_VERSIO
   false, "invalid JSON accepted by Edge preflight");
 console.log("PASS_SCOPED_PINNED_EDGE_EXACT_ENCODING_PREFLIGHT_DRIFT_NEGATIVES_ONLY");
 console.log("HOLD: PG semantic-only envelope still accepts recomputed noncanonical bytes; preflight is not a trusted-identity or SQL enforcement boundary.");
+
+
+// WS02 review-only trusted-producer candidate. The pinned W5 canonical()
+// accepts ordinary JS objects, not just JSON values. For example, an
+// undefined object property becomes literal "undefined" in the canonical
+// string; NaN/Infinity are silently encoded as null. This test-only
+// validator fails closed BEFORE hashing, and does not alter the W5 Edge
+// function, private SQL RPC, or any hosted authorization.
+function strictTraceProducerCandidate(trace) {
+  const seen = new WeakSet();
+  const assertUnicodeScalars = (s) => {
+    for (let i = 0; i < s.length; i++) {
+      const u = s.charCodeAt(i);
+      if (u >= 0xd800 && u <= 0xdbff) {
+        const next = s.charCodeAt(++i);
+        if (!(next >= 0xdc00 && next <= 0xdfff))
+          throw new TypeError("TRACE_UNPAIRED_SURROGATE");
+      } else if (u >= 0xdc00 && u <= 0xdfff) {
+        throw new TypeError("TRACE_UNPAIRED_SURROGATE");
+      }
+    }
+  };
+  const walk = (v) => {
+    if (v === null || typeof v === "boolean") return;
+    if (typeof v === "string") { assertUnicodeScalars(v); return; }
+    if (typeof v === "number") {
+      if (!Number.isFinite(v) || (Number.isInteger(v) && !Number.isSafeInteger(v)))
+        throw new TypeError("TRACE_UNSAFE_NUMBER");
+      return;
+    }
+    if (typeof v !== "object") throw new TypeError("TRACE_NON_JSON_VALUE");
+    if (seen.has(v)) throw new TypeError("TRACE_CYCLE");
+    const array = Array.isArray(v);
+    if (!array && Object.getPrototypeOf(v) !== Object.prototype &&
+        Object.getPrototypeOf(v) !== null)
+      throw new TypeError("TRACE_NON_PLAIN_OBJECT");
+    seen.add(v);
+    try {
+      if (array) {
+        for (let i = 0; i < v.length; i++) {
+          if (!Object.hasOwn(v, i)) throw new TypeError("TRACE_ARRAY_HOLE");
+          const d = Object.getOwnPropertyDescriptor(v, String(i));
+          if (!d || !Object.hasOwn(d, "value"))
+            throw new TypeError("TRACE_ACCESSOR");
+          walk(d.value);
+        }
+        if (Reflect.ownKeys(v).length !== v.length + 1)
+          throw new TypeError("TRACE_ARRAY_EXTRA_PROPERTY");
+      } else {
+        for (const key of Reflect.ownKeys(v)) {
+          if (typeof key !== "string") throw new TypeError("TRACE_SYMBOL_KEY");
+          assertUnicodeScalars(key);
+          const d = Object.getOwnPropertyDescriptor(v, key);
+          if (!d || !d.enumerable) throw new TypeError("TRACE_HIDDEN_PROPERTY");
+          if (!Object.hasOwn(d, "value")) throw new TypeError("TRACE_ACCESSOR");
+          walk(d.value);
+        }
+      }
+    } finally { seen.delete(v); }
+  };
+  if (trace === null || typeof trace !== "object" || Array.isArray(trace))
+    throw new TypeError("TRACE_NOT_OBJECT");
+  walk(trace);
+  const bytes = canonical(trace); // Real pinned WS04 producer implementation.
+  if (Buffer.byteLength(bytes, "utf8") > 262144)
+    throw new RangeError("TRACE_TOO_LARGE");
+  if (canonical(JSON.parse(bytes)) !== bytes)
+    throw new TypeError("TRACE_NONCANONICAL_ROUNDTRIP");
+  return { bytes, digest: hash(bytes), version: ENVELOPE_VERSION };
+}
+const strictProducerPositives = [
+  { actor: "synthetic", status: "NEEDS_FACTS", evidence: { "বাংলা": "পরীক্ষা", amount: 1.5, flags: [] } },
+  { nested: [{ "🔑": "value", amount: 0.1 }, { empty: null }], shared: true },
+];
+for (const trace of strictProducerPositives) {
+  const envelope = strictTraceProducerCandidate(trace);
+  assert.equal(pinnedEdgeEncodingPreflight(envelope.bytes, envelope.digest, envelope.version),
+    true, "strict producer emitted noncanonical bytes");
+  assert.equal(verifyEnvelope(JSON.stringify(trace), envelope.bytes, envelope.digest,
+    envelope.version), true, "strict producer failed isolated PG17 semantic binding");
+}
+const cyclic = {}; cyclic.self = cyclic;
+const getter = {}; Object.defineProperty(getter, "value", {
+  enumerable: true, get() { return 1; },
+});
+const hidden = {}; Object.defineProperty(hidden, "value", { value: 1 });
+const symbolKey = { [Symbol("private")]: "x" };
+const arrayExtra = [1]; arrayExtra.extra = 2;
+const strictProducerNegatives = [
+  { name: "undefined_property", trace: { a: undefined } },
+  { name: "nan", trace: { a: NaN } },
+  { name: "infinity", trace: { a: Infinity } },
+  { name: "unsafe_integer", trace: { a: 9007199254740992 } },
+  { name: "bigint", trace: { a: 1n } },
+  { name: "date_object", trace: { a: new Date("2026-01-01") } },
+  { name: "array_hole", trace: { a: new Array(1) } },
+  { name: "function", trace: { a: () => 1 } },
+  { name: "lone_high_surrogate", trace: { a: "\\ud800" } },
+  { name: "lone_low_surrogate_key", trace: { "\\udc00": "x" } },
+  { name: "cyclic", trace: cyclic },
+  { name: "accessor", trace: getter },
+  { name: "hidden_property", trace: hidden },
+  { name: "symbol_key", trace: symbolKey },
+  { name: "array_extra_property", trace: { a: arrayExtra } },
+];
+for (const { name, trace } of strictProducerNegatives) {
+  assert.throws(() => strictTraceProducerCandidate(trace), undefined,
+    name + " accepted by strict producer candidate");
+}
+console.log("PASS_SCOPED_STRICT_WS04_PRODUCER_JSON_VALUE_NEGATIVES_PG17_ONLY");
+console.log("HOLD: review-only producer candidate, not installed in W5 or private RPC; no signed Auth/owner model or tax certification.");
