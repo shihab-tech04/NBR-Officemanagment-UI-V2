@@ -75,6 +75,36 @@ function candidateFromRow(row: TableRow): EvidenceCandidate {
   };
 }
 
+/**
+ * Keeps the existing prototype comparison internally consistent. These configured
+ * percentages belong only to the synthetic illustration, never to NBR law or an
+ * executable R-C1/IT-10B trigger.
+ */
+export function reconcileGeneratedFundFlow(
+  sourceOfFund: readonly number[],
+  startingOutflow: readonly number[],
+  signalIds: readonly string[],
+): { sourceOfFund: number[]; fundOutflow: number[]; difference: number[] } {
+  if (sourceOfFund.length !== 3 || startingOutflow.length !== 3 ||
+      ![...sourceOfFund, ...startingOutflow].every(Number.isFinite)) {
+    throw new Error("Three complete numeric years are required for a funds-flow illustration");
+  }
+  const fundOutflow = [...startingOutflow];
+  if (signalIds.includes("R-C1")) {
+    fundOutflow[2] = sourceOfFund[2] + Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
+  }
+  if (signalIds.includes("R-C2")) {
+    for (const [year, factor] of [0.08, 0.14, 0.2].entries()) {
+      fundOutflow[year] = sourceOfFund[year] + Math.round(Math.max(sourceOfFund[year], 1) * factor);
+    }
+  }
+  return {
+    sourceOfFund: [...sourceOfFund],
+    fundOutflow,
+    difference: sourceOfFund.map((value, index) => value - fundOutflow[index]),
+  };
+}
+
 function buildEvidenceMetrics(candidate: EvidenceCandidate): EvidenceMetric[] {
   const seed = candidateSeed(candidate);
   const signals = signalIds(candidate.signals);
@@ -183,18 +213,7 @@ function buildEvidenceMetrics(candidate: EvidenceCandidate): EvidenceMetric[] {
             : Math.round(netWealth[index] * 0.9)),
       ),
   );
-  const difference = sourceOfFund.map(
-    (value, index) => value - fundOutflow[index],
-  );
-
-  if (signals.includes("R-C1")) {
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.24);
-  }
-  if (signals.includes("R-C2")) {
-    difference[0] = -Math.round(Math.max(sourceOfFund[0], 1) * 0.08);
-    difference[1] = -Math.round(Math.max(sourceOfFund[1], 1) * 0.14);
-    difference[2] = -Math.round(Math.max(sourceOfFund[2], 1) * 0.2);
-  }
+  const { difference } = reconcileGeneratedFundFlow(sourceOfFund, fundOutflow, signals);
 
   const openingNetWealth = [
     Math.round(netWealth[0] * 0.9),
