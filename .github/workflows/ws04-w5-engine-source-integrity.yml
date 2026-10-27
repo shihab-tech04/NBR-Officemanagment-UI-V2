@@ -23,7 +23,7 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo '963abf5a5e366394a8276707e330f4f2a95cfefa6adf46040968a974e20e99ed  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '3d2ddf7623b60b90eaab3787a68e6086cef9bb99c86b30dafb2f56e2b47b233b  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '6af7452f56a6a608d64f65d8616c54106b70ba17fd9b66a9039faaa2cab2b1ff  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
           echo '04606b7dea378013802fd6be51e85143884b1c7d5ef599dddd91090605d9dbd0  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
           echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -
@@ -34,6 +34,7 @@ jobs:
         run: |
           node --test ws04/w5-candidate/tests/temporal_guard.node.mjs
           node --test ws04/w5-candidate/tests/ownership_gate.node.mjs
+          node --test ws04/w5-candidate/tests/audit_trace_guard.node.mjs
           echo 'Isolated temporal and rule-selection input guard cases. NOT source-law, private frozen-registry runtime, PostgreSQL/Auth or Agent certification.'
       - name: Validate official SRO268 source-intake HOLD and negative drift cases
         run: |
