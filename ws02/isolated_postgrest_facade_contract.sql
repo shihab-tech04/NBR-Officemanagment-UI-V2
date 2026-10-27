@@ -284,6 +284,76 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_DEFINER_SEARCH_PATH_MUTATION_NOT_ROLLED_BACK';
  END IF;
 END $private_definer_search_path_negative_probe$;
+-- Four private SECURITY DEFINER functions must retain their exact callable
+-- contract, not just their owner and search_path. Named-argument RPC calls can
+-- be redirected by renames/defaults; volatility/language/return-type drift can
+-- change behavior even while ownership and ACLs remain unchanged.
+-- Synthetic disposable PG17 only. This is not citizen Auth or legal proof.
+DO $private_definer_metadata_boundary$
+DECLARE candidate record; actual record;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+   'sql','s','boolean',ARRAY['p_auth_user_id','p_taxpayer_record_id','p_assessment_year']::text[]),
+  ('ws02_owner.nbr_lock_active_owner(uuid,uuid,text)',
+   'plpgsql','v','boolean',ARRAY['p_auth_user_id','p_taxpayer_record_id','p_assessment_year']::text[]),
+  ('ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   'plpgsql','v','jsonb',ARRAY['p_auth_user_id','p_taxpayer_record_id','p_assessment_year',
+   'p_idempotency_key','p_request_hash','p_contract_version']::text[]),
+  ('ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+   'plpgsql','v','boolean',ARRAY['p_auth_user_id','p_taxpayer_record_id','p_assessment_year',
+   'p_idempotency_key','p_request_hash','p_receipt_hash','p_trace_hash','p_result_state',
+   'p_audit_trace']::text[])
+ ) AS expected(signature,language_name,volatility,return_type,arg_names) LOOP
+  SELECT p.prosecdef,p.provolatile::text AS volatility,l.lanname::text AS language_name,
+   p.prorettype,p.proargnames,p.pronargdefaults,p.provariadic,p.proretset,
+   p.prokind,p.proleakproof,p.proparallel
+  INTO actual FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+  WHERE p.oid=candidate.signature::regprocedure;
+  IF NOT FOUND OR actual.prosecdef IS DISTINCT FROM true
+   OR actual.volatility IS DISTINCT FROM candidate.volatility
+   OR actual.language_name IS DISTINCT FROM candidate.language_name
+   OR actual.prorettype IS DISTINCT FROM candidate.return_type::regtype::oid
+   OR actual.proargnames IS DISTINCT FROM candidate.arg_names
+   OR actual.pronargdefaults IS DISTINCT FROM 0
+   OR actual.provariadic IS DISTINCT FROM 0::oid
+   OR actual.proretset IS DISTINCT FROM false
+   OR actual.prokind IS DISTINCT FROM 'f'
+   OR actual.proleakproof IS DISTINCT FROM false
+   OR actual.proparallel IS DISTINCT FROM 'u' THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_CALLABLE_METADATA_DRIFT_%',candidate.signature;
+  END IF;
+ END LOOP;
+END $private_definer_metadata_boundary$;
+-- Mutation regression: a privileged actor silently marks the write-bearing
+-- atomic definer STABLE. Verify metadata detection and exact rollback.
+DO $private_definer_metadata_negative_probe$
+DECLARE original_volatility "char"; mutated_volatility "char";
+BEGIN
+ SELECT p.provolatile INTO original_volatility FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF original_volatility IS DISTINCT FROM 'v' THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_VOLATILITY_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  ALTER FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) STABLE;
+  SELECT p.provolatile INTO mutated_volatility FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF mutated_volatility IS DISTINCT FROM 's' THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_VOLATILITY_MUTATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_VOLATILITY';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_VOLATILITY' THEN RAISE; END IF;
+ END;
+ SELECT p.provolatile INTO mutated_volatility FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated_volatility IS DISTINCT FROM original_volatility THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_VOLATILITY_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $private_definer_metadata_negative_probe$;
 -- Negative regression: a privileged migration actor reassigns the atomic
 -- SECURITY DEFINER function to itself without changing its body or grants.
 -- Detect the elevation and verify exception-subtransaction rollback restores
