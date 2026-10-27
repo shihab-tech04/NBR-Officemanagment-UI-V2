@@ -124,7 +124,7 @@ export function FilterPanel({
         >
           {resetLabel || translate("buttons.reset")}
         </SecondaryButton>
-      )
+      )}
       <PrimaryButton
         size="sm"
         onClick={onApply}
