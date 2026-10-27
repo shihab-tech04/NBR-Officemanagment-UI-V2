@@ -16,7 +16,7 @@ function liveLogoUrl(cms: SupabaseClient, path: string | null) {
   return path ? cms.storage.from('taxpay-branding').getPublicUrl(path).data.publicUrl : fallbackLogo;
 }
 
-export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | null; officeUserId: string | null }) {
+export function SiteLogoPanel({ cms }: { cms: SupabaseClient | null }) {
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<LogoFile | null>(null);
@@ -24,6 +24,7 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [previewLogo, setPreviewLogo] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
@@ -63,42 +64,24 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
     setCropSource(file);
   }
 
-  async function save() {
-    if (!cms || !record || !selected || busy) return;
-    if (officeUserId !== 'admin') { setMessage('Sign in as admin from the main Office login.'); return; }
-    if (!isSupportedImageType(selected.file)) { setMessage('Only cropped PNG, JPG and JPEG files up to 5 MB may be published.'); return; }
-    setBusy(true);
-    setMessage('');
-    try {
-      // Immutable paths make the public CDN switch atomically when SQL updates.
-      const extension = selected.file.type === 'image/png' ? 'png' : 'jpg';
-      const path = `logos/${crypto.randomUUID()}.${extension}`;
-      const { error: uploadError } = await cms.storage.from('taxpay-branding').upload(path, selected.file, {
-        contentType: selected.file.type, cacheControl: '31536000', upsert: false,
-      });
-      if (uploadError) throw uploadError;
-      const { data, error } = await cms.from('taxpay_site_logo').update({
-        image_path: path, image_width: selected.width, image_height: selected.height,
-      }).eq('id', 'primary').eq('version', record.version).select('id').maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('The logo changed elsewhere. Refresh and review it before saving again.');
-      await refresh();
-      setSelected(null);
-      setEditing(false);
-      setMessage('Logo saved. The public TaxPay portal now reads this version from SQL.');
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setBusy(false); }
+  function save() {
+    if (!selected || busy) return;
+    if (!isSupportedImageType(selected.file)) { setMessage('Only PNG, JPG or JPEG files up to 5 MB are accepted.'); return; }
+    if (previewLogo) URL.revokeObjectURL(previewLogo);
+    setPreviewLogo(URL.createObjectURL(selected.file));
+    setSelected(null);
+    setEditing(false);
+    setMessage('Logo saved in this Office preview only. Public TaxPay is unchanged.');
   }
-
   const currentUrl = record && cms ? liveLogoUrl(cms, record.image_path) : fallbackLogo;
-  const displayUrl = editing && pendingUrl ? pendingUrl : currentUrl;
+  const displayUrl = editing && pendingUrl ? pendingUrl : (previewLogo ?? currentUrl);
   const dimensions = editing && selected
     ? `${selected.width} × ${selected.height} px (new)`
     : `${record?.image_width ?? 2150} × ${record?.image_height ?? 440} px`;
 
   return <section className="cms-panel cms-logo" aria-label="Site Logo">
     <div className="cms-panel__heading">
-      <div><h2>Site Logo</h2><p>The same logo appears in the public header, footer, and taxpayer navigation.</p></div>
+      <div><h2>Site Logo</h2><p>Preview the logo in the public header, footer, and taxpayer navigation.</p></div>
       <div className="cms-editor__header-actions">
         <button type="button" aria-label="Refresh site logo" title="Refresh" onClick={() => void refresh().catch(error => setMessage((error as Error).message))}><RefreshCcw size={17}/></button>
         {record && !editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit logo</button>}
@@ -106,7 +89,7 @@ export function SiteLogoPanel({ cms, officeUserId }: { cms: SupabaseClient | nul
     </div>
     {!cms ? <p>Content service configuration is unavailable.</p> : <>
       <div className="cms-logo__canvas">
-        <h3>{editing && selected ? 'New logo preview' : 'Current published logo'}</h3>
+        <h3>{editing && selected ? 'New logo preview' : 'Current logo preview'}</h3>
         <div className="cms-logo__image"><img src={displayUrl} alt="Amar Kor site logo preview" /></div>
         <p>Source image: {dimensions}</p>
       </div>
