@@ -179,3 +179,63 @@ for each row execute function office_audit_private.record_candidate_status();
 
 -- No officer identities, membership grants, verified sources, real taxpayer
 -- imports or synthetic candidate records are created by this migration.
+
+-- Atomic Office API: no partial candidate batches and no guessed officer ID.
+-- RLS membership/zone/circle policies are evaluated as the JWT caller.
+create or replace function public.office_audit_create_batch(
+  p_external_batch_id text,
+  p_assessment_year text,
+  p_zone text,
+  p_selection_track text,
+  p_selection_basis text,
+  p_funnel_rule text,
+  p_candidates jsonb
+) returns uuid language plpgsql security invoker
+set search_path=pg_catalog,public as $$
+declare
+  v_batch uuid;
+  v_item jsonb;
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then raise exception 'Authenticated officer required' using errcode='28000'; end if;
+  if p_external_batch_id is null or length(trim(p_external_batch_id)) < 3
+     or p_assessment_year is null or p_zone is null
+     or jsonb_typeof(p_candidates) is distinct from 'array'
+     or jsonb_array_length(p_candidates) not between 1 and 2000 then
+     raise exception 'Invalid Audit batch input' using errcode='22023';
+  end if;
+  insert into public.office_audit_batches
+    (external_batch_id,assessment_year,zone,selection_track,selection_basis,funnel_rule,source_kind,created_by)
+  values
+    (p_external_batch_id,p_assessment_year,p_zone,p_selection_track,
+     coalesce(p_selection_basis,''),coalesce(p_funnel_rule,''),'synthetic',v_uid)
+  returning id into v_batch;
+
+  for v_item in select value from jsonb_array_elements(p_candidates)
+  loop
+    if jsonb_typeof(v_item) <> 'object'
+      or coalesce(v_item->>'return_id','')=''
+      or coalesce(v_item->>'circle','')=''
+      or coalesce(v_item->>'tin','')=''
+      or coalesce(v_item->>'taxpayer_name','')='' then
+      raise exception 'Invalid candidate identity' using errcode='22023';
+    end if;
+    insert into public.office_audit_candidates (
+      batch_id,assessment_year,zone,circle,return_id,tin,taxpayer_name,
+      coverage_tier,risk_level,signals,data_quality,created_by
+    ) values (
+      v_batch,p_assessment_year,p_zone,v_item->>'circle',
+      v_item->>'return_id',v_item->>'tin',v_item->>'taxpayer_name',
+      coalesce(v_item->>'coverage_tier',''),coalesce(v_item->>'risk_level',''),
+      coalesce(array(select jsonb_array_elements_text(
+        case when jsonb_typeof(v_item->'signals')='array' then v_item->'signals' else '[]'::jsonb end
+      )),array[]::text[]),
+      coalesce(v_item->>'data_quality',''),v_uid
+    );
+  end loop;
+  return v_batch;
+end $$;
+revoke all on function public.office_audit_create_batch(text,text,text,text,text,text,jsonb)
+  from public,anon;
+grant execute on function public.office_audit_create_batch(text,text,text,text,text,text,jsonb)
+  to authenticated;
