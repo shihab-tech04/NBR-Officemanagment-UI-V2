@@ -117,3 +117,102 @@ for (const { name, raw, code } of rejected) {
 
 console.log("PASS_SCOPED_WS04_EDGE_PG17_CANONICAL_SAFE_SUBSET_AND_UNSAFE_DENIAL_ONLY");
 console.log("HOLD: W5 auditTrace numeric shapes, arbitrary keys, signed Auth, ownership and full JSONB parity unapproved.");
+
+
+// Versioned, review-only alternative: transfer the EXACT Edge canonical UTF-8
+// text alongside its SHA-256 and the JSONB value. PostgreSQL independently
+// verifies byte digest AND decoded JSONB semantic equality, without pretending
+// that jsonb::text reproduces JS number formatting or UTF-16 key ordering.
+// This is NOT a production authorization boundary: arbitrary callers can
+// recompute hashes; only a separately verified signed-owner gate could permit
+// use. The existing private atomic RPC is deliberately unchanged.
+const ENVELOPE_VERSION = "NBR_EDGE_CANONICAL_JSON_UTF8_SHA256_V1_REVIEW";
+const envelopeSql = [
+  "BEGIN;",
+  "CREATE FUNCTION pg_temp.ws02_verify_edge_envelope(",
+  "  p_trace jsonb, p_bytes text, p_sha text, p_version text)",
+  "RETURNS boolean LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER",
+  "SET search_path=pg_catalog AS $envelope$",
+  "DECLARE parsed jsonb;",
+  "BEGIN",
+  " IF p_trace IS NULL OR pg_catalog.jsonb_typeof(p_trace) IS DISTINCT FROM 'object'",
+  "    OR p_bytes IS NULL OR p_sha IS NULL",
+  "    OR p_version IS DISTINCT FROM 'NBR_EDGE_CANONICAL_JSON_UTF8_SHA256_V1_REVIEW'",
+  "    OR p_sha !~ '^[0-9a-f]{64}$'",
+  "    OR pg_catalog.octet_length(p_bytes) > 262144 THEN RETURN false; END IF;",
+  " IF p_sha IS DISTINCT FROM pg_catalog.encode(",
+  "   pg_catalog.sha256(pg_catalog.convert_to(p_bytes,'UTF8')),'hex')",
+  " THEN RETURN false; END IF;",
+  " parsed := p_bytes::jsonb;",
+  " RETURN parsed = p_trace;",
+  "EXCEPTION WHEN OTHERS THEN RETURN false;",
+  "END $envelope$;",
+].join("\n");
+const sqlLiteral = (s) => "'" + s.replaceAll("'", "''") + "'";
+function verifyEnvelope(raw, bytes, claimedSha, version) {
+  // Only synthetic, local fixtures are interpolated; no untrusted input.
+  const sql = envelopeSql + "\nSELECT CASE WHEN pg_temp.ws02_verify_edge_envelope(" +
+    sqlLiteral(raw) + "::jsonb," + sqlLiteral(bytes) + "," +
+    sqlLiteral(claimedSha) + "," + sqlLiteral(version) +
+    ") THEN 'WS02_ENVELOPE_ACCEPT' ELSE 'WS02_ENVELOPE_DENY' END;\nROLLBACK;\n";
+  const r = spawnSync("psql", ["-X", "-Atq", "-v", "ON_ERROR_STOP=1"], {
+    input: sql, encoding: "utf8", timeout: 20000,
+  });
+  assert.equal(r.status, 0, "PG17 envelope query failed: " + r.stderr);
+  const result = r.stdout.trim().split("\n").find((line) =>
+    line === "WS02_ENVELOPE_ACCEPT" || line === "WS02_ENVELOPE_DENY");
+  assert.ok(result, "PG17 envelope result missing: " + r.stdout);
+  return result === "WS02_ENVELOPE_ACCEPT";
+}
+const versionedFixtures = [
+  {
+    name: "full_json_types_numeric_exponents_unicode_keys",
+    trace: {
+      "বাংলা": { "😀": "astral", "é": "accent", zero: -0, fraction: 0.0000001,
+        big: 1e21, small: 0.1, safe_integer: 9007199254740991 },
+      arrays: [null, true, false, [], {}, ["বাংলা", "emoji 😀", 1.5]],
+      nested: { evidence: { sources: [{ year: 2026, rate: 2.75 }] } },
+    },
+  },
+  {
+    name: "edge_audit_shape_nested_numeric_amounts",
+    trace: {
+      actor_user_id: "synthetic-only", assessment_year: "2026-27",
+      income_year: "2025-26", result_status: "NEEDS_FACTS",
+      amounts: { gross: 100000.5, deduction: 1e-7, negative: -0 },
+      rules: [{ id: "R1", inputs: [0, 1, 1e21], status: "NEEDS_FACTS" }],
+      individual: { flags: [], "প্রমাণ": { "🔑": "value" } },
+    },
+  },
+];
+for (const { name, trace } of versionedFixtures) {
+  const raw = JSON.stringify(trace);
+  const bytes = canonical(trace); // Actual pinned WS04 canonical implementation.
+  const digest = hash(bytes);
+  assert.equal(verifyEnvelope(raw, bytes, digest, ENVELOPE_VERSION), true,
+    name + " valid versioned semantic/digest envelope rejected");
+  assert.equal(verifyEnvelope(raw, bytes, "0".repeat(64), ENVELOPE_VERSION), false,
+    name + " forged digest accepted");
+  assert.equal(verifyEnvelope(raw, bytes + " ", digest, ENVELOPE_VERSION), false,
+    name + " mutated canonical bytes accepted");
+  assert.equal(verifyEnvelope(raw, bytes, digest, "V2_UNAPPROVED"), false,
+    name + " unapproved encoding version accepted");
+  assert.equal(verifyEnvelope(JSON.stringify({ ...trace, injected: true }),
+    bytes, digest, ENVELOPE_VERSION), false,
+    name + " JSONB semantic mismatch accepted");
+}
+const malformedBytes = '{"nested":{"missing":undefined}}';
+assert.equal(verifyEnvelope("{}", malformedBytes, hash(malformedBytes),
+  ENVELOPE_VERSION), false, "invalid canonical JSON accepted");
+const invalidSurrogate = '{"key":"\\ud800"}';
+assert.equal(verifyEnvelope("{}", invalidSurrogate, hash(invalidSurrogate),
+  ENVELOPE_VERSION), false, "PostgreSQL-unrepresentable surrogate accepted");
+assert.equal(verifyEnvelope("[]", "[]", hash("[]"), ENVELOPE_VERSION),
+  false, "non-object auditTrace accepted");
+
+// This candidate intentionally does NOT prove a canonical-string uniqueness
+// check inside PostgreSQL: alternate JSON encodings can hash and decode to the
+// same JSONB. A trusted Edge producer, authenticated ownership, strict RPC
+// privileges and review of numeric/surrogate semantics remain required.
+console.log("PASS_SCOPED_VERSIONED_EDGE_BYTES_PG17_SEMANTIC_BINDING_ONLY");
+console.log("HOLD: No PostgreSQL canonical uniqueness proof, no private RPC enforcement, no hosted Auth/ownership, no tax certification.");
