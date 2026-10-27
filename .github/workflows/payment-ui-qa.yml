@@ -16,6 +16,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Payment navigation and fixture tests
         run: npx vitest run src/test/paymentsNavigation.test.ts src/app/pages/payments/__tests__/paymentReference.test.ts src/app/pages/payments/__tests__/paymentScenarioModel.test.ts
+      - name: Notification session read state and verified SQL amount regressions
+        run: npx vitest run src/app/services/__tests__/demoNotificationReadState.test.ts src/app/store/__tests__/paymentSqlNotifications.test.ts
       - name: Compile project for GitHub Pages
         run: npm run build
         env:
