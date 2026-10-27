@@ -1664,10 +1664,6 @@ BEGIN
  IF ws02_owner.nbr_commit_evaluation_atomically(
   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',payload) THEN
   RAISE EXCEPTION 'NESTED_JSONB_DUPLICATE_RECEIPT_ACCEPTED'; END IF;
- IF (SELECT audit_trace FROM ws02_owner.evaluation_logs
-     WHERE idem_key=idem AND actor_id=actor AND record_id=rec)
-    IS DISTINCT FROM payload THEN
-  RAISE EXCEPTION 'NESTED_JSONB_FULL_PAYLOAD_CHANGED'; END IF;
 END $nested_trace_commit$;
 RESET ROLE;
 DO $nested_trace_readback$
@@ -1680,7 +1676,24 @@ DECLARE expected_evidence jsonb:=jsonb_build_array(
   'facts',jsonb_build_array()));
  expected_review jsonb:=jsonb_build_object('pending',true,
   'notes',jsonb_build_array('no statutory approval','no production use'));
+ expected_full jsonb;
 BEGIN
+ -- Readback runs after RESET ROLE: the synthetic Edge role intentionally
+ -- has no direct SELECT on private audit logs.
+ expected_full:=jsonb_build_object(
+  'actor_user_id','60000000-0000-4000-8000-000000000001',
+  'taxpayer_record_id','50000000-0000-4000-8000-000000000009',
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',repeat('a',64),
+  'receipt_hash',repeat('b',64),
+  'idempotency_key','nested-jsonb-provenance-00001',
+  'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW',
+  'evidence',expected_evidence,'review',expected_review);
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs
+     WHERE idem_key='nested-jsonb-provenance-00001'
+       AND audit_trace=expected_full)<>1 THEN
+  RAISE EXCEPTION 'NESTED_JSONB_FULL_PAYLOAD_CHANGED'; END IF;
  IF (SELECT count(*) FROM ws02_owner.slots
      WHERE idem_key='nested-jsonb-provenance-00001'
        AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
