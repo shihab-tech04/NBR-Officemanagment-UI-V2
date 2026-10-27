@@ -6,6 +6,7 @@ import svgPaths from "../../../imports/CompanyAdminLogin/svg-mhvw7bsa5p";
 import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
+import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -20,10 +21,43 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [entryError, setEntryError] = useState(false);
-  const handleSignIn = () => {
+  const [sharedError, setSharedError] = useState("");
+  const [sharedBusy, setSharedBusy] = useState(false);
+  const sharedMode = isSharedAuditMode();
+  const handleSignIn = async () => {
+    if (sharedBusy) return;
+    if (sharedMode) {
+      setSharedError("");
+      if (!userId.trim() || !password) {
+        setSharedError("Officer email and password are required.");
+        return;
+      }
+      setSharedBusy(true);
+      try {
+        const db = getAuditSqlClient();
+        const { error } = await db.auth.signInWithPassword({
+          email: userId.trim(), password,
+        });
+        if (error) throw new Error("Officer sign-in failed.");
+        try {
+          await checkAuditSqlAccess();
+        } catch {
+          await db.auth.signOut();
+          throw new Error("An active Audit officer membership is required.");
+        }
+        setPassword("");
+        onOfficeEnter?.();
+        navigate("/dashboard/dashboard-main");
+      } catch (error) {
+        setSharedError(error instanceof Error ? error.message : "Officer sign-in failed.");
+      } finally {
+        setSharedBusy(false);
+      }
+      return;
+    }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
-    // Optional password is never checked, transmitted, or stored.
+    // Prototype sign-in is NOT an SQL identity and cannot authorize shared Audit.
     void password;
     onOfficeEnter?.();
     navigate("/dashboard/dashboard-main");
@@ -71,34 +105,36 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           <div className="flex flex-col gap-5">
             <AppTextField
               id="login-user-id"
-              label={translate("login.userId")}
+              label={sharedMode ? "Officer email" : translate("login.userId")}
               value={userId}
-              onChange={value => { setUserId(value); setEntryError(false); }}
+              onChange={value => { setUserId(value); setEntryError(false); setSharedError(""); }}
               onKeyDown={handleKeyDown}
-              placeholder={translate("login.userIdPlaceholder")}
-              autoComplete="off"
-              error={entryError ? translate("login.adminOnly") : undefined}
+              placeholder={sharedMode ? "Enter your authorized email" : translate("login.userIdPlaceholder")}
+              autoComplete={sharedMode ? "username" : "off"}
+              error={!sharedMode && entryError ? translate("login.adminOnly") : undefined}
             />
             <AppTextField
               id="login-password"
               type="password"
               label={translate("login.password")}
-              placeholder={translate("login.passwordOptionalPlaceholder")}
+              placeholder={sharedMode ? "Password" : translate("login.passwordOptionalPlaceholder")}
               value={password}
-              onChange={setPassword}
-              autoComplete="off"
+              onChange={value => { setPassword(value); setSharedError(""); }}
+              autoComplete={sharedMode ? "current-password" : "off"}
             />
             <button
               type="button"
-              onClick={handleSignIn}
+              onClick={() => { void handleSignIn(); }}
+              disabled={sharedBusy}
               className="login-form-submit"
             >
-              <span>{translate("login.signIn")}</span>
+              <span>{sharedBusy ? "Signing in..." : translate("login.signIn")}</span>
             </button>
 
-            <p className="text-[13px] text-center text-[var(--color-text-secondary)]">
+            {sharedError && <p role="alert" className="text-[14px] text-[var(--color-error)">{sharedError}</p>}
+            {!sharedMode && <p className="text-[14px] text-center text-[var(--color-text-secondary)]">
               {translate("login.needHelp")}
-            </p>
+            </p>}
           </div>
         </div>
       </div>
