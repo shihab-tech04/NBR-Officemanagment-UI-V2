@@ -171,7 +171,7 @@ assert.match(direct.stderr, /permission denied for function/, 'LEGACY_ATOMIC_RPC
 const acl = pg(`SELECT has_function_privilege('ws02_owner_engine',
  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
  'EXECUTE')::text;`);
-assert.deepEqual(acl, ['f'], 'DIRECT_ATOMIC_GRANT_REAPPEARED');
+assert.deepEqual(acl, ['false'], 'DIRECT_ATOMIC_GRANT_REAPPEARED');
 
 console.log('PASS_SCOPED_WS04_VERSIONED_BYTES_PRIVATE_ATOMIC_ENVELOPE_THREE_STATES_AND_BYPASS_DENIAL_ONLY');
 console.log('HOLD: synthetic role only; SQL checks supplied bytes/digest/JSONB equality, not independent JS canonicality or trusted producer. No signed Auth, real owner source, statutory amounts or deployment.');
