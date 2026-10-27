@@ -113,7 +113,7 @@ export async function listSharedAuditCandidates(year?: string): Promise<AuditCan
   return (data ?? []).map(item => mapSqlAuditCandidate(item as unknown as SqlCandidate));
 }
 
-function candidateInputs(rows: TableRow[], year: string, zone: string) {
+export function candidateInputs(rows: TableRow[], year: string, zone: string) {
   if (!rows.length || rows.length > 2000 || !year || !zone ||
       /all zones|সব.*জোন|^—$/i.test(zone)) {
     throw new Error("Choose one zone, assessment year and 1–2000 candidate rows");
