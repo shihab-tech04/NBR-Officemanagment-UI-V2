@@ -8,6 +8,7 @@ import {
 } from "../store/notificationsSlice";
 import { useNotificationsState } from "./useNotificationsState";
 import type { Notification } from "../store/notificationsSlice";
+import { markDemoNoticeViewed, markAllDemoNoticesViewed } from "../services/demoNotificationReadState";
 
 // Re-export for backwards compat
 export type { Notification };
@@ -21,6 +22,7 @@ export function useNotifications(
 
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
+      if (notification.type === "payment") markDemoNoticeViewed(notification.id);
       dispatch(markNotificationRead(notification.id));
       const { main, sub, third } = notification.destination;
       const path = third ? `/${main}/${sub}/${third}` : sub ? `/${main}/${sub}` : `/${main}`;
@@ -30,8 +32,9 @@ export function useNotifications(
   );
 
   const handleMarkAllRead = useCallback(() => {
+    markAllDemoNoticesViewed(notifications.filter(n => n.type === "payment").map(n => n.id));
     dispatch(markAllNotificationsRead());
-  }, [dispatch]);
+  }, [dispatch, notifications]);
 
   return {
     notifications,

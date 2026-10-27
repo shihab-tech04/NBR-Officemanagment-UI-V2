@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { MOCK_NOTIFICATIONS } from "../data/mockData";
 import type { Notification, NotificationType, NotificationPriority } from "../data/mockData";
 import type { StoryNotice, StoryPayment } from "../pages/payments/story1OfficeApi";
+import type { DemoNoticeReadState } from "../services/demoNotificationReadState";
 
 // Re-export notification types for convenience
 export type { Notification, NotificationType, NotificationPriority };
@@ -32,12 +33,15 @@ const notificationsSlice = createSlice({
       state.items.forEach((n) => { n.isRead = true; });
       state.readThroughMs = Date.now();
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn" }>) {
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
       const previousRead = new Map(state.items.map(notice => [notice.id, notice.isRead]));
       const seen = new Set<string>();
       const bn = action.payload.language === "bn";
+      const saved = action.payload.tabReadState;
+      const savedIds = new Set(saved?.ids ?? []);
+      const readThrough = Math.max(state.readThroughMs ?? 0, saved?.readThroughMs ?? 0);
       const mirrored: Notification[] = [];
       // A notice alone contains no amount. Resolve it only against an exact
       // matching stored SQL transaction; a missing/invalid amount fails closed.
@@ -61,7 +65,7 @@ const notificationsSlice = createSlice({
                       : `Simulated amount ${amount} recorded in Office. No government settlement is confirmed.`,
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
-          isRead: previousRead.get(id) ?? (state.readThroughMs !== null && Date.parse(event.createdAt) <= state.readThroughMs),
+          isRead: previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
           destination: { main: "payments", sub: "transactions" },
         });
       }
