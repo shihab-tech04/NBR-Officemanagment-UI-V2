@@ -38,7 +38,7 @@ const base = {
   contract_version: 'NBR_ENGINE_CITIZEN_V2_REVIEW',
 };
 test('W5 auditTrace producer guard is wired before the private atomic RPC', () => {
-  const guardCall = source.indexOf('sha256(verifiedCanonicalAuditTrace(auditTrace))');
+  const guardCall = source.indexOf('const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);');
   const commitCall = source.indexOf('"nbr_commit_evaluation_atomically"', guardCall);
   assert.ok(guardCall > 0 && commitCall > guardCall);
   assert.ok(source.slice(guardCall, commitCall).includes('AUDIT_TRACE_ENCODING_UNSAFE'));
