@@ -23,6 +23,7 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
+import { useSettings } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
@@ -1065,13 +1066,22 @@ export function AuditCandidatesPage({
   initialInitiateOpen = false,
 }: AuditCandidatesPageProps) {
   const { isDesktop } = useUIState();
+  const { assessmentYear } = useSettings();
   const { t, i18n } = useTranslation("audit");
   const { t: tc } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [rows, setRows] = useState<AuditCandidateRecord[]>(() =>
+  const [storedRows, setStoredRows] = useState<AuditCandidateRecord[]>(() =>
     getAuditCandidates(),
   );
+  // A direct batch/candidate link is an explicit year selection. Otherwise
+  // the shared Office AY selector controls the visible candidate population.
+
+  const rows = useMemo(() => {
+    const explicitRecord = searchParams.has("batch") || searchParams.has("candidate");
+    return explicitRecord ? storedRows
+      : storedRows.filter(candidate => candidate.assessment_year === assessmentYear);
+  }, [storedRows, assessmentYear, searchParams]);
   const routeBatchId = searchParams.get("batch");
   const routeCandidateId = searchParams.get("candidate");
   const routeSelectionTrack = searchParams.get("selectionTrack");
@@ -2327,7 +2337,7 @@ export function AuditCandidatesPage({
           open
           onClose={() => setInitiateOpen(false)}
           onConfirmed={() => {
-            setRows(getAuditCandidates());
+            setStoredRows(getAuditCandidates());
             setSelectedBatchId(null);
             setSelectedCandidateId(null);
             setSearchParams({});
