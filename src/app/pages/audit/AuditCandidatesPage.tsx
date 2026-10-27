@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -30,9 +31,11 @@ import { fc } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
+  loadAuditCandidates,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
+import { isAuditSqlMode } from "./auditSqlGateway";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
@@ -1082,6 +1085,16 @@ export function AuditCandidatesPage({
     return explicitRecord ? storedRows
       : storedRows.filter(candidate => candidate.assessment_year === assessmentYear);
   }, [storedRows, assessmentYear, searchParams]);
+  useEffect(() => {
+    if (!isAuditSqlMode()) return;
+    let cancelled = false;
+    loadAuditCandidates(assessmentYear).then(next => {
+      if (!cancelled) setStoredRows(next);
+    }).catch(error => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "Audit SQL read failed");
+    });
+    return () => { cancelled = true; };
+  }, [assessmentYear]);
   const routeBatchId = searchParams.get("batch");
   const routeCandidateId = searchParams.get("candidate");
   const routeSelectionTrack = searchParams.get("selectionTrack");
@@ -2337,7 +2350,12 @@ export function AuditCandidatesPage({
           open
           onClose={() => setInitiateOpen(false)}
           onConfirmed={() => {
-            setStoredRows(getAuditCandidates());
+            if (isAuditSqlMode()) {
+              loadAuditCandidates(assessmentYear).then(setStoredRows)
+                .catch(error => toast.error(error instanceof Error ? error.message : "Audit SQL read failed"));
+            } else {
+              setStoredRows(getAuditCandidates());
+            }
             setSelectedBatchId(null);
             setSelectedCandidateId(null);
             setSearchParams({});
