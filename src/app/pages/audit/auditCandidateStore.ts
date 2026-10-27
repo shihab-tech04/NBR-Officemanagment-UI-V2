@@ -1,5 +1,6 @@
 import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
+import { isAuditSqlMode, fetchSharedAuditCandidates, createSharedAuditBatch } from "./auditSqlGateway";
 
 export interface AuditCandidateRecord extends TableRow {
   candidate_id: string;
@@ -174,6 +175,8 @@ function normalizeCandidate(item: AuditCandidateRecord): AuditCandidateRecord {
 }
 
 export function getAuditCandidates(): AuditCandidateRecord[] {
+  // SQL mode has no demo fallback; consumers must await the verified source.
+  if (isAuditSqlMode()) return [];
   const seeded = seedCandidates();
   if (!canUseStorage()) return seeded;
 
@@ -215,6 +218,29 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
   }
 }
 
+export async function loadAuditCandidates(assessmentYear:string):Promise<AuditCandidateRecord[]> {
+  return isAuditSqlMode()
+    ? fetchSharedAuditCandidates(assessmentYear)
+    : getAuditCandidates().filter(candidate => candidate.assessment_year === assessmentYear);
+}
+
+export async function saveAuditCandidates(
+  rows: TableRow[],
+  meta: Parameters<typeof addAuditCandidates>[1],
+): Promise<AuditCandidateRecord[]> {
+  if (!isAuditSqlMode()) return addAuditCandidates(rows, meta);
+  await createSharedAuditBatch({
+    assessmentYear: meta.assessmentYear,
+    zone: meta.zone,
+    track: meta.track,
+    selectionBasis: meta.selectionBasis,
+    funnelRule: meta.funnelRule,
+    rows,
+  });
+  // Read-back is required and never falls back to localStorage.
+  return fetchSharedAuditCandidates(meta.assessmentYear);
+}
+
 export function addAuditCandidates(
   rows: TableRow[],
   meta: {
@@ -230,6 +256,7 @@ export function addAuditCandidates(
     finalCandidates: number;
   },
 ): AuditCandidateRecord[] {
+  if (isAuditSqlMode()) throw new Error("Audit SQL mode requires verified asynchronous save");
   const existing = getAuditCandidates();
   const selectedOn = new Date().toISOString().slice(0, 10);
   const batchToken = Date.now().toString();
