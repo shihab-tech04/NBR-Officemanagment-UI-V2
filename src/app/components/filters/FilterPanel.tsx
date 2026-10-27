@@ -14,6 +14,7 @@ interface FilterPanelProps {
   onChange: (k: string, v: string) => void;
   onApply: () => void;
   onReset: () => void;
+  showReset?: boolean;
   cardLayout?: boolean;
   resetLabel?: string;
   applyLabel?: string;
@@ -27,6 +28,7 @@ export function FilterPanel({
   onChange,
   onApply,
   onReset,
+  showReset = true,
   cardLayout = false,
   resetLabel,
   applyLabel,
@@ -114,13 +116,15 @@ export function FilterPanel({
 
   const actions = (
     <>
-      <SecondaryButton
-        size="sm"
-        onClick={onReset}
-        aria-label={resetLabel || translate("buttons.reset") || "Reset filters"}
-      >
-        {resetLabel || translate("buttons.reset")}
-      </SecondaryButton>
+      {showReset && (
+        <SecondaryButton
+          size="sm"
+          onClick={onReset}
+          aria-label={resetLabel || translate("buttons.reset") || "Reset filters"}
+        >
+          {resetLabel || translate("buttons.reset")}
+        </SecondaryButton>
+      )}
       <PrimaryButton
         size="sm"
         onClick={onApply}
