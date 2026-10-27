@@ -15,6 +15,7 @@ interface MobileFilterOverlayProps {
   onChange: (k: string, v: string) => void;
   onApply: () => void;
   onReset: () => void;
+  showReset?: boolean;
   onClose: () => void;
   resetLabel?: string;
   applyLabel?: string;
@@ -29,6 +30,7 @@ export function MobileFilterOverlay({
   onChange,
   onApply,
   onReset,
+  showReset = true,
   onClose,
   resetLabel,
   applyLabel,
@@ -47,7 +49,7 @@ export function MobileFilterOverlay({
       <PrimaryButton size="lg" fullWidth onClick={onApply}>
         {applyLabel || translate("buttons.applyFilters")}
       </PrimaryButton>
-      {(activeCount > 0 || resetLabel) && (
+      {showReset && (activeCount > 0 || resetLabel) && (
         <SecondaryButton size="lg" fullWidth onClick={onReset}>
           {resetLabel || translate("buttons.reset")}
         </SecondaryButton>

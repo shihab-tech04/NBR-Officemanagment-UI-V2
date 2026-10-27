@@ -21,7 +21,7 @@ import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
-import { addAuditCandidates } from "./auditCandidateStore";
+import { saveAuditCandidates } from "./auditCandidateStore";
 import { TAX_ZONES } from "../../data/taxZones";
 import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../data/taxJurisdictions";
 
@@ -703,9 +703,10 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     ? modeledMatchedCount * (finalRows.length / matchedRows.length)
     : 0;
 
-  const confirmCandidates = () => {
+  const confirmCandidates = async () => {
     if (!finalRows.length) return;
-    addAuditCandidates(finalRows, {
+    try {
+    await saveAuditCandidates(finalRows, {
       assessmentYear,
       track: t(TRACKS.find((item) => item.id === track)?.titleKey ?? "initiate.tracks.risk.title"),
       selectionBasis,
@@ -717,6 +718,10 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
       afterPreview: matchedRows.length,
       finalCandidates: clampCount(modeledFinalCount),
     });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Candidate confirmation could not be verified");
+      return;
+    }
     toast.success(t("initiate.toast.candidatesConfirmed", { count: finalRows.length }));
     if (track === "risk") {
       setScreeningRun(null);

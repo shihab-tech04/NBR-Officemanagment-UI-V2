@@ -59,8 +59,12 @@ function changePercent(current: number, previous: number): number | null {
 function candidateFromRow(row: TableRow): EvidenceCandidate {
   const returnId = String(row.return_id ?? "—");
   const tin = String(row.tin ?? "—");
+  const year = String(row.assessment_year ?? "").trim();
+  // Never borrow financial evidence from a different assessment year or
+  // another return sharing a partial/masked taxpayer identifier.
   const stored = getAuditCandidates().find(
-    (candidate) => candidate.return_id === returnId || candidate.tin === tin,
+    (candidate) => candidate.return_id === returnId
+      && candidate.assessment_year === year,
   );
 
   if (stored) return stored;

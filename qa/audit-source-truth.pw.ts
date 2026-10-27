@@ -15,7 +15,7 @@ test.beforeEach(async ({page}) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings',JSON.stringify({
-      assessmentYear:'2024-25',themeId:'indigo-blue',fontId:'poppins',fontSizeId:'standard',languageId:'en',
+      assessmentYear:'2025-26',themeId:'indigo-blue',fontId:'poppins',fontSizeId:'standard',languageId:'en',
     }));
   });
 });
@@ -70,4 +70,18 @@ test('reconciliation table is computed from matching candidate and case records'
   await expect(table).toContainText('Loaded selection');
   await expect(table).not.toContainText('Zone summary');
   await expect(table).toContainText('Circle-');
+});
+
+// Negative isolation: the 36-case demonstration fixture belongs to AY 2025-26.
+// Selecting an unrelated AY must show zero rather than leaking those 36 records.
+test('Audit Overview excludes AY 2025-26 demonstration returns when AY 2024-25 is selected', async ({page}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('gov_ui_settings',JSON.stringify({
+      assessmentYear:'2024-25',themeId:'indigo-blue',fontId:'poppins',fontSizeId:'standard',languageId:'en',
+    }));
+  });
+  await page.goto('/audit/audit-overview');
+  await expect(page.locator('.audit-overview-v5 .audit-overview-v5__donut')).toContainText('0');
+  await page.locator('.audit-overview-v5__parameters').getByRole('button',{name:'Risk signal',exact:true}).click();
+  await expect(page.locator('.audit-overview-v5__chart-detail')).toHaveCount(0);
 });
