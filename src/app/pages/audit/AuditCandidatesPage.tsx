@@ -10,7 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
-import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -31,7 +30,6 @@ import { fc } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
-  loadAuditCandidates,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
