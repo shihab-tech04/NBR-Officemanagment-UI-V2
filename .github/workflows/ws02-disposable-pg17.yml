@@ -468,6 +468,28 @@ jobs:
           node --check ws02/evidence/edge_jsonb_digest_parity.node.mjs
           node ws02/evidence/edge_jsonb_digest_parity.node.mjs
           echo 'Scoped candidate only: W5 numeric auditTrace and arbitrary-key parity remain HOLD.'
+      - name: Checkout exact WS04 validated-snapshot producer (review only)
+        uses: actions/checkout@v4
+        with:
+          ref: 9a0fafb2bde5cb8fa9e37eaa60a150f8760f3b24
+          path: ws04-current-reviewed-source
+          persist-credentials: false
+      - name: Set up Node 22 for actual WS04 TypeScript helper extraction
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Integrate actual WS04 snapshot with private WS02 atomic RPC on disposable PG17
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Isolated synthetic DDL only. Never connect to a Supabase project.
+          awk '/^INSERT INTO ws02_owner.owners\\(record_id,assessment_year,actor_id,state\\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_ws04_snapshot_ddl.sql
+          echo 'COMMIT;' >> /tmp/ws02_ws04_snapshot_ddl.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_ws04_snapshot_ddl.sql > /tmp/ws02_ws04_snapshot_setup.log
+          node --check ws02/evidence/ws04_snapshot_atomic_pg17.node.mjs
+          node ws02/evidence/ws04_snapshot_atomic_pg17.node.mjs
+          psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
+          echo 'PASS_SCOPED_WS04_TO_WS02_PG17_NO_AUTH_NO_PRODUCTION'
       - name: Verify read-only candidate overlay integrity (not law approval)
         shell: bash
         run: node ws02/evidence/verify-temporal-review.mjs
