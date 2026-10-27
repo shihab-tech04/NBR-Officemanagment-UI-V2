@@ -18,6 +18,8 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
+import { isAuditSqlMode } from "./auditSqlGateway";
+import { useSettings } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
@@ -32,7 +34,7 @@ const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
-import { getAuditCandidates } from "./auditCandidateStore";
+import { getAuditCandidates, loadAuditCandidates, type AuditCandidateRecord } from "./auditCandidateStore";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
 
@@ -237,6 +239,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
               onChange={handleFilterChange}
               onApply={handleFilterApply}
               onReset={handleFilterReset}
+              showReset={false}
               sortSelectOptions
               searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
             />
@@ -285,6 +288,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
           onChange={handleFilterChange}
           onApply={handleFilterApply}
           onReset={handleFilterReset}
+              showReset={false}
           onClose={handleFilterToggle}
           sortSelectOptions
           searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
@@ -298,6 +302,7 @@ function AuditOverviewPage() {
   const { t, i18n } = useTranslation("audit");
   const { t: translateTables } = useTranslation("tables");
   const navigate = useNavigate();
+  const { assessmentYear } = useSettings();
 
   type ExploreMetric = "risk_level" | "signals" | "coverage_tier" | "data_quality" | "circle" | "audit_state" | "control_flags" | "assessment_year" | "return_version";
   type WorkloadMetric = "candidates" | "active" | "evidence" | "controls" | "secondReview" | "closed";
@@ -318,8 +323,21 @@ function AuditOverviewPage() {
   const [circleQuery, setCircleQuery] = useState("");
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
 
-  const candidates = getAuditCandidates();
-  const population = ALL_TAXPAYER_ROWS;
+  const [sharedCandidates, setSharedCandidates] = useState<AuditCandidateRecord[]>([]);
+  useEffect(() => {
+    if (!isAuditSqlMode()) return;
+    let cancelled = false;
+    loadAuditCandidates(assessmentYear).then(records => {
+      if (!cancelled) setSharedCandidates(records);
+    }).catch(() => { if (!cancelled) setSharedCandidates([]); });
+    return () => { cancelled = true; };
+  }, [assessmentYear]);
+  const candidates = isAuditSqlMode()
+    ? sharedCandidates
+    : getAuditCandidates().filter(candidate => candidate.assessment_year === assessmentYear);
+  const population = ALL_TAXPAYER_ROWS.filter(
+    row => String(row.assessment_year ?? "") === assessmentYear
+  );
 
   // Live dashboard controls are derived from the exact locally loaded records.
   // Published NBR national numbers are historical context, never scaling factors.
