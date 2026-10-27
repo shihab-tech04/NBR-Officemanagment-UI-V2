@@ -93,4 +93,30 @@ test('W5 canonical encoding rejects altered bytes and accepts Unicode scalar pai
   assert.notEqual(bytes, bytes + ' ');
   assert.notEqual(sha(bytes), sha(bytes + ' '));
 });
+
+test('atomic RPC receives a validated immutable-by-copy JSON snapshot, not the mutable producer object', () => {
+  const start = source.indexOf('const auditTrace = {');
+  const end = source.indexOf('if (atomicCommitError', start);
+  assert.ok(start > 0 && end > start, 'MISSING_ATOMIC_TRACE_BOUNDARY');
+  const segment = source.slice(start, end);
+  assert.ok(segment.includes('const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);'));
+  assert.ok(segment.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
+  assert.ok(segment.includes('auditTraceHash = await sha256(canonicalAuditTrace);'));
+  assert.ok(segment.includes('p_audit_trace: validatedAuditTrace,'));
+  assert.ok(!segment.includes('p_audit_trace: auditTrace,'));
+  const producer = structuredClone(base);
+  const canonicalBytes = verifiedCanonicalAuditTrace(producer);
+  const transmitted = JSON.parse(canonicalBytes);
+  const originalDigest = sha(canonicalBytes);
+  producer.actor_user_id = '60000000-0000-4000-8000-000000000099';
+  producer.rules[0].trace['প্রমাণ'][1]['🔑'] = false;
+  producer.rules.push({ id: 'injected-after-validation' });
+  assert.equal(sha(verifiedCanonicalAuditTrace(transmitted)), originalDigest);
+  assert.deepEqual(JSON.parse(canonicalBytes), transmitted);
+  assert.notEqual(sha(verifiedCanonicalAuditTrace(producer)), originalDigest);
+  assert.equal(transmitted.actor_user_id, base.actor_user_id);
+  assert.equal(transmitted.rules.length, 1);
+  assert.equal(transmitted.rules[0].trace['প্রমাণ'][1]['🔑'], true);
+});
+
 console.log('WS04_AUDIT_TRACE_PRODUCER_FAIL_CLOSED_ISOLATED_ONLY');

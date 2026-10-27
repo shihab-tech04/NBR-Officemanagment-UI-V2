@@ -1749,8 +1749,13 @@ Deno.serve(async (req) => {
       contract_version: CONTRACT_VERSION,
     };
     let auditTraceHash: string;
+    let validatedAuditTrace: Record<string, unknown>;
     try {
-      auditTraceHash = await sha256(verifiedCanonicalAuditTrace(auditTrace));
+      // Send a parsed snapshot of the EXACT bytes hashed. Never pass the
+      // original mutable object across the asynchronous digest/RPC boundary.
+      const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);
+      validatedAuditTrace = JSON.parse(canonicalAuditTrace) as Record<string, unknown>;
+      auditTraceHash = await sha256(canonicalAuditTrace);
     } catch {
       return json({ status:"FAIL_CLOSED", code:"AUDIT_TRACE_ENCODING_UNSAFE",
         error:"Audit evidence could not be encoded without loss" }, 503);
@@ -1765,7 +1770,7 @@ Deno.serve(async (req) => {
         p_receipt_hash: receiptHash,
         p_trace_hash: auditTraceHash,
         p_result_state: fullReturnStatus,
-        p_audit_trace: auditTrace,
+        p_audit_trace: validatedAuditTrace,
       });
     if (atomicCommitError || atomicCommit !== true) {
       return json({ status:"FAIL_CLOSED", code:"AUDIT_ATOMIC_COMMIT_UNAVAILABLE",
