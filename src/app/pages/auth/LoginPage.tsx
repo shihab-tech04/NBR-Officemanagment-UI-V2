@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LoginBrandPanel } from "../../components/auth/LoginBrandPanel";
 import { LoginForm } from "../../components/auth/LoginForm";
-import { ForgotPasswordModal } from "../../components/auth/ForgotPasswordModal";
 import imgFileReturns from "../../../imports/ChatGPT_Image_Jun_10__2026__05_25_31_PM.png";
 import imgTrackApprovals from "../../../imports/ChatGPT_Image_Jun_10__2026__05_22_53_PM.png";
 import imgStayUpdated from "../../../imports/ChatGPT_Image_Jun_10__2026__05_27_47_PM.png";
 
 export function LoginPage({ onOfficeEnter }: { onOfficeEnter?: () => void }) {
   const { t: translate } = useTranslation("auth");
-  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   const slides = [
@@ -65,15 +63,10 @@ export function LoginPage({ onOfficeEnter }: { onOfficeEnter?: () => void }) {
 
         <LoginForm
           isDesktop={isDesktop}
-          onForgotPassword={() => setForgotPasswordOpen(true)}
           onOfficeEnter={onOfficeEnter}
         />
       </div>
 
-      <ForgotPasswordModal
-        open={forgotPasswordOpen}
-        onClose={() => setForgotPasswordOpen(false)}
-      />
     </div>
   );
 }

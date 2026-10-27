@@ -1,6 +1,5 @@
 import { configureStore, type Middleware } from "@reduxjs/toolkit";
 import settingsReducer, { saveSettings } from "./settingsSlice";
-import authReducer, { saveAuth } from "./authSlice";
 import currentUserReducer from "./currentUserSlice";
 import notificationsReducer from "./notificationsSlice";
 import uiReducer from "./uiSlice";
@@ -19,16 +18,12 @@ const localStorageMiddleware: Middleware = (storeAPI) => (next) => (action) => {
   if (type.startsWith("settings/")) {
     saveSettings(storeAPI.getState().settings);
   }
-  if (type.startsWith("auth/")) {
-    saveAuth(storeAPI.getState().auth);
-  }
   return result;
 };
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 export const store = configureStore({
   reducer: {
-    auth: authReducer,
     settings: settingsReducer,
     currentUser: currentUserReducer,
     notifications: notificationsReducer,

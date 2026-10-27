@@ -14,21 +14,20 @@ import { HelpDrawer } from "../components/help/HelpDrawer";
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
-  // Initial Office access remains open. Only an explicit user sign-out shows
-  // the existing entry screen; this browser flag is not an authorization gate.
+  // A local, presentation-only entry screen. It does not grant database permissions.
   const [signedOut, setSignedOut] = useState(() => {
-    try { return window.sessionStorage.getItem("office_ui_signed_out") === "true"; }
-    catch { return false; }
+    try { return window.sessionStorage.getItem("office_ui_entered") !== "admin"; }
+    catch { return true; }
   });
   useAppearance();
 
   const handleSignOut = () => {
-    try { window.sessionStorage.setItem("office_ui_signed_out", "true"); }
+    try { window.sessionStorage.removeItem("office_ui_entered"); }
     catch { /* Private browsing may prevent storage. */ }
     setSignedOut(true);
   };
   const handleEnterOffice = () => {
-    try { window.sessionStorage.removeItem("office_ui_signed_out"); }
+    try { window.sessionStorage.setItem("office_ui_entered", "admin"); }
     catch { /* The current tab still transitions into the office. */ }
     setSignedOut(false);
   };
