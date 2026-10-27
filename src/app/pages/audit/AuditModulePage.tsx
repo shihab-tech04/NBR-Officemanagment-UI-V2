@@ -18,6 +18,7 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
+import { useSettings } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
@@ -300,6 +301,7 @@ function AuditOverviewPage() {
   const { t, i18n } = useTranslation("audit");
   const { t: translateTables } = useTranslation("tables");
   const navigate = useNavigate();
+  const { assessmentYear } = useSettings();
 
   type ExploreMetric = "risk_level" | "signals" | "coverage_tier" | "data_quality" | "circle" | "audit_state" | "control_flags" | "assessment_year" | "return_version";
   type WorkloadMetric = "candidates" | "active" | "evidence" | "controls" | "secondReview" | "closed";
@@ -320,8 +322,12 @@ function AuditOverviewPage() {
   const [circleQuery, setCircleQuery] = useState("");
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
 
-  const candidates = getAuditCandidates();
-  const population = ALL_TAXPAYER_ROWS;
+  const candidates = getAuditCandidates().filter(
+    candidate => candidate.assessment_year === assessmentYear
+  );
+  const population = ALL_TAXPAYER_ROWS.filter(
+    row => String(row.assessment_year ?? "") === assessmentYear
+  );
 
   // Live dashboard controls are derived from the exact locally loaded records.
   // Published NBR national numbers are historical context, never scaling factors.
