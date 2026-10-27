@@ -9,7 +9,7 @@ describe("Office prototype transport never forwards old login credentials", () =
 
   it("ignores stale legacy bearer tokens from localStorage", async () => {
     localStorage.setItem("auth_token", "a-stale-officer-token");
-    const request = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const request = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200 }));
     vi.stubGlobal("fetch", request);
     const result = await apiRequest<{ ok: boolean }>("/health");
     expect(result.ok).toBe(true);
