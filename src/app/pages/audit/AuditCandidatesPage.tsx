@@ -30,9 +30,11 @@ import { fc } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
+  loadAuditCandidates,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
+import { isSharedAuditMode } from "./auditSharedSql";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
@@ -105,6 +107,7 @@ function controlFlagIds(value: unknown): string[] {
 }
 
 function getSourceTaxpayer(candidate: AuditCandidateRecord): TableRow | undefined {
+  if (isSharedAuditMode()) return undefined;
   return ALL_TAXPAYER_ROWS.find(
     (row) =>
       (String(row.return_id ?? "") === candidate.return_id &&
@@ -1074,6 +1077,32 @@ export function AuditCandidatesPage({
   const [storedRows, setStoredRows] = useState<AuditCandidateRecord[]>(() =>
     getAuditCandidates(),
   );
+  const [sharedDataError, setSharedDataError] = useState("");
+  const [sharedDataLoading, setSharedDataLoading] = useState(isSharedAuditMode());
+  const refreshCandidates = async () => {
+    if (!isSharedAuditMode()) {
+      setStoredRows(getAuditCandidates());
+      return;
+    }
+    setSharedDataLoading(true);
+    setSharedDataError("");
+    try {
+      // A direct candidate link can belong to another year. SQL RLS remains
+      // authoritative for all returned rows; the current AY filters otherwise.
+      const data = await loadAuditCandidates();
+      setStoredRows(data);
+    } catch (e) {
+      setStoredRows([]);
+      setSharedDataError(e instanceof Error ? e.message : "Audit SQL source unavailable");
+    } finally {
+      setSharedDataLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!isSharedAuditMode()) return;
+    void refreshCandidates();
+  }, [assessmentYear]);
+
   // A direct batch/candidate link is an explicit year selection. Otherwise
   // the shared Office AY selector controls the visible candidate population.
 
@@ -1173,7 +1202,7 @@ export function AuditCandidatesPage({
   );
 
   const comparison = useMemo(
-    () => (selectedCandidate ? buildComparison(selectedCandidate) : []),
+    () => (selectedCandidate && !isSharedAuditMode() ? buildComparison(selectedCandidate) : []),
     [selectedCandidate],
   );
 
@@ -1809,6 +1838,7 @@ export function AuditCandidatesPage({
           </details>
         </section>
 
+        {!isSharedAuditMode() && (
         <section
           className="audit-detail-card audit-comparison-card"
           aria-labelledby="return-comparison-title"
@@ -2075,6 +2105,7 @@ export function AuditCandidatesPage({
               </table>
             </div>
         </section>
+        )}
         <ResponsiveOverlay
           open={quickSummaryOpen}
           onClose={() => setQuickSummaryCandidateId(null)}
@@ -2190,7 +2221,7 @@ export function AuditCandidatesPage({
           <p className="table-page__desc">{tableDescription}</p>
         </div>
 
-        {!selectedBatchId && (
+        {!selectedBatchId && !sharedDataError && !sharedDataLoading && (
           <div className="table-page__actions">
             <button
               type="button"
@@ -2204,6 +2235,17 @@ export function AuditCandidatesPage({
         )}
       </div>
 
+      {isSharedAuditMode() && (sharedDataLoading || sharedDataError) && (
+        <div role={sharedDataError ? "alert" : "status"} className="form-helper">
+          {sharedDataError
+            ? (i18n.resolvedLanguage?.startsWith("bn")
+                ? "অফিসার অ্যাক্সেস বা অডিট ডাটাবেস যাচাই করা যায়নি: "
+                : "Officer access or Audit SQL could not be verified: ") + sharedDataError
+            : (i18n.resolvedLanguage?.startsWith("bn")
+                ? "অনুমোদিত অডিট রেকর্ড লোড হচ্ছে"
+                : "Loading authorized Audit records")}
+        </div>
+      )}
       <MobileSearchFilter
         searchValue={q}
         onSearchChange={(value) => {
@@ -2337,7 +2379,7 @@ export function AuditCandidatesPage({
           open
           onClose={() => setInitiateOpen(false)}
           onConfirmed={() => {
-            setStoredRows(getAuditCandidates());
+            void refreshCandidates();
             setSelectedBatchId(null);
             setSelectedCandidateId(null);
             setSearchParams({});
