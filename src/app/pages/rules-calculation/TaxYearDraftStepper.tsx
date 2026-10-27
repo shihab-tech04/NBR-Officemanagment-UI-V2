@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, ClipboardList, Download, FileCheck2 } from "luci
 import { AppModal } from "../../components/modals/AppModal";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
+import { resolveStepState } from "../../utils/stepState";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { AppTextField } from "../../components/forms/AppTextField";
@@ -103,7 +104,7 @@ export function TaxYearDraftStepper({ onClose }: Props) {
   return <AppModal open={true} onClose={onClose} size="xl" title={tr("Prepare Tax Year", "করবর্ষের খসড়া প্রস্তুতি")} footer={footer}><section className="rules-engine__stepper" >
     <p className="rules-engine__scope" role="status">{tr("Draft only. Files stay in your browser; nothing is saved, legally approved or activated.", "শুধু খসড়া। ফাইল ব্রাউজারেই থাকে; SQL সংরক্ষণ, আইনি অনুমোদন বা হিসাব চালু হয় না।")}</p>
     <nav className="rules-engine__steps" aria-label={tr("Tax-year preparation steps", "করবর্ষ প্রস্তুতির ধাপ")}>
-      {stepLabels.map(([en,bengali],i) => <button key={en} type="button" aria-current={stage === i ? "step" : undefined} disabled={i > stage} className={stage === i ? "rules-engine__step rules-engine__step--current" : "rules-engine__step"} onClick={() => setStage(i)}><span className="rules-engine__step-no">{i + 1}</span><p>{bn ? bengali : en}</p></button>)}
+      {stepLabels.map(([en,bengali],i) => <button key={en} type="button" aria-current={resolveStepState(i, stage).current ? "step" : undefined} disabled={resolveStepState(i, stage).future} className={stage === i ? "rules-engine__step rules-engine__step--current" : "rules-engine__step"} onClick={() => setStage(i)}><span className="rules-engine__step-no">{i + 1}</span><p>{bn ? bengali : en}</p></button>)}
     </nav>
     <div className="rules-engine__panel rules-engine__wizard-panel">
       <h2 className="rules-engine__heading">{bn ? stepLabels[stage][1] : stepLabels[stage][0]}</h2>
