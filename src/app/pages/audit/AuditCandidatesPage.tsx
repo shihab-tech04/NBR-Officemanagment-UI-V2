@@ -106,8 +106,8 @@ function controlFlagIds(value: unknown): string[] {
 function getSourceTaxpayer(candidate: AuditCandidateRecord): TableRow | undefined {
   return ALL_TAXPAYER_ROWS.find(
     (row) =>
-      String(row.return_id ?? "") === candidate.return_id ||
-      String(row.tin ?? "") === candidate.tin,
+      (String(row.return_id ?? "") === candidate.return_id &&
+       String(row.assessment_year ?? "") === candidate.assessment_year),
   );
 }
 
@@ -2269,6 +2269,7 @@ export function AuditCandidatesPage({
               }
               onApply={applyFilters}
               onReset={resetFilters}
+              showReset={false}
               sortSelectOptions
               searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
             />
@@ -2345,6 +2346,7 @@ export function AuditCandidatesPage({
           }
           onApply={applyFilters}
           onReset={resetFilters}
+              showReset={false}
           onClose={() => setShowFilter(false)}
           sortSelectOptions
           searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
