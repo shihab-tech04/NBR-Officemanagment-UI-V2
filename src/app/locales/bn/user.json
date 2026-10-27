@@ -69,12 +69,10 @@
     "viewPermissions": "অনুমতি দেখুন",
     "permissionsCount": "অনুমতি",
     "noModulesAssigned": "এই ভূমিকায় কোনো মডিউল নির্ধারিত নেই",
-    "accountSetup": "অ্যাকাউন্ট সেটআপ",
+    "accountSetup": "কর্মীর প্রোফাইল অবস্থা",
     "status": "অবস্থা",
     "active": "সক্রিয়",
     "inactive": "নিষ্ক্রিয়",
-    "sendInvitation": "ব্যবহারকারীকে আমন্ত্রণ ইমেইল পাঠান",
-    "twoFactorAuth": "দুই-ফ্যাক্টর প্রমাণীকরণ প্রয়োজন (2FA)",
     "saveChanges": "পরিবর্তন সংরক্ষণ করুন",
     "saveUser": "ব্যবহারকারী সংরক্ষণ করুন",
     "cancel": "বাতিল"
@@ -96,11 +94,9 @@
     "roleAccess": "ভূমিকা এবং অ্যাক্সেস",
     "role": "ভূমিকা",
     "level": "স্তর",
-    "twoFactorEnabled": "2FA সক্রিয়",
     "yes": "হ্যাঁ",
     "no": "না",
     "edit": "সম্পাদনা",
-    "resetPassword": "পাসওয়ার্ড রিসেট",
     "deactivate": "নিষ্ক্রিয় করুন",
     "activate": "সক্রিয় করুন",
     "reassign": "পুনঃনির্ধারণ",
@@ -111,7 +107,6 @@
   "actions": {
     "edit": "সম্পাদনা",
     "manageRoles": "ভূমিকা পরিচালনা করুন",
-    "resetPassword": "পাসওয়ার্ড রিসেট করুন",
     "deactivate": "নিষ্ক্রিয় করুন",
     "activate": "সক্রিয় করুন",
     "delete": "মুছে ফেলুন"

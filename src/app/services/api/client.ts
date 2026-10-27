@@ -1,4 +1,4 @@
-// ── API client — replace BASE_URL and headers when backend is ready ──────────
+// Prototype read-only transport; never forwards legacy Office credentials.
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -20,11 +20,6 @@ function buildUrl(path: string, params?: Record<string, string | number | boolea
   return url.toString();
 }
 
-function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, params } = options;
 
@@ -33,7 +28,6 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...getAuthHeaders(),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

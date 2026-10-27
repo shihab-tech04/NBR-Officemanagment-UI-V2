@@ -207,7 +207,7 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
   "user-activity-report": {
     title: "User Activity Report",
     overview:
-      "Provides a complete audit log of all user actions within the system — logins, record modifications, approvals, exports, and data entry operations.",
+      "Shows fictional prototype user actions such as record modifications, approvals, exports and data entry. No real login or security sessions are tracked.",
     workflow: [
       "Select a user, date range, or action type to filter the activity log.",
       "Review the activity table — each row shows user, action, module, timestamp.",
@@ -218,7 +218,7 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
       { q: "Who can view the User Activity Report?", a: "Only Tax Commissioners and Admin Users have access to this report." },
       { q: "How long is activity data retained?", a: "Activity data is retained for the current and previous two assessment years by default." },
       { q: "Can I track who exported data?", a: "Yes — all export actions are logged with user, timestamp, and file details." },
-      { q: "What does 'Failed Login' mean in the log?", a: "It records unsuccessful login attempts, which is important for security monitoring." },
+      { q: "Does this page verify sign-in activity?", a: "No. Office demo entry is local-only; displayed operational activity is illustrative and not an authenticated audit log." },
       { q: "Can activity data be deleted?", a: "No — activity logs are immutable for audit and compliance purposes." },
     ],
     relatedPages: ["dashboard-main"],
@@ -934,24 +934,23 @@ export const PAGE_GUIDES: Record<string, PageGuide> = {
 
   "user-management": {
     title: "User Management",
-    overview: "Manages all system user accounts — creating new users, assigning roles and circles, updating profiles, and deactivating accounts.",
+    overview: "Manages prototype staff directory records — names, roles, circles, profiles and display statuses. This does not create login accounts.",
     workflow: [
-      "View the list of all system users.",
-      "Create a new user account with name, designation, email, and circle assignment.",
-      "Assign roles to control module access.",
-      "Deactivate users who leave or change roles.",
+      "View the prototype staff directory.",
+      "Add a demo staff record with name, designation, email, and circle assignment.",
+      "Assign display roles for the prototype directory and navigation.",
+      "Mark demo staff records as inactive when necessary.",
     ],
     actions: ["Create user", "Edit user profile", "Assign role", "Activate/deactivate user", "Export user list"],
     statuses: [
-      { label: "Active", meaning: "User account is enabled and can log in." },
-      { label: "Inactive", meaning: "Account disabled — user cannot log in." },
-      { label: "Pending", meaning: "Account created but awaiting activation." },
+      { label: "Active", meaning: "Staff record is marked active in the prototype." },
+      { label: "Inactive", meaning: "Staff record is marked inactive; this is not a login-control setting." },
+      { label: "Pending", meaning: "Staff record is awaiting review in the prototype." },
     ],
     faqs: [
-      { q: "Who can create new user accounts?", a: "Only Admin Users and Tax Commissioners can create and manage user accounts." },
-      { q: "How do I reset a user's password?", a: "Use the 'Reset Password' action in the user details. The user will receive a reset link." },
-      { q: "Can a user be in multiple circles?", a: "Yes — a user can be assigned to multiple circles if their role requires it." },
-      { q: "What happens to a user's data when they are deactivated?", a: "Their records and actions are preserved. Only their login access is disabled." },
+      { q: "Who can create staff records?", a: "This public prototype lets the demo operator create and edit staff directory records locally." },
+            { q: "Can a user be in multiple circles?", a: "Yes — a user can be assigned to multiple circles if their role requires it." },
+      { q: "What happens when a staff record is marked inactive?", a: "The demo record remains available; the status does not revoke authentication or backend access." },
       { q: "How do I give a user access to a new module?", a: "Update the user's role assignment in Role Management to include the required module." },
     ],
     relatedPages: ["role-management", "user-activity-report"],
@@ -1305,7 +1304,7 @@ export const MODULE_DOCS: ModuleDoc[] = [
     module: "Dashboard",
     purpose: "Provides a real-time overview of the circle's operations — return submissions, PSR status, pending approvals, and key performance metrics.",
     workflow: [
-      "Load dashboard on login",
+      "Open dashboard after local prototype entry",
       "Review summary cards for pending items",
       "Navigate to modules by clicking action cards",
       "Use assessment year selector for period-specific data",
@@ -1567,11 +1566,11 @@ export const WHATS_NEW: WhatsNewEntry[] = [
 export const QUICK_ACTIONS = [
   {
     title: "Getting Started",
-    description: "First login, navigation overview, and initial setup steps for new users.",
+    description: "Prototype entry, navigation overview and initial display setup.",
     icon: "PlayCircle",
     content: [
-      "Log in with your credentials provided by your Admin User.",
-      "On first login, change your password via the profile menu (top right).",
+      "Enter admin at the Office prototype welcome screen (password optional).",
+      "The Office prototype does not require officer accounts, password resets or OTPs.",
       "Select the correct Assessment Year from the topbar dropdown.",
       "Use the sidebar to navigate to your primary module.",
       "Check the Dashboard for any pending items requiring your action.",

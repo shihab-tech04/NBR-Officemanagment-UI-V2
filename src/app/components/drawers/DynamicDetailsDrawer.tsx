@@ -113,7 +113,6 @@ const AUTO_GROUPS: AutoGroup[] = [
     groupKey: "groups.dates",
     test: k =>
       (k.includes("_date") && !k.startsWith("records_")) ||
-      k === "last_pass_change" ||
       k.includes("submitted") || k.includes("issued_date"),
   },
   {
@@ -121,9 +120,8 @@ const AUTO_GROUPS: AutoGroup[] = [
     groupKey: "groups.systemActivity",
     test: k =>
       k.startsWith("records_") || k === "reports_downloaded" ||
-      k === "prints_taken" || k.includes("failed_login") ||
-      k === "last_action" || k === "activity_summary" ||
-      k.includes("password_change"),
+      k === "prints_taken" ||
+      k === "last_action" || k === "activity_summary",
   },
 ];
 

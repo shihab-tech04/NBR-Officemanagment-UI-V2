@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Shield, Lock, Users } from "lucide-react";
+import { UserPlus, Shield, Users } from "lucide-react";
 import { type SystemUser, type SystemRole, type UserStatus } from "../../data/mockData";
 import { SETTINGS_ACCESS_LEVELS, USER_CIRCLES_LIST, USER_ZONES_LIST, USER_DESIGNATIONS_LIST } from "../../data/constants";
 import { SafeText, ExpandableText } from "../shared/SafeText";
 import { usePermissionRegistry } from "../../hooks/usePermissionRegistry";
-import { SToggle } from "../forms/SToggle";
 import { AppTextField } from "../forms/AppTextField";
 import { AppSelectField } from "../forms/AppSelectField";
 import { TaxZoneSelectField } from "../forms/TaxZoneSelectField";
@@ -38,8 +37,6 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
   const [level, setLevel] = useState(SETTINGS_ACCESS_LEVELS[3]);
   const [role, setRole] = useState(roles[4]?.name ?? roles[0]?.name ?? "");
   const [status, setStatus] = useState<UserStatus>("Active");
-  const [sendInvite, setSendInvite] = useState(true);
-  const [twoFA, setTwoFA] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,8 +49,6 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
       setLevel(existing?.level ?? SETTINGS_ACCESS_LEVELS[3]);
       setRole(existing?.role ?? roles[4]?.name ?? roles[0]?.name ?? "");
       setStatus(existing?.status ?? "Active");
-      setSendInvite(existing?.sendInvite ?? true);
-      setTwoFA(existing?.twoFA ?? false);
       requestAnimationFrame(() => firstFieldRef.current?.focus());
     }
   }, [open, userId]);
@@ -68,7 +63,7 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
     const saved: SystemUser = {
       id: existing?.id ?? `u-${Date.now()}`,
       name, employeeId, email, phone, designation, circle, zone, level, role,
-      status, sendInvite, twoFA,
+      status,
       accountActive: status === "Active",
       lastActive: existing?.lastActive ?? "Just now",
     };
@@ -236,7 +231,7 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
         <fieldset className="modal-fieldset">
           <legend className="sr-only">{translate("form.accountSetup")}</legend>
           <div className="modal-fieldset__head">
-            <div className="modal-fieldset__head-icon"><Lock size={11} strokeWidth={2} /></div>
+            <div className="modal-fieldset__head-icon"><Users size={11} strokeWidth={2} /></div>
             <h3 className="modal-fieldset__head-label">{translate("form.accountSetup")}</h3>
           </div>
           <div className="modal-fieldset__body">
@@ -249,10 +244,6 @@ export function UserFormModal({ open, userId, users, roles, onClose, onSave, onN
                 options={["Active", "Inactive", "Pending"]}
                 required
               />
-              <div className="modal-fieldset__full flex flex-col gap-3 pt-1">
-                <SToggle id="ufm-invite" checked={sendInvite} onChange={setSendInvite} label={translate("form.sendInvitation")} />
-                <SToggle id="ufm-2fa" checked={twoFA} onChange={setTwoFA} label={translate("form.twoFactorAuth")} />
-              </div>
             </div>
           </div>
         </fieldset>
