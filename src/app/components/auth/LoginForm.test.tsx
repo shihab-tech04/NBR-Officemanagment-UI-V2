@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from './LoginForm';
 
@@ -9,6 +9,17 @@ const mocks = vi.hoisted(() => ({
   onOfficeEnter: vi.fn(),
 }));
 
+const shared = vi.hoisted(() => ({
+  enabled: false,
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  checkAccess: vi.fn(),
+}));
+vi.mock('../../pages/audit/auditSharedSql', () => ({
+  isSharedAuditMode: () => shared.enabled,
+  getAuditSqlClient: () => ({ auth: { signInWithPassword: shared.signIn, signOut: shared.signOut } }),
+  checkAuditSqlAccess: (...args: unknown[]) => shared.checkAccess(...args),
+}));
 vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -33,7 +44,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../context/HelpContext', () => ({ useHelp: () => ({ openHelp: mocks.openHelp }) }));
 
 describe('public Office re-entry after Sign Out', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); shared.enabled = false; });
 
   it('restores the User ID field and enters Office without email or OTP', async () => {
     const user = userEvent.setup();
@@ -70,5 +81,49 @@ describe('public Office re-entry after Sign Out', () => {
     await user.clear(screen.getByLabelText('Password'));
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+  });
+
+  it('authenticates a shared-mode officer and checks active SQL membership before access', async () => {
+    shared.enabled = true;
+    shared.signIn.mockResolvedValue({ error: null });
+    shared.checkAccess.mockResolvedValue({ userId: 'officer', role: 'circle_user' });
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'Officer email' }), 'officer@example.org');
+    await user.type(screen.getByLabelText('Password'), 'example-secret');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(shared.checkAccess).toHaveBeenCalledOnce());
+    expect(shared.signIn).toHaveBeenCalledWith({
+      email: 'officer@example.org', password: 'example-secret',
+    });
+    expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+  });
+
+  it('fails closed and signs out when shared-mode Audit membership is missing', async () => {
+    shared.enabled = true;
+    shared.signIn.mockResolvedValue({ error: null });
+    shared.checkAccess.mockRejectedValue(new Error('membership missing'));
+    shared.signOut.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'Officer email' }), 'officer@example.org');
+    await user.type(screen.getByLabelText('Password'), 'example-secret');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('An active Audit officer membership is required.');
+    expect(shared.signOut).toHaveBeenCalledOnce();
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not allow prototype admin to bypass shared officer sign-in', async () => {
+    shared.enabled = true;
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'Officer email' }), 'admin');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Officer email and password are required.');
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 });
