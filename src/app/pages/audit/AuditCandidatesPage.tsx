@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -23,15 +24,18 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
+import { useSettings } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
+  loadAuditCandidates,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
+import { isAuditSqlMode } from "./auditSqlGateway";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
@@ -106,8 +110,8 @@ function controlFlagIds(value: unknown): string[] {
 function getSourceTaxpayer(candidate: AuditCandidateRecord): TableRow | undefined {
   return ALL_TAXPAYER_ROWS.find(
     (row) =>
-      String(row.return_id ?? "") === candidate.return_id ||
-      String(row.tin ?? "") === candidate.tin,
+      (String(row.return_id ?? "") === candidate.return_id &&
+       String(row.assessment_year ?? "") === candidate.assessment_year),
   );
 }
 
@@ -1065,13 +1069,32 @@ export function AuditCandidatesPage({
   initialInitiateOpen = false,
 }: AuditCandidatesPageProps) {
   const { isDesktop } = useUIState();
+  const { assessmentYear } = useSettings();
   const { t, i18n } = useTranslation("audit");
   const { t: tc } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [rows, setRows] = useState<AuditCandidateRecord[]>(() =>
+  const [storedRows, setStoredRows] = useState<AuditCandidateRecord[]>(() =>
     getAuditCandidates(),
   );
+  // A direct batch/candidate link is an explicit year selection. Otherwise
+  // the shared Office AY selector controls the visible candidate population.
+
+  const rows = useMemo(() => {
+    const explicitRecord = searchParams.has("batch") || searchParams.has("candidate");
+    return explicitRecord ? storedRows
+      : storedRows.filter(candidate => candidate.assessment_year === assessmentYear);
+  }, [storedRows, assessmentYear, searchParams]);
+  useEffect(() => {
+    if (!isAuditSqlMode()) return;
+    let cancelled = false;
+    loadAuditCandidates(assessmentYear).then(next => {
+      if (!cancelled) setStoredRows(next);
+    }).catch(error => {
+      if (!cancelled) toast.error(error instanceof Error ? error.message : "Audit SQL read failed");
+    });
+    return () => { cancelled = true; };
+  }, [assessmentYear]);
   const routeBatchId = searchParams.get("batch");
   const routeCandidateId = searchParams.get("candidate");
   const routeSelectionTrack = searchParams.get("selectionTrack");
@@ -2269,6 +2292,7 @@ export function AuditCandidatesPage({
               }
               onApply={applyFilters}
               onReset={resetFilters}
+              showReset={false}
               sortSelectOptions
               searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
             />
@@ -2326,7 +2350,12 @@ export function AuditCandidatesPage({
           open
           onClose={() => setInitiateOpen(false)}
           onConfirmed={() => {
-            setRows(getAuditCandidates());
+            if (isAuditSqlMode()) {
+              loadAuditCandidates(assessmentYear).then(setStoredRows)
+                .catch(error => toast.error(error instanceof Error ? error.message : "Audit SQL read failed"));
+            } else {
+              setStoredRows(getAuditCandidates());
+            }
             setSelectedBatchId(null);
             setSelectedCandidateId(null);
             setSearchParams({});
@@ -2345,6 +2374,7 @@ export function AuditCandidatesPage({
           }
           onApply={applyFilters}
           onReset={resetFilters}
+              showReset={false}
           onClose={() => setShowFilter(false)}
           sortSelectOptions
           searchableSelectsAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
