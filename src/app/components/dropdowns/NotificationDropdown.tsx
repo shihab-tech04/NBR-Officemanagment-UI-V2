@@ -22,6 +22,7 @@ interface NotificationDropdownProps {
   onClose: () => void;
   onNotificationClick: (notification: Notification) => void;
   onMarkAllRead: () => void;
+  onViewAllPayments?: () => void;
   forceBottomSheet?: boolean;
 }
 
@@ -39,7 +40,7 @@ function getNotificationIcon(type: NotificationType): LucideIcon {
 }
 
 export function NotificationDropdown({
-  notifications, onClose, onNotificationClick, onMarkAllRead, forceBottomSheet = false,
+  notifications, onClose, onNotificationClick, onMarkAllRead, onViewAllPayments, forceBottomSheet = false,
 }: NotificationDropdownProps) {
   const { t: translate } = useTranslation("notifications");
   const { t: translateCommon } = useTranslation("common");
@@ -190,10 +191,10 @@ export function NotificationDropdown({
       </div>
 
       {/* Footer */}
-      {!isMobile && notifications.length > 0 && (
+      {onViewAllPayments && notifications.some(n => n.type === "payment") && (
         <div className="notification-dropdown__footer">
-          <button onClick={onClose} className="notification-dropdown__see-all">
-            {translate("seeAll")}
+          <button type="button" onClick={onViewAllPayments} className="notification-dropdown__see-all">
+            {translate("viewAllPaymentRecords")}
           </button>
         </div>
       )}
