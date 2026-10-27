@@ -26,7 +26,7 @@ test.beforeEach(async ({page}) => {
       body:JSON.stringify({success:true,data,simulationOnly:true})});
   });
   await page.addInitScript(() => {
-    localStorage.setItem('gov_ui_auth',JSON.stringify({isAuthenticated:true,userId:'admin'}));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings',JSON.stringify({assessmentYear:'2027-28',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:'en'}));
   });
 });

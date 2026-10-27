@@ -12,7 +12,7 @@ const cases = [
 test.beforeEach(async ({page}, testInfo) => {
   const lang = testInfo.title.startsWith('Bengali') ? 'bn' : 'en';
   await page.addInitScript(language => {
-    localStorage.setItem('gov_ui_auth', JSON.stringify({isAuthenticated:true,userId:'admin'}));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings', JSON.stringify({
       assessmentYear:'2024-25',themeId:'indigo-blue',
       fontId:'poppins',fontSizeId:'standard',languageId:language,

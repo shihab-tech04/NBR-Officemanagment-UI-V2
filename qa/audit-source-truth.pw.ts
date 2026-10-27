@@ -13,7 +13,7 @@ const viewports = [
 
 test.beforeEach(async ({page}) => {
   await page.addInitScript(() => {
-    localStorage.setItem('gov_ui_auth',JSON.stringify({isAuthenticated:true,userId:'admin'}));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings',JSON.stringify({
       assessmentYear:'2024-25',themeId:'indigo-blue',fontId:'poppins',fontSizeId:'standard',languageId:'en',
     }));
