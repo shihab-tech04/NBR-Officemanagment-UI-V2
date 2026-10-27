@@ -98,7 +98,7 @@ create policy office_audit_batches_select on public.office_audit_batches
   for select to authenticated using (exists (
     select 1 from public.office_audit_memberships m where m.user_id=(select auth.uid()) and m.active
     and (m.office_role in ('nbr_admin','administrator')
-      or (m.office_role in ('zone_user','circle_user','range_user') and m.zone=zone))
+      or (m.office_role in ('zone_user','circle_user','range_user') and m.zone=office_audit_batches.zone))
   ));
 create policy office_audit_batches_insert on public.office_audit_batches
   for insert to authenticated with check (
@@ -106,41 +106,41 @@ create policy office_audit_batches_insert on public.office_audit_batches
     and exists (select 1 from public.office_audit_memberships m
       where m.user_id=(select auth.uid()) and m.active
       and (m.office_role in ('nbr_admin','administrator')
-        or (m.office_role in ('zone_user','circle_user','range_user') and m.zone=zone)))
+        or (m.office_role in ('zone_user','circle_user','range_user') and m.zone=office_audit_batches.zone)))
   );
 create policy office_audit_candidates_select on public.office_audit_candidates
   for select to authenticated using (
     exists (select 1 from public.office_audit_memberships m
       where m.user_id=(select auth.uid()) and m.active
       and (m.office_role in ('nbr_admin','administrator')
-        or (m.office_role='zone_user' and m.zone=zone)
-        or (m.office_role in ('circle_user','range_user') and m.zone=zone and m.circle=circle)))
+        or (m.office_role='zone_user' and m.zone=office_audit_candidates.zone)
+        or (m.office_role in ('circle_user','range_user') and m.zone=office_audit_candidates.zone and m.circle=office_audit_candidates.circle)))
   );
 create policy office_audit_candidates_insert on public.office_audit_candidates
   for insert to authenticated with check (
     created_by=(select auth.uid())
     and exists (select 1 from public.office_audit_batches b
-      where b.id=batch_id and b.assessment_year=assessment_year and b.zone=zone
+      where b.id=batch_id and b.assessment_year=office_audit_candidates.assessment_year and b.zone=office_audit_candidates.zone
       and b.created_by=(select auth.uid()) and b.source_kind='synthetic')
     and exists (select 1 from public.office_audit_memberships m
       where m.user_id=(select auth.uid()) and m.active
       and (m.office_role in ('nbr_admin','administrator')
-        or (m.office_role='zone_user' and m.zone=zone)
-        or (m.office_role in ('circle_user','range_user') and m.zone=zone and m.circle=circle)))
+        or (m.office_role='zone_user' and m.zone=office_audit_candidates.zone)
+        or (m.office_role in ('circle_user','range_user') and m.zone=office_audit_candidates.zone and m.circle=office_audit_candidates.circle)))
   );
 create policy office_audit_candidates_update on public.office_audit_candidates
   for update to authenticated using (
     exists (select 1 from public.office_audit_memberships m
       where m.user_id=(select auth.uid()) and m.active
       and (m.office_role in ('nbr_admin','administrator')
-        or (m.office_role='zone_user' and m.zone=zone)
-        or (m.office_role in ('circle_user','range_user') and m.zone=zone and m.circle=circle)))
+        or (m.office_role='zone_user' and m.zone=office_audit_candidates.zone)
+        or (m.office_role in ('circle_user','range_user') and m.zone=office_audit_candidates.zone and m.circle=office_audit_candidates.circle)))
   ) with check (
     exists (select 1 from public.office_audit_memberships m
       where m.user_id=(select auth.uid()) and m.active
       and (m.office_role in ('nbr_admin','administrator')
-        or (m.office_role='zone_user' and m.zone=zone)
-        or (m.office_role in ('circle_user','range_user') and m.zone=zone and m.circle=circle)))
+        or (m.office_role='zone_user' and m.zone=office_audit_candidates.zone)
+        or (m.office_role in ('circle_user','range_user') and m.zone=office_audit_candidates.zone and m.circle=office_audit_candidates.circle)))
   );
 create policy office_audit_runs_select on public.office_audit_screening_runs
   for select to authenticated using (created_by=(select auth.uid()) and
@@ -149,7 +149,7 @@ create policy office_audit_runs_insert on public.office_audit_screening_runs
   for insert to authenticated with check (created_by=(select auth.uid()) and status='queued'
     and result_summary is null and finished_at is null
     and exists (select 1 from public.office_audit_memberships m where m.user_id=(select auth.uid()) and m.active
-    and (m.office_role in ('nbr_admin','administrator') or m.zone=zone)));
+    and (m.office_role in ('nbr_admin','administrator') or m.zone=office_audit_screening_runs.zone)));
 create policy office_audit_events_select on public.office_audit_events
   for select to authenticated using (
     exists (select 1 from public.office_audit_candidates c where c.id=candidate_id)
