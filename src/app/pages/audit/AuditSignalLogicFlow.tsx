@@ -101,7 +101,7 @@ export function AuditSignalLogicFlow({
       <section className="audit-story__verification" aria-label={bilingual("Current verification", "বর্তমান যাচাই")}>
         <div>
           <h4>{bilingual("Current verification", "বর্তমান যাচাই")}</h4>
-          <strong>{bilingual("Source check pending", "মূল নথি যাচাই বাকি")}</strong>
+          <strong>{bilingual("Source evidence not verified in this view", "এই পর্দায় মূল প্রমাণ যাচাই করা হয়নি")}</strong>
         </div>
       </section>
       {impact && <section className="audit-story__meaning">
