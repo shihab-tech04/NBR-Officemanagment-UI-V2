@@ -200,6 +200,58 @@ BEGIN
   RAISE EXCEPTION 'FACADE_OWNER_MUTATION_NOT_ROLLED_BACK';
  END IF;
 END $facade_owner_negative_probe$;
+-- SECURITY DEFINER ownership is a separate trust boundary from facade
+-- metadata. A private RPC silently re-owned by the migration superuser or
+-- private table owner could bypass the reviewed role grants and RLS checks.
+-- Pin the actual four private definer identities, not merely their EXECUTE ACLs.
+-- This is a disposable PG17 catalog assertion, NOT hosted taxpayer Auth proof.
+DO $private_definer_owner_boundary$
+DECLARE candidate record; observed_owner oid; is_definer boolean;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)','ws02_owner_rpc'),
+  ('ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)','ws02_owner_rpc'),
+  ('ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)','ws02_owner_rpc'),
+  ('ws02_owner.nbr_lock_active_owner(uuid,uuid,text)','ws02_owner_lock')
+ ) AS expected(signature,owner_role) LOOP
+  SELECT p.proowner,p.prosecdef INTO observed_owner,is_definer
+  FROM pg_catalog.pg_proc p WHERE p.oid=candidate.signature::regprocedure;
+  IF NOT FOUND OR observed_owner IS DISTINCT FROM candidate.owner_role::regrole::oid
+     OR is_definer IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_OWNER_OR_SECURITY_MODE_DRIFT_%',candidate.signature;
+  END IF;
+ END LOOP;
+END $private_definer_owner_boundary$;
+-- Negative regression: a privileged migration actor reassigns the atomic
+-- SECURITY DEFINER function to itself without changing its body or grants.
+-- Detect the elevation and verify exception-subtransaction rollback restores
+-- the exact non-login definer owner. Never run this against hosted Supabase.
+DO $private_definer_owner_negative_probe$
+DECLARE original_owner oid; mutated_owner oid;
+BEGIN
+ SELECT p.proowner INTO original_owner FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF original_owner IS DISTINCT FROM 'ws02_owner_rpc'::regrole::oid THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_OWNER_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  EXECUTE format('ALTER FUNCTION ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb) OWNER TO %I',current_user);
+  SELECT p.proowner INTO mutated_owner FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF mutated_owner IS DISTINCT FROM current_user::regrole::oid
+     OR mutated_owner IS NOT DISTINCT FROM original_owner THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_OWNER_ESCALATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_OWNER';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_DEFINER_OWNER' THEN RAISE; END IF;
+ END;
+ SELECT p.proowner INTO mutated_owner FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated_owner IS DISTINCT FROM original_owner THEN
+  RAISE EXCEPTION 'PRIVATE_DEFINER_OWNER_ESCALATION_NOT_ROLLED_BACK';
+ END IF;
+END $private_definer_owner_negative_probe$;
 -- API-surface drift guard: a second overload or future RPC in the exposed
 -- schema could bypass the reviewed signature-specific ACL checks. The isolated
 -- PostgREST-style schema must contain only this one reviewed facade, and no
