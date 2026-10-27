@@ -55,6 +55,9 @@ BEGIN
     OR variadic_type IS DISTINCT FROM 0::oid
     OR returns_set IS DISTINCT FROM false
     OR function_config IS NULL
+    -- Reject any unreviewed per-function GUC override, even if the reviewed
+    -- search_path is still present. A second SET can change SQL behavior.
+    OR cardinality(function_config) IS DISTINCT FROM 1
     OR NOT EXISTS (
       SELECT 1 FROM unnest(function_config) AS setting
       WHERE split_part(setting,'=',1)='search_path'
@@ -64,6 +67,36 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- Mutation regression: keep the reviewed search_path while appending a
+-- harmless extra function-local GUC. The exact-config guard must reject the
+-- drift and PostgreSQL must roll the mutation back. Disposable PG17 only.
+DO $facade_guc_negative_probe$
+DECLARE original_config text[]; mutated_config text[];
+BEGIN
+ SELECT p.proconfig INTO original_config FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF cardinality(original_config) IS DISTINCT FROM 1 THEN
+  RAISE EXCEPTION 'FACADE_CONFIG_BASELINE_NOT_EXACT';
+ END IF;
+ BEGIN
+  ALTER FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) SET work_mem TO '8MB';
+  SELECT p.proconfig INTO mutated_config FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF cardinality(mutated_config) IS DISTINCT FROM 2
+     OR NOT EXISTS (SELECT 1 FROM unnest(mutated_config) AS s
+                    WHERE s LIKE 'search_path=%')
+  THEN RAISE EXCEPTION 'FACADE_EXTRA_GUC_MUTATION_UNDETECTED'; END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_EXTRA_GUC';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_EXTRA_GUC' THEN RAISE; END IF;
+ END;
+ SELECT p.proconfig INTO mutated_config FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated_config IS DISTINCT FROM original_config THEN
+  RAISE EXCEPTION 'FACADE_EXTRA_GUC_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $facade_guc_negative_probe$;
 -- The metadata checks above do not constrain a replacement SQL body. A
 -- SECURITY INVOKER facade with unchanged signature, ACL and search_path could
 -- still be replaced with SELECT true, bypassing private owner/receipt checks.
