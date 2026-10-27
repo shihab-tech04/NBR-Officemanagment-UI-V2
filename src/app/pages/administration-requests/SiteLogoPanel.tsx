@@ -89,7 +89,7 @@ export function SiteLogoPanel({ cms }: { cms: SupabaseClient | null }) {
     </div>
     {!cms ? <p>Content service configuration is unavailable.</p> : <>
       <div className="cms-logo__canvas">
-        <h3>{editing && selected ? 'New logo preview' : 'Current logo preview'}</h3>
+        <h3>{editing && selected ? 'New logo preview' : '{previewLogo ? 'Logo preview (not published)' : 'Current published logo'}'}</h3>
         <div className="cms-logo__image"><img src={displayUrl} alt="Amar Kor site logo preview" /></div>
         <p>Source image: {dimensions}</p>
       </div>
