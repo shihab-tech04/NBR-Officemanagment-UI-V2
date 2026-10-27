@@ -1624,5 +1624,75 @@ BEGIN
    RAISE EXCEPTION 'CROSS_YEAR_TRACE_RECEIPT_LEAK_OR_MISMATCH_%',yr; END IF;
  END LOOP;
 END $cross_year_same_key_readback$;
+-- Preserve the complete structured audit provenance, not just top-level
+-- identifiers. This is a synthetic JSONB transport/readback test only:
+-- neither the mock rule identifiers nor the supplied trace hash certify law,
+-- SHA-256 canonicalization, or the original Agent's frozen registry.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000009','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $nested_trace_commit$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000009';
+ idem text:='nested-jsonb-provenance-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ trace text:=repeat('c',64); payload jsonb; reservation jsonb;
+BEGIN
+ payload:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW',
+  'evidence',jsonb_build_array(
+    jsonb_build_object('fixture_id','synthetic-01',
+      'source',jsonb_build_object('type','test','page',2),
+      'facts',jsonb_build_array('unverified','missing')),
+    jsonb_build_object('fixture_id','synthetic-02',
+      'source',jsonb_build_object('type','test','page',3),
+      'facts',jsonb_build_array())),
+  'review',jsonb_build_object('pending',true,'notes',
+    jsonb_build_array('no statutory approval','no production use')));
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'NESTED_JSONB_RESERVATION_FAILED'; END IF;
+ IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',payload) THEN
+  RAISE EXCEPTION 'NESTED_JSONB_ATOMIC_COMMIT_DENIED'; END IF;
+ IF ws02_owner.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',payload) THEN
+  RAISE EXCEPTION 'NESTED_JSONB_DUPLICATE_RECEIPT_ACCEPTED'; END IF;
+ IF (SELECT audit_trace FROM ws02_owner.evaluation_logs
+     WHERE idem_key=idem AND actor_id=actor AND record_id=rec)
+    IS DISTINCT FROM payload THEN
+  RAISE EXCEPTION 'NESTED_JSONB_FULL_PAYLOAD_CHANGED'; END IF;
+END $nested_trace_commit$;
+RESET ROLE;
+DO $nested_trace_readback$
+DECLARE expected_evidence jsonb:=jsonb_build_array(
+ jsonb_build_object('fixture_id','synthetic-01',
+  'source',jsonb_build_object('type','test','page',2),
+  'facts',jsonb_build_array('unverified','missing')),
+ jsonb_build_object('fixture_id','synthetic-02',
+  'source',jsonb_build_object('type','test','page',3),
+  'facts',jsonb_build_array()));
+ expected_review jsonb:=jsonb_build_object('pending',true,
+  'notes',jsonb_build_array('no statutory approval','no production use'));
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='nested-jsonb-provenance-00001'
+       AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+     WHERE idem_key='nested-jsonb-provenance-00001'
+       AND result_state='NEEDS_FACTS'
+       AND trace_hash=repeat('c',64)
+       AND audit_trace->'evidence'=expected_evidence
+       AND audit_trace->'review'=expected_review
+       AND NOT (audit_trace ? 'amounts'))<>1
+ THEN RAISE EXCEPTION 'NESTED_JSONB_TRACE_RECEIPT_READBACK_MISMATCH'; END IF;
+END $nested_trace_readback$;
+SELECT 'NESTED_JSONB_AUDIT_EXACT_READBACK_PASS_ONLY' AS scoped_result;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_OWNER_RESERVE_LOG_BOUND_FINALIZE_PASS_ONLY' AS result;
