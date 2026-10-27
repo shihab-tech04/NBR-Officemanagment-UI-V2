@@ -115,6 +115,58 @@ BEGIN
   RAISE EXCEPTION 'FACADE_BODY_MUTATION_NOT_ROLLED_BACK';
  END IF;
 END $facade_body_integrity$;
+-- An RPC can retain its reviewed SQL body and EXECUTE ACL while its owner
+-- drifts to a runtime role. The owner could then ALTER/REPLACE the facade.
+-- Pin the ownership boundary independently of body/signature checks.
+-- Disposable PG17 only: no hosted function or Auth role is touched.
+DO $facade_owner_boundary$
+DECLARE actual_owner name; caller name;
+BEGIN
+ SELECT r.rolname INTO actual_owner
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF actual_owner IS NULL THEN RAISE EXCEPTION 'FACADE_OWNER_NOT_FOUND'; END IF;
+ FOREACH caller IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+  'ws02_owner_rpc','ws02_owner_lock'] LOOP
+  IF pg_catalog.pg_has_role(caller,actual_owner,'MEMBER')
+     OR pg_catalog.pg_has_role(caller,actual_owner,'USAGE')
+     OR pg_catalog.pg_has_role(caller,actual_owner,'SET') THEN
+   RAISE EXCEPTION 'FACADE_OWNER_RUNTIME_ROLE_ESCALATION_%_%',caller,actual_owner;
+  END IF;
+ END LOOP;
+END $facade_owner_boundary$;
+-- Negative owner-drift regression: reassign the facade to the synthetic Edge
+-- role inside an exception subtransaction, prove catalog detection and prove
+-- rollback restores the original owner. No user/production ownership data.
+DO $facade_owner_negative_probe$
+DECLARE original_owner oid; mutated_owner oid;
+BEGIN
+ SELECT p.proowner INTO original_owner
+ FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ BEGIN
+  ALTER FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) OWNER TO ws02_owner_engine;
+  SELECT p.proowner INTO mutated_owner
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF mutated_owner IS DISTINCT FROM 'ws02_owner_engine'::regrole::oid
+     OR NOT pg_catalog.pg_has_role('ws02_owner_engine',mutated_owner,'MEMBER') THEN
+   RAISE EXCEPTION 'FACADE_FORBIDDEN_OWNER_MUTATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_OWNER';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_OWNER' THEN RAISE; END IF;
+ END;
+ SELECT p.proowner INTO mutated_owner
+ FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated_owner IS DISTINCT FROM original_owner THEN
+  RAISE EXCEPTION 'FACADE_OWNER_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $facade_owner_negative_probe$;
 -- API-surface drift guard: a second overload or future RPC in the exposed
 -- schema could bypass the reviewed signature-specific ACL checks. The isolated
 -- PostgREST-style schema must contain only this one reviewed facade, and no
