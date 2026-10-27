@@ -349,6 +349,82 @@ jobs:
           atomic_counts=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM ws02_owner.slots WHERE idem_key='same-atomic-finalize-00001' AND state='FINALIZED' AND receipt_hash=repeat('b',64))::text || ':' || (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='same-atomic-finalize-00001' AND receipt_hash=repeat('b',64) AND trace_hash=repeat('c',64) AND result_state='FAIL_CLOSED' AND audit_trace->>'income_year'='2025-26')::text;")
           [[ "$atomic_counts" == '1:1' ]] || { echo "ATOMIC_FINALIZATION_DUPLICATE_OR_MISSING_TRACE: $atomic_counts"; exit 1; }
           echo 'TWO_SESSION_ATOMIC_FINALIZATION_LOCK_REPLAY_EXACTLY_ONE_TRACE_PASS_ONLY'
+          # Competing finalization after an ABORTED first finalization: the
+          # committed reservation must survive, but the rolled-back receipt and
+          # JSONB audit must not. A different session may then finalize once.
+          # Synthetic PG17 only; no hosted JWT or real taxpayer authorization.
+          psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES ('50000000-0000-4000-8000-000000000006','2026-27','60000000-0000-4000-8000-000000000001','ACTIVE');"
+          abort_finalize_reserve=$(psql -X -At -v ON_ERROR_STOP=1 -c "SET ROLE ws02_owner_engine; SELECT ws02_owner.nbr_reserve_citizen_evaluation('60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000006','2026-27','same-atomic-aborted-first-00001',repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';" | tail -n 1)
+          [[ "$abort_finalize_reserve" == 'RESERVED' ]] || { echo "ABORT_FINALIZE_SETUP_NOT_RESERVED: $abort_finalize_reserve"; exit 1; }
+          cat > /tmp/ws02_atomic_abort_finalize_a.sql <<'SQL'
+          BEGIN;
+          SET LOCAL ROLE ws02_owner_engine;
+          DO $finalize_abort_first$
+          DECLARE audit jsonb;
+          BEGIN
+            audit:=jsonb_build_object(
+              'actor_user_id','60000000-0000-4000-8000-000000000001',
+              'taxpayer_record_id','50000000-0000-4000-8000-000000000006',
+              'assessment_year','2026-27','income_year','2025-26',
+              'authorized_request_hash',repeat('a',64),
+              'receipt_hash',repeat('b',64),
+              'idempotency_key','same-atomic-aborted-first-00001',
+              'result_status','NEEDS_FACTS',
+              'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+            IF NOT ws02_owner.nbr_commit_evaluation_atomically(
+              '60000000-0000-4000-8000-000000000001',
+              '50000000-0000-4000-8000-000000000006',
+              '2026-27','same-atomic-aborted-first-00001',
+              repeat('a',64),repeat('b',64),repeat('c',64),
+              'NEEDS_FACTS',audit) THEN
+              RAISE EXCEPTION 'FIRST_ABORTABLE_FINALIZATION_DENIED'; END IF;
+          END $finalize_abort_first$;
+          \echo ATOMIC_ABORTABLE_FINALIZATION_LOCK_HELD
+          SELECT pg_sleep(6);
+          ROLLBACK;
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_atomic_abort_finalize_a.sql > /tmp/ws02_atomic_abort_finalize_a.log 2>&1 &
+          abort_finalize_holder=$!
+          abort_finalize_acquired=0
+          for i in $(seq 1 80); do
+            if grep -q 'ATOMIC_ABORTABLE_FINALIZATION_LOCK_HELD' /tmp/ws02_atomic_abort_finalize_a.log; then abort_finalize_acquired=1; break; fi
+            if ! kill -0 "$abort_finalize_holder" 2>/dev/null; then break; fi
+            sleep 0.1
+          done
+          if [[ "$abort_finalize_acquired" -ne 1 ]]; then cat /tmp/ws02_atomic_abort_finalize_a.log; exit 1; fi
+          cat > /tmp/ws02_atomic_abort_finalize_b.sql <<'SQL'
+          SET lock_timeout='750ms';
+          SET ROLE ws02_owner_engine;
+          SELECT ws02_owner.nbr_commit_evaluation_atomically(
+            '60000000-0000-4000-8000-000000000001',
+            '50000000-0000-4000-8000-000000000006',
+            '2026-27','same-atomic-aborted-first-00001',
+            repeat('a',64),repeat('b',64),repeat('c',64),
+            'NEEDS_FACTS',jsonb_build_object(
+              'actor_user_id','60000000-0000-4000-8000-000000000001',
+              'taxpayer_record_id','50000000-0000-4000-8000-000000000006',
+              'assessment_year','2026-27','income_year','2025-26',
+              'authorized_request_hash',repeat('a',64),
+              'receipt_hash',repeat('b',64),
+              'idempotency_key','same-atomic-aborted-first-00001',
+              'result_status','NEEDS_FACTS',
+              'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW'));
+          SQL
+          set +e
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_atomic_abort_finalize_b.sql > /tmp/ws02_atomic_abort_finalize_b.log 2>&1
+          abort_finalize_collision_rc=$?
+          set -e
+          if [[ "$abort_finalize_collision_rc" -eq 0 ]] || ! grep -q 'lock timeout' /tmp/ws02_atomic_abort_finalize_b.log; then cat /tmp/ws02_atomic_abort_finalize_b.log; exit 1; fi
+          wait "$abort_finalize_holder"
+          abort_finalize_pre=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM ws02_owner.slots WHERE idem_key='same-atomic-aborted-first-00001' AND state='RESERVED' AND receipt_hash IS NULL)::text || ':' || (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='same-atomic-aborted-first-00001')::text;")
+          [[ "$abort_finalize_pre" == '1:0' ]] || { echo "ABORTED_FINALIZATION_LEFT_GHOST_RECEIPT_OR_TRACE: $abort_finalize_pre"; exit 1; }
+          abort_finalize_retry=$(psql -X -At -v ON_ERROR_STOP=1 -f /tmp/ws02_atomic_abort_finalize_b.sql | tail -n 1)
+          [[ "$abort_finalize_retry" == 't' ]] || { echo "ABORTED_FINALIZATION_RETRY_DENIED: $abort_finalize_retry"; exit 1; }
+          abort_finalize_replay=$(psql -X -At -v ON_ERROR_STOP=1 -f /tmp/ws02_atomic_abort_finalize_b.sql | tail -n 1)
+          [[ "$abort_finalize_replay" == 'f' ]] || { echo "ABORTED_FINALIZATION_DUPLICATE_ACCEPTED: $abort_finalize_replay"; exit 1; }
+          abort_finalize_counts=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM ws02_owner.slots WHERE idem_key='same-atomic-aborted-first-00001' AND state='FINALIZED' AND receipt_hash=repeat('b',64))::text || ':' || (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key='same-atomic-aborted-first-00001' AND receipt_hash=repeat('b',64) AND trace_hash=repeat('c',64) AND result_state='NEEDS_FACTS' AND audit_trace->>'income_year'='2025-26')::text;")
+          [[ "$abort_finalize_counts" == '1:1' ]] || { echo "ABORTED_FINALIZATION_RETRY_TRACE_OR_RECEIPT_MISMATCH: $abort_finalize_counts"; exit 1; }
+          echo 'TWO_SESSION_ABORTED_FINALIZATION_RETRY_EXACTLY_ONE_TRACE_PASS_ONLY'
           # Remove role-owned default ACL records as well as schema objects; otherwise
           # PostgreSQL correctly refuses to drop the synthetic definer roles.
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
