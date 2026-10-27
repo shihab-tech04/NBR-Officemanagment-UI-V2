@@ -331,7 +331,7 @@ test('atomic trace and call pin user, record, request, receipt, version and stat
   const call=source.slice(j,source.indexOf('if (atomicCommitError',j));
   for(const token of ['p_auth_user_id: authData.user.id','p_request_hash: authorizedRequestHash',
     'p_receipt_hash: receiptHash','p_trace_hash: auditTraceHash',
-    'p_result_state: fullReturnStatus','p_audit_trace: auditTrace'])
+    'p_result_state: fullReturnStatus','p_audit_trace: validatedAuditTrace'])
     assert.ok(call.includes(token),token);
 });
 test('atomic RPC unavailability fails closed',()=>{
