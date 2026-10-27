@@ -248,7 +248,7 @@ jobs:
             IF outcome->>'state' IS DISTINCT FROM 'RESERVED' THEN
               RAISE EXCEPTION 'ABORTED_FIRST_RESERVATION_FAILED'; END IF;
           END $idem_abort$;
-          \\echo IDEMPOTENCY_ABORTABLE_SLOT_HELD
+          \echo IDEMPOTENCY_ABORTABLE_SLOT_HELD
           SELECT pg_sleep(6);
           ROLLBACK;
           SQL
