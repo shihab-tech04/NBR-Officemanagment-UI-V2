@@ -196,6 +196,95 @@ function canonical(value: unknown): string {
   return "{" + entries.join(",") + "}";
 }
 
+
+/**
+ * Fail-closed W5 auditTrace producer guard. This validates JSON data and
+ * deterministic Edge encoding BEFORE hashing or invoking the private RPC.
+ * It does NOT authenticate the producer or authorize SQL/public exposure.
+ */
+function verifiedCanonicalAuditTrace(trace: unknown): string {
+  if (trace === null || typeof trace !== "object" || Array.isArray(trace)) {
+    throw new TypeError("AUDIT_TRACE_NOT_OBJECT");
+  }
+  const seen = new WeakSet<object>();
+  let visited = 0;
+  const validUnicode = (value: string): void => {
+    for (let i = 0; i < value.length; i++) {
+      const unit = value.charCodeAt(i);
+      if (unit >= 0xd800 && unit <= 0xdbff) {
+        const next = value.charCodeAt(++i);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) {
+          throw new TypeError("AUDIT_TRACE_UNPAIRED_SURROGATE");
+        }
+      } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+        throw new TypeError("AUDIT_TRACE_UNPAIRED_SURROGATE");
+      }
+    }
+  };
+  const visit = (value: unknown, depth: number): void => {
+    if (++visited > 10000 || depth > 64) {
+      throw new RangeError("AUDIT_TRACE_COMPLEXITY_LIMIT");
+    }
+    if (value === null || typeof value === "boolean") return;
+    if (typeof value === "string") { validUnicode(value); return; }
+    if (typeof value === "number") {
+      if (!Number.isFinite(value) ||
+          (Number.isInteger(value) && !Number.isSafeInteger(value))) {
+        throw new TypeError("AUDIT_TRACE_UNSAFE_NUMBER");
+      }
+      return;
+    }
+    if (typeof value !== "object") {
+      throw new TypeError("AUDIT_TRACE_NON_JSON_VALUE");
+    }
+    if (seen.has(value)) throw new TypeError("AUDIT_TRACE_CYCLE");
+    if (!Array.isArray(value)) {
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) {
+        throw new TypeError("AUDIT_TRACE_NON_PLAIN_OBJECT");
+      }
+    }
+    seen.add(value);
+    try {
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          const descriptor = Object.getOwnPropertyDescriptor(value, String(i));
+          if (!descriptor || !("value" in descriptor)) {
+            throw new TypeError("AUDIT_TRACE_ARRAY_HOLE_OR_ACCESSOR");
+          }
+          visit(descriptor.value, depth + 1);
+        }
+        if (Reflect.ownKeys(value).length !== value.length + 1) {
+          throw new TypeError("AUDIT_TRACE_ARRAY_EXTRA_PROPERTY");
+        }
+      } else {
+        for (const key of Reflect.ownKeys(value)) {
+          if (typeof key !== "string") {
+            throw new TypeError("AUDIT_TRACE_SYMBOL_KEY");
+          }
+          validUnicode(key);
+          const descriptor = Object.getOwnPropertyDescriptor(value, key);
+          if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) {
+            throw new TypeError("AUDIT_TRACE_HIDDEN_OR_ACCESSOR_PROPERTY");
+          }
+          visit(descriptor.value, depth + 1);
+        }
+      }
+    } finally {
+      seen.delete(value);
+    }
+  };
+  visit(trace, 0);
+  const bytes = canonical(trace);
+  if (new TextEncoder().encode(bytes).length > 262144) {
+    throw new RangeError("AUDIT_TRACE_TOO_LARGE");
+  }
+  if (canonical(JSON.parse(bytes)) !== bytes) {
+    throw new TypeError("AUDIT_TRACE_NONCANONICAL_ROUNDTRIP");
+  }
+  return bytes;
+}
+
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -297,7 +386,6 @@ function canonicalRateOptions(value: unknown): Array<{ key: string; rate: string
   // A caller-selected index must not bypass legally conditional language.
   return out;
 }
-
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
   if (typeof value === "string" && value.trim()) {
@@ -597,8 +685,7 @@ function evaluateRule(
     return { ...traceBase, state: "NEEDS_FACTS", missingFacts: missing };
   }
 
-  if (rate !== null && (base !== null || quantity !== null)) {
-    const operand = base ?? quantity!;
+  if (rate !== null && (base !== null || quantity !== null)) {    const operand = base ?? quantity!;
     const amount = mul(operand, rate);
     return {
       ...traceBase,
@@ -897,8 +984,7 @@ function computeIndividualFromSqlBase(
  * This is a safety boundary, not statutory or source-law certification.
  */
 function redactNonCalculatedIndividual(
-  individual: Record<string, any>,
-  fullReturnStatus: string,
+  individual: Record<string, any>,  fullReturnStatus: string,
 ) {
   if (fullReturnStatus === "CALCULATED") return individual;
   return {
@@ -1197,8 +1283,7 @@ Deno.serve(async (req) => {
     const transactionClaimed = (
       (Array.isArray(body.transactionRuleIds) && body.transactionRuleIds.length > 0) ||
       (Array.isArray(body.paymentRuleIds) && body.paymentRuleIds.length > 0) ||
-      (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0) ||
-      (objectRecord(body.paymentEvents) && Object.keys(body.paymentEvents).length > 0) ||
+      (objectRecord(body.transactions) && Object.keys(body.transactions).length > 0) ||      (objectRecord(body.paymentEvents) && Object.keys(body.paymentEvents).length > 0) ||
       (objectRecord(body.ruleFacts) && Object.keys(body.ruleFacts).length > 0)
     );
     const recordedYearStart = Number(year.income_year.slice(0, 4));
@@ -1497,8 +1582,7 @@ Deno.serve(async (req) => {
       .from("nbr_tax_year_gate_results")
       .select("gate_code,status,evidence_ref,evidence_detail,evaluated_at,evaluated_by")
       .eq("tax_year_id", year.id)
-      .in("gate_code", [...RELEASE_GATES]);
-    if (releaseGateError) {
+      .in("gate_code", [...RELEASE_GATES]);    if (releaseGateError) {
       return json({ error:"Engine release certification lookup failed", status:"FAIL_CLOSED" }, 503);
     }
     const pendingGates = missingReleaseGates(releaseGates ?? [], ruleSetHash);
@@ -1664,7 +1748,13 @@ Deno.serve(async (req) => {
       receipt_hash: receiptHash,
       contract_version: CONTRACT_VERSION,
     };
-    const auditTraceHash = await sha256(canonical(auditTrace));
+    let auditTraceHash: string;
+    try {
+      auditTraceHash = await sha256(verifiedCanonicalAuditTrace(auditTrace));
+    } catch {
+      return json({ status:"FAIL_CLOSED", code:"AUDIT_TRACE_ENCODING_UNSAFE",
+        error:"Audit evidence could not be encoded without loss" }, 503);
+    }
     const { data: atomicCommit, error: atomicCommitError } = await supabase.rpc(
       "nbr_commit_evaluation_atomically", {
         p_auth_user_id: authData.user.id,
@@ -1729,4 +1819,3 @@ Deno.serve(async (req) => {
     return json({ status:"FAIL_CLOSED", code:"EVALUATOR_EXCEPTION", error:"Evaluation refused; no tax amount is authorized" }, 503);
   }
 });
-
