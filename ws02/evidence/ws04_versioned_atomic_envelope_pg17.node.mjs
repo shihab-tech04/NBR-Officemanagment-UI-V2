@@ -131,6 +131,30 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
+  // Synthetic producer-capability revocation: an already RESERVED slot must not
+  // be finalizable by a producer role after its wrapper EXECUTE grant is removed.
+  // This tests PostgreSQL function ACL revocation, NOT JWT/session revocation.
+  if (i === 0) {
+    const signature = 'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)';
+    pg('REVOKE EXECUTE ON FUNCTION ' + signature + ' FROM ws02_owner_engine;');
+    const revoked = spawnSync('psql', ['-X','-Atq','-v','ON_ERROR_STOP=1'], {
+      input: `SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(traceHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`,
+      encoding: 'utf8', timeout: 20000,
+    });
+    assert.notEqual(revoked.status, 0, 'REVOKED_PRODUCER_EXECUTE_ACCEPTED');
+    assert.match(revoked.stderr, /permission denied for function/, 'REVOKED_PRODUCER_ACL_NOT_ENFORCED');
+    const unchanged = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)});`);
+    assert.deepEqual(unchanged, ['0:RESERVED'], 'REVOKED_PRODUCER_LEFT_AUDIT_OR_RECEIPT');
+    pg('GRANT EXECUTE ON FUNCTION ' + signature + ' TO ws02_owner_engine;');
+    assert.deepEqual(pg(`SELECT has_function_privilege('ws02_owner_engine',
+      ${q(signature)},'EXECUTE')::text;`), ['true'], 'PRODUCER_GRANT_NOT_RESTORED');
+  }
   const commit = pg(`SET ROLE ws02_owner_engine;
 SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(actor)},${q(record)},'2026-27',
