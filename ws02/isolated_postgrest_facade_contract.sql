@@ -354,6 +354,74 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_DEFINER_VOLATILITY_MUTATION_NOT_ROLLED_BACK';
  END IF;
 END $private_definer_metadata_negative_probe$;
+-- A private SECURITY DEFINER can preserve its owner, signature, ACL and
+-- search_path while a privileged migration replaces its body with a permissive
+-- SELECT true or omits receipt checks. Pin all four reviewed source bodies to
+-- the exact isolated DDL in isolated_owner_receipt_contract.sql. PostgreSQL 17
+-- built-in SHA-256 avoids extension dependencies; these are source-integrity
+-- regression pins, NOT approved citizen ownership, hosted Auth or legal proof.
+DO $private_definer_body_integrity$
+DECLARE candidate record; observed_hash text;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)',
+   '159c9e0073fd71ddf31a786bf29bf80398e75976a18dfb97bb2b6ea909855597'),
+  ('ws02_owner.nbr_lock_active_owner(uuid,uuid,text)',
+   'c8b46e6aecb75600a216615691de2ee9418322e35a5fa47b3ed7372636162357'),
+  ('ws02_owner.nbr_reserve_citizen_evaluation(uuid,uuid,text,text,text,text)',
+   '2631e19e6067b24eb972238cff81d05128efda28edb2a973bdbad6719f2f5eb6'),
+  ('ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+   '30f0bf609986311ecba2fcbd8bb18a790a0b04f2a2898013d4a9a074dd189436')
+ ) AS expected(signature,source_sha256) LOOP
+  SELECT pg_catalog.encode(pg_catalog.sha256(
+    pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+  INTO observed_hash FROM pg_catalog.pg_proc p
+  WHERE p.oid=candidate.signature::regprocedure;
+  IF NOT FOUND OR observed_hash IS DISTINCT FROM candidate.source_sha256 THEN
+   RAISE EXCEPTION 'PRIVATE_DEFINER_REVIEWED_BODY_DRIFT_%_observed_%',
+     candidate.signature,observed_hash;
+  END IF;
+ END LOOP;
+END $private_definer_body_integrity$;
+-- Negative regression: an authorized migration actor replaces the owner
+-- authorization body with SELECT true, retaining SQL/STABLE/SECURITY DEFINER,
+-- named parameters, owner and fixed search_path. The body pin MUST detect
+-- the bypass and the exception subtransaction MUST restore the original body.
+DO $private_definer_body_negative_probe$
+DECLARE original_source text; mutated_source text; mutated_hash text;
+BEGIN
+ SELECT p.prosrc INTO original_source FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)'::regprocedure;
+ IF original_source IS NULL THEN
+  RAISE EXCEPTION 'PRIVATE_AUTH_BODY_BASELINE_MISSING';
+ END IF;
+ BEGIN
+  EXECUTE $body_mutation$
+   CREATE OR REPLACE FUNCTION ws02_owner.nbr_authorize_citizen_evaluation(
+    p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text
+   ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+   SET search_path=pg_catalog,ws02_owner AS $unsafe_private_body$
+    SELECT true;
+   $unsafe_private_body$;
+  $body_mutation$;
+  SELECT p.prosrc,pg_catalog.encode(pg_catalog.sha256(
+    pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+  INTO mutated_source,mutated_hash FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)'::regprocedure;
+  IF mutated_source IS NOT DISTINCT FROM original_source
+    OR mutated_hash IS NOT DISTINCT FROM
+      '159c9e0073fd71ddf31a786bf29bf80398e75976a18dfb97bb2b6ea909855597'
+  THEN RAISE EXCEPTION 'PRIVATE_AUTH_BODY_BYPASS_NOT_DETECTED'; END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_AUTH_BODY';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_AUTH_BODY' THEN RAISE; END IF;
+ END;
+ SELECT p.prosrc INTO mutated_source FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_authorize_citizen_evaluation(uuid,uuid,text)'::regprocedure;
+ IF mutated_source IS DISTINCT FROM original_source THEN
+  RAISE EXCEPTION 'PRIVATE_AUTH_BODY_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $private_definer_body_negative_probe$;
 -- Negative regression: a privileged migration actor reassigns the atomic
 -- SECURITY DEFINER function to itself without changing its body or grants.
 -- Detect the elevation and verify exception-subtransaction rollback restores
