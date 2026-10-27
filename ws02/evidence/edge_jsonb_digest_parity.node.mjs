@@ -216,3 +216,65 @@ assert.equal(verifyEnvelope("[]", "[]", hash("[]"), ENVELOPE_VERSION),
 // privileges and review of numeric/surrogate semantics remain required.
 console.log("PASS_SCOPED_VERSIONED_EDGE_BYTES_PG17_SEMANTIC_BINDING_ONLY");
 console.log("HOLD: No PostgreSQL canonical uniqueness proof, no private RPC enforcement, no hosted Auth/ownership, no tax certification.");
+
+
+// WS00-ACC-162 candidate: independently demonstrate the security distinction
+// between PostgreSQL semantic JSONB equality and an EXACT pinned Edge encoding.
+// A digest over caller-controlled bytes is NOT a canonicality proof or Auth.
+// This producer-side preflight is isolated test code, not a deployed guard.
+function pinnedEdgeEncodingPreflight(bytes, digest, version) {
+  if (typeof bytes !== "string" || typeof digest !== "string" ||
+      version !== ENVELOPE_VERSION ||
+      Buffer.byteLength(bytes, "utf8") > 262144 ||
+      !/^[0-9a-f]{64}$/.test(digest)) return false;
+  try {
+    const parsed = JSON.parse(bytes);
+    return parsed !== null && typeof parsed === "object" &&
+      !Array.isArray(parsed) && canonical(parsed) === bytes &&
+      hash(bytes) === digest;
+  } catch {
+    return false;
+  }
+}
+for (const { name, trace } of versionedFixtures) {
+  const bytes = canonical(trace);
+  assert.equal(pinnedEdgeEncodingPreflight(bytes, hash(bytes), ENVELOPE_VERSION),
+    true, name + " pinned Edge encoding preflight rejected valid fixture");
+  assert.equal(pinnedEdgeEncodingPreflight(bytes, "f".repeat(64), ENVELOPE_VERSION),
+    false, name + " preflight accepted forged digest");
+  assert.equal(pinnedEdgeEncodingPreflight(bytes, hash(bytes), "V2_UNAPPROVED"),
+    false, name + " preflight accepted wrong version");
+}
+
+// Each noncanonical byte string parses into the same JSONB as the canonical
+// counterpart, so the current PG envelope ACCEPTS it when the caller
+// recomputes the digest. The pinned Edge preflight MUST reject it. This
+// deliberately records a known candidate limitation rather than claiming a
+// PostgreSQL-only canonicality fix.
+const encodingDrifts = [
+  { name: "reordered_keys", bytes: '{"z":1,"a":2}' },
+  { name: "insignificant_whitespace", bytes: '{"a": 2,"z":1}' },
+  { name: "unicode_escape", bytes: '{"a":"\\u09ac"}' },
+  { name: "numeric_lexeme_1_point_0", bytes: '{"a":1.0}' },
+  { name: "negative_zero", bytes: '{"a":-0}' },
+  { name: "duplicate_json_key", bytes: '{"a":1,"a":2}' },
+  { name: "trailing_whitespace", bytes: '{"a":1}\\n' },
+];
+for (const { name, bytes } of encodingDrifts) {
+  const parsed = JSON.parse(bytes);
+  const canonicalBytes = canonical(parsed);
+  assert.notEqual(bytes, canonicalBytes, name + " fixture is already canonical");
+  const digest = hash(bytes);
+  assert.equal(verifyEnvelope(canonicalBytes, bytes, digest, ENVELOPE_VERSION),
+    true, name + " expected PG semantic-only envelope acceptance not observed");
+  assert.equal(pinnedEdgeEncodingPreflight(bytes, digest, ENVELOPE_VERSION),
+    false, name + " noncanonical caller bytes passed pinned Edge preflight");
+  assert.equal(pinnedEdgeEncodingPreflight(canonicalBytes, hash(canonicalBytes),
+    ENVELOPE_VERSION), true, name + " canonical counterpart was rejected");
+}
+assert.equal(pinnedEdgeEncodingPreflight("[]", hash("[]"), ENVELOPE_VERSION),
+  false, "array accepted as auditTrace");
+assert.equal(pinnedEdgeEncodingPreflight("{bad}", hash("{bad}"), ENVELOPE_VERSION),
+  false, "invalid JSON accepted by Edge preflight");
+console.log("PASS_SCOPED_PINNED_EDGE_EXACT_ENCODING_PREFLIGHT_DRIFT_NEGATIVES_ONLY");
+console.log("HOLD: PG semantic-only envelope still accepts recomputed noncanonical bytes; preflight is not a trusted-identity or SQL enforcement boundary.");
