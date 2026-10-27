@@ -48,11 +48,26 @@ describe('public Office re-entry after Sign Out', () => {
 
   it('rejects non-admin identifiers and ignores arbitrary passwords', async () => {
     const user = userEvent.setup();
-    render(<LoginForm isDesktop onForgotPassword={vi.fn()} onOfficeEnter={mocks.onOfficeEnter} />);
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'anything');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+  });
+
+  it('accepts blank password for admin and rejects another name even with a password', async () => {
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'officer');
+    await user.type(screen.getByLabelText('Password'), 'secret');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(screen.getByText('Enter admin to open the Office prototype.')).toBeInTheDocument();
+    await user.clear(screen.getByRole('textbox', { name: 'User ID' }));
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), ' admin ');
+    await user.clear(screen.getByLabelText('Password'));
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
   });

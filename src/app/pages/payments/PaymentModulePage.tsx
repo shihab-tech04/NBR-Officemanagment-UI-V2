@@ -307,7 +307,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
-        <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'নিচের সংযুক্ত রিভিউ কিউ থেকে সিমুলেশন পর্যালোচনা করুন।':'Use the connected review queue below for submitted simulation reviews.'}</p>
+        <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ সিমুলেশন রেকর্ড দেখুন। এই প্রোটোটাইপে কর্মকর্তার অনুমোদন চালু নেই।':'View simulated transactions under Payments > Transactions. Officer approvals are not enabled in this prototype.'}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
         {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}

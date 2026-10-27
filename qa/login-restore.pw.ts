@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-test('Office dashboard opens directly without an authentication form', async ({page}) => {
+test('Office opens after admin demo entry without an officer authentication flow', async ({page}) => {
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/');
   await expect(page.locator('#login-user-id')).toBeVisible();
+  await expect(page.locator('#login-password')).toBeVisible();
   await page.locator('#login-user-id').fill('admin');
   await page.getByRole('button',{name:'Sign in'}).click();
   await expect(page).toHaveURL(/\/dashboard\/dashboard-main$/);
@@ -12,6 +13,20 @@ test('Office dashboard opens directly without an authentication form', async ({p
   await expect(page.locator('#login-password')).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Welcome back'})).toHaveCount(0);
   await page.reload();
+  await expect(page.locator('.app-shell')).toBeVisible();
+});
+
+
+test('demo entry requires admin while accepting any password or blank', async ({page}) => {
+  await page.goto('/');
+  await page.locator('#login-user-id').fill('user1');
+  await page.locator('#login-password').fill('anything');
+  await page.getByRole('button',{name:'Sign in'}).click();
+  await expect(page.locator('#login-user-id')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveAttribute('aria-invalid','true');
+  await page.locator('#login-user-id').fill('admin');
+  await page.locator('#login-password').fill('');
+  await page.getByRole('button',{name:'Sign in'}).click();
   await expect(page.locator('.app-shell')).toBeVisible();
 });
 
