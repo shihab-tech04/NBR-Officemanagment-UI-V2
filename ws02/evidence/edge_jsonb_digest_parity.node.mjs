@@ -258,7 +258,7 @@ const encodingDrifts = [
   { name: "numeric_lexeme_1_point_0", bytes: '{"a":1.0}' },
   { name: "negative_zero", bytes: '{"a":-0}' },
   { name: "duplicate_json_key", bytes: '{"a":1,"a":2}' },
-  { name: "trailing_whitespace", bytes: '{"a":1}\\n' },
+  { name: "trailing_whitespace", bytes: '{"a":1}\n' },
 ];
 for (const { name, bytes } of encodingDrifts) {
   const parsed = JSON.parse(bytes);
