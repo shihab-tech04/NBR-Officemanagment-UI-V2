@@ -25,6 +25,13 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
+      - name: Verify SQL-backed payment notification, read-state and history regressions
+        run: |
+          npx vitest run \
+            src/app/services/__tests__/demoNotificationReadState.test.ts \
+            src/app/store/__tests__/paymentSqlNotifications.test.ts \
+            src/test/notificationHistoryNavigation.test.ts \
+            src/test/paymentPostReleaseRegression.test.ts
       - name: Compile open Office Management UI without connected officer access
         run: npm run build
         env:
