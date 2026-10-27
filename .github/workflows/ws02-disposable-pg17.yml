@@ -449,7 +449,7 @@ jobs:
         run: |
           set -euo pipefail
           # Extract only the reviewed private synthetic DDL, never connect to hosted DB.
-          awk '/^INSERT INTO ws02_owner.owners\\(record_id,assessment_year,actor_id,state\\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_digest_owner_ddl.sql
+          awk '/^INSERT INTO ws02_owner.owners\(record_id,assessment_year,actor_id,state\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_digest_owner_ddl.sql
           echo 'COMMIT;' >> /tmp/ws02_digest_owner_ddl.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_digest_owner_ddl.sql >/tmp/ws02_digest_setup.log
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_audit_trace_digest_candidate.sql
