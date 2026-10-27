@@ -4,7 +4,7 @@ const profile="/audit/audit-candidates?batch=AUD-2026-RISK-01&candidate=AC-2026-
 test.beforeEach(async({page},info)=>{
   const lang=info.title.includes("Bengali")?"bn":"en";
   await page.addInitScript((language)=>{
-    localStorage.setItem("gov_ui_auth",JSON.stringify({isAuthenticated:true,userId:"admin"}));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem("gov_ui_settings",JSON.stringify({
       assessmentYear:"2024-25",themeId:"indigo-blue",
       fontId:"poppins",fontSizeId:"standard",languageId:language,

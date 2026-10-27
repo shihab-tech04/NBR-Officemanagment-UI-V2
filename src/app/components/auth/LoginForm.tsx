@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Globe } from "lucide-react";
-import type { AppDispatch } from "../../store/store";
-import { login } from "../../store/authSlice";
 import svgPaths from "../../../imports/CompanyAdminLogin/svg-mhvw7bsa5p";
 import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
@@ -12,21 +9,22 @@ import { useHelp } from "../../context/HelpContext";
 
 interface LoginFormProps {
   isDesktop: boolean;
-  onForgotPassword: () => void;
   onOfficeEnter?: () => void;
 }
 
 export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const { t: translate } = useTranslation("auth");
-  const dispatch = useDispatch<AppDispatch>();
   const { openHelp } = useHelp();
   const navigate = useNavigate();
 
   const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [entryError, setEntryError] = useState(false);
   const handleSignIn = () => {
-    // This is a voluntary UI-entry screen after Sign Out, not authentication.
-    // Any identifier (including blank) enters the public Office workspace.
-    dispatch(login({ userId: userId.trim() || "office" }));
+    if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
+    setEntryError(false);
+    // Optional password is never checked, transmitted, or stored.
+    void password;
     onOfficeEnter?.();
     navigate("/dashboard/dashboard-main");
   };
@@ -75,9 +73,19 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
               id="login-user-id"
               label={translate("login.userId")}
               value={userId}
-              onChange={setUserId}
+              onChange={value => { setUserId(value); setEntryError(false); }}
               onKeyDown={handleKeyDown}
               placeholder={translate("login.userIdPlaceholder")}
+              autoComplete="off"
+              error={entryError ? translate("login.adminOnly") : undefined}
+            />
+            <AppTextField
+              id="login-password"
+              type="password"
+              label={translate("login.password")}
+              placeholder={translate("login.passwordOptionalPlaceholder")}
+              value={password}
+              onChange={setPassword}
               autoComplete="off"
             />
             <button

@@ -22,7 +22,7 @@ describe('Site Logo editor', () => {
   it('keeps the approved logo read-only until Edit, and Cancel restores view mode', async () => {
     const user = userEvent.setup();
     const cms = logoCms();
-    render(<SiteLogoPanel cms={cms} officeUserId="admin" />);
+    render(<SiteLogoPanel cms={cms} />);
     await screen.findByRole('button', { name: 'Edit logo' });
     expect(screen.getByText('Current published logo')).toBeInTheDocument();
     expect(screen.getByText(/Source image: 2150 × 440 px/)).toBeInTheDocument();

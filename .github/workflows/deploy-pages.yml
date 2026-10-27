@@ -29,7 +29,6 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_REVIEW_DISABLED: 'true'
           VITE_TAXPAY_CMS_SUPABASE_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
           VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
       - run: |

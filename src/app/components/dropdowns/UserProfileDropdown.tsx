@@ -1,4 +1,4 @@
-import { User, Settings, History, Lock, Smartphone, ShieldCheck as ShieldCheckIcon, LogOut, X } from "lucide-react";
+import { User, Settings, History, LogOut, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -22,11 +22,6 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
     { id: "activity-log", label: translate("profile.activityLog"), icon: History },
   ];
 
-  const securityItems = [
-    { id: "change-password", label: translate("profile.changePassword"), icon: Lock },
-    { id: "manage-2fa", label: translate("profile.manage2FA"), icon: Smartphone },
-    { id: "login-activity", label: translate("profile.loginDeviceActivity"), icon: ShieldCheckIcon },
-  ];
 
   const dropdownContent = (
     <div
@@ -104,21 +99,6 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
           })}
         </div>
 
-        {/* Security Section */}
-        <div className="account-dropdown__menu-section">
-          <div className="account-dropdown__section-header">
-            <h4 className="account-dropdown__section-title">{translate("profile.security")}</h4>
-          </div>
-          {securityItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button key={item.id} className="account-dropdown__menu-item">
-                <Icon size={18} strokeWidth={1.75} className="account-dropdown__menu-item-icon" aria-hidden="true" />
-                <span className="account-dropdown__menu-item-label">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Original profile footer — Sign Out */}

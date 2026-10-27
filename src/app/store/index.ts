@@ -3,9 +3,6 @@
 export { store } from "./store";
 export type { RootState, AppDispatch } from "./store";
 
-export { login, logout } from "./authSlice";
-export type { AuthState } from "./authSlice";
-
 export {
   setTheme,
   setFont,

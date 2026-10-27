@@ -5,7 +5,7 @@ const first = '/audit/audit-candidates?batch=AUD-2026-RISK-01&candidate=AC-2026-
 test.beforeEach(async ({ page }, testInfo) => {
   const language = testInfo.title.startsWith('Bengali') ? 'bn' : 'en';
   await page.addInitScript((lang) => {
-    localStorage.setItem('gov_ui_auth', JSON.stringify({isAuthenticated:true,userId:'admin'}));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings',JSON.stringify({
       assessmentYear:'2024-25',themeId:'indigo-blue',
       fontId:'poppins',fontSizeId:'standard',languageId:lang

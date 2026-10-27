@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({page}) => {
+  await page.addInitScript(() => window.sessionStorage.setItem('office_ui_entered', 'admin'));
+});
+
 test.use({ viewport: { width: 390, height: 844 } });
 
 test('notifications form an accessible bottom sheet and actions remain usable', async ({ page }) => {

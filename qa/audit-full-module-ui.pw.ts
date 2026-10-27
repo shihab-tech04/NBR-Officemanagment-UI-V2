@@ -31,7 +31,7 @@ for (const route of routes) {
     test('Audit ' + route + ' — ' + mode.name + ' uses Golden Office tokens', async ({ page }) => {
       await page.setViewportSize({ width: mode.width, height: mode.height });
       await page.addInitScript(({ theme, language }) => {
-        localStorage.setItem('gov_ui_auth', JSON.stringify({ isAuthenticated: true, userId: 'admin' }));
+        sessionStorage.setItem('office_ui_entered','admin');
         localStorage.setItem('gov_ui_settings', JSON.stringify({
           assessmentYear: '2024-25', themeId: theme,
           fontId: 'poppins', fontSizeId: 'standard', languageId: language,
@@ -83,7 +83,7 @@ for (const route of routes) {
 
 test('Audit Manual entry controls and content remain available in Bengali', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('gov_ui_auth', JSON.stringify({ isAuthenticated: true, userId: 'admin' }));
+    sessionStorage.setItem('office_ui_entered','admin');
     localStorage.setItem('gov_ui_settings', JSON.stringify({
       assessmentYear: '2024-25', themeId: 'dark-mode',
       fontId: 'poppins', fontSizeId: 'standard', languageId: 'bn',

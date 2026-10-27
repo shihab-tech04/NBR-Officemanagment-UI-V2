@@ -1,26 +1,10 @@
-import {getOfficeReviewClient} from './OfficeReviewQueue';
 /** Only an authenticated, authorized NBR Office simulation reviewer may read connected SQL. */
 export {simulationUsers,simulationCategories,TAXPAY_SIMULATION_CONTRACT_VERSION,simulationCategoryLabels,paymentJourneyStages,paymentStageLabels} from '../../contracts/paymentSimulationContract';
 export type {SimulationUser,SimulationCategory,SimulationLine,SimulationAllocation,SimulationEvent,SimulationTransaction,SimulationNotice,SimSubmission} from '../../contracts/paymentSimulationContract';
 import type {SimulationUser,SimulationLine,SimulationTransaction,SimulationNotice,SimSubmission} from '../../contracts/paymentSimulationContract';
-async function officerOnlyRead<T>(name:string,args:Record<string,unknown>):Promise<T>{
- const client=getOfficeReviewClient();
- if(!client)throw Error('Connected SQL requires a configured officer sign-in');
- const {data:identity,error:identityError}=await client.auth.getUser();
- if(identityError||!identity.user)throw Error('Sign in with an authorized officer account to view the shared SQL ledger');
- const active=await client.from('taxpay_officer_roles').select('role,active').eq('user_uid',identity.user.id).maybeSingle();
- if(active.error)throw Error(active.error.message);
- if(!active.data?.active||!['MAKER','REVIEWER','APPROVER'].includes(active.data.role))throw Error('Active officer permission required');
- const {data,error}=await client.rpc(name,args);
- if(error)throw Error(error.message);
- const {data:verified,error:recheck}=await client.auth.getUser();
- if(recheck||verified.user?.id!==identity.user.id)throw Error('Officer session changed during SQL read');
- return data as T;
-}
-export const loadSimulationHistory=(user:SimulationUser|null,view:'beneficiary'|'payer'|'all'='beneficiary')=>
- officerOnlyRead<SimulationTransaction[]>('sim_payment_history',{p_user_id:user,p_view:view});
-export const loadSimulationNotices=(user:SimulationUser)=>
- officerOnlyRead<SimulationNotice[]>('sim_payment_notices',{p_user_id:user});
+/** Public preview never reads private taxpayer histories or impersonates an officer. */
+export const loadSimulationHistory = async (_user:SimulationUser|null, _view:'beneficiary'|'payer'|'all'='beneficiary'):Promise<SimulationTransaction[]> => [];
+export const loadSimulationNotices = async (_user:SimulationUser):Promise<SimulationNotice[]> => [];
 export const submitSimulatedPayment=(_payer:SimulationUser,_lines:SimulationLine[],_key:string):Promise<SimSubmission>=>Promise.reject(Error('Officers cannot impersonate taxpayer payment submissions'));
 /** Decimal money input is converted to integer paisa without floating-point rounding. */
 export function parseSimulatedAmount(value:string):number {

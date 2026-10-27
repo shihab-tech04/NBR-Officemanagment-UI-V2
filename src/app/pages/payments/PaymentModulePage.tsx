@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, FileCheck2, Printer, Download, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { PaymentRecordList } from './PaymentRecordList';
 import { PaymentCategoryTag } from './PaymentCategoryTag';
-import { OfficeReviewQueue, getOfficeReviewClient } from './OfficeReviewQueue';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { AppModal } from '../../components/modals/AppModal';
 import { TabBar } from '../../components/tabs/TabBar';
@@ -160,45 +159,6 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const [draftPreview,setDraftPreview] = useState(false);
   const [formError,setFormError] = useState('');
   const [errors,setErrors] = useState<Record<string,string>>({});
-  useEffect(()=>{
-    const client=getOfficeReviewClient();
-    if(!client)return;
-    let active=true;
-    let lastUserId:string|null|undefined=undefined;
-    const synchronizeOfficer=async()=>{
-      const {data:identity,error:authError}=await client.auth.getUser();
-      if(!active)return;
-      const uid=authError?null:identity.user?.id??null;
-      if(uid!==lastUserId){
-        lastUserId=uid;
-        setLiveTransactions([]);
-        setLiveNotices([]);
-        setDetails(null);
-        setLiveError(uid?'':'Authorized officer sign-in required');
-        setPaymentDataset('reference');
-        setLiveLoading(Boolean(uid));
-      }
-      if(!uid)return;
-      const access=await client.from('taxpay_officer_roles').select('role,active').eq('user_uid',uid).maybeSingle();
-      const {data:verified}=await client.auth.getUser();
-      if(!active||verified.user?.id!==uid)return;
-      if(access.error||!access.data?.active||!['MAKER','REVIEWER','APPROVER'].includes(access.data.role)){
-        setLiveTransactions([]);setLiveNotices([]);setPaymentDataset('reference');setLiveError('Active officer authorization required');
-        setLiveLoading(false);
-        return;
-      }
-      setPaymentDataset(current=>current==='reference'?'connected':current);
-    };
-    const {data:sub}=client.auth.onAuthStateChange(()=>{
-      // Wipe immediately, before the first asynchronous role verification.
-      setLiveTransactions([]);
-      setLiveNotices([]);
-      setDetails(null);
-      window.setTimeout(()=>{if(active)void synchronizeOfficer();},0);
-    });
-    void synchronizeOfficer();
-    return()=>{active=false;sub.subscription.unsubscribe();};
-  },[]);
   useEffect(()=>{
     let active=true;
     const sync=async()=>{
@@ -440,7 +400,6 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
 
   return <div className="table-page payment-module" data-testid={`payment-${current}`}>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
-    {(current==='overview'||current==='transactions')&&<OfficeReviewQueue/>}
     <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
       renderValue={(key,value)=>details?.title===t('transactions')?undefined:key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
       columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({

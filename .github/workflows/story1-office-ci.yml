@@ -22,7 +22,6 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_REVIEW_DISABLED: 'true'
   sql-migrations:
     name: Disposable Office SQL and eight simulated services
     runs-on: ubuntu-latest
