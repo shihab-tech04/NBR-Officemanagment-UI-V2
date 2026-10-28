@@ -23,7 +23,7 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo 'dcf060eb755ca0b6d81cf4a7ce58f9ab1d649c8443b7562302fd52ff4dbed87b  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo 'cb6c47f6dd80d5470ee3c8cb3e6fada13142f6f9f5446e490356b8702c3ecdfc  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '328ec5c4a9720584e2616f21ba386668eab79845ddb1856c02956447a1427b27  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
           echo '8ec2d535d06f5cd6d710eaed0b00d547bc83efd9f90adbe7e148f55e5b9739d7  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
           echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -

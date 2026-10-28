@@ -181,3 +181,53 @@ test('actual late session helper fails closed for revoked, swapped, missing or e
     assert.equal(await verifiedCommitSession(client, 'synthetic-token', actor), false);
   }
 });
+
+const { verifiedCommitOwnership } = runInThisContext(
+  '(() => {' + stripTypeScriptTypes(extractAsync('verifiedCommitOwnership')) +
+  '\nreturn { verifiedCommitOwnership }; })()',
+);
+
+test('late owner/year recheck occurs after session recheck and before private atomic commit', () => {
+  const session = source.indexOf('await verifiedCommitSession(supabase, token, authData.user.id)');
+  const owner = source.indexOf('await verifiedCommitOwnership(', session);
+  const commit = source.indexOf('"nbr_commit_evaluation_versioned_candidate"', owner);
+  assert.ok(session > 0 && owner > session && commit > owner);
+  const segment = source.slice(owner, commit);
+  assert.ok(segment.includes('TAXPAYER_ACCESS_DENIED'));
+  assert.ok(segment.includes('OWNERSHIP_GATE_UNAVAILABLE'));
+  assert.ok(segment.includes('commitOwnership !== "AUTHORIZED"'));
+});
+
+test('actual late ownership helper rejects revoked, malformed, errored or missing owner/year evidence', async () => {
+  const actor = base.actor_user_id;
+  const record = base.taxpayer_record_id;
+  const year = base.assessment_year;
+  const seen = [];
+  const client = { async rpc(name, args) {
+    seen.push({ name, args });
+    return { data: true, error: null };
+  } };
+  assert.equal(await verifiedCommitOwnership(client, actor, record, year), 'AUTHORIZED');
+  assert.deepEqual(seen, [{
+    name: 'nbr_authorize_citizen_evaluation',
+    args: {
+      p_auth_user_id: actor,
+      p_taxpayer_record_id: record,
+      p_assessment_year: year,
+    },
+  }]);
+  assert.equal(await verifiedCommitOwnership(
+    { async rpc() { return { data: false, error: null }; } }, actor, record, year), 'DENIED');
+  for (const response of [
+    { data: null, error: null },
+    { data: 'true', error: null },
+    { data: 1, error: null },
+    { data: true, error: { message: 'owner rpc failed' } },
+    { data: undefined, error: null },
+  ]) {
+    assert.equal(await verifiedCommitOwnership(
+      { async rpc() { return response; } }, actor, record, year), 'UNAVAILABLE');
+  }
+  assert.equal(await verifiedCommitOwnership(
+    { async rpc() { throw Error('owner RPC offline'); } }, actor, record, year), 'UNAVAILABLE');
+});

@@ -302,6 +302,33 @@ async function verifiedCommitSession(
   }
 }
 
+
+/**
+ * Recheck owner/year authorization after evaluation, immediately before the
+ * private atomic receipt commit. This is only defense in depth: the SQL
+ * transaction MUST independently enforce ownership at commit time.
+ * No caller-provided identity, cached owner decision, or service-role claim
+ * is accepted as a substitute for the source-backed owner RPC.
+ */
+async function verifiedCommitOwnership(
+  client: { rpc: (name: string, args: Record<string, string>) => Promise<any> },
+  actorUserId: string,
+  taxpayerRecordId: string,
+  assessmentYear: string,
+): Promise<"AUTHORIZED" | "DENIED" | "UNAVAILABLE"> {
+  try {
+    const { data, error } = await client.rpc("nbr_authorize_citizen_evaluation", {
+      p_auth_user_id: actorUserId,
+      p_taxpayer_record_id: taxpayerRecordId,
+      p_assessment_year: assessmentYear,
+    });
+    if (error || typeof data !== "boolean") return "UNAVAILABLE";
+    return data === true ? "AUTHORIZED" : "DENIED";
+  } catch {
+    return "UNAVAILABLE";
+  }
+}
+
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -1784,6 +1811,18 @@ Deno.serve(async (req) => {
     if (!await verifiedCommitSession(supabase, token, authData.user.id)) {
       return json({ status:"FAIL_CLOSED", code:"PRODUCER_SESSION_RECHECK_FAILED",
         error:"Authenticated taxpayer session is no longer valid" }, 401);
+    }
+    // Owner access can be revoked during the evaluation. A second source-backed
+    // authorization check limits that interval; SQL must still recheck inside
+    // the atomic transaction to close the remaining race.
+    const commitOwnership = await verifiedCommitOwnership(
+      supabase, authData.user.id, taxpayerRecordId, assessmentYear);
+    if (commitOwnership !== "AUTHORIZED") {
+      return commitOwnership === "DENIED"
+        ? json({ status:"FAIL_CLOSED", code:"TAXPAYER_ACCESS_DENIED",
+          error:"Taxpayer ownership was revoked before finalization" }, 403)
+        : json({ status:"FAIL_CLOSED", code:"OWNERSHIP_GATE_UNAVAILABLE",
+          error:"Taxpayer ownership could not be reverified before finalization" }, 503);
     }
     const { data: atomicCommit, error: atomicCommitError } = await supabase.rpc(
       // Review-only private WS02 wrapper: PostgREST must NOT expose this RPC
