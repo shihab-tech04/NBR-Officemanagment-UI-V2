@@ -267,3 +267,105 @@ BEGIN
 END $wrapper_acl_restored$;
 COMMIT;
 SELECT 'PASS_SCOPED_PRIVATE_WRAPPER_EXACT_ACL_ALLOWLIST_ROLLBACK_ONLY' AS marker;
+
+-- Private SECURITY DEFINER body integrity is independent of owner, named
+-- arguments, ACL, volatility and search_path. A CREATE OR REPLACE retaining
+-- all of that metadata could still replace the owner-bound atomic commit
+-- with an unconditional true. Pin the reviewed exact prosrc bytes and prove
+-- detection plus transactional restoration of a permissive-body mutation.
+-- Disposable PostgreSQL 17 only: no hosted SQL/Auth or public RPC exposure.
+DO $versioned_body_integrity$
+DECLARE expected_source text := $reviewed_ws02_body$
+DECLARE decoded jsonb;
+BEGIN
+ IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
+    OR p_trace_bytes IS NULL
+    OR p_audit_trace IS NULL
+    OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
+    OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
+    OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
+      pg_catalog.sha256(pg_catalog.convert_to(p_trace_bytes,'UTF8')),'hex')
+ THEN RETURN false; END IF;
+ BEGIN
+   decoded := p_trace_bytes::jsonb;
+ EXCEPTION WHEN data_exception THEN
+   RETURN false;
+ END;
+ IF pg_catalog.jsonb_typeof(decoded) IS DISTINCT FROM 'object'
+    OR decoded IS DISTINCT FROM p_audit_trace
+ THEN RETURN false; END IF;
+ RETURN ws02_owner.nbr_commit_evaluation_atomically(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,p_idempotency_key,
+  p_request_hash,p_receipt_hash,p_trace_hash,p_result_state,p_audit_trace);
+END $reviewed_ws02_body$;
+        observed_source text;
+BEGIN
+ SELECT p.prosrc INTO observed_source FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF observed_source IS DISTINCT FROM expected_source THEN
+   RAISE EXCEPTION 'PRIVATE_VERSIONED_WRAPPER_BODY_DRIFT';
+ END IF;
+END $versioned_body_integrity$;
+
+BEGIN;
+SAVEPOINT ws02_versioned_body_tamper;
+CREATE OR REPLACE FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+ p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+ p_trace_hash text,p_result_state text,p_audit_trace jsonb,
+ p_trace_bytes text,p_trace_encoding_version text
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,ws02_owner AS $unsafe_versioned_body$
+BEGIN
+ RETURN true;
+END $unsafe_versioned_body$;
+DO $versioned_body_tamper_check$
+DECLARE p record;
+BEGIN
+ SELECT prosrc,prosecdef,proconfig,proowner INTO p FROM pg_catalog.pg_proc
+ WHERE oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF NOT FOUND OR pg_catalog.btrim(p.prosrc) IS DISTINCT FROM 'BEGIN'||E'\n RETURN true;'||E'\nEND '
+    OR p.prosecdef IS DISTINCT FROM true
+    OR p.proowner IS DISTINCT FROM 'ws02_owner_rpc'::regrole::oid
+    OR p.proconfig IS NULL
+    OR pg_catalog.cardinality(p.proconfig) IS DISTINCT FROM 1
+    OR pg_catalog.replace(pg_catalog.split_part(p.proconfig[1],'=',2),' ','')
+      IS DISTINCT FROM 'pg_catalog,ws02_owner'
+ THEN RAISE EXCEPTION 'PRIVATE_VERSIONED_WRAPPER_BODY_MUTATION_NOT_DETECTED'; END IF;
+END $versioned_body_tamper_check$;
+ROLLBACK TO SAVEPOINT ws02_versioned_body_tamper;
+RELEASE SAVEPOINT ws02_versioned_body_tamper;
+DO $versioned_body_restored$
+DECLARE expected_source text := $reviewed_ws02_body$
+DECLARE decoded jsonb;
+BEGIN
+ IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
+    OR p_trace_bytes IS NULL
+    OR p_audit_trace IS NULL
+    OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
+    OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
+    OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
+      pg_catalog.sha256(pg_catalog.convert_to(p_trace_bytes,'UTF8')),'hex')
+ THEN RETURN false; END IF;
+ BEGIN
+   decoded := p_trace_bytes::jsonb;
+ EXCEPTION WHEN data_exception THEN
+   RETURN false;
+ END;
+ IF pg_catalog.jsonb_typeof(decoded) IS DISTINCT FROM 'object'
+    OR decoded IS DISTINCT FROM p_audit_trace
+ THEN RETURN false; END IF;
+ RETURN ws02_owner.nbr_commit_evaluation_atomically(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,p_idempotency_key,
+  p_request_hash,p_receipt_hash,p_trace_hash,p_result_state,p_audit_trace);
+END $reviewed_ws02_body$;
+        observed_source text;
+BEGIN
+ SELECT p.prosrc INTO observed_source FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF observed_source IS DISTINCT FROM expected_source THEN
+   RAISE EXCEPTION 'PRIVATE_VERSIONED_WRAPPER_BODY_NOT_RESTORED';
+ END IF;
+END $versioned_body_restored$;
+COMMIT;
+SELECT 'PASS_SCOPED_VERSIONED_WRAPPER_BODY_DRIFT_ROLLBACK_ONLY' AS marker;
