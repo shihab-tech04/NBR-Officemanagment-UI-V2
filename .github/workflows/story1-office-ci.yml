@@ -28,9 +28,10 @@ jobs:
       - name: Type-check the Office mirror Edge Function
         run: |
           mkdir -p "$RUNNER_TEMP/office-edge-check"
-          cp supabase/functions/demo-story1-office/index.ts supabase/functions/demo-story1-office/mirrorValidation.ts "$RUNNER_TEMP/office-edge-check/"
+          cp supabase/functions/demo-story1-office/index.ts supabase/functions/demo-story1-office/mirrorValidation.ts supabase/functions/demo-story1-office/index_test.ts "$RUNNER_TEMP/office-edge-check/"
           cd "$RUNNER_TEMP/office-edge-check"
           deno check --no-lock index.ts
+          deno test --no-lock --allow-env index_test.ts
   sql-migrations:
     name: Disposable Office SQL and eight simulated services
     runs-on: ubuntu-latest
