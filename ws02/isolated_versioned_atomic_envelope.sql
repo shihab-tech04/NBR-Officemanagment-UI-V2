@@ -463,7 +463,9 @@ SELECT 'PASS_SCOPED_PRIVATE_ATOMIC_DEPENDENCY_BODY_DRIFT_ROLLBACK_ONLY' AS marke
 -- and must never grant the private wrapper or its trusted producer role.
 -- This is a real negative EXECUTE/SET ROLE attempt, not just catalog metadata.
 BEGIN;
-SET LOCAL ROLE ws02_owner_auth;
+-- Switch the SESSION identity, not only current_role: a superuser
+-- session_user could otherwise SET ROLE back into any private role.
+SET SESSION AUTHORIZATION ws02_owner_auth;
 SELECT pg_catalog.set_config('request.jwt.claim.sub',
  '60000000-0000-4000-8000-000000000001',true);
 SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
@@ -493,7 +495,7 @@ END $forged_auth_claims$;
 ROLLBACK;
 
 BEGIN;
-SET LOCAL ROLE ws02_owner_anon;
+SET SESSION AUTHORIZATION ws02_owner_anon;
 SELECT pg_catalog.set_config('request.jwt.claims',
  '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
 DO $forged_anon_claims$
