@@ -1876,7 +1876,7 @@ Deno.serve(async (req) => {
         revision: scheduleRow.revision_no,
         legalSource: scheduleRow.legal_source,
       } : null,
-    })
+      });
     } catch {
       return json({ status:"FAIL_CLOSED", code:"RESPONSE_PREPARATION_FAILED",
         error:"Evaluation response could not be prepared before persistence" }, 503);
@@ -1921,7 +1921,7 @@ Deno.serve(async (req) => {
         error:"Atomic, owner-bound receipt persistence was not confirmed" }, 503);
     }
 
-    return preparedSuccessResponse;;
+    return preparedSuccessResponse;
   } catch (error) {
     console.error(error);
     return json({ status:"FAIL_CLOSED", code:"EVALUATOR_EXCEPTION", error:"Evaluation refused; no tax amount is authorized" }, 503);
