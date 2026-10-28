@@ -457,3 +457,74 @@ BEGIN
 END $atomic_dependency_body_restored$;
 COMMIT;
 SELECT 'PASS_SCOPED_PRIVATE_ATOMIC_DEPENDENCY_BODY_DRIFT_ROLLBACK_ONLY' AS marker;
+
+-- Disposable PostgreSQL 17 ONLY: a PostgREST-style caller can write arbitrary
+-- request.jwt.claims GUCs in this fixture. They are NOT signed Auth evidence,
+-- and must never grant the private wrapper or its trusted producer role.
+-- This is a real negative EXECUTE/SET ROLE attempt, not just catalog metadata.
+BEGIN;
+SET LOCAL ROLE ws02_owner_auth;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+ '60000000-0000-4000-8000-000000000001',true);
+SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $forged_auth_claims$
+DECLARE execute_denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','spoofed-jwt-guc-no-slot-00001',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN execute_denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT execute_denied OR NOT escalation_denied
+    OR current_user IS DISTINCT FROM 'ws02_owner_auth'
+ THEN RAISE EXCEPTION 'FORGED_AUTH_CLAIMS_REACHED_PRIVATE_WRAPPER_OR_ROLE'; END IF;
+END $forged_auth_claims$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE ws02_owner_anon;
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $forged_anon_claims$
+DECLARE execute_denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_owner.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','spoofed-jwt-guc-no-slot-00002',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN execute_denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT execute_denied OR NOT escalation_denied
+    OR current_user IS DISTINCT FROM 'ws02_owner_anon'
+ THEN RAISE EXCEPTION 'FORGED_ANON_CLAIMS_REACHED_PRIVATE_WRAPPER_OR_ROLE'; END IF;
+END $forged_anon_claims$;
+ROLLBACK;
+
+DO $forged_claims_no_rows$
+BEGIN
+ IF EXISTS (SELECT 1 FROM ws02_owner.slots
+             WHERE idem_key LIKE 'spoofed-jwt-guc-no-slot-%')
+    OR EXISTS (SELECT 1 FROM ws02_owner.evaluation_logs
+             WHERE idem_key LIKE 'spoofed-jwt-guc-no-slot-%')
+ THEN RAISE EXCEPTION 'FORGED_CLAIMS_LEFT_AUDIT_OR_RECEIPT_ROWS'; END IF;
+END $forged_claims_no_rows$;
+SELECT 'PASS_SCOPED_FORGED_JWT_GUC_CANNOT_EXECUTE_PRIVATE_WRAPPER' AS marker;
