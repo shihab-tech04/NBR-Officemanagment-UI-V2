@@ -166,9 +166,9 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     // aliases of the SAME key cannot bypass SQL UNIQUE KEYS enforcement.
     // String.raw preserves literal backslashes for the PostgreSQL JSON parser.
     ['root_unicode_escape', '"engine_version":"synthetic-isolated"',
-      String.raw`"engine_version":"synthetic-isolated","\\u0065ngine_version":"synthetic-isolated"`],
+      String.raw`"engine_version":"synthetic-isolated","\u0065ngine_version":"synthetic-isolated"`],
     ['nested_surrogate_escape', '"🔑":"সূত্র"',
-      String.raw`"🔑":"সূত্র","\\ud83d\\udd11":"সূত্র"`],
+      String.raw`"🔑":"সূত্র","\ud83d\udd11":"সূত্র"`],
   ]) {
     assert.ok(bytes.includes(needle), 'DUPLICATE_KEY_FIXTURE_MISSING_' + kind);
     const duplicateBytes = bytes.replace(needle, duplicate);
