@@ -155,6 +155,36 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(receiptHash)},${q(traceHash)},${q(status)},
  ${q(JSON.stringify(changed))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
+  // JSONB collapses duplicate keys. A valid digest and matching JSONB are
+  // insufficient unless PostgreSQL independently rejects duplicate source keys.
+  // Check both root and nested objects before any atomic audit/receipt commit.
+  for (const [kind, needle, duplicate] of [
+    ['root', '"engine_version":"synthetic-isolated"',
+      '"engine_version":"synthetic-isolated","engine_version":"synthetic-isolated"'],
+    ['nested', '"🔑":"সূত্র"', '"🔑":"সূত্র","🔑":"সূত্র"'],
+  ]) {
+    assert.ok(bytes.includes(needle), 'DUPLICATE_KEY_FIXTURE_MISSING_' + kind);
+    const duplicateBytes = bytes.replace(needle, duplicate);
+    assert.notEqual(duplicateBytes, bytes);
+    assert.deepEqual(JSON.parse(duplicateBytes), snapshot,
+      'DUPLICATE_KEY_JSONB_SEMANTIC_EQUIVALENCE_FAILED_' + kind);
+    const duplicateHash = digest(duplicateBytes);
+    const duplicateCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(duplicateHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(duplicateBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(duplicateCommit, ['f'],
+      'DUPLICATE_' + kind + '_KEY_ACCEPTED_WITH_VALID_DIGEST_' + status);
+    const duplicateReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+        WHERE idem_key=${q(idem)})::text || ':' ||
+        (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+        COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+          WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(duplicateReadback, ['0:RESERVED:NULL'],
+      'DUPLICATE_' + kind + '_KEY_MUTATED_AUDIT_OR_RECEIPT_' + status);
+  }
   // Even a syntactically valid, SHA-256-consistent JSON trace must be rejected
   // when its UTF-8 byte count exceeds the private SQL envelope's 256 KiB cap.
   // Non-ASCII payload deliberately stays below the limit in JS code units:
