@@ -1826,6 +1826,61 @@ Deno.serve(async (req) => {
       return json({ status:"FAIL_CLOSED", code:"AUDIT_TRACE_ENCODING_UNSAFE",
         error:"Audit evidence could not be encoded without loss" }, 503);
     }
+    // Materialize and serialize the COMPLETE success response before the
+    // atomic audit/receipt commit. A late digest or JSON serialization error
+    // must not leave a finalized receipt with only a 503 response.
+    let preparedSuccessResponse: Response;
+    try {
+      const parameterSetHash = await sha256(canonical({
+        assessmentYear,
+        revision: scheduleRow.revision_no,
+        data: scheduleRow.parameter_data,
+        legalSource: scheduleRow.legal_source,
+      }));
+      preparedSuccessResponse = json({
+      ok: fullReturnStatus === "CALCULATED",
+      code: fullReturnStatus === "CALCULATED" ? "CALCULATED" :
+        individual.code ?? (fullReturnStatus === "NEEDS_FACTS" ? "FACTS_REQUIRED" : "LEGAL_OR_RULE_BLOCKED"),
+      contractVersion: CONTRACT_VERSION,
+      receiptHash,
+      inputHash,
+      engineVersion: ENGINE_VERSION,
+      status: fullReturnStatus,
+      submissionReady,
+      assessmentYear,
+      incomeYear: year.income_year,
+      sourceRegistryVersion: year.source_registry_version,
+      legalCutoff: year.legal_cutoff,
+      ruleSetHash,
+      parameterSetHash,
+      roundingPolicy: scheduleRow.parameter_data.rounding_policy,
+      taxpayerRecordId,
+      ruleCount: (rows ?? []).length,
+      ruleSummary: {
+        applied,
+        needsFacts,
+        blocked,
+        relevantBlocked,
+        historical,
+        notApplicable,
+        notTriggered,
+        relevantNeedsFacts,
+        unhandled,
+        total: (rows ?? []).length,
+        allRuleNodesEvaluated: results.length === (rows ?? []).length && unhandled === 0,
+        submissionReady,
+      },
+      individual: safeIndividual,
+      rules: results,
+      parameterSet: scheduleRow ? {
+        revision: scheduleRow.revision_no,
+        legalSource: scheduleRow.legal_source,
+      } : null,
+    })
+    } catch {
+      return json({ status:"FAIL_CLOSED", code:"RESPONSE_PREPARATION_FAILED",
+        error:"Evaluation response could not be prepared before persistence" }, 503);
+    }
     // Revalidate the same authenticated actor after evaluation and evidence
     // hashing, before any atomic receipt/audit finalization attempt.
     // The private SQL owner and producer boundaries must still be enforced.
@@ -1866,48 +1921,7 @@ Deno.serve(async (req) => {
         error:"Atomic, owner-bound receipt persistence was not confirmed" }, 503);
     }
 
-    return json({
-      ok: fullReturnStatus === "CALCULATED",
-      code: fullReturnStatus === "CALCULATED" ? "CALCULATED" :
-        individual.code ?? (fullReturnStatus === "NEEDS_FACTS" ? "FACTS_REQUIRED" : "LEGAL_OR_RULE_BLOCKED"),
-      contractVersion: CONTRACT_VERSION,
-      receiptHash,
-      inputHash,
-      engineVersion: ENGINE_VERSION,
-      status: fullReturnStatus,
-      submissionReady,
-      assessmentYear,
-      incomeYear: year.income_year,
-      sourceRegistryVersion: year.source_registry_version,
-      legalCutoff: year.legal_cutoff,
-      ruleSetHash,
-      parameterSetHash: await sha256(canonical({ assessmentYear,
-        revision: scheduleRow.revision_no, data: scheduleRow.parameter_data,
-        legalSource: scheduleRow.legal_source })),
-      roundingPolicy: scheduleRow.parameter_data.rounding_policy,
-      taxpayerRecordId,
-      ruleCount: (rows ?? []).length,
-      ruleSummary: {
-        applied,
-        needsFacts,
-        blocked,
-        relevantBlocked,
-        historical,
-        notApplicable,
-        notTriggered,
-        relevantNeedsFacts,
-        unhandled,
-        total: (rows ?? []).length,
-        allRuleNodesEvaluated: results.length === (rows ?? []).length && unhandled === 0,
-        submissionReady,
-      },
-      individual: safeIndividual,
-      rules: results,
-      parameterSet: scheduleRow ? {
-        revision: scheduleRow.revision_no,
-        legalSource: scheduleRow.legal_source,
-      } : null,
-    });
+    return preparedSuccessResponse;;
   } catch (error) {
     console.error(error);
     return json({ status:"FAIL_CLOSED", code:"EVALUATOR_EXCEPTION", error:"Evaluation refused; no tax amount is authorized" }, 503);
