@@ -42,7 +42,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
         try {
           await checkAuditSqlAccess();
         } catch {
-          await db.auth.signOut();
+          await db.auth.signOut({ scope: "local" });
           throw new Error("An active Audit officer membership is required.");
         }
         setPassword("");
