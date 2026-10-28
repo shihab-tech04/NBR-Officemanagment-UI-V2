@@ -39,7 +39,7 @@ const base = {
 };
 test('W5 auditTrace producer guard is wired before the private atomic RPC', () => {
   const guardCall = source.indexOf('const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);');
-  const commitCall = source.indexOf('"nbr_commit_evaluation_atomically"', guardCall);
+  const commitCall = source.indexOf('"nbr_commit_evaluation_versioned_candidate"', guardCall);
   assert.ok(guardCall > 0 && commitCall > guardCall);
   assert.ok(source.slice(guardCall, commitCall).includes('AUDIT_TRACE_ENCODING_UNSAFE'));
 });
@@ -99,10 +99,16 @@ test('atomic RPC receives a validated immutable-by-copy JSON snapshot, not the m
   const end = source.indexOf('if (atomicCommitError', start);
   assert.ok(start > 0 && end > start, 'MISSING_ATOMIC_TRACE_BOUNDARY');
   const segment = source.slice(start, end);
-  assert.ok(segment.includes('const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);'));
+  assert.ok(segment.includes('canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);'));
   assert.ok(segment.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
   assert.ok(segment.includes('auditTraceHash = await sha256(canonicalAuditTrace);'));
   assert.ok(segment.includes('p_audit_trace: validatedAuditTrace,'));
+  assert.ok(segment.includes('p_trace_bytes: canonicalAuditTrace,'));
+  assert.ok(segment.includes('p_trace_encoding_version: "NBR_W5_CANONICAL_UTF8_V1",'));
+  assert.ok(segment.includes('"nbr_commit_evaluation_versioned_candidate"'));
+  assert.ok(!segment.includes('"nbr_commit_evaluation_atomically"'));
+  assert.ok(segment.indexOf('auditTraceHash = await sha256(canonicalAuditTrace);') <
+    segment.indexOf('p_trace_bytes: canonicalAuditTrace,'));
   assert.ok(!segment.includes('p_audit_trace: auditTrace,'));
   const producer = structuredClone(base);
   const canonicalBytes = verifiedCanonicalAuditTrace(producer);
@@ -120,3 +126,19 @@ test('atomic RPC receives a validated immutable-by-copy JSON snapshot, not the m
 });
 
 console.log('WS04_AUDIT_TRACE_PRODUCER_FAIL_CLOSED_ISOLATED_ONLY');
+
+test('private versioned envelope binds exact canonical bytes, digest and detached snapshot', () => {
+  for (const status of ['CALCULATED', 'NEEDS_FACTS', 'FAIL_CLOSED']) {
+    const producer = structuredClone(base);
+    producer.result_status = status;
+    const bytes = verifiedCanonicalAuditTrace(producer);
+    const transmitted = JSON.parse(bytes);
+    const digest = sha(bytes);
+    assert.equal(sha(verifiedCanonicalAuditTrace(transmitted)), digest);
+    assert.equal(transmitted.result_status, status);
+    producer.actor_user_id = '60000000-0000-4000-8000-000000000099';
+    assert.notEqual(sha(verifiedCanonicalAuditTrace(producer)), digest);
+    assert.notEqual(sha(bytes + ' '), digest);
+    assert.equal(sha(bytes), digest);
+  }
+});
