@@ -247,6 +247,11 @@ function verifiedCanonicalAuditTrace(trace: unknown): string {
     seen.add(value);
     try {
       if (Array.isArray(value)) {
+        // Array subclasses or altered prototypes can override .map() during
+        // canonicalization after validation and forge the signed audit bytes.
+        if (Object.getPrototypeOf(value) !== Array.prototype) {
+          throw new TypeError("AUDIT_TRACE_NON_PLAIN_ARRAY");
+        }
         for (let i = 0; i < value.length; i++) {
           const descriptor = Object.getOwnPropertyDescriptor(value, String(i));
           if (!descriptor || !("value" in descriptor)) {
