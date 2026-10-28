@@ -457,10 +457,10 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_audit_trace_digest_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'PASS_DISPOSABLE_JSONB_DIGEST_CANDIDATE_ATOMIC_RPC_ONLY_NOT_EDGE_PARITY'
-      - name: Checkout pinned WS04 Edge source for isolated hash comparison
+      - name: Checkout historical WS04 nine-argument producer with canonical trace guard (review only)
         uses: actions/checkout@v4
         with:
-          ref: 7e6d771d22a3ec15623e6923fc0f2fa1a0f4d9bd
+          ref: 9a0fafb2bde5cb8fa9e37eaa60a150f8760f3b24
           path: ws04-reviewed-source
           persist-credentials: false
       - name: Test real W5 canonical against restricted PG17 candidate (no hosted access)
