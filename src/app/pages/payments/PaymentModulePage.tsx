@@ -23,7 +23,7 @@ import {
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
-import { toStoryPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
+import { toStoryPaymentRow, toStoryTaxpayerPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
 import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
@@ -225,14 +225,17 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   // These are linked synthetic records, not an official taxpayer registry or liability ledger.
   const taxpayerAccounts=(()=>{
     const accounts=new Map<string,{key:string;tin:string;taxpayer_name:string;records:number;last_activity:string}>();
+    const sources=new Map(storyPayments.map(payment=>[payment.id,payment]));
     for(const payment of storyRows){
       const tins=String(payment.tin??'').split(',').map(v=>v.trim());
-      const names=String(payment.taxpayer_name??'').split(',').map(v=>v.trim());
       for(let index=0;index<tins.length;index++){
         const tin=tins[index];
         if(!/^[0-9]{12,13}$/.test(tin))continue;
+        const source=sources.get(String(payment.key));
+        const scoped=source?toStoryTaxpayerPaymentRow(source,tin):null;
+        if(!scoped)continue;
         const item=accounts.get(tin);
-        const name=names.length===tins.length&&names[index]&&names[index]!=='—'?names[index]:'TIN '+tin;
+        const name=scoped.taxpayer_name&&scoped.taxpayer_name!=='—'?scoped.taxpayer_name:'TIN '+tin;
         if(item){item.records++;if(Date.parse(payment.date)>Date.parse(item.last_activity))item.last_activity=payment.date;continue;}
         accounts.set(tin,{key:tin,tin,taxpayer_name:name,records:1,last_activity:payment.date});
       }
@@ -247,8 +250,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
   };
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
-  const taxPayments=storyRows.filter(p=>String(p.tin??'').split(',').map(v=>v.trim()).includes(selectedTin)
-    && (scopeYear==='all'||String(p.assessment_year).split(',').some(y=>y.trim().replace('–','-')===scopeYear)));
+  const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
+    .filter((row):row is NonNullable<typeof row>=>row!==null);
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
