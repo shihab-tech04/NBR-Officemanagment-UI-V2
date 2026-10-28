@@ -45,9 +45,13 @@ assert.deepEqual(sqlArgs, args, 'SQL_VERSIONED_ATOMIC_RPC_ELEVEN_ARGUMENTS_DRIFT
 const wrapperBody = sqlSource.slice(sqlEnd, sqlSource.indexOf('END $versioned$;', sqlEnd));
 const sizeGuard = wrapperBody.indexOf("IF p_trace_bytes IS NULL\n    OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144");
 const sizeGuardExit = wrapperBody.indexOf('THEN RETURN false; END IF;', sizeGuard);
+const jsonbSizeGuard = wrapperBody.indexOf('pg_catalog.octet_length(p_audit_trace::text) > 262144');
+const jsonbSizeGuardExit = wrapperBody.indexOf('THEN RETURN false; END IF;', jsonbSizeGuard);
 const jsonParseGuard = wrapperBody.indexOf('(p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS)');
 assert.ok(sizeGuard >= 0 && sizeGuardExit > sizeGuard &&
-  jsonParseGuard > sizeGuardExit, 'OVERSIZED_TRACE_MUST_BE_REJECTED_BEFORE_JSON_PARSE');
+  jsonbSizeGuard > sizeGuardExit && jsonbSizeGuardExit > jsonbSizeGuard &&
+  jsonParseGuard > jsonbSizeGuardExit,
+  'OVERSIZED_TRACE_BYTES_AND_JSONB_MUST_BE_REJECTED_BEFORE_JSON_PARSE');
 assert.ok(edge.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
 assert.ok(edgeCall.includes('p_audit_trace: validatedAuditTrace'));
 assert.ok(edgeCall.includes('p_trace_bytes: canonicalAuditTrace'));
@@ -163,6 +167,26 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(receiptHash)},${q(traceHash)},${q(status)},
  ${q(JSON.stringify(changed))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
+  // A small canonical trace must not trigger parsing/digest work when the
+  // independently supplied JSONB is oversized. No audit or receipt mutation.
+  const oversizedJsonb = { ...snapshot, untrusted_extra: 'x'.repeat(262145) };
+  assert.ok(Buffer.byteLength(JSON.stringify(oversizedJsonb), 'utf8') > 262144);
+  assert.ok(Buffer.byteLength(bytes, 'utf8') < 262144);
+  const oversizedJsonbCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(traceHash)},${q(status)},
+ ${q(JSON.stringify(oversizedJsonb))}::jsonb,${q(bytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(oversizedJsonbCommit, ['f'],
+    'OVERSIZED_JSONB_WITH_SMALL_VALID_TRACE_ACCEPTED_' + status);
+  const oversizedJsonbReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(oversizedJsonbReadback, ['0:RESERVED:NULL'],
+    'OVERSIZED_JSONB_MUTATED_AUDIT_OR_RECEIPT_' + status);
   // JSONB collapses duplicate keys. A valid digest and matching JSONB are
   // insufficient unless PostgreSQL independently rejects duplicate source keys.
   // Check both root and nested objects before any atomic audit/receipt commit.
