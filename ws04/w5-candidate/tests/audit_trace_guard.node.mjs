@@ -103,6 +103,32 @@ test('W5 auditTrace rejects lossy IEEE-754 negative zero before hashing or SQL',
   }
 });
 
+
+test('W5 auditTrace rejects inherited array map overrides before signing three states', () => {
+  class ForgedArray extends Array {
+    map() { throw new Error('ARRAY_MAP_OVERRIDE_MUST_NOT_EXECUTE'); }
+  }
+  const subclass = new ForgedArray();
+  subclass.push({ evidence: 'synthetic-only' });
+  const altered = [1, 2];
+  Object.setPrototypeOf(altered, {
+    map() { throw new Error('ALTERED_ARRAY_MAP_MUST_NOT_EXECUTE'); },
+  });
+  for (const status of ['CALCULATED', 'NEEDS_FACTS', 'FAIL_CLOSED']) {
+    const trace = structuredClone(base);
+    trace.result_status = status;
+    trace.rules[0].trace.injected = subclass;
+    assert.throws(() => verifiedCanonicalAuditTrace(trace), /AUDIT_TRACE_NON_PLAIN_ARRAY/);
+    trace.rules[0].trace.injected = altered;
+    assert.throws(() => verifiedCanonicalAuditTrace(trace), /AUDIT_TRACE_NON_PLAIN_ARRAY/);
+    trace.rules[0].trace.injected = [0, 'বাংলা'];
+    assert.deepEqual(
+      JSON.parse(verifiedCanonicalAuditTrace(trace)).rules[0].trace.injected,
+      [0, 'বাংলা'],
+    );
+  }
+});
+
 test('W5 canonical encoding rejects altered bytes and accepts Unicode scalar pairs', () => {
   const trace = { ...base, emoji: '😀', bangla: 'বাংলা' };
   const bytes = verifiedCanonicalAuditTrace(trace);
