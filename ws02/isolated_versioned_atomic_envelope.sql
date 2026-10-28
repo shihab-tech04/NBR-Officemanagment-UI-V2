@@ -705,6 +705,7 @@ BEGIN
 END $review_forged_anon_claims$;
 ROLLBACK TO SAVEPOINT review_forged_anon_claims;
 RELEASE SAVEPOINT review_forged_anon_claims;
+SELECT 'PASS_SCOPED_FORGED_JWT_GUCS_DENIED_BY_REVIEW_FACADE' AS marker;
 
 -- Trusted synthetic producer can invoke the wrapper, but cannot finalize
 -- without a matching reserved slot and digest. No rows may be written.
