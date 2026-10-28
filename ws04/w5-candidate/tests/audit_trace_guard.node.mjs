@@ -85,6 +85,24 @@ test('W5 auditTrace guard rejects unsafe nested producer values', () => {
     assert.throws(() => verifiedCanonicalAuditTrace(invalidRoot));
   }
 });
+test('W5 auditTrace rejects lossy IEEE-754 negative zero before hashing or SQL', () => {
+  // JSON.stringify(-0) silently converts the evidence to 0. Reject rather
+  // than signing bytes that no longer represent the original producer value.
+  assert.equal(JSON.stringify(-0), '0');
+  for (const status of ['CALCULATED', 'NEEDS_FACTS', 'FAIL_CLOSED']) {
+    const trace = structuredClone(base);
+    trace.result_status = status;
+    trace.signed_zero = -0;
+    assert.throws(() => verifiedCanonicalAuditTrace(trace), /AUDIT_TRACE_UNSAFE_NUMBER/);
+    delete trace.signed_zero;
+    trace.rules[0].trace.signed_zero = [-0];
+    assert.throws(() => verifiedCanonicalAuditTrace(trace), /AUDIT_TRACE_UNSAFE_NUMBER/);
+    delete trace.rules[0].trace.signed_zero;
+    trace.rules[0].trace.zero = [0];
+    assert.equal(JSON.parse(verifiedCanonicalAuditTrace(trace)).rules[0].trace.zero[0], 0);
+  }
+});
+
 test('W5 canonical encoding rejects altered bytes and accepts Unicode scalar pairs', () => {
   const trace = { ...base, emoji: '😀', bangla: 'বাংলা' };
   const bytes = verifiedCanonicalAuditTrace(trace);
