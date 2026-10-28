@@ -1749,11 +1749,12 @@ Deno.serve(async (req) => {
       contract_version: CONTRACT_VERSION,
     };
     let auditTraceHash: string;
+    let canonicalAuditTrace: string;
     let validatedAuditTrace: Record<string, unknown>;
     try {
       // Send a parsed snapshot of the EXACT bytes hashed. Never pass the
       // original mutable object across the asynchronous digest/RPC boundary.
-      const canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);
+      canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);
       validatedAuditTrace = JSON.parse(canonicalAuditTrace) as Record<string, unknown>;
       auditTraceHash = await sha256(canonicalAuditTrace);
     } catch {
@@ -1761,7 +1762,9 @@ Deno.serve(async (req) => {
         error:"Audit evidence could not be encoded without loss" }, 503);
     }
     const { data: atomicCommit, error: atomicCommitError } = await supabase.rpc(
-      "nbr_commit_evaluation_atomically", {
+      // Review-only private WS02 wrapper: PostgREST must NOT expose this RPC
+      // until signed producer identity and source-backed owner authorization exist.
+      "nbr_commit_evaluation_versioned_candidate", {
         p_auth_user_id: authData.user.id,
         p_taxpayer_record_id: taxpayerRecordId,
         p_assessment_year: assessmentYear,
@@ -1771,6 +1774,8 @@ Deno.serve(async (req) => {
         p_trace_hash: auditTraceHash,
         p_result_state: fullReturnStatus,
         p_audit_trace: validatedAuditTrace,
+        p_trace_bytes: canonicalAuditTrace,
+        p_trace_encoding_version: "NBR_W5_CANONICAL_UTF8_V1",
       });
     if (atomicCommitError || atomicCommit !== true) {
       return json({ status:"FAIL_CLOSED", code:"AUDIT_ATOMIC_COMMIT_UNAVAILABLE",
