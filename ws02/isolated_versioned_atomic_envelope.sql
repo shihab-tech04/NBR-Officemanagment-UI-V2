@@ -640,6 +640,72 @@ END $review_anon_denial$;
 ROLLBACK TO SAVEPOINT review_anon_attempt;
 RELEASE SAVEPOINT review_anon_attempt;
 
+-- WS02: JWT request GUCs are caller-writable in this disposable fixture.
+-- They are NOT verified signatures and must never confer the review facade's
+-- trusted producer EXECUTE privilege. Exercise the actual non-superuser
+-- SESSION identity (not SET LOCAL ROLE under a superuser session).
+SAVEPOINT review_forged_auth_claims;
+SET SESSION AUTHORIZATION ws02_owner_auth;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+ '60000000-0000-4000-8000-000000000001',true);
+SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $review_forged_auth_claims$
+DECLARE denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','review-facade-claims-auth-00001',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT denied OR NOT escalation_denied
+    OR current_user IS DISTINCT FROM 'ws02_owner_auth'
+ THEN RAISE EXCEPTION 'FORGED_AUTH_JWT_GUC_REACHED_REVIEW_FACADE_OR_ROLE'; END IF;
+END $review_forged_auth_claims$;
+ROLLBACK TO SAVEPOINT review_forged_auth_claims;
+RELEASE SAVEPOINT review_forged_auth_claims;
+
+SAVEPOINT review_forged_anon_claims;
+SET SESSION AUTHORIZATION ws02_owner_anon;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+ '60000000-0000-4000-8000-000000000001',true);
+SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $review_forged_anon_claims$
+DECLARE denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','review-facade-claims-anon-00001',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT denied OR NOT escalation_denied
+    OR current_user IS DISTINCT FROM 'ws02_owner_anon'
+ THEN RAISE EXCEPTION 'FORGED_ANON_JWT_GUC_REACHED_REVIEW_FACADE_OR_ROLE'; END IF;
+END $review_forged_anon_claims$;
+ROLLBACK TO SAVEPOINT review_forged_anon_claims;
+RELEASE SAVEPOINT review_forged_anon_claims;
+
 -- Trusted synthetic producer can invoke the wrapper, but cannot finalize
 -- without a matching reserved slot and digest. No rows may be written.
 SAVEPOINT review_engine_attempt;
