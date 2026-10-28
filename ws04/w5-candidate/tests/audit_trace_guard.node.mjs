@@ -129,6 +129,37 @@ test('W5 auditTrace rejects inherited array map overrides before signing three s
   }
 });
 
+test('W5 auditTrace signs validated descriptors, not changed Proxy reads', () => {
+  // Old two-pass validation + Object.entries/Array.map silently signed null
+  // for NaN injected through Proxy.get after safe descriptors were checked.
+  for (const status of ['CALCULATED', 'NEEDS_FACTS', 'FAIL_CLOSED']) {
+    const trace = structuredClone(base);
+    trace.result_status = status;
+    let objectReads = 0;
+    let arrayReads = 0;
+    trace.rules[0].trace.proxiedObject = new Proxy({ proof: 'validated' }, {
+      get(target, key, receiver) {
+        if (key === 'proof') { objectReads++; return NaN; }
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    trace.rules[0].trace.proxiedArray = new Proxy([7], {
+      get(target, key, receiver) {
+        if (key === '0') { arrayReads++; return NaN; }
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    const bytes = verifiedCanonicalAuditTrace(trace);
+    const signed = JSON.parse(bytes);
+    assert.equal(objectReads, 0, 'unvalidated object Proxy.get must not execute');
+    assert.equal(arrayReads, 0, 'unvalidated array Proxy.get must not execute');
+    assert.equal(signed.rules[0].trace.proxiedObject.proof, 'validated');
+    assert.deepEqual(signed.rules[0].trace.proxiedArray, [7]);
+    assert.equal(bytes, canonical(signed));
+    assert.match(sha(bytes), /^[a-f0-9]{64}$/);
+  }
+});
+
 test('W5 canonical encoding rejects altered bytes and accepts Unicode scalar pairs', () => {
   const trace = { ...base, emoji: '😀', bangla: 'বাংলা' };
   const bytes = verifiedCanonicalAuditTrace(trace);
