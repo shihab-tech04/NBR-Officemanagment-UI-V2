@@ -171,7 +171,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
 SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
  ${q(receiptHash)},${q(traceHash)},${q(status)},
- ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes},'NBR_W5_CANONICAL_UTF8_V1');`);
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.deepEqual(oldOwnerCommit, ['f'],
     'OWNER_TRANSFER_VERSIONED_COMMIT_ACCEPTED_' + status);
   const newOwnerSnapshot = { ...snapshot, actor_user_id: transferredActor };
