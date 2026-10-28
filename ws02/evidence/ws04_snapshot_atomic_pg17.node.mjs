@@ -1,4 +1,5 @@
-// WS02 isolated integration of EXACT pinned WS04 W5 producer with actual WS02 private atomic RPC.
+// Historical nine-argument WS04 producer regression pinned to its own reviewed checkout;
+// current eleven-argument WS04 versioned producer is tested separately.
 // Synthetic fixtures, disposable PostgreSQL 17 ONLY. Not JWT/owner provenance or statutory approval.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { runInThisContext } from 'node:vm';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
-const edge = readFileSync('ws04-current-reviewed-source/ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts', 'utf8');
+const edge = readFileSync('ws04-reviewed-source/ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts', 'utf8');
 const sqlSource = readFileSync('ws02/isolated_owner_receipt_contract.sql', 'utf8');
 function extract(name) {
   const start = edge.indexOf('function ' + name + '(');
