@@ -15,6 +15,7 @@ BEGIN
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR p_trace_bytes IS NULL
     OR p_audit_trace IS NULL
+    OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
     OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
@@ -281,6 +282,7 @@ BEGIN
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR p_trace_bytes IS NULL
     OR p_audit_trace IS NULL
+    OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
     OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
@@ -326,6 +328,7 @@ BEGIN
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR p_trace_bytes IS NULL
     OR p_audit_trace IS NULL
+    OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
     OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
@@ -366,6 +369,7 @@ BEGIN
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR p_trace_bytes IS NULL
     OR p_audit_trace IS NULL
+    OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
     OR p_trace_hash IS DISTINCT FROM pg_catalog.encode(
