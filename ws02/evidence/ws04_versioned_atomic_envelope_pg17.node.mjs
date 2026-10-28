@@ -40,6 +40,14 @@ const sqlEnd = sqlSource.indexOf(') RETURNS boolean', sqlStart);
 assert.ok(sqlEnd > sqlStart, 'SQL_ATOMIC_RPC_SIGNATURE_MISSING');
 const sqlArgs = [...sqlSource.slice(sqlStart, sqlEnd).matchAll(/\b(p_[a-z_]+)\s+(?:uuid|text|jsonb)/g)].map(m => m[1]);
 assert.deepEqual(sqlArgs, args, 'SQL_VERSIONED_ATOMIC_RPC_ELEVEN_ARGUMENTS_DRIFT');
+// Bound untrusted UTF-8 trace bytes in a separate IF before JSON parsing.
+// A combined OR expression does not guarantee short-circuit evaluation order.
+const wrapperBody = sqlSource.slice(sqlEnd, sqlSource.indexOf('END $versioned$;', sqlEnd));
+const sizeGuard = wrapperBody.indexOf("IF p_trace_bytes IS NULL\n    OR pg_catalog.octet_length(pg_catalog.convert_to(p_trace_bytes,'UTF8')) > 262144");
+const sizeGuardExit = wrapperBody.indexOf('THEN RETURN false; END IF;', sizeGuard);
+const jsonParseGuard = wrapperBody.indexOf('(p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS)');
+assert.ok(sizeGuard >= 0 && sizeGuardExit > sizeGuard &&
+  jsonParseGuard > sizeGuardExit, 'OVERSIZED_TRACE_MUST_BE_REJECTED_BEFORE_JSON_PARSE');
 assert.ok(edge.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
 assert.ok(edgeCall.includes('p_audit_trace: validatedAuditTrace'));
 assert.ok(edgeCall.includes('p_trace_bytes: canonicalAuditTrace'));
