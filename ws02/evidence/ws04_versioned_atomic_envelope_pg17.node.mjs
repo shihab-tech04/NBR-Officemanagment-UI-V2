@@ -134,6 +134,30 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
+  // Owner revocation after reservation but before finalization must be enforced
+  // by the *versioned* Edge-to-SQL path, not merely by the initial reservation.
+  // Synthetic owner row only: this is NOT real JWT/session revocation.
+  const revokedOwner = pg(`UPDATE ws02_owner.owners SET state='REVOKED'
+    WHERE record_id=${q(record)} AND assessment_year='2026-27'
+      AND actor_id=${q(actor)} AND state='ACTIVE' RETURNING state;`);
+  assert.deepEqual(revokedOwner, ['REVOKED'], 'SYNTHETIC_OWNER_REVOCATION_SETUP_FAILED_' + status);
+  const afterRevocation = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(traceHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(afterRevocation, ['f'], 'REVOKED_OWNER_VERSIONED_COMMIT_ACCEPTED_' + status);
+  const revocationReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(revocationReadback, ['0:RESERVED:NULL'],
+    'REVOKED_OWNER_LEFT_AUDIT_RECEIPT_OR_FINALIZED_SLOT_' + status);
+  const restoredOwner = pg(`UPDATE ws02_owner.owners SET state='ACTIVE'
+    WHERE record_id=${q(record)} AND assessment_year='2026-27'
+      AND actor_id=${q(actor)} AND state='REVOKED' RETURNING state;`);
+  assert.deepEqual(restoredOwner, ['ACTIVE'], 'SYNTHETIC_OWNER_RESTORE_FAILED_' + status);
   // Synthetic producer-capability revocation: an already RESERVED slot must not
   // be finalizable by a producer role after its wrapper EXECUTE grant is removed.
   // This tests PostgreSQL function ACL revocation, NOT JWT/session revocation.
