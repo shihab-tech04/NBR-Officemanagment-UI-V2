@@ -93,6 +93,29 @@ SELECT ws02_owner.nbr_reserve_citizen_evaluation(
   'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';
 COMMIT;`);
   assert.ok(reserve.includes('RESERVED'), 'WS02_RESERVATION_FAILED_' + status);
+  // Idempotency collision BEFORE finalization: the same actor and slot key
+  // cannot substitute a different request, even with a freshly valid W5
+  // canonical audit snapshot and matching SHA-256. Synthetic PG17 only.
+  const collisionRequestHash = 'e'.repeat(64);
+  const collisionSnapshot = { ...snapshot, authorized_request_hash: collisionRequestHash };
+  const collisionBytes = verifiedCanonicalAuditTrace(collisionSnapshot);
+  const collisionDigest = digest(collisionBytes);
+  const collision = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(collisionRequestHash)},
+ ${q(receiptHash)},${q(collisionDigest)},${q(status)},
+ ${q(JSON.stringify(collisionSnapshot))}::jsonb,${q(collisionBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(collision, ['f'],
+    'RESERVED_IDEMPOTENCY_KEY_ACCEPTED_DIFFERENT_REQUEST_' + status);
+  const collisionReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      (SELECT request_hash FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(collisionReadback, ['0:RESERVED:' + requestHash + ':NULL'],
+    'RESERVED_REQUEST_COLLISION_MUTATED_SLOT_OR_AUDIT_' + status);
   const wrongActor = pg(`SET ROLE ws02_owner_engine;
 SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  '60000000-0000-4000-8000-000000000099',${q(record)},'2026-27',
