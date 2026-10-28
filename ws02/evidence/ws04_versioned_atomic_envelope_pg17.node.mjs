@@ -158,6 +158,45 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     WHERE record_id=${q(record)} AND assessment_year='2026-27'
       AND actor_id=${q(actor)} AND state='REVOKED' RETURNING state;`);
   assert.deepEqual(restoredOwner, ['ACTIVE'], 'SYNTHETIC_OWNER_RESTORE_FAILED_' + status);
+  // Owner reassignment after reservation: neither the previous owner nor the
+  // newly assigned owner may finalize the *previous owner's* reserved slot.
+  // This is synthetic PG17 authorization only, not citizen identity provenance.
+  const transferredActor = '60000000-0000-4000-8000-000000000077';
+  const transferred = pg(`UPDATE ws02_owner.owners SET actor_id=${q(transferredActor)}
+    WHERE record_id=${q(record)} AND assessment_year='2026-27'
+      AND actor_id=${q(actor)} AND state='ACTIVE' RETURNING actor_id;`);
+  assert.deepEqual(transferred, [transferredActor],
+    'SYNTHETIC_OWNER_TRANSFER_SETUP_FAILED_' + status);
+  const oldOwnerCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(traceHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(oldOwnerCommit, ['f'],
+    'OWNER_TRANSFER_VERSIONED_COMMIT_ACCEPTED_' + status);
+  const newOwnerSnapshot = { ...snapshot, actor_user_id: transferredActor };
+  const newOwnerBytes = verifiedCanonicalAuditTrace(newOwnerSnapshot);
+  const newOwnerHash = digest(newOwnerBytes);
+  const newOwnerCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(transferredActor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(newOwnerHash)},${q(status)},
+ ${q(JSON.stringify(newOwnerSnapshot))}::jsonb,
+ ${q(newOwnerBytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(newOwnerCommit, ['f'],
+    'NEW_OWNER_HIJACKED_PREVIOUS_OWNER_RESERVATION_' + status);
+  const transferReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(transferReadback, ['0:RESERVED:NULL'],
+    'OWNER_TRANSFER_LEFT_AUDIT_RECEIPT_OR_FINALIZED_SLOT_' + status);
+  const transferredBack = pg(`UPDATE ws02_owner.owners SET actor_id=${q(actor)}
+    WHERE record_id=${q(record)} AND assessment_year='2026-27'
+      AND actor_id=${q(transferredActor)} AND state='ACTIVE' RETURNING actor_id;`);
+  assert.deepEqual(transferredBack, [actor],
+    'SYNTHETIC_OWNER_TRANSFER_RESTORE_FAILED_' + status);
   // Synthetic producer-capability revocation: an already RESERVED slot must not
   // be finalizable by a producer role after its wrapper EXECUTE grant is removed.
   // This tests PostgreSQL function ACL revocation, NOT JWT/session revocation.
