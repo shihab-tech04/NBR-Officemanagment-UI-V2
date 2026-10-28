@@ -470,10 +470,10 @@ jobs:
           node --check ws02/evidence/edge_jsonb_digest_parity.node.mjs
           node ws02/evidence/edge_jsonb_digest_parity.node.mjs
           echo 'Scoped candidate only: W5 numeric auditTrace and arbitrary-key parity remain HOLD.'
-      - name: Checkout exact WS04 validated-snapshot producer (review only)
+      - name: Checkout exact WS04 11-argument versioned Edge producer (review only)
         uses: actions/checkout@v4
         with:
-          ref: 9a0fafb2bde5cb8fa9e37eaa60a150f8760f3b24
+          ref: 73e515846fea7f169ea3e3b7fcab076d366f3a0e
           path: ws04-current-reviewed-source
           persist-credentials: false
       - name: Set up Node 22 for actual WS04 TypeScript helper extraction
