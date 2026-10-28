@@ -219,6 +219,7 @@ test('success response is fully serialized before atomic audit/receipt persisten
     'SERIALIZED_SUCCESS_RESPONSE_MUST_USE_PRECOMPUTED_HASH');
   assert.ok(!source.slice(atomicCommit, returnResponse).includes('await sha256('),
     'POST_COMMIT_ASYNC_HASH_MUST_NOT_RUN');
+  assert.ok(!source.includes('return preparedSuccessResponse;;'), 'DOUBLE_SEMICOLON_DRIFT');
   assert.ok(!source.slice(atomicCommit, returnResponse).includes('return json({\n      ok:'),
     'POST_COMMIT_SUCCESS_JSON_SERIALIZATION_MUST_NOT_RUN');
   // A synthetic serialization failure must happen before the commit boundary.
