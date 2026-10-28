@@ -228,7 +228,7 @@ function verifiedCanonicalAuditTrace(trace: unknown): string {
     if (value === null || typeof value === "boolean") return;
     if (typeof value === "string") { validUnicode(value); return; }
     if (typeof value === "number") {
-      if (!Number.isFinite(value) ||
+      if (!Number.isFinite(value) || Object.is(value, -0) ||
           (Number.isInteger(value) && !Number.isSafeInteger(value))) {
         throw new TypeError("AUDIT_TRACE_UNSAFE_NUMBER");
       }
