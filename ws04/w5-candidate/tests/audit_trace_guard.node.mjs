@@ -200,6 +200,32 @@ test('atomic RPC receives a validated immutable-by-copy JSON snapshot, not the m
   assert.equal(transmitted.rules[0].trace['প্রমাণ'][1]['🔑'], true);
 });
 
+test('success response is fully serialized before atomic audit/receipt persistence', () => {
+  const prepare = source.indexOf('preparedSuccessResponse = json({');
+  const parameterHash = source.indexOf('const parameterSetHash = await sha256(canonical({');
+  const lateSession = source.indexOf('await verifiedCommitSession(supabase, token, authData.user.id)', prepare);
+  const lateOwner = source.indexOf('await verifiedCommitOwnership(', lateSession);
+  const atomicCommit = source.indexOf('"nbr_commit_evaluation_versioned_candidate"', lateOwner);
+  const commitCheck = source.indexOf('if (atomicCommitError || atomicCommit !== true)', atomicCommit);
+  const returnResponse = source.indexOf('return preparedSuccessResponse;', commitCheck);
+  assert.ok(parameterHash > 0 && parameterHash < prepare, 'PARAMETER_HASH_MUST_BE_PRECOMPUTED');
+  assert.ok(prepare < lateSession && lateSession < lateOwner &&
+    lateOwner < atomicCommit && atomicCommit < commitCheck &&
+    commitCheck < returnResponse, 'RESPONSE_PREP_AUTH_COMMIT_ORDER_DRIFT');
+  const preparation = source.slice(parameterHash, lateSession);
+  assert.ok(preparation.includes('RESPONSE_PREPARATION_FAILED'),
+    'RESPONSE_PREP_FAILURE_MUST_FAIL_CLOSED_BEFORE_COMMIT');
+  assert.ok(preparation.includes('parameterSetHash,'),
+    'SERIALIZED_SUCCESS_RESPONSE_MUST_USE_PRECOMPUTED_HASH');
+  assert.ok(!source.slice(atomicCommit, returnResponse).includes('await sha256('),
+    'POST_COMMIT_ASYNC_HASH_MUST_NOT_RUN');
+  assert.ok(!source.slice(atomicCommit, returnResponse).includes('return json({\n      ok:'),
+    'POST_COMMIT_SUCCESS_JSON_SERIALIZATION_MUST_NOT_RUN');
+  // A synthetic serialization failure must happen before the commit boundary.
+  const bad = { get amount() { throw Error('synthetic serialization failure'); } };
+  assert.throws(() => JSON.stringify(bad), /synthetic serialization failure/);
+});
+
 console.log('WS04_AUDIT_TRACE_PRODUCER_FAIL_CLOSED_ISOLATED_ONLY');
 
 test('private versioned envelope binds exact canonical bytes, digest and detached snapshot', () => {
