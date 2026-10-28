@@ -221,18 +221,24 @@ function verifiedCanonicalAuditTrace(trace: unknown): string {
       }
     }
   };
-  const visit = (value: unknown, depth: number): void => {
+  // Validate and serialize each own data descriptor in ONE traversal. Never
+  // validate a producer object and then re-read it through Object.entries or
+  // Array.map: a stateful Proxy could change the value after validation.
+  const visit = (value: unknown, depth: number): string => {
     if (++visited > 10000 || depth > 64) {
       throw new RangeError("AUDIT_TRACE_COMPLEXITY_LIMIT");
     }
-    if (value === null || typeof value === "boolean") return;
-    if (typeof value === "string") { validUnicode(value); return; }
+    if (value === null || typeof value === "boolean") return JSON.stringify(value);
+    if (typeof value === "string") {
+      validUnicode(value);
+      return JSON.stringify(value);
+    }
     if (typeof value === "number") {
       if (!Number.isFinite(value) || Object.is(value, -0) ||
           (Number.isInteger(value) && !Number.isSafeInteger(value))) {
         throw new TypeError("AUDIT_TRACE_UNSAFE_NUMBER");
       }
-      return;
+      return JSON.stringify(value);
     }
     if (typeof value !== "object") {
       throw new TypeError("AUDIT_TRACE_NON_JSON_VALUE");
@@ -247,40 +253,50 @@ function verifiedCanonicalAuditTrace(trace: unknown): string {
     seen.add(value);
     try {
       if (Array.isArray(value)) {
-        // Array subclasses or altered prototypes can override .map() during
-        // canonicalization after validation and forge the signed audit bytes.
         if (Object.getPrototypeOf(value) !== Array.prototype) {
           throw new TypeError("AUDIT_TRACE_NON_PLAIN_ARRAY");
         }
-        for (let i = 0; i < value.length; i++) {
+        // Read the non-accessor length descriptor, not a Proxy's get trap.
+        const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+        if (!lengthDescriptor || !("value" in lengthDescriptor) ||
+            !Number.isSafeInteger(lengthDescriptor.value) ||
+            lengthDescriptor.value < 0) {
+          throw new TypeError("AUDIT_TRACE_ARRAY_LENGTH_UNSAFE");
+        }
+        const length = lengthDescriptor.value;
+        const elements: string[] = [];
+        for (let i = 0; i < length; i++) {
           const descriptor = Object.getOwnPropertyDescriptor(value, String(i));
           if (!descriptor || !("value" in descriptor)) {
             throw new TypeError("AUDIT_TRACE_ARRAY_HOLE_OR_ACCESSOR");
           }
-          visit(descriptor.value, depth + 1);
+          elements.push(visit(descriptor.value, depth + 1));
         }
-        if (Reflect.ownKeys(value).length !== value.length + 1) {
+        if (Reflect.ownKeys(value).length !== length + 1) {
           throw new TypeError("AUDIT_TRACE_ARRAY_EXTRA_PROPERTY");
         }
-      } else {
-        for (const key of Reflect.ownKeys(value)) {
-          if (typeof key !== "string") {
-            throw new TypeError("AUDIT_TRACE_SYMBOL_KEY");
-          }
-          validUnicode(key);
-          const descriptor = Object.getOwnPropertyDescriptor(value, key);
-          if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) {
-            throw new TypeError("AUDIT_TRACE_HIDDEN_OR_ACCESSOR_PROPERTY");
-          }
-          visit(descriptor.value, depth + 1);
-        }
+        return "[" + elements.join(",") + "]";
       }
+      const entries: Array<[string, string]> = [];
+      for (const key of Reflect.ownKeys(value)) {
+        if (typeof key !== "string") {
+          throw new TypeError("AUDIT_TRACE_SYMBOL_KEY");
+        }
+        validUnicode(key);
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) {
+          throw new TypeError("AUDIT_TRACE_HIDDEN_OR_ACCESSOR_PROPERTY");
+        }
+        entries.push([key, visit(descriptor.value, depth + 1)]);
+      }
+      entries.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+      return "{" + entries.map(([key, bytes]) =>
+        JSON.stringify(key) + ":" + bytes).join(",") + "}";
     } finally {
       seen.delete(value);
     }
   };
-  visit(trace, 0);
-  const bytes = canonical(trace);
+  const bytes = visit(trace, 0);
   if (new TextEncoder().encode(bytes).length > 262144) {
     throw new RangeError("AUDIT_TRACE_TOO_LARGE");
   }
