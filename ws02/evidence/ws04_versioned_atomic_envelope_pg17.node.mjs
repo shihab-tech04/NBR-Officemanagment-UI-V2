@@ -155,6 +155,33 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(receiptHash)},${q(traceHash)},${q(status)},
  ${q(JSON.stringify(changed))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
+  // Even a syntactically valid, SHA-256-consistent JSON trace must be rejected
+  // when its UTF-8 byte count exceeds the private SQL envelope's 256 KiB cap.
+  // Non-ASCII payload deliberately stays below the limit in JS code units:
+  // a character-count check would incorrectly accept it. Synthetic PG17 only.
+  const oversizedSnapshot = { ...snapshot,
+    individual: [{ kind: 'synthetic', evidence: '😀'.repeat(65536) }] };
+  const oversizedBytes = canonical(oversizedSnapshot);
+  assert.ok(oversizedBytes.length < 262144,
+    'UTF8_LIMIT_TEST_NOT_MULTIBYTE_' + status);
+  assert.ok(Buffer.byteLength(oversizedBytes, 'utf8') > 262144,
+    'UTF8_LIMIT_TEST_NOT_OVERSIZED_' + status);
+  const oversizedDigest = digest(oversizedBytes);
+  const oversizedCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(oversizedDigest)},${q(status)},
+ ${q(JSON.stringify(oversizedSnapshot))}::jsonb,${q(oversizedBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(oversizedCommit, ['f'],
+    'OVERSIZED_UTF8_TRACE_WITH_VALID_DIGEST_ACCEPTED_' + status);
+  const oversizedReadback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(oversizedReadback, ['0:RESERVED:NULL'],
+    'OVERSIZED_UTF8_TRACE_MUTATED_AUDIT_OR_RECEIPT_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
   // Owner revocation after reservation but before finalization must be enforced
