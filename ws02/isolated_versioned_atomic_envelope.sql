@@ -168,6 +168,66 @@ BEGIN
  ) THEN RAISE EXCEPTION 'PRIVATE_SCHEMA_UNREVIEWED_USAGE_GRANTEE'; END IF;
 END $wrapper_exact_acl$;
 
+-- An exact function ACL is NOT sufficient if an unexpected principal can
+-- inherit or SET a role on that ACL. Check the complete direct membership
+-- edge set for every private capability/definer role, not only named API roles.
+-- Any indirect path must contain a direct edge into one of these roles.
+-- Synthetic PG17 only; this does NOT verify signed JWT/session revocation.
+DO $private_role_membership_allowlist$
+DECLARE unexpected text;
+BEGIN
+ SELECT pg_catalog.format('%s -> %s',member.rolname,privileged.rolname)
+ INTO unexpected
+ FROM pg_catalog.pg_auth_members m
+ JOIN pg_catalog.pg_roles privileged ON privileged.oid=m.roleid
+ JOIN pg_catalog.pg_roles member ON member.oid=m.member
+ WHERE privileged.rolname IN (
+   'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock')
+ LIMIT 1;
+ IF unexpected IS NOT NULL THEN
+   RAISE EXCEPTION 'PRIVATE_CAPABILITY_ROLE_MEMBERSHIP_DRIFT_%',unexpected;
+ END IF;
+END $private_role_membership_allowlist$;
+
+-- Inject a previously unknown principal (not one of anon/auth/engine) and
+-- grant it two privileged memberships. A direct-grantee ACL check alone
+-- would miss this path. Verify catalog detection, then rollback the role
+-- and grants in the disposable database without changing the real contract.
+BEGIN;
+SAVEPOINT ws02_unreviewed_member_probe;
+CREATE ROLE ws02_unreviewed_runtime NOLOGIN;
+GRANT ws02_owner_engine TO ws02_unreviewed_runtime;
+GRANT ws02_owner_rpc TO ws02_unreviewed_runtime;
+DO $unreviewed_membership_probe$
+DECLARE matched integer;
+BEGIN
+ SELECT count(*) INTO matched
+ FROM pg_catalog.pg_auth_members m
+ JOIN pg_catalog.pg_roles privileged ON privileged.oid=m.roleid
+ JOIN pg_catalog.pg_roles member ON member.oid=m.member
+ WHERE member.rolname='ws02_unreviewed_runtime'
+   AND privileged.rolname IN ('ws02_owner_engine','ws02_owner_rpc');
+ IF matched IS DISTINCT FROM 2
+    OR NOT pg_catalog.pg_has_role(
+      'ws02_unreviewed_runtime','ws02_owner_engine','MEMBER')
+ THEN RAISE EXCEPTION 'UNREVIEWED_MEMBER_ROLE_GRAPH_NOT_DETECTED'; END IF;
+END $unreviewed_membership_probe$;
+ROLLBACK TO SAVEPOINT ws02_unreviewed_member_probe;
+RELEASE SAVEPOINT ws02_unreviewed_member_probe;
+DO $unreviewed_membership_restored$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles
+            WHERE rolname='ws02_unreviewed_runtime')
+    OR EXISTS (
+      SELECT 1 FROM pg_catalog.pg_auth_members m
+      JOIN pg_catalog.pg_roles privileged ON privileged.oid=m.roleid
+      WHERE privileged.rolname IN (
+        'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock'))
+ THEN RAISE EXCEPTION 'UNREVIEWED_MEMBER_ROLE_GRAPH_NOT_ROLLED_BACK'; END IF;
+END $unreviewed_membership_restored$;
+COMMIT;
+SELECT 'PASS_SCOPED_PRIVATE_CAPABILITY_ROLE_GRAPH_ALLOWLIST_ROLLBACK_ONLY' AS marker;
+
 -- Deliberately inject two unrelated grants and prove the exact-ACL
 -- detector sees BOTH; rollback restores the original capability boundary.
 BEGIN;
