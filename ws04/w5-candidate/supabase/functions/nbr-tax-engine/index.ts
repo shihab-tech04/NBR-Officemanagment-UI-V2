@@ -285,6 +285,23 @@ function verifiedCanonicalAuditTrace(trace: unknown): string {
   return bytes;
 }
 
+// A second producer-session check immediately before the atomic commit limits
+// the time-of-check/time-of-use window. This is NOT SQL-side JWT validation,
+// session-revocation certification, or a substitute for owner-bound SQL.
+async function verifiedCommitSession(
+  client: { auth: { getUser: (token: string) => Promise<any> } },
+  token: string,
+  expectedActorId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await client.auth.getUser(token);
+    return !error && typeof data?.user?.id === "string" &&
+      data.user.id === expectedActorId;
+  } catch {
+    return false;
+  }
+}
+
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -1760,6 +1777,13 @@ Deno.serve(async (req) => {
     } catch {
       return json({ status:"FAIL_CLOSED", code:"AUDIT_TRACE_ENCODING_UNSAFE",
         error:"Audit evidence could not be encoded without loss" }, 503);
+    }
+    // Revalidate the same authenticated actor after evaluation and evidence
+    // hashing, before any atomic receipt/audit finalization attempt.
+    // The private SQL owner and producer boundaries must still be enforced.
+    if (!await verifiedCommitSession(supabase, token, authData.user.id)) {
+      return json({ status:"FAIL_CLOSED", code:"PRODUCER_SESSION_RECHECK_FAILED",
+        error:"Authenticated taxpayer session is no longer valid" }, 401);
     }
     const { data: atomicCommit, error: atomicCommitError } = await supabase.rpc(
       // Review-only private WS02 wrapper: PostgREST must NOT expose this RPC
