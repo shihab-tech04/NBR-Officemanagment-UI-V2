@@ -7,10 +7,6 @@ on:
     paths:
       - 'ws04/w5-candidate/**'
       - '.github/workflows/ws04-w5-engine-source-integrity.yml'
-  pull_request:
-    paths:
-      - 'ws04/w5-candidate/**'
-      - '.github/workflows/ws04-w5-engine-source-integrity.yml'
   workflow_dispatch:
 
 permissions:
