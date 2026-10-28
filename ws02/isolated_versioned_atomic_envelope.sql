@@ -530,3 +530,140 @@ BEGIN
  THEN RAISE EXCEPTION 'FORGED_CLAIMS_LEFT_AUDIT_OR_RECEIPT_ROWS'; END IF;
 END $forged_claims_no_rows$;
 SELECT 'PASS_SCOPED_FORGED_JWT_GUC_CANNOT_EXECUTE_PRIVATE_WRAPPER' AS marker;
+
+-- WS02: 11-argument versioned PostgREST-style facade, isolated PG17 ONLY.
+-- This is an unexposed review schema, not an approved public RPC/migration.
+-- Invoker cannot elevate auth/anon to the trusted producer; the private
+-- versioned digest wrapper remains the only callable finalization dependency.
+BEGIN;
+CREATE SCHEMA ws02_review_api;
+REVOKE ALL ON SCHEMA ws02_review_api FROM PUBLIC;
+GRANT USAGE ON SCHEMA ws02_review_api TO ws02_owner_engine;
+CREATE FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+ p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+ p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+ p_trace_hash text,p_result_state text,p_audit_trace jsonb,
+ p_trace_bytes text,p_trace_encoding_version text
+) RETURNS boolean LANGUAGE sql VOLATILE SECURITY INVOKER
+SET search_path=pg_catalog,ws02_owner AS $review_facade$
+ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,
+  p_idempotency_key,p_request_hash,p_receipt_hash,
+  p_trace_hash,p_result_state,p_audit_trace,
+  p_trace_bytes,p_trace_encoding_version);
+$review_facade$;
+REVOKE ALL ON FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+ uuid,uuid,text,text,text,text,text,text,jsonb,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+ uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_engine;
+DO $review_facade_acl$
+DECLARE p record;
+BEGIN
+ SELECT f.prosecdef,f.provolatile,f.proretset,f.prorettype,f.proargnames,
+        f.pronargdefaults,f.provariadic,f.proconfig,l.lanname
+ INTO p FROM pg_catalog.pg_proc f
+ JOIN pg_catalog.pg_language l ON l.oid=f.prolang
+ WHERE f.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF NOT FOUND OR p.prosecdef IS DISTINCT FROM false
+    OR p.provolatile IS DISTINCT FROM 'v'
+    OR p.proretset IS DISTINCT FROM false
+    OR p.prorettype IS DISTINCT FROM 'boolean'::regtype::oid
+    OR p.lanname IS DISTINCT FROM 'sql'
+    OR p.pronargdefaults IS DISTINCT FROM 0
+    OR p.provariadic IS DISTINCT FROM 0::oid
+    OR p.proargnames IS DISTINCT FROM ARRAY[
+      'p_auth_user_id','p_taxpayer_record_id','p_assessment_year',
+      'p_idempotency_key','p_request_hash','p_receipt_hash',
+      'p_trace_hash','p_result_state','p_audit_trace',
+      'p_trace_bytes','p_trace_encoding_version']::text[]
+    OR pg_catalog.cardinality(p.proconfig) IS DISTINCT FROM 1
+    OR pg_catalog.replace(pg_catalog.split_part(p.proconfig[1],'=',2),' ','')
+       IS DISTINCT FROM 'pg_catalog,ws02_owner'
+    OR NOT has_schema_privilege('ws02_owner_engine','ws02_review_api','USAGE')
+    OR has_schema_privilege('ws02_owner_auth','ws02_review_api','USAGE')
+    OR has_schema_privilege('ws02_owner_anon','ws02_review_api','USAGE')
+    OR NOT has_function_privilege('ws02_owner_engine',
+       'ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)','EXECUTE')
+    OR has_function_privilege('ws02_owner_auth',
+       'ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)','EXECUTE')
+    OR has_function_privilege('ws02_owner_anon',
+       'ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)','EXECUTE')
+    OR EXISTS (
+       SELECT 1 FROM pg_catalog.pg_proc f
+       CROSS JOIN LATERAL pg_catalog.aclexplode(
+          COALESCE(f.proacl,pg_catalog.acldefault('f',f.proowner))) a
+       WHERE f.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure
+         AND (a.grantee=0 OR a.grantee NOT IN
+              ('ws02_owner_engine'::regrole::oid,f.proowner)))
+ THEN RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_EXPOSURE_OR_METADATA_DRIFT'; END IF;
+END $review_facade_acl$;
+
+-- Real non-superuser attempts, not merely catalog checks. No signed JWT
+-- verification is implied by the synthetic PostgreSQL role boundary.
+SAVEPOINT review_auth_attempt;
+SET LOCAL ROLE ws02_owner_auth;
+DO $review_auth_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','review-facade-auth-deny-00001',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'AUTH_REACHED_VERSIONED_REVIEW_FACADE'; END IF;
+END $review_auth_denial$;
+ROLLBACK TO SAVEPOINT review_auth_attempt;
+RELEASE SAVEPOINT review_auth_attempt;
+
+SAVEPOINT review_anon_attempt;
+SET LOCAL ROLE ws02_owner_anon;
+DO $review_anon_denial$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','review-facade-anon-deny-00001',
+   pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+   pg_catalog.repeat('c',64),'NEEDS_FACTS','{}'::jsonb,
+   '{}','NBR_W5_CANONICAL_UTF8_V1');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'ANON_REACHED_VERSIONED_REVIEW_FACADE'; END IF;
+END $review_anon_denial$;
+ROLLBACK TO SAVEPOINT review_anon_attempt;
+RELEASE SAVEPOINT review_anon_attempt;
+
+-- Trusted synthetic producer can invoke the wrapper, but cannot finalize
+-- without a matching reserved slot and digest. No rows may be written.
+SAVEPOINT review_engine_attempt;
+SET LOCAL ROLE ws02_owner_engine;
+DO $review_engine_denial$
+DECLARE actual boolean;
+BEGIN
+ actual:=ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+  '60000000-0000-4000-8000-000000000001'::uuid,
+  '50000000-0000-4000-8000-000000000001'::uuid,
+  '2026-27','review-facade-no-slot-00001',
+  pg_catalog.repeat('a',64),pg_catalog.repeat('b',64),
+  pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex'),
+  'NEEDS_FACTS','{}'::jsonb,'{}','NBR_W5_CANONICAL_UTF8_V1');
+ IF actual IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'REVIEW_FACADE_UNRESERVED_COMMIT_ACCEPTED'; END IF;
+END $review_engine_denial$;
+ROLLBACK TO SAVEPOINT review_engine_attempt;
+RELEASE SAVEPOINT review_engine_attempt;
+DO $review_no_rows$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots WHERE idem_key LIKE 'review-facade-%')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs WHERE idem_key LIKE 'review-facade-%')
+ THEN RAISE EXCEPTION 'REVIEW_FACADE_NEGATIVES_LEFT_ROWS'; END IF;
+END $review_no_rows$;
+ROLLBACK;
+SELECT 'PASS_SCOPED_11_ARG_INVOKER_REVIEW_FACADE_NO_PUBLIC_EXPOSURE' AS marker;
