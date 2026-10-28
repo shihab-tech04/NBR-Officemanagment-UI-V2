@@ -112,6 +112,7 @@ describe('public Office re-entry after Sign Out', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('An active Audit officer membership is required.');
     expect(shared.signOut).toHaveBeenCalledOnce();
+    expect(shared.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
