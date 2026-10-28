@@ -348,7 +348,7 @@ BEGIN
  SELECT prosrc,prosecdef,proconfig,proowner INTO p FROM pg_catalog.pg_proc
  WHERE oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
  IF NOT FOUND OR p.prosrc IS NOT DISTINCT FROM expected_source
-    OR pg_catalog.position('RETURN true;' IN p.prosrc)=0
+    OR pg_catalog.strpos(p.prosrc,'RETURN true;')=0
     OR p.prosecdef IS DISTINCT FROM true
     OR p.proowner IS DISTINCT FROM 'ws02_owner_rpc'::regrole::oid
     OR p.proconfig IS NULL
