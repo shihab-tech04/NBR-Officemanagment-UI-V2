@@ -25,7 +25,7 @@ jobs:
         run: |
           echo 'a6144c4609bea5c39ec217e9b8c8aaa85fb4f69c93cd4b6d4f410815e6a8d97b  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '328ec5c4a9720584e2616f21ba386668eab79845ddb1856c02956447a1427b27  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
-          echo 'bde567800f432f9e97b40186fe8e2ccc89b53e9c1346aa5c7cc41c965dff102c  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
+          echo '8ec2d535d06f5cd6d710eaed0b00d547bc83efd9f90adbe7e148f55e5b9739d7  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
           echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -
       - name: Self-test offline private frozen registry verifier (synthetic only)
         run: node ws04/w5-candidate/tests/verify_frozen_registry.mjs --self-test
