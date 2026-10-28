@@ -245,6 +245,40 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(replay.includes('f'), 'WS02_DUPLICATE_FINALIZATION_ACCEPTED_' + status);
+  // A repeated idempotency key must not rewrite an already-finalized receipt
+  // even when a producer supplies a newly valid canonical trace and digest.
+  // This is a disposable PG17 replay-integrity test, not a live Auth test.
+  const replacementReceipt = 'd'.repeat(64);
+  const alteredReceiptTrace = { ...snapshot, receipt_hash: replacementReceipt };
+  const alteredReceiptBytes = verifiedCanonicalAuditTrace(alteredReceiptTrace);
+  const alteredReceiptDigest = digest(alteredReceiptBytes);
+  const receiptReplay = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q(requestHash)},${q(replacementReceipt)},${q(alteredReceiptDigest)},
+ ${q(status)},${q(JSON.stringify(alteredReceiptTrace))}::jsonb,
+ ${q(alteredReceiptBytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(receiptReplay, ['f'],
+    'FINALIZED_IDEMPOTENCY_KEY_ACCEPTED_DIFFERENT_RECEIPT_' + status);
+  const alteredTrace = { ...snapshot, engine_version: 'synthetic-replay-tampered' };
+  const alteredBytes = verifiedCanonicalAuditTrace(alteredTrace);
+  const alteredDigest = digest(alteredBytes);
+  const traceReplay = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(alteredDigest)},
+ ${q(status)},${q(JSON.stringify(alteredTrace))}::jsonb,
+ ${q(alteredBytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(traceReplay, ['f'],
+    'FINALIZED_IDEMPOTENCY_KEY_ACCEPTED_DIFFERENT_TRACE_' + status);
+  const immutable = pg(`SELECT row_to_json(x)::text FROM (
+SELECT e.audit_trace, e.trace_hash, e.result_state, s.state, s.receipt_hash
+FROM ws02_owner.evaluation_logs e JOIN ws02_owner.slots s
+USING (actor_id,record_id,assessment_year,idem_key)
+WHERE e.idem_key=${q(idem)}) x;`);
+  assert.equal(immutable.length, 1, 'FINALIZED_REPLAY_CHANGED_ROW_COUNT_' + status);
+  assert.deepEqual(JSON.parse(immutable[0]), saved,
+    'FINALIZED_REPLAY_MUTATED_AUDIT_OR_RECEIPT_' + status);
 }
 // The synthetic engine must NOT bypass the envelope by calling the old RPC.
 const direct = spawnSync('psql', ['-X','-Atq','-v','ON_ERROR_STOP=1'], {
