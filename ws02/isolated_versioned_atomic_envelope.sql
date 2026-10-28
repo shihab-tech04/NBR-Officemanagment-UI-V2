@@ -141,3 +141,69 @@ BEGIN
 END $wrapper_restored$;
 COMMIT;
 SELECT 'PASS_SCOPED_PRIVATE_WRAPPER_METADATA_DRIFT_ROLLBACK_ONLY' AS marker;
+
+-- Exact ACL allowlist, not merely spot checks of known anon/auth roles.
+-- A future grant to ANY unreviewed role must not turn the private definer
+-- into a callable capability. PostgreSQL role inheritance remains separately
+-- checked above. Synthetic/disposable PG17 only; no production grants.
+DO $wrapper_exact_acl$
+BEGIN
+ IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(
+     COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) acl
+   WHERE p.oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure
+     AND (acl.grantee=0 OR acl.grantee NOT IN (
+       'ws02_owner_engine'::regrole::oid,'ws02_owner_rpc'::regrole::oid))
+ ) THEN RAISE EXCEPTION 'PRIVATE_WRAPPER_UNREVIEWED_FUNCTION_GRANTEE'; END IF;
+ IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_namespace n
+   CROSS JOIN LATERAL pg_catalog.aclexplode(
+     COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) acl
+   WHERE n.nspname='ws02_owner'
+     AND acl.privilege_type='USAGE'
+     AND (acl.grantee=0 OR acl.grantee NOT IN (
+       'ws02_owner_engine'::regrole::oid,'ws02_owner_rpc'::regrole::oid,
+       'ws02_owner_lock'::regrole::oid,n.nspowner))
+ ) THEN RAISE EXCEPTION 'PRIVATE_SCHEMA_UNREVIEWED_USAGE_GRANTEE'; END IF;
+END $wrapper_exact_acl$;
+
+-- Deliberately inject two unrelated grants and prove the exact-ACL
+-- detector sees BOTH; rollback restores the original capability boundary.
+BEGIN;
+SAVEPOINT ws02_wrapper_acl_probe;
+GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_lock;
+GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_auth;
+DO $wrapper_acl_tamper$
+DECLARE function_drift boolean; schema_drift boolean;
+BEGIN
+ SELECT EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) acl
+   WHERE p.oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure
+     AND acl.grantee='ws02_owner_lock'::regrole::oid
+     AND acl.privilege_type='EXECUTE'
+ ) INTO function_drift;
+ SELECT EXISTS (
+   SELECT 1 FROM pg_catalog.pg_namespace n
+   CROSS JOIN LATERAL pg_catalog.aclexplode(n.nspacl) acl
+   WHERE n.nspname='ws02_owner'
+     AND acl.grantee='ws02_owner_auth'::regrole::oid
+     AND acl.privilege_type='USAGE'
+ ) INTO schema_drift;
+ IF NOT function_drift OR NOT schema_drift
+ THEN RAISE EXCEPTION 'PRIVATE_WRAPPER_EXACT_ACL_TAMPER_UNDETECTED'; END IF;
+END $wrapper_acl_tamper$;
+ROLLBACK TO SAVEPOINT ws02_wrapper_acl_probe;
+RELEASE SAVEPOINT ws02_wrapper_acl_probe;
+DO $wrapper_acl_restored$
+BEGIN
+ IF pg_catalog.has_function_privilege('ws02_owner_lock',
+  'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)',
+  'EXECUTE')
+ OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE')
+ THEN RAISE EXCEPTION 'PRIVATE_WRAPPER_EXACT_ACL_NOT_RESTORED'; END IF;
+END $wrapper_acl_restored$;
+COMMIT;
+SELECT 'PASS_SCOPED_PRIVATE_WRAPPER_EXACT_ACL_ALLOWLIST_ROLLBACK_ONLY' AS marker;
