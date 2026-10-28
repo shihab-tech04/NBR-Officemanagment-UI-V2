@@ -315,7 +315,10 @@ for (const [label, event] of [
 test('no direct audit insert or split receipt finalize remains in the candidate',()=>{
   assert.equal(source.includes('supabase.from("nbr_engine_evaluation_log").insert'),false);
   assert.equal(source.includes('"nbr_finalize_citizen_evaluation"'),false);
-  assert.ok(source.includes('"nbr_commit_evaluation_atomically"'));
+  assert.ok(source.includes('"nbr_commit_evaluation_versioned_candidate"'));
+  assert.ok(source.includes('p_trace_bytes: canonicalAuditTrace'));
+  assert.ok(source.includes('p_trace_encoding_version: "NBR_W5_CANONICAL_UTF8_V1"'));
+  assert.equal(source.includes('"nbr_commit_evaluation_atomically"'),false);
 });
 test('atomic trace and call pin user, record, request, receipt, version and statuses',()=>{
   const i=source.indexOf('const auditTrace = {');
