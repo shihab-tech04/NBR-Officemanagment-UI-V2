@@ -393,3 +393,67 @@ BEGIN
 END $versioned_body_restored$;
 COMMIT;
 SELECT 'PASS_SCOPED_VERSIONED_WRAPPER_BODY_DRIFT_ROLLBACK_ONLY' AS marker;
+
+-- The reviewed wrapper must not depend on an atomic RPC whose body silently
+-- changed while keeping its signature, owner, grants and SECURITY DEFINER
+-- metadata. Pin the underlying private atomic implementation independently.
+-- The digest is SHA-256 of pg_proc.prosrc, sourced from the exact WS02
+-- isolated_owner_receipt_contract.sql DDL at this review checkpoint.
+-- This is a disposable PG17 regression, not a deployed integrity mechanism.
+DO $atomic_dependency_body_pin$
+DECLARE actual_digest text;
+BEGIN
+ SELECT pg_catalog.encode(pg_catalog.sha256(
+          pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+ INTO actual_digest FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF actual_digest IS DISTINCT FROM '30f0bf609986311ecba2fcbd8bb18a790a0b04f2a2898013d4a9a074dd189436'
+ THEN RAISE EXCEPTION 'PRIVATE_ATOMIC_DEPENDENCY_BODY_DRIFT'; END IF;
+END $atomic_dependency_body_pin$;
+
+-- A deliberately unsafe replacement keeps the existing function signature,
+-- owner, security mode and search path. Detect its body drift without calling
+-- it, then roll back the mutation and prove the reviewed body was restored.
+BEGIN;
+SAVEPOINT ws02_atomic_dependency_body_tamper;
+CREATE OR REPLACE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
+ p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+ p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+ p_trace_hash text,p_result_state text,p_audit_trace jsonb
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,ws02_owner AS $unsafe_atomic_dependency$
+BEGIN
+ RETURN true;
+END $unsafe_atomic_dependency$;
+DO $atomic_dependency_mutation_detected$
+DECLARE p record;
+BEGIN
+ SELECT pg_catalog.encode(pg_catalog.sha256(
+          pg_catalog.convert_to(prosrc,'UTF8')),'hex') AS digest,
+        prosecdef,proowner,proconfig,prorettype
+ INTO p FROM pg_catalog.pg_proc
+ WHERE oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF NOT FOUND
+    OR p.digest IS NOT DISTINCT FROM '30f0bf609986311ecba2fcbd8bb18a790a0b04f2a2898013d4a9a074dd189436'
+    OR p.prosecdef IS DISTINCT FROM true
+    OR p.proowner IS DISTINCT FROM 'ws02_owner_rpc'::regrole::oid
+    OR p.prorettype IS DISTINCT FROM 'boolean'::regtype::oid
+    OR p.proconfig IS NULL OR pg_catalog.cardinality(p.proconfig) IS DISTINCT FROM 1
+    OR pg_catalog.replace(pg_catalog.split_part(p.proconfig[1],'=',2),' ','')
+       IS DISTINCT FROM 'pg_catalog,ws02_owner'
+ THEN RAISE EXCEPTION 'PRIVATE_ATOMIC_DEPENDENCY_MUTATION_NOT_DETECTED'; END IF;
+END $atomic_dependency_mutation_detected$;
+ROLLBACK TO SAVEPOINT ws02_atomic_dependency_body_tamper;
+RELEASE SAVEPOINT ws02_atomic_dependency_body_tamper;
+DO $atomic_dependency_body_restored$
+DECLARE actual_digest text;
+BEGIN
+ SELECT pg_catalog.encode(pg_catalog.sha256(
+          pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+ INTO actual_digest FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF actual_digest IS DISTINCT FROM '30f0bf609986311ecba2fcbd8bb18a790a0b04f2a2898013d4a9a074dd189436'
+ THEN RAISE EXCEPTION 'PRIVATE_ATOMIC_DEPENDENCY_BODY_NOT_RESTORED'; END IF;
+END $atomic_dependency_body_restored$;
+COMMIT;
+SELECT 'PASS_SCOPED_PRIVATE_ATOMIC_DEPENDENCY_BODY_DRIFT_ROLLBACK_ONLY' AS marker;
