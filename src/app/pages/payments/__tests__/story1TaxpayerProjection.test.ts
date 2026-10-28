@@ -65,4 +65,13 @@ describe('Taxpayer 360 beneficiary projection', () => {
     expect(toStoryTaxpayerPaymentRow(single, '123456789012')).toMatchObject({ amount: '৳1,200.5', financial_receipt_status: 'PENDING' });
     expect(toStoryTaxpayerPaymentRow(single, '123456789012', '2025-26')).toBeNull();
   });
+
+  it('formats the exact integer-paisa amount even at the safe-integer boundary', () => {
+    const single: StoryPayment = { ...batch, amountMinor: Number.MAX_SAFE_INTEGER,
+      details: { taxpayerTin: '123456789012', assessmentYear: '2026-27', lines: [{ headId: 122 }],
+        allocations: [{ taxpayerTin: '123456789012', headId: 122, assessmentYear: '2026-27', amountMinor: Number.MAX_SAFE_INTEGER }] } };
+    const row = toStoryTaxpayerPaymentRow(single, '123456789012');
+    expect(row?.amount).toBe('৳90,071,992,547,409.91');
+    expect(row?.head_1_total).toBe('৳90,071,992,547,409.91');
+  });
 });

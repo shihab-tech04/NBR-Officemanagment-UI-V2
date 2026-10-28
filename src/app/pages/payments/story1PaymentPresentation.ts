@@ -19,9 +19,16 @@ const methodLabels:Record<string,string>={
   SIMULATED:'Simulated payment',A_CHALLAN_CARD:'Card',
 };
 const money=(amount:number)=>'৳'+new Intl.NumberFormat('en-BD',{maximumFractionDigits:2}).format(amount);
+const moneyMinor=(minor:unknown)=>{
+  if(typeof minor!=='number'||!Number.isSafeInteger(minor)||minor<0)return '—';
+  const whole=Math.floor(minor/100);
+  const fraction=minor%100;
+  return '৳'+new Intl.NumberFormat('en-BD').format(whole)+
+    (fraction ? '.'+String(fraction).padStart(2,'0').replace(/0$/,'') : '');
+};
 type PaymentHead={
   headId?:number;headNameEn?:string;economicCode?:string;
-  taxAmount?:number;penaltyAmount?:number;surchargeAmount?:number;
+  amountMinor?:number;taxAmount?:number;penaltyAmount?:number;surchargeAmount?:number;
   interestAmount?:number;totalAmount?:number;note?:string;
 };
 function isHead(value:unknown):value is PaymentHead{
@@ -102,7 +109,8 @@ export function toStoryPaymentRow(tx:StoryPayment){
     for(const key of ['taxAmount','penaltyAmount','surchargeAmount','interestAmount','totalAmount'] as const){
       if(typeof line[key]==='number'&&Number.isFinite(line[key])){
         const label=key==='taxAmount'?'tax':key==='penaltyAmount'?'penalty':key==='surchargeAmount'?'surcharge':key==='interestAmount'?'interest':'total';
-        breakdown[prefix+label]=money(line[key]);
+        breakdown[prefix+label]=key==='totalAmount'&&typeof line.amountMinor==='number'
+          ? moneyMinor(line.amountMinor) : money(line[key]);
       }
     }
     if(nonempty(line.note))breakdown[prefix+'note']=String(line.note);
@@ -119,7 +127,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
     assessment_year:allocations.length?Array.from(new Set(allocations.map(
       line=>line.assessmentYear||'—'))).join(', '):explicitTins.length?
       Array.from(new Set(explicit.map(line=>line.assessmentYear||'—'))).join(', '):nonempty(d.assessmentYear)??'—',
-    amount:money(tx.amountMinor/100),
+    amount:moneyMinor(tx.amountMinor),
     financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Simulated success':tx.status.replace(/_/g,' '),
     ledger_status:'No official tax credit',
     ...(method?{payment_channel:methodLabels[method]??method.replace(/_/g,' ')}:{}),
@@ -139,7 +147,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
       beneficiary_count:recipients.length,
       authorization_references:allocations.map(line=>line.authorizationId||'Self payment').join(', '),
       payer_beneficiary_audit:allocations.map(line=>
-        `${actor??'—'} paid for ${line.beneficiary}: ${money((line.amountMinor||0)/100)} · ${line.category||tx.service} · authorization ${line.authorizationId||'self'}`).join(' | '),
+        `${actor??'—'} paid for ${line.beneficiary}: ${moneyMinor(line.amountMinor)} · ${line.category||tx.service} · authorization ${line.authorizationId||'self'}`).join(' | '),
       payment_lines:JSON.stringify(allocations),
     }:{}),
     ...breakdown,
@@ -182,7 +190,7 @@ export function toStoryTaxpayerPaymentRow(tx:StoryPayment,tin:string,scopeYear='
     const ownLines=own.map(line=>{
       const head=lines.find(item=>item.headId===line.headId);
       return {headId:line.headId,headNameEn:head?.headNameEn,economicCode:head?.economicCode,
-        totalAmount:line.amountMinor!/100,note:line.assessmentYear};
+        amountMinor:line.amountMinor,totalAmount:line.amountMinor!/100,note:line.assessmentYear};
     });
     const years=Array.from(new Set(own.map(line=>line.assessmentYear))).join(', ');
     const name=own.map(line=>nonempty(line.taxpayerName)).find(Boolean);
