@@ -142,3 +142,42 @@ test('private versioned envelope binds exact canonical bytes, digest and detache
     assert.equal(sha(bytes), digest);
   }
 });
+
+function extractAsync(name) {
+  const begin = source.indexOf('async function ' + name + '(');
+  assert.ok(begin >= 0, 'MISSING_' + name);
+  const end = source.indexOf('\n}\n', begin);
+  assert.ok(end > begin, 'UNTERMINATED_' + name);
+  return source.slice(begin, end + 2);
+}
+const { verifiedCommitSession } = runInThisContext(
+  '(() => {' + stripTypeScriptTypes(extractAsync('verifiedCommitSession')) +
+  '\nreturn { verifiedCommitSession }; })()',
+);
+
+test('late producer session recheck precedes private atomic RPC', () => {
+  const trace = source.indexOf('canonicalAuditTrace = verifiedCanonicalAuditTrace(auditTrace);');
+  const recheck = source.indexOf('await verifiedCommitSession(supabase, token, authData.user.id)', trace);
+  const commit = source.indexOf('"nbr_commit_evaluation_versioned_candidate"', recheck);
+  assert.ok(trace > 0 && recheck > trace && commit > recheck);
+  assert.ok(source.slice(recheck, commit).includes('PRODUCER_SESSION_RECHECK_FAILED'));
+});
+
+test('actual late session helper fails closed for revoked, swapped, missing or errored actor', async () => {
+  const actor = base.actor_user_id;
+  const valid = { auth: { async getUser(token) {
+    assert.equal(token, 'synthetic-token');
+    return { data: { user: { id: actor } }, error: null };
+  } } };
+  assert.equal(await verifiedCommitSession(valid, 'synthetic-token', actor), true);
+  const invalid = [
+    { auth: { async getUser() { return { data: { user: { id: actor } }, error: { message: 'revoked' } }; } } },
+    { auth: { async getUser() { return { data: { user: { id: '60000000-0000-4000-8000-000000000099' } }, error: null }; } } },
+    { auth: { async getUser() { return { data: { user: null }, error: null }; } } },
+    { auth: { async getUser() { return { data: null, error: null }; } } },
+    { auth: { async getUser() { throw Error('auth network unavailable'); } } },
+  ];
+  for (const client of invalid) {
+    assert.equal(await verifiedCommitSession(client, 'synthetic-token', actor), false);
+  }
+});
