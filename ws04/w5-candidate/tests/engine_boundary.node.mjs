@@ -192,7 +192,14 @@ function fixture(overrides = {}) {
         state.lastReservationArgs=args;
         return { data:state.reservationState === null ? null : {state:state.reservationState}, error:state.reservationError };
       }
-      if (_name === 'nbr_commit_evaluation_atomically') {
+      if (_name === 'nbr_commit_evaluation_versioned_candidate') {
+        // Synthetic private SQL wrapper semantics; no hosted PostgREST or Auth.
+        if (args.p_trace_encoding_version !== 'NBR_W5_CANONICAL_UTF8_V1' ||
+            typeof args.p_trace_bytes !== 'string' ||
+            createHash('sha256').update(args.p_trace_bytes, 'utf8').digest('hex') !== args.p_trace_hash ||
+            canonical(JSON.parse(args.p_trace_bytes)) !== canonical(args.p_audit_trace)) {
+          return { data: false, error: null };
+        }
         state.atomicCalls++;
         state.calls.atomic++;
         state.lastAtomicArgs=args;
