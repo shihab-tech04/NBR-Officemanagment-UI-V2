@@ -324,7 +324,7 @@ DECLARE p record;
 BEGIN
  SELECT prosrc,prosecdef,proconfig,proowner INTO p FROM pg_catalog.pg_proc
  WHERE oid='ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
- IF NOT FOUND OR pg_catalog.btrim(p.prosrc) IS DISTINCT FROM 'BEGIN'||E'\n RETURN true;'||E'\nEND '
+ IF NOT FOUND OR pg_catalog.btrim(p.prosrc) IS DISTINCT FROM 'BEGIN'||E'\n RETURN true;'||E'\nEND'
     OR p.prosecdef IS DISTINCT FROM true
     OR p.proowner IS DISTINCT FROM 'ws02_owner_rpc'::regrole::oid
     OR p.proconfig IS NULL
