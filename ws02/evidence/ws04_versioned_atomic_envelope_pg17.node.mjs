@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
 const edge = readFileSync('ws04-current-reviewed-source/ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts', 'utf8');
-const sqlSource = readFileSync('ws02/isolated_owner_receipt_contract.sql', 'utf8');
+const sqlSource = readFileSync('ws02/isolated_versioned_atomic_envelope.sql', 'utf8');
 function extract(name) {
   const start = edge.indexOf('function ' + name + '(');
   assert.ok(start >= 0, 'WS04_HELPER_MISSING_' + name);
@@ -25,22 +25,25 @@ const { canonical, verifiedCanonicalAuditTrace } = runInThisContext(
 const digest = s => createHash('sha256').update(s, 'utf8').digest('hex');
 const args = ['p_auth_user_id', 'p_taxpayer_record_id', 'p_assessment_year',
   'p_idempotency_key', 'p_request_hash', 'p_receipt_hash', 'p_trace_hash',
-  'p_result_state', 'p_audit_trace'];
-const callStart = edge.indexOf('"nbr_commit_evaluation_atomically", {');
-assert.ok(callStart > 0, 'EDGE_ATOMIC_RPC_NOT_CALLED');
+  'p_result_state', 'p_audit_trace', 'p_trace_bytes', 'p_trace_encoding_version'];
+const callStart = edge.indexOf('"nbr_commit_evaluation_versioned_candidate", {');
+assert.ok(callStart > 0, 'EDGE_VERSIONED_ATOMIC_RPC_NOT_CALLED');
+assert.ok(!edge.includes('"nbr_commit_evaluation_atomically", {'), 'EDGE_LEGACY_ATOMIC_RPC_BYPASS');
 const callEnd = edge.indexOf('});', callStart);
 assert.ok(callEnd > callStart, 'EDGE_ATOMIC_RPC_CALL_UNTERMINATED');
 const edgeCall = edge.slice(callStart, callEnd);
 const edgeArgs = [...edgeCall.matchAll(/\b(p_[a-z_]+)\s*:/g)].map(m => m[1]);
-assert.deepEqual(edgeArgs, args, 'EDGE_ATOMIC_RPC_NINE_ARGUMENTS_DRIFT');
-const sqlStart = sqlSource.indexOf('CREATE FUNCTION ws02_owner.nbr_commit_evaluation_atomically(');
+assert.deepEqual(edgeArgs, args, 'EDGE_VERSIONED_ATOMIC_RPC_ELEVEN_ARGUMENTS_DRIFT');
+const sqlStart = sqlSource.indexOf('CREATE FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(');
 assert.ok(sqlStart > 0, 'SQL_ATOMIC_RPC_MISSING');
 const sqlEnd = sqlSource.indexOf(') RETURNS boolean', sqlStart);
 assert.ok(sqlEnd > sqlStart, 'SQL_ATOMIC_RPC_SIGNATURE_MISSING');
 const sqlArgs = [...sqlSource.slice(sqlStart, sqlEnd).matchAll(/\b(p_[a-z_]+)\s+(?:uuid|text|jsonb)/g)].map(m => m[1]);
-assert.deepEqual(sqlArgs, args, 'SQL_ATOMIC_RPC_NINE_ARGUMENTS_DRIFT');
+assert.deepEqual(sqlArgs, args, 'SQL_VERSIONED_ATOMIC_RPC_ELEVEN_ARGUMENTS_DRIFT');
 assert.ok(edge.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
 assert.ok(edgeCall.includes('p_audit_trace: validatedAuditTrace'));
+assert.ok(edgeCall.includes('p_trace_bytes: canonicalAuditTrace'));
+assert.ok(edgeCall.includes('p_trace_encoding_version: "NBR_W5_CANONICAL_UTF8_V1"'));
 assert.ok(edge.includes('auditTraceHash = await sha256(canonicalAuditTrace)'));
 const q = v => "'" + String(v).replaceAll("'", "''") + "'";
 function pg(sql) {
