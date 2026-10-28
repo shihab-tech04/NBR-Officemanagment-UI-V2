@@ -23,8 +23,9 @@ jobs:
       - name: Verify exact reviewed candidate source and test checksums
         shell: bash
         run: |
-          echo 'cb6c47f6dd80d5470ee3c8cb3e6fada13142f6f9f5446e490356b8702c3ecdfc  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
+          echo '452ec97b38433c3cfdff363814d6f90ce93e524963dded0bef1d40a4e9f198c8  ws04/w5-candidate/supabase/functions/nbr-tax-engine/index.ts' | sha256sum -c -
           echo '328ec5c4a9720584e2616f21ba386668eab79845ddb1856c02956447a1427b27  ws04/w5-candidate/tests/engine_boundary.node.mjs' | sha256sum -c -
+          echo 'd9d706cf1631446f00687971794a8dc92559091fff4a4b8a1134eda6fa5bb144  ws04/w5-candidate/tests/audit_trace_guard.node.mjs' | sha256sum -c -
           echo '8ec2d535d06f5cd6d710eaed0b00d547bc83efd9f90adbe7e148f55e5b9739d7  ws04/w5-candidate/tests/temporal_guard.node.mjs' | sha256sum -c -
           echo '16c3015603b59934006d32f75d7ed685673682503b0616717d1e9faf420fd20a  ws04/w5-candidate/tests/verify_frozen_registry.mjs' | sha256sum -c -
       - name: Self-test offline private frozen registry verifier (synthetic only)
