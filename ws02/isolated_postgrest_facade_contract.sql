@@ -75,6 +75,39 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- Negative regression: SECURITY DEFINER on the PostgREST-style facade
+-- would elevate the synthetic Edge caller to the migration owner's identity.
+-- Prove pg_proc.prosecdef detects that privilege-boundary drift and that a
+-- disposable exception subtransaction restores SECURITY INVOKER. No hosted SQL.
+DO $facade_definer_negative_probe$
+DECLARE baseline_definer boolean; observed_definer boolean;
+BEGIN
+ SELECT p.prosecdef INTO STRICT baseline_definer FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF baseline_definer IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'FACADE_SECURITY_INVOKER_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  ALTER FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) SECURITY DEFINER;
+  SELECT p.prosecdef INTO STRICT observed_definer FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF observed_definer IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'FACADE_SECURITY_DEFINER_MUTATION_UNDETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SECURITY_DEFINER';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SECURITY_DEFINER' THEN
+   RAISE;
+  END IF;
+ END;
+ SELECT p.prosecdef INTO STRICT observed_definer FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF observed_definer IS DISTINCT FROM baseline_definer THEN
+  RAISE EXCEPTION 'FACADE_SECURITY_DEFINER_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SECURITY_DEFINER_ROLLBACK_ONE_CASE';
+END $facade_definer_negative_probe$;
 -- Regression: a privileged metadata change can incorrectly advertise this
 -- write-bearing facade as PARALLEL SAFE without changing its SQL body or ACL.
 -- The reviewed guard requires pg_proc.proparallel='u'. Roll back the drift.
