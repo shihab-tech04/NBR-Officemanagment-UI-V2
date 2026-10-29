@@ -216,6 +216,35 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(readback, ['0:RESERVED:NULL'],
       'REDUNDANT_FRACTIONAL_ZERO_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
   }
+  // Zero exponents are valid JSON but never emitted by JSON.stringify.
+  // Recompute a valid SHA and prove all three result states fail closed.
+  const zeroExponentVariants = [
+    ['lower', '0.1e0'], ['upper', '0.1E0'],
+    ['positive', '0.1e+0'], ['negative', '0.1e-0'],
+  ];
+  for (const [kind, noncanonicalNumber] of zeroExponentVariants) {
+    const needle = '[0.1,true,null]';
+    assert.ok(bytes.includes(needle), 'ZERO_EXPONENT_FIXTURE_MISSING_' + kind);
+    const alteredBytes = bytes.replace(needle, '[' + noncanonicalNumber + ',true,null]');
+    assert.notEqual(alteredBytes, bytes);
+    assert.deepEqual(JSON.parse(alteredBytes), snapshot,
+      'ZERO_EXPONENT_CHANGED_JSON_SEMANTICS_' + kind);
+    const denied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(alteredBytes))},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(alteredBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(denied, ['f'],
+      'VALID_HASH_ZERO_EXPONENT_ACCEPTED_' + kind + '_' + status);
+    const unchanged = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(unchanged, ['0:RESERVED:NULL'],
+      'ZERO_EXPONENT_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
+  }
   // JSON.stringify emits a literal solidus, not an escaped solidus.
   // Equivalent escaped-solidus bytes with a freshly recomputed digest must
   // fail before any audit/receipt commit; the unescaped canonical positive
@@ -698,6 +727,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
+console.log('PASS_SCOPED_ZERO_EXPONENT_VALID_HASH_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_REDUNDANT_FRACTIONAL_ZERO_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
 console.log('PASS_SCOPED_PRINTABLE_ASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
