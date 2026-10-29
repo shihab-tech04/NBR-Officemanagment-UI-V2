@@ -654,6 +654,59 @@ BEGIN
  THEN RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_EXPOSURE_OR_METADATA_DRIFT'; END IF;
 END $review_facade_acl$;
 
+-- Exact SQL-body pin: metadata and ACL checks alone cannot detect a same-
+-- signature CREATE OR REPLACE that returns true without checking the private
+-- digest/atomic wrapper. This is a disposable-only review fixture.
+DO $review_facade_body_pin$
+DECLARE actual_body text; expected_body text:=$expected_review_facade$
+ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+  p_auth_user_id,p_taxpayer_record_id,p_assessment_year,
+  p_idempotency_key,p_request_hash,p_receipt_hash,
+  p_trace_hash,p_result_state,p_audit_trace,
+  p_trace_bytes,p_trace_encoding_version);
+$expected_review_facade$;
+BEGIN
+ SELECT p.prosrc INTO actual_body FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF actual_body IS DISTINCT FROM expected_body THEN
+  RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_SQL_BODY_DRIFT'; END IF;
+END $review_facade_body_pin$;
+-- Mutation test: preserve the signature, SECURITY INVOKER and EXECUTE ACL,
+-- but replace the SQL body with an unsafe unconditional success. Prove that
+-- the pinned-body check detects it, and the subtransaction rolls it back.
+DO $review_facade_body_mutation$
+DECLARE original_body text; mutated_body text;
+BEGIN
+ SELECT p.prosrc INTO original_body FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ BEGIN
+  EXECUTE $replace_review_facade$
+   CREATE OR REPLACE FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+    p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
+    p_idempotency_key text,p_request_hash text,p_receipt_hash text,
+    p_trace_hash text,p_result_state text,p_audit_trace jsonb,
+    p_trace_bytes text,p_trace_encoding_version text
+   ) RETURNS boolean LANGUAGE sql VOLATILE SECURITY INVOKER
+   SET search_path=pg_catalog,ws02_owner AS $unsafe_review_facade$
+    SELECT true;
+   $unsafe_review_facade$;
+  $replace_review_facade$;
+  SELECT p.prosrc INTO mutated_body FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+  IF mutated_body IS NOT DISTINCT FROM original_body
+     OR pg_catalog.btrim(mutated_body) IS DISTINCT FROM 'SELECT true;' THEN
+   RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_MUTATION_UNDETECTED'; END IF;
+  RAISE EXCEPTION 'ROLLBACK_VERSIONED_REVIEW_FACADE_BODY_MUTATION';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_VERSIONED_REVIEW_FACADE_BODY_MUTATION' THEN RAISE; END IF;
+ END;
+ SELECT p.prosrc INTO mutated_body FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ IF mutated_body IS DISTINCT FROM original_body THEN
+  RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_BODY_NOT_ROLLED_BACK'; END IF;
+END $review_facade_body_mutation$;
+SELECT 'PASS_SCOPED_11_ARG_REVIEW_FACADE_BODY_PIN_AND_ROLLBACK_ONLY' AS marker;
+
 -- Real non-superuser attempts, not merely catalog checks. No signed JWT
 -- verification is implied by the synthetic PostgreSQL role boundary.
 SAVEPOINT review_auth_attempt;
