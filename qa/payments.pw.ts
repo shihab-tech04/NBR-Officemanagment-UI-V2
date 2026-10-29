@@ -386,3 +386,25 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
     await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
   });
 }
+
+// Audit reference table parity: the normal-size Payment cells must not overlap.
+for (const width of [1713, 1440, 1280]) {
+ test(`Audit reference table parity: transaction cells remain contained at ${width}px`, async ({page}) => {
+   await page.setViewportSize({width,height:900});
+   await page.goto('/payments/transactions');
+   await expect(page.locator('.payment-module__table-card .card-table__table tbody tr').first()).toBeVisible({timeout:18000});
+   const overflow = await page.locator('.payment-module__table-card .card-table__table tbody tr').first().evaluate(row => {
+     const cells = [...row.querySelectorAll('td')];
+     return cells.flatMap((cell, column) => {
+       const text = cell.querySelector('.card-table__cell-text');
+       if (!text) return [];
+       const cellBox = cell.getBoundingClientRect();
+       const textBox = text.getBoundingClientRect();
+       return textBox.right > cellBox.right + 1
+         ? [{column, overflowPixels: textBox.right - cellBox.right}]
+         : [];
+     });
+   });
+   expect(overflow, 'visible transaction labels must stay within their respective columns').toEqual([]);
+ });
+}

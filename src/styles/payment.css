@@ -68,29 +68,34 @@
 .payment-module__review-grid dd { margin:0; font-size:var(--fs-body-sm); overflow-wrap:anywhere; }
 .payment-module .dashboard-kpi-grid .stat-card__value { overflow:visible; white-space:normal; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .payment-module__table-card .card-table__td:has(.badge) { vertical-align:middle; }
-/* Payment registers have few columns: occupy the full card, unlike the
-   content-sized shared table intended for very wide legacy registers. */
-.payment-module__table-card .card-table__wrapper { width:100%; min-width:0; }
-.payment-module__table-card .card-table { width:100%; min-width:0; }
-.payment-module__table-card .card-table__table { width:100%; min-width:720px; table-layout:auto; }
-/* The seven visible transaction fields use the existing card-table grid.
-   Keep service and both financial statuses visible without horizontal overflow. */
-@media (min-width: 1280px) {
-  .payment-module[data-testid="payment-transactions"] .card-table__table {
-    width:100%;
-    min-width:0;
-    table-layout:fixed;
-  }
-  .payment-module[data-testid="payment-transactions"] .card-table__th,
-  .payment-module[data-testid="payment-transactions"] .card-table__td {
-    padding-inline:8px;
-    white-space:normal;
-    overflow-wrap:anywhere;
-  }
+/* Shared Audit/CardTable presentation: always fill the card on large screens.
+   Only the inner table wrapper scrolls when viewport space is insufficient. */
+.payment-module__table-card .card-table__table {
+  width: 100%;
+  min-width: 100%;
+  table-layout: fixed;
+}
+.payment-module__table-card .card-table__th,
+.payment-module__table-card .card-table__td {
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+/* Transaction-specific proportional columns are presentation hints only;
+   the shared table, its semantic data and its actions remain unchanged. */
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(1) { width: 10%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(2) { width: 12%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(3) { width: 8%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(4) { width: 17%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(5) { width: 10%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(6) { width: 8%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(7) { width: 12%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(8) { width: 11%; }
+.payment-module[data-testid="payment-transactions"] .card-table__th:nth-child(9) { width: 12%; }
+@media (max-width: 1439px) {
+  .payment-module__table-card .card-table__table { min-width: 1080px; }
 }
 .payment-module__tab-scroll .tab-bar__tab:focus-visible { outline-offset:-2px; }
 @media(max-width:1023px) {
-  .payment-module__table-card .card-table__table { min-width:0; }
   .payment-module .table-page__actions .table-card__toolbar-btn--primary { min-height:40px; }
 }
 @media(max-width:640px) {
