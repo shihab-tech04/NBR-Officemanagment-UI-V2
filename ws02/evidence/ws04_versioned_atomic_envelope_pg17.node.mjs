@@ -252,6 +252,66 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(rejected, ['f'],
       'VALID_HASH_NONASCII_UNICODE_ESCAPE_ACCEPTED_' + variant + '_' + status);
   }
+  // Synthetic reserved slot for control-escape canonicality; not real Auth.
+  // Long-form control escapes and uppercase hex retain JSONB meaning and a
+  // valid recomputed SHA-256, but are not reviewed W5 JSON.stringify bytes.
+  const controlIdem = idem + '-ctrl';
+  const controlSnapshot = { ...snapshot, idempotency_key: controlIdem,
+    control_probe: String.fromCharCode(8, 9, 10, 12, 13, 31) };
+  const controlBytes = verifiedCanonicalAuditTrace(controlSnapshot);
+  assert.deepEqual(JSON.parse(controlBytes), controlSnapshot);
+  const controlReserve = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_reserve_citizen_evaluation(
+ ${q(actor)},${q(record)},'2026-27',${q(controlIdem)},${q(requestHash)},
+ 'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';`);
+  assert.deepEqual(controlReserve, ['RESERVED'],
+    'CONTROL_ESCAPE_RESERVATION_FAILED_' + status);
+  for (const [kind, canonicalEscape, noncanonicalEscape] of [
+    ['backspace', String.raw`\b`, String.raw`\u0008`],
+    ['tab', String.raw`\t`, String.raw`\u0009`],
+    ['newline', String.raw`\n`, String.raw`\u000a`],
+    ['formfeed', String.raw`\f`, String.raw`\u000c`],
+    ['return', String.raw`\r`, String.raw`\u000d`],
+    ['uppercase_hex', String.raw`\u001f`, String.raw`\u001F`],
+  ]) {
+    assert.ok(controlBytes.includes(canonicalEscape),
+      'CONTROL_CANONICAL_ESCAPE_FIXTURE_MISSING_' + kind);
+    const alteredBytes = controlBytes.replace(canonicalEscape, noncanonicalEscape);
+    assert.notEqual(alteredBytes, controlBytes);
+    assert.deepEqual(JSON.parse(alteredBytes), controlSnapshot,
+      'CONTROL_ESCAPE_CHANGED_JSON_SEMANTICS_' + kind);
+    const denied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(controlIdem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(alteredBytes))},${q(status)},
+ ${q(JSON.stringify(controlSnapshot))}::jsonb,${q(alteredBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(denied, ['f'],
+      'NONCANONICAL_CONTROL_ESCAPE_ACCEPTED_' + kind + '_' + status);
+  }
+  const controlBefore = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+    WHERE idem_key=${q(controlIdem)})::text || ':' ||
+    (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(controlIdem)}) || ':' ||
+    COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+      WHERE idem_key=${q(controlIdem)}),'NULL');`);
+  assert.deepEqual(controlBefore, ['0:RESERVED:NULL'],
+    'NONCANONICAL_CONTROL_ESCAPE_MUTATED_AUDIT_OR_RECEIPT_' + status);
+  const canonicalControlCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(controlIdem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(controlBytes))},${q(status)},
+ ${q(JSON.stringify(controlSnapshot))}::jsonb,${q(controlBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(canonicalControlCommit, ['t'],
+    'CANONICAL_CONTROL_ESCAPE_POSITIVE_DENIED_' + status);
+  const controlAfter = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+    WHERE idem_key=${q(controlIdem)} AND audit_trace->>'control_probe' =
+      ${q(controlSnapshot.control_probe)})::text || ':' ||
+    (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(controlIdem)}) || ':' ||
+    (SELECT receipt_hash FROM ws02_owner.slots
+      WHERE idem_key=${q(controlIdem)});`);
+  assert.deepEqual(controlAfter, ['1:FINALIZED:' + receiptHash],
+    'CANONICAL_CONTROL_ESCAPE_AUDIT_RECEIPT_READBACK_FAILED_' + status);
   const unicodeNonAsciiReadback = pg(`SELECT
   (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
   (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
@@ -610,6 +670,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
 console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
 console.log('PASS_SCOPED_PRINTABLE_ASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_NONASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
+console.log('PASS_SCOPED_NONCANONICAL_CONTROL_ESCAPES_18_NEGATIVES_3_CANONICAL_POSITIVES');
 console.log('PASS_SCOPED_STRUCTURAL_WHITESPACE_RECOMPUTED_SHA_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_OUTER_WHITESPACE_NONCANONICAL_JSON_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_CROSS_YEAR_SAME_KEY_TWO_AUTHORIZED_YEARS_THREE_STATES');
