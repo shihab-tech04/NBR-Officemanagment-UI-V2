@@ -716,6 +716,45 @@ BEGIN
   END LOOP;
  END LOOP;
 END $private_boundary$;
+-- Negative role-graph mutation: an otherwise denied anon/auth caller must
+-- not acquire the trusted Edge or private definer role through an accidental
+-- role membership. Prove each of six forbidden grants is visible and fully
+-- rolled back by an isolated PG17 exception subtransaction.
+-- Synthetic roles only: this does NOT validate signed/revoked JWTs.
+DO $untrusted_membership_negative_probe$
+DECLARE caller name; elevated name; detected boolean;
+BEGIN
+ FOREACH caller IN ARRAY ARRAY['ws02_owner_anon','ws02_owner_auth'] LOOP
+  FOREACH elevated IN ARRAY ARRAY[
+   'ws02_owner_engine','ws02_owner_rpc','ws02_owner_lock'] LOOP
+   IF pg_catalog.pg_has_role(caller,elevated,'MEMBER')
+      OR pg_catalog.pg_has_role(caller,elevated,'USAGE')
+      OR pg_catalog.pg_has_role(caller,elevated,'SET') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_ALREADY_ELEVATED_%_%',caller,elevated;
+   END IF;
+   BEGIN
+    EXECUTE format('GRANT %I TO %I',elevated,caller);
+    SELECT pg_catalog.pg_has_role(caller,elevated,'MEMBER')
+        OR pg_catalog.pg_has_role(caller,elevated,'USAGE')
+        OR pg_catalog.pg_has_role(caller,elevated,'SET')
+    INTO detected;
+    IF NOT detected THEN
+     RAISE EXCEPTION 'UNTRUSTED_ROLE_MEMBERSHIP_MUTATION_UNDETECTED_%_%',
+       caller,elevated;
+    END IF;
+    RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_UNTRUSTED_MEMBERSHIP';
+   EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'ROLLBACK_SYNTHETIC_UNTRUSTED_MEMBERSHIP' THEN RAISE; END IF;
+   END;
+   IF pg_catalog.pg_has_role(caller,elevated,'MEMBER')
+      OR pg_catalog.pg_has_role(caller,elevated,'USAGE')
+      OR pg_catalog.pg_has_role(caller,elevated,'SET') THEN
+    RAISE EXCEPTION 'UNTRUSTED_ROLE_MEMBERSHIP_NOT_ROLLED_BACK_%_%',
+      caller,elevated;
+   END IF;
+  END LOOP;
+ END LOOP;
+END $untrusted_membership_negative_probe$;
 -- A trusted Edge runtime is not a private SQL-definer. Granting it
 -- membership in the receipt/row-lock definer roles would bypass the reviewed
 -- atomic-RPC-only boundary even while anon/auth ACL probes continue to pass.
