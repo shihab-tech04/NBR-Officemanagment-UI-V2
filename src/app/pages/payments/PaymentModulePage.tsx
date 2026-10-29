@@ -182,7 +182,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const isTransactionDetails = details?.title === t('transactions');
-  const selectedStoryPayment = isTransactionDetails
+  // Taxpayer 360 rows are beneficiary-scoped projections of a larger payment.
+  // Never attach the full parent allocations to their individual detail drawer.
+  const selectedStoryPayment = isTransactionDetails && current === 'transactions'
     ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
     : null;
 
