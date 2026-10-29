@@ -1168,6 +1168,62 @@ BEGIN
  END LOOP;
  RAISE NOTICE 'PASS_SCOPED_RLS_POLICY_ROLE_REWRITE_ROLLBACK_TWO_CASES';
 END $rls_policy_role_rewrite_negative_probe$;
+-- A policy can retain its name, role, command and permissive flag while
+-- its predicate is rewritten. Prove that the pinned PG17 expression inventory
+-- detects both SELECT USING and INSERT WITH CHECK changes, and that each
+-- disposable DDL mutation rolls back. Not hosted ownership/Auth evidence.
+DO $rls_policy_predicate_rewrite_negative_probe$
+DECLARE candidate record; baseline_expr text; observed_expr text;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('logs_rpc_read','USING'),
+  ('logs_engine_insert','WITH CHECK')
+ ) AS cases(policy_name,clause_name) LOOP
+  SELECT CASE candidate.clause_name
+   WHEN 'USING' THEN pg_catalog.pg_get_expr(p.polqual,p.polrelid)
+   ELSE pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) END
+  INTO STRICT baseline_expr
+  FROM pg_catalog.pg_policy p
+  WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+    AND p.polname=candidate.policy_name;
+  IF baseline_expr IS DISTINCT FROM 'true' THEN
+   RAISE EXCEPTION 'RLS_POLICY_PREDICATE_BASELINE_DRIFT_%',candidate.policy_name;
+  END IF;
+  BEGIN
+   EXECUTE format(
+    'ALTER POLICY %I ON ws02_owner.evaluation_logs %s (false)',
+    candidate.policy_name,candidate.clause_name);
+   SELECT CASE candidate.clause_name
+    WHEN 'USING' THEN pg_catalog.pg_get_expr(p.polqual,p.polrelid)
+    ELSE pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) END
+   INTO STRICT observed_expr
+   FROM pg_catalog.pg_policy p
+   WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+     AND p.polname=candidate.policy_name;
+   IF observed_expr IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'RLS_POLICY_PREDICATE_REWRITE_NOT_DETECTED_%',
+     candidate.policy_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_RLS_POLICY_PREDICATE_REWRITE';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_RLS_POLICY_PREDICATE_REWRITE' THEN
+    RAISE;
+   END IF;
+  END;
+  SELECT CASE candidate.clause_name
+   WHEN 'USING' THEN pg_catalog.pg_get_expr(p.polqual,p.polrelid)
+   ELSE pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) END
+  INTO STRICT observed_expr
+  FROM pg_catalog.pg_policy p
+  WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+    AND p.polname=candidate.policy_name;
+  IF observed_expr IS DISTINCT FROM baseline_expr THEN
+   RAISE EXCEPTION 'RLS_POLICY_PREDICATE_REWRITE_NOT_ROLLED_BACK_%',
+    candidate.policy_name;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_SCOPED_RLS_POLICY_PREDICATE_REWRITE_ROLLBACK_TWO_CASES';
+END $rls_policy_predicate_rewrite_negative_probe$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
