@@ -298,3 +298,4 @@
 
 /* Field heading is already provided by the approved shared detail-section title. */
 .dynamic-drawer .drawer-field:has(.office-shared-allocation-list) > .drawer-field__label { display:none; }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-close { width:44px; height:44px; flex:none; border:1px solid var(--color-primary); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); }
