@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, FileCheck2, Printer, Download, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { PaymentRecordList } from './PaymentRecordList';
 import { PaymentCategoryTag } from './PaymentCategoryTag';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
@@ -23,7 +23,8 @@ import {
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
-import { toStoryPaymentRow, toStoryTaxpayerPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
+import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
+import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
@@ -180,20 +181,12 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[selectedTin]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
-  const transactionReceiptId=details?.title===t('transactions')
-    ?String(details.record.payment_ref??''):null;
-  const validReceiptId=transactionReceiptId&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionReceiptId)
-    ?transactionReceiptId:null;
-  // The Admin footer opens the SAME SQL-linked TaxPay ReceiptView route.
-  // Print and Download invoke the exact same document with an action hint.
-  const openCertificate=(action?:'print'|'download')=>{
-    if(!validReceiptId)return;
-    const url=new URL('https://shihab-tech04.github.io/nbr-taxpay/');
-    url.searchParams.set('action','payment_details');
-    url.searchParams.set('transactionId',validReceiptId);
-    if(action)url.searchParams.set('docAction',action);
-    window.open(url.toString(),'_blank','noopener,noreferrer');
-  };
+  const isTransactionDetails = details?.title === t('transactions');
+  // Taxpayer 360 rows are beneficiary-scoped projections of a larger payment.
+  // Never attach the full parent allocations to their individual detail drawer.
+  const selectedStoryPayment = isTransactionDetails && current === 'transactions'
+    ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
+    : null;
 
   const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});};
   const change=(key:keyof typeof firstDraft,value:string)=>{setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
@@ -403,21 +396,22 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
 
   return <div className="table-page payment-module" data-testid={`payment-${current}`}>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
-    <DynamicDetailsDrawer open={details!==null} onClose={()=>setDetails(null)} title={details?.title} rowData={details?.record??null}
-      renderValue={(key,value)=>details?.title===t('transactions')?undefined:key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
-      columns={Object.keys(details?.record??{}).filter(key=>key!=='key').map(key=>({
-        key,label:details?.title===t('transactions')?storyDetailLabel(key):t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase())}),
-        groupLabel:details?.title===t('transactions')?storyGroup(key):
-        ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
-        ['amount','payment_type','assessment_year','income_year','date','payment_channel'].includes(key)?t('drawerFinancial'):
-        ['financial_receipt_status','ledger_status','status'].includes(key)?t('drawerStatus'):
-        ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')
-      }))} showActions={false}
-      extraFooterActions={validReceiptId ? <>
-        <PrimaryButton size="sm" icon={FileCheck2} onClick={()=>openCertificate()}>View certificate</PrimaryButton>
-        <SecondaryButton size="sm" icon={Printer} onClick={()=>openCertificate('print')}>Print</SecondaryButton>
-        <SecondaryButton size="sm" icon={Download} onClick={()=>openCertificate('download')}>Download</SecondaryButton>
-      </>:undefined}/>
+    <OfficeTransactionDrawer
+      row={isTransactionDetails ? details?.record ?? null : null}
+      source={selectedStoryPayment}
+      onClose={() => setDetails(null)}
+    />
+    <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
+      title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
+      renderValue={(key,value)=>key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
+      columns={Object.keys(!isTransactionDetails ? details?.record??{} : {}).filter(key=>key!=='key').map(key=>({
+        key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\\b\\w/g,s=>s.toUpperCase())}),
+        groupLabel:
+          ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
+          ['amount','payment_type','assessment_year','income_year','date','payment_channel'].includes(key)?t('drawerFinancial'):
+          ['financial_receipt_status','ledger_status','status'].includes(key)?t('drawerStatus'):
+          ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')
+      }))} showActions={false}/>
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
       <form id="payment-draft-form" onSubmit={e=>{e.preventDefault();draftPreview?saveDraft():previewDraft();}}>

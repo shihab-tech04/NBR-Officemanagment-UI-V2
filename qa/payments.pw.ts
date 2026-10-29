@@ -328,38 +328,19 @@ test('Guest-submitted payment is displayed without an officer sign-in gate',asyn
   await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
 
-test('transaction details footer opens the exact TaxPay certificate for view, print and download',async({page})=>{
+test('transaction details stay in Office; no citizen TaxPay certificate route',async({page})=>{
   await page.goto('/payments/transactions');
   await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
   await page.getByRole('button',{name:'View Details'}).first().click();
-  const drawer=page.locator('.responsive-overlay');
+  const drawer=page.locator('.office-transaction-drawer');
   await expect(drawer).toBeVisible();
-  const footer=drawer.locator('.responsive-overlay__footer');
-  await expect(footer.getByRole('button',{name:'View certificate'})).toBeVisible();
-  await expect(footer.getByRole('button',{name:'Print'})).toBeVisible();
-  await expect(footer.getByRole('button',{name:'Download'})).toBeVisible();
-  await page.evaluate(()=>{
-    (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls=[];
-    window.open=(url?:string|URL)=>{
-      (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls.push(String(url));
-      return null;
-    };
-  });
-  await footer.getByRole('button',{name:'View certificate'}).click();
-  await footer.getByRole('button',{name:'Print'}).click();
-  await footer.getByRole('button',{name:'Download'}).click();
-  const links=await page.evaluate(()=> (window as Window & {openedCertificateUrls:string[]}).openedCertificateUrls);
-  expect(links).toHaveLength(3);
-  for(const link of links){
-    const url=new URL(link);
-    expect(url.origin+url.pathname).toBe('https://shihab-tech04.github.io/nbr-taxpay/');
-    expect(url.searchParams.get('action')).toBe('payment_details');
-    expect(url.searchParams.get('transactionId')).toBe(submittedPayments[0].id);
-  }
-  expect(new URL(links[1]).searchParams.get('docAction')).toBe('print');
-  expect(new URL(links[2]).searchParams.get('docAction')).toBe('download');
+  await expect(drawer.getByRole('button',{name:'View receipt'})).toBeVisible();
+  await expect(drawer.getByRole('button',{name:'View certificate'})).toHaveCount(0);
+  await drawer.getByRole('button',{name:'View receipt'}).click();
+  await expect(drawer.getByText('Payment receipt', {exact:true}).first()).toBeVisible();
+  await expect(page).toHaveURL(/\/payments\/transactions$/);
+  expect(page.context().pages()).toHaveLength(1);
 });
-
 
 for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
   test(`SQL-backed payment notice opens full transaction history at ${viewport.width}px`,async({page})=>{
@@ -408,3 +389,53 @@ for (const width of [1713, 1440, 1280]) {
    expect(overflow, 'visible transaction labels must stay within their respective columns').toEqual([]);
  });
 }
+
+
+test('Office Transactions keeps details and receipt inside one Office drawer', async ({page}) => {
+  const reference='e4e43b06-0be4-4cfe-96eb-b75b7176d86e';
+  await page.route('**/functions/v1/demo-story1-office/**', route => {
+    const payments = new URL(route.request().url()).pathname.endsWith('/payments');
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+      success:true, data: payments ? {items:[{
+        id:reference,service:'OTHER_TAX_PAYMENT',amountMinor:17375,status:'SIMULATED_SUCCESS',createdAt:'2026-10-29T05:48:25Z',
+        details:{payerId:'user6',payerName:'user6',lines:[
+          {beneficiary:'user6',category:'TAX_WITH_RETURN',assessmentYear:'2026-27',amountMinor:15025},
+          {beneficiary:'user7',category:'PENALTY',assessmentYear:'2025-26',amountMinor:2350},
+        ]},
+      }],total:1,page:1,perPage:100} : [],
+    })});
+  });
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/payments/transactions');
+  await expect(page.locator('.payment-module__table-card .card-table__action-btn').first()).toBeVisible();
+  await page.locator('.payment-module__table-card .card-table__action-btn').first().click();
+  const drawer=page.getByRole('dialog');
+  await expect(drawer).toContainText('Transaction details');
+  await expect(drawer).toContainText('Taxpayer allocations');
+  await expect(drawer).toContainText('৳150.25');
+  await expect(drawer).toContainText('৳23.50');
+  await expect(drawer).not.toContainText('{"category"');
+  await expect(drawer).not.toContainText('Allocation details');
+  await drawer.getByRole('button',{name:'View receipt'}).click();
+  await expect(drawer).toContainText('Payment receipt');
+  await expect(page).toHaveURL(/\/payments\/transactions$/);
+  expect(page.context().pages()).toHaveLength(1);
+  const download=page.waitForEvent('download');
+  await drawer.getByRole('button',{name:'Download receipt'}).click();
+  expect((await download).suggestedFilename()).toBe('office-payment-'+reference+'.html');
+  await drawer.getByRole('button',{name:'Details'}).click();
+  await expect(drawer).toContainText('Transaction details');
+});
+
+test('Office receipt drawer fits a 360px viewport without external navigation',async({page})=>{
+  await page.setViewportSize({width:360,height:800});
+  await page.goto('/payments/transactions');
+  await expect(page.locator('.mobile-table-card__action-btn').first()).toBeVisible();
+  await page.locator('.mobile-table-card__action-btn').first().click();
+  const drawer=page.getByRole('dialog');
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button',{name:'View receipt'}).click();
+  const over=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+  expect(over).toBeLessThanOrEqual(2);
+  await expect(page).toHaveURL(/\/payments\/transactions$/);
+});
