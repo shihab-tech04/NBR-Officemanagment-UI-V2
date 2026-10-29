@@ -51,7 +51,7 @@ BEGIN
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           BETWEEN '0020' AND '007e'
+           >= '0020'
     THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
@@ -365,7 +365,7 @@ BEGIN
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           BETWEEN '0020' AND '007e'
+           >= '0020'
     THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
@@ -458,7 +458,7 @@ BEGIN
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           BETWEEN '0020' AND '007e'
+           >= '0020'
     THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
@@ -546,7 +546,7 @@ BEGIN
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           BETWEEN '0020' AND '007e'
+           >= '0020'
     THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
