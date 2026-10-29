@@ -229,6 +229,35 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(rejected, ['f'],
       'VALID_HASH_PRINTABLE_UNICODE_ESCAPE_ACCEPTED_' + variant + '_' + status);
   }
+  // Non-ASCII Unicode escapes and escaped surrogate pairs decode to the same
+  // JSONB as the reviewed W5 literal UTF-8 output, but are not its bytes.
+  // Reject valid recomputed SHA-256 representations without finalization.
+  const unicodeNonAsciiVariants = [
+    ['bengali_value', bytes.replace('বাংলা', String.raw`\u09acাংলা`)],
+    ['bengali_key', bytes.replace('প্রমাণ', String.raw`\u09aa্রমাণ`)],
+    ['emoji_pair', bytes.replace('😀', String.raw`\ud83d\ude00`)],
+  ];
+  for (const [variant, unicodeBytes] of unicodeNonAsciiVariants) {
+    assert.notEqual(unicodeBytes, bytes,
+      'NONASCII_UNICODE_FIXTURE_NO_CHANGE_' + variant);
+    assert.deepEqual(JSON.parse(unicodeBytes), snapshot,
+      'NONASCII_UNICODE_CHANGED_JSON_SEMANTICS_' + variant);
+    const unicodeHash = digest(unicodeBytes);
+    const rejected = pg(`SET ROLE ws02_owner_engine;
+ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+  ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+  ${q(receiptHash)},${q(unicodeHash)},${q(status)},
+  ${q(JSON.stringify(snapshot))}::jsonb,${q(unicodeBytes)},
+  'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(rejected, ['f'],
+      'VALID_HASH_NONASCII_UNICODE_ESCAPE_ACCEPTED_' + variant + '_' + status);
+  }
+  const unicodeNonAsciiReadback = pg(`SELECT
+  (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
+  (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+  COALESCE((SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(unicodeNonAsciiReadback, ['0:RESERVED:NULL'],
+    'NONASCII_UNICODE_MUTATED_AUDIT_OR_RECEIPT_' + status);
   const unicodeAsciiReadback = pg(`SELECT
  (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
  (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
@@ -580,6 +609,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
 }
 console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
 console.log('PASS_SCOPED_PRINTABLE_ASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
+console.log('PASS_SCOPED_NONASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_STRUCTURAL_WHITESPACE_RECOMPUTED_SHA_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_OUTER_WHITESPACE_NONCANONICAL_JSON_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_CROSS_YEAR_SAME_KEY_TWO_AUTHORIZED_YEARS_THREE_STATES');
