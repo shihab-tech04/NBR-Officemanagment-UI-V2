@@ -22,6 +22,12 @@ BEGIN
  IF p_audit_trace IS NULL
     OR pg_catalog.octet_length(p_audit_trace::text) > 262144
  THEN RETURN false; END IF;
+ -- Canonical W5 object bytes start and end at braces; JSON parsers also
+ -- accept outer whitespace, which is NOT emitted by the reviewed producer.
+ -- Reject this known noncanonical subset before parsing or hashing.
+ IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
+    OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
+ THEN RETURN false; END IF;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -296,6 +302,12 @@ BEGIN
  IF p_audit_trace IS NULL
     OR pg_catalog.octet_length(p_audit_trace::text) > 262144
  THEN RETURN false; END IF;
+ -- Canonical W5 object bytes start and end at braces; JSON parsers also
+ -- accept outer whitespace, which is NOT emitted by the reviewed producer.
+ -- Reject this known noncanonical subset before parsing or hashing.
+ IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
+    OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
+ THEN RETURN false; END IF;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -349,6 +361,12 @@ BEGIN
  IF p_audit_trace IS NULL
     OR pg_catalog.octet_length(p_audit_trace::text) > 262144
  THEN RETURN false; END IF;
+ -- Canonical W5 object bytes start and end at braces; JSON parsers also
+ -- accept outer whitespace, which is NOT emitted by the reviewed producer.
+ -- Reject this known noncanonical subset before parsing or hashing.
+ IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
+    OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
+ THEN RETURN false; END IF;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -396,6 +414,12 @@ BEGIN
  -- The underlying atomic RPC already enforces the same JSONB size limit.
  IF p_audit_trace IS NULL
     OR pg_catalog.octet_length(p_audit_trace::text) > 262144
+ THEN RETURN false; END IF;
+ -- Canonical W5 object bytes start and end at braces; JSON parsers also
+ -- accept outer whitespace, which is NOT emitted by the reviewed producer.
+ -- Reject this known noncanonical subset before parsing or hashing.
+ IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
+    OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
  THEN RETURN false; END IF;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
