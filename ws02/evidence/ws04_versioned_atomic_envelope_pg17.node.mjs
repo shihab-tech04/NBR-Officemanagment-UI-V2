@@ -276,6 +276,34 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(unchanged, ['0:RESERVED:NULL'],
       'ZERO_EXPONENT_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
   }
+  // Exponents padded with a leading zero are valid JSON but never
+  // emitted by the reviewed W5 JSON.stringify producer.
+  const paddedExponentVariants = [
+    ['lower', '0e01'], ['upper', '0E01'],
+    ['positive', '0e+01'], ['negative', '0e-01'],
+  ];
+  for (const [kind, noncanonicalNumber] of paddedExponentVariants) {
+    const needle = '"applied_rule_count":0';
+    assert.ok(bytes.includes(needle), 'PADDED_EXPONENT_FIXTURE_MISSING_' + kind);
+    const alteredBytes = bytes.replace(needle, '"applied_rule_count":' + noncanonicalNumber);
+    assert.equal(canonical(JSON.parse(alteredBytes)), bytes,
+      'PADDED_EXPONENT_CHANGED_CANONICAL_SEMANTICS_' + kind);
+    const denied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(alteredBytes))},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(alteredBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(denied, ['f'],
+      'VALID_HASH_PADDED_EXPONENT_ACCEPTED_' + kind + '_' + status);
+    const unchanged = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(unchanged, ['0:RESERVED:NULL'],
+      'PADDED_EXPONENT_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
+  }
   // JSON.stringify emits a literal solidus, not an escaped solidus.
   // Equivalent escaped-solidus bytes with a freshly recomputed digest must
   // fail before any audit/receipt commit; the unescaped canonical positive
@@ -759,6 +787,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
 console.log('PASS_SCOPED_NEGATIVE_ZERO_VALID_HASH_REJECTED_TWELVE_CASES_THREE_STATES');
+console.log('PASS_SCOPED_PADDED_EXPONENT_VALID_HASH_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_ZERO_EXPONENT_VALID_HASH_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_REDUNDANT_FRACTIONAL_ZERO_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
