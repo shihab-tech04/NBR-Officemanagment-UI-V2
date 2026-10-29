@@ -1051,6 +1051,76 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_OWNER_RLS_POLICY_ROLE_OR_COMMAND_DRIFT_%',missing_or_extra;
  END IF;
 END $rls_policy_boundary$;
+-- Mutation proof for the private RLS enablement gate. A privileged DDL
+-- change can disable row security without changing the reviewed policy list.
+-- Verify catalog detection and subtransaction rollback in disposable PG17.
+-- This is NOT an Auth provider, JWT, or real taxpayer ownership test.
+DO $rls_disable_negative_probe$
+DECLARE before_enabled boolean; after_enabled boolean;
+BEGIN
+ SELECT c.relrowsecurity INTO before_enabled
+ FROM pg_catalog.pg_class c
+ WHERE c.oid='ws02_owner.evaluation_logs'::regclass;
+ IF before_enabled IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'RLS_DISABLE_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  ALTER TABLE ws02_owner.evaluation_logs DISABLE ROW LEVEL SECURITY;
+  SELECT c.relrowsecurity INTO after_enabled
+  FROM pg_catalog.pg_class c
+  WHERE c.oid='ws02_owner.evaluation_logs'::regclass;
+  IF after_enabled IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'RLS_DISABLE_MUTATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_RLS_DISABLE';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_RLS_DISABLE' THEN RAISE; END IF;
+ END;
+ SELECT c.relrowsecurity INTO after_enabled
+ FROM pg_catalog.pg_class c
+ WHERE c.oid='ws02_owner.evaluation_logs'::regclass;
+ IF after_enabled IS DISTINCT FROM before_enabled THEN
+  RAISE EXCEPTION 'RLS_DISABLE_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $rls_disable_negative_probe$;
+-- Mutation proof for the exact seven-policy inventory. Even without a direct
+-- table GRANT, an unreviewed permissive policy is forbidden metadata drift.
+-- Create, detect, and roll back one extra policy without touching hosted SQL.
+DO $rls_policy_injection_negative_probe$
+DECLARE baseline_count integer; injected_count integer; after_count integer;
+BEGIN
+ SELECT count(*) INTO baseline_count
+ FROM pg_catalog.pg_policy p
+ WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass;
+ IF baseline_count IS DISTINCT FROM 2 THEN
+  RAISE EXCEPTION 'RLS_POLICY_INJECTION_BASELINE_DRIFT_%',baseline_count;
+ END IF;
+ BEGIN
+  CREATE POLICY ws02_unreviewed_permissive ON ws02_owner.evaluation_logs
+   FOR SELECT TO ws02_owner_auth USING (true);
+  SELECT count(*) INTO injected_count
+  FROM pg_catalog.pg_policy p
+  WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+    AND p.polname='ws02_unreviewed_permissive';
+  IF injected_count IS DISTINCT FROM 1 THEN
+   RAISE EXCEPTION 'RLS_POLICY_INJECTION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_RLS_POLICY_INJECTION';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_RLS_POLICY_INJECTION' THEN RAISE; END IF;
+ END;
+ SELECT count(*) INTO after_count
+ FROM pg_catalog.pg_policy p
+ WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass;
+ IF after_count IS DISTINCT FROM baseline_count
+    OR EXISTS (
+      SELECT 1 FROM pg_catalog.pg_policy p
+      WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+        AND p.polname='ws02_unreviewed_permissive'
+    ) THEN
+  RAISE EXCEPTION 'RLS_POLICY_INJECTION_NOT_ROLLED_BACK';
+ END IF;
+END $rls_policy_injection_negative_probe$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
