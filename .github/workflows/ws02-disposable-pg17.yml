@@ -473,7 +473,7 @@ jobs:
       - name: Checkout exact WS04 11-argument versioned Edge producer (review only)
         uses: actions/checkout@v4
         with:
-          ref: 73e515846fea7f169ea3e3b7fcab076d366f3a0e
+          ref: 12c7db9d30f2dbd363509bc2bc5091a4d8154dea
           path: ws04-current-reviewed-source
           persist-credentials: false
       - name: Set up Node 22 for actual WS04 TypeScript helper extraction
