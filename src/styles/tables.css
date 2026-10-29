@@ -198,12 +198,12 @@
 
 /* Normal: name, label, group, service, role */
 .card-table__cell-text--normal {
-  max-width: min(22vw, 260px);
+  max-width: min(100%, 22vw, 260px);
 }
 
 /* Long: endpoint, email, description, remarks */
 .card-table__cell-text--long {
-  max-width: min(38vw, 520px);
+  max-width: min(100%, 38vw, 520px);
 }
 
 /* Header text — inherit from column context */
