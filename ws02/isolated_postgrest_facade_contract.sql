@@ -945,6 +945,52 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_RELATION_INVENTORY_DRIFT';
  END IF;
 END $runtime_role_boundary$;
+-- A private table-owner reassignment bypasses row-level security even if
+-- ACLs and policy definitions stay unchanged. Exercise two distinct synthetic
+-- owner-takeover attempts, verify the runtime-role owner check detects each,
+-- and prove PostgreSQL exception subtransactions restore the original owners.
+-- No hosted SQL, citizen Auth mapping or user data is touched.
+DO $private_table_owner_takeover_negative_probe$
+DECLARE candidate record; original_owner oid; mutated_owner oid; restored_owner oid;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('owners','ws02_owner_auth'),
+  ('evaluation_logs','ws02_owner_engine')
+ ) AS cases(relation_name,forbidden_owner) LOOP
+  SELECT c.relowner INTO STRICT original_owner
+  FROM pg_catalog.pg_class c
+  WHERE c.oid=format('ws02_owner.%I',candidate.relation_name)::regclass;
+  IF pg_catalog.pg_has_role(candidate.forbidden_owner,original_owner,'MEMBER') THEN
+   RAISE EXCEPTION 'PRIVATE_TABLE_OWNER_TAKEOVER_BASELINE_DRIFT_%',
+    candidate.relation_name;
+  END IF;
+  BEGIN
+   EXECUTE format('ALTER TABLE ws02_owner.%I OWNER TO %I',
+    candidate.relation_name,candidate.forbidden_owner);
+   SELECT c.relowner INTO STRICT mutated_owner
+   FROM pg_catalog.pg_class c
+   WHERE c.oid=format('ws02_owner.%I',candidate.relation_name)::regclass;
+   IF mutated_owner IS DISTINCT FROM candidate.forbidden_owner::regrole::oid
+      OR NOT pg_catalog.pg_has_role(candidate.forbidden_owner,mutated_owner,'MEMBER') THEN
+    RAISE EXCEPTION 'PRIVATE_TABLE_OWNER_TAKEOVER_UNDETECTED_%',
+     candidate.relation_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_TABLE_OWNER_TAKEOVER';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_TABLE_OWNER_TAKEOVER' THEN
+    RAISE;
+   END IF;
+  END;
+  SELECT c.relowner INTO STRICT restored_owner
+  FROM pg_catalog.pg_class c
+  WHERE c.oid=format('ws02_owner.%I',candidate.relation_name)::regclass;
+  IF restored_owner IS DISTINCT FROM original_owner THEN
+   RAISE EXCEPTION 'PRIVATE_TABLE_OWNER_TAKEOVER_NOT_ROLLED_BACK_%',
+    candidate.relation_name;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_SCOPED_PRIVATE_TABLE_OWNER_TAKEOVER_ROLLBACK_TWO_CASES';
+END $private_table_owner_takeover_negative_probe$;
 -- Role-attribute negative regression: even with intact function/schema ACLs,
 -- accidental LOGIN or BYPASSRLS on a synthetic PostgREST/Edge role would
 -- invalidate the least-privilege assumptions. Inject one attribute at a time,
