@@ -454,7 +454,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:FINALIZED:' + receiptHash, nextYear + ':FINALIZED:' + nextReceipt],
     'YEAR_SCOPED_SLOTS_OR_RECEIPTS_CROSSED_' + status);
   const yearAuditReadback = pg(`SELECT assessment_year || ':' ||
-      audit_trace->>'assessment_year' || ':' || receipt_hash
+      (audit_trace->>'assessment_year') || ':' || receipt_hash
     FROM ws02_owner.evaluation_logs
     WHERE actor_id=${q(actor)} AND record_id=${q(record)} AND idem_key=${q(idem)}
     ORDER BY assessment_year;`);
