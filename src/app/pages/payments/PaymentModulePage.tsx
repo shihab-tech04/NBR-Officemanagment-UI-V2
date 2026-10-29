@@ -28,6 +28,13 @@ import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
+import {
+  listOfficeCorrectionInquiries,
+  submitOfficeCorrectionDecision,
+  type CorrectionReviewAction,
+  type OfficeCorrectionInquiry,
+  type OfficeCorrectionQueue,
+} from './correctionReviewApi';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
@@ -155,6 +162,14 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
+  const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
+  const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
+  const [officeCorrectionError,setOfficeCorrectionError] = useState('');
+  const [correctionRefreshKey,setCorrectionRefreshKey] = useState(0);
+  const [correctionDecision,setCorrectionDecision] = useState<{requestId:string;action:CorrectionReviewAction}|null>(null);
+  const [correctionDecisionReason,setCorrectionDecisionReason] = useState('');
+  const [correctionDecisionError,setCorrectionDecisionError] = useState('');
+  const [correctionDecisionSubmitting,setCorrectionDecisionSubmitting] = useState(false);
   const [draftKind,setDraftKind] = useState<DraftKind | null>(null);
   const [draft,setDraft] = useState(firstDraft);
   const [draftPreview,setDraftPreview] = useState(false);
@@ -179,6 +194,22 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     void sync();const interval=window.setInterval(()=>void sync(),7000);
     return()=>{active=false;window.clearInterval(interval);};
   },[selectedTin]);
+  useEffect(()=>{
+    if(current!=='corrections')return;
+    let active=true;
+    const refresh=async()=>{
+      try{
+        const queue=await listOfficeCorrectionInquiries();
+        if(active){setOfficeCorrectionQueue(queue);setOfficeCorrectionError('');setOfficeCorrectionLoading(false);}
+      }catch(error){
+        if(active){setOfficeCorrectionQueue({enabled:false,role:null,items:[]});setOfficeCorrectionError(error instanceof Error?error.message:'Office correction queue unavailable');setOfficeCorrectionLoading(false);}
+      }
+    };
+    setOfficeCorrectionLoading(true);
+    void refresh();
+    const timer=window.setInterval(()=>void refresh(),15000);
+    return()=>{active=false;window.clearInterval(timer);};
+  },[current,correctionRefreshKey]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const isTransactionDetails = details?.title === t('transactions');
@@ -187,6 +218,12 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const selectedStoryPayment = isTransactionDetails && current === 'transactions'
     ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
     : null;
+  const selectedCorrectionId=typeof details?.record.__correctionInquiryId==='string'
+    ?details.record.__correctionInquiryId:null;
+  const selectedCorrectionActions=Array.isArray(details?.record.__correctionAvailableActions)
+    ?details.record.__correctionAvailableActions as CorrectionReviewAction[]:[];
+  const correctionActionLabel=(action:CorrectionReviewAction)=>
+    t(`officeCorrectionAction.${action}`,{defaultValue:action.replace(/_/g,' ')});
 
   const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});};
   const change=(key:keyof typeof firstDraft,value:string)=>{setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
@@ -202,6 +239,20 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     setErrors(next);
     if(Object.keys(next).length){setFormError(t('required'));return;}
     setFormError('');setDraftPreview(true);
+  };
+  const submitCorrectionDecision=async()=>{
+    if(!correctionDecision)return;
+    const reason=correctionDecisionReason.trim();
+    if(reason.length<5||reason.length>1000){setCorrectionDecisionError(t('officeCorrectionReasonError'));return;}
+    setCorrectionDecisionSubmitting(true);setCorrectionDecisionError('');
+    try{
+      await submitOfficeCorrectionDecision(correctionDecision.requestId,correctionDecision.action,
+        reason,crypto.randomUUID());
+      setCorrectionDecision(null);setCorrectionDecisionReason('');setDetails(null);
+      setCorrectionRefreshKey(value=>value+1);
+    }catch(error){
+      setCorrectionDecisionError(error instanceof Error?error.message:t('officeCorrectionDecisionFailed'));
+    }finally{setCorrectionDecisionSubmitting(false);}
   };
   const keys=paymentColumns(t);
   const storyRows=storyPayments.map(toStoryPaymentRow);
@@ -247,7 +298,32 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     .filter((row):row is NonNullable<typeof row>=>row!==null);
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
-  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
+  const correctionStateLabel=(state:string)=>t(`officeCorrectionState.${state}`,{defaultValue:state.replace(/_/g,' ')});
+  const officeCorrectionRows:TableRow[]=officeCorrectionQueue.items.map((item:OfficeCorrectionInquiry)=>({
+    key:`office-correction:${item.requestId}`,
+    id:`COR-${item.requestId.slice(0,8).toUpperCase()}`,
+    taxpayer:item.originalReference,
+    reason:item.reason,
+    amount:'—',
+    stage:correctionStateLabel(item.reviewState),
+    status:correctionStateLabel(item.reviewState),
+    original_reference:item.originalReference,
+    requested_outcome:item.requestedOutcome,
+    evidence_state:item.evidenceState,
+    change_kind:item.changeKind??'—',
+    old_value:item.oldValue??'—',
+    new_value:item.newValue??'—',
+    created_at:item.createdAt,
+    review_state:correctionStateLabel(item.reviewState),
+    review_revision:item.reviewRevision,
+    review_updated_at:item.reviewUpdatedAt,
+    pending_delivery:item.pendingDelivery?t('officeCorrectionDecisionPending'):t('officeCorrectionDecisionDelivered'),
+    delivery_state:item.deliveryState??'—',
+    delivery_error:item.lastDeliveryError??'—',
+    __correctionInquiryId:item.requestId,
+    __correctionAvailableActions:item.availableActions,
+  }));
+  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)})),...officeCorrectionRows];
   const incidentRows=localRecords.incidents;
   const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:t(`event_${e.event}`),amount:money(e.amount)}))];
   const yearOptions=['All',...Array.from(new Set(referencePayments.map(p=>p.ay).concat(referenceOffline.map(e=>e.ay))))];
@@ -359,6 +435,12 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   </>;
   const corrections=()=> <>
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
+    {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
+    {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}
+    {officeCorrectionQueue.enabled&&officeCorrectionQueue.role&&<p className="table-page__desc" role="status">
+      {t('officeCorrectionRole')}: {t(`officeCorrectionRoleNames.${officeCorrectionQueue.role}`,{defaultValue:officeCorrectionQueue.role})}
+      {' · '}{officeCorrectionQueue.items.length} {t('officeCorrectionItems')}
+    </p>}
     {table(keys.correction,corrRows,'corrections',queueFilters,correctionMapping)}
   </>;
   const incidents=()=> <>
@@ -403,8 +485,17 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     />
     <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
       title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
+      extraFooterActions={selectedCorrectionId&&selectedCorrectionActions.length>0?<div className="flex flex-wrap gap-2">
+        {selectedCorrectionActions.map(action=>{
+          const startReview=action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
+          const onClick=()=>{setCorrectionDecision({requestId:selectedCorrectionId,action});setCorrectionDecisionReason('');setCorrectionDecisionError('');};
+          return startReview
+            ?<PrimaryButton key={action} size="sm" onClick={onClick}>{correctionActionLabel(action)}</PrimaryButton>
+            :<SecondaryButton key={action} size="sm" onClick={onClick}>{correctionActionLabel(action)}</SecondaryButton>;
+        })}
+      </div>:undefined}
       renderValue={(key,value)=>key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
-      columns={Object.keys(!isTransactionDetails ? details?.record??{} : {}).filter(key=>key!=='key').map(key=>({
+      columns={Object.keys(!isTransactionDetails ? details?.record??{} : {}).filter(key=>key!=='key'&&!key.startsWith('__')).map(key=>({
         key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\\b\\w/g,s=>s.toUpperCase())}),
         groupLabel:
           ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
@@ -412,6 +503,20 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
           ['financial_receipt_status','ledger_status','status'].includes(key)?t('drawerStatus'):
           ['tax_event_id','payment_ref','acs_reference','reference','source','evidence','note'].includes(key)?t('drawerReferences'):t('drawerOther')
       }))} showActions={false}/>
+    <AppModal open={correctionDecision!==null} title={correctionDecision?t(`officeCorrectionAction.${correctionDecision.action}`):t('officeCorrectionDecisionTitle')}
+      onClose={()=>{if(!correctionDecisionSubmitting)setCorrectionDecision(null);}} size="md" layer="top"
+      footer={<><SecondaryButton size="sm" disabled={correctionDecisionSubmitting} onClick={()=>setCorrectionDecision(null)}>{t('cancel')}</SecondaryButton>
+        <PrimaryButton size="sm" disabled={correctionDecisionSubmitting} onClick={()=>void submitCorrectionDecision()}>
+          {correctionDecisionSubmitting?t('officeCorrectionSubmitting'):t('officeCorrectionSubmitDecision')}
+        </PrimaryButton></>}>
+      <div className="space-y-3">
+        <p className="table-page__desc">{t('officeCorrectionDecisionHelp')}</p>
+        <AppTextArea id="office-correction-decision-reason" label={t('officeCorrectionDecisionReason')}
+          value={correctionDecisionReason} onChange={value=>{setCorrectionDecisionReason(value);setCorrectionDecisionError('');}}
+          required rows={4}/>
+        {correctionDecisionError&&<p className="payment-module__error" role="alert">{correctionDecisionError}</p>}
+      </div>
+    </AppModal>
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
       <form id="payment-draft-form" onSubmit={e=>{e.preventDefault();draftPreview?saveDraft():previewDraft();}}>
