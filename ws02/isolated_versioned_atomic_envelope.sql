@@ -60,6 +60,13 @@ BEGIN
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
   ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  -- JSON.stringify serializes negative zero as 0, never -0 or -0eN.
+  -- Reject a negative-zero integer/exponent token outside quoted strings.
+  -- Preserve canonical negative fractional values such as -0.1.
+  ELSIF ws02_scan_char='-'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1)='0'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+2,1) IN (',',']','}','e','E')
+  THEN RETURN false;
   -- Reviewed JSON.stringify never emits redundant fractional trailing zeroes.
   -- Reject 0.10, 0.100 and 0.10e0 with valid recomputed SHA before commit.
   -- The anchored prefix only matches a decimal fraction ending at this zero;
@@ -393,6 +400,13 @@ BEGIN
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
   ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  -- JSON.stringify serializes negative zero as 0, never -0 or -0eN.
+  -- Reject a negative-zero integer/exponent token outside quoted strings.
+  -- Preserve canonical negative fractional values such as -0.1.
+  ELSIF ws02_scan_char='-'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1)='0'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+2,1) IN (',',']','}','e','E')
+  THEN RETURN false;
   -- Reviewed JSON.stringify never emits redundant fractional trailing zeroes.
   -- Reject 0.10, 0.100 and 0.10e0 with valid recomputed SHA before commit.
   -- The anchored prefix only matches a decimal fraction ending at this zero;
@@ -505,6 +519,13 @@ BEGIN
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
   ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  -- JSON.stringify serializes negative zero as 0, never -0 or -0eN.
+  -- Reject a negative-zero integer/exponent token outside quoted strings.
+  -- Preserve canonical negative fractional values such as -0.1.
+  ELSIF ws02_scan_char='-'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1)='0'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+2,1) IN (',',']','}','e','E')
+  THEN RETURN false;
   -- Reviewed JSON.stringify never emits redundant fractional trailing zeroes.
   -- Reject 0.10, 0.100 and 0.10e0 with valid recomputed SHA before commit.
   -- The anchored prefix only matches a decimal fraction ending at this zero;
@@ -612,6 +633,13 @@ BEGIN
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
   ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  -- JSON.stringify serializes negative zero as 0, never -0 or -0eN.
+  -- Reject a negative-zero integer/exponent token outside quoted strings.
+  -- Preserve canonical negative fractional values such as -0.1.
+  ELSIF ws02_scan_char='-'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1)='0'
+    AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+2,1) IN (',',']','}','e','E')
+  THEN RETURN false;
   -- Reviewed JSON.stringify never emits redundant fractional trailing zeroes.
   -- Reject 0.10, 0.100 and 0.10e0 with valid recomputed SHA before commit.
   -- The anchored prefix only matches a decimal fraction ending at this zero;
