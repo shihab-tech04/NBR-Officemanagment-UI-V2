@@ -161,6 +161,36 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(JSON.stringify(snapshot))}::jsonb,${q(bytes.replace('বাংলা', 'tampered'))},
  'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(byteDrift.includes('f'), 'ALTERED_CANONICAL_BYTES_ACCEPTED_' + status);
+  // The reviewed JS canonical encoder never inserts whitespace between JSON
+  // tokens. Recompute a VALID digest for equivalent noncanonical JSON and
+  // verify the isolated private wrapper rejects it without consuming the slot.
+  // Whitespace inside quoted strings (e.g. 'বাংলা 😀') remains legal.
+  const structuralWhitespace = [
+    ['colon', bytes.replace('":', '": ')],
+    ['comma', bytes.replace(',"', ', "')],
+    ['array', bytes.replace('[{', '[ {')],
+    ['object', bytes.replace('{"', '{ "')],
+  ];
+  for (const [variant, alteredBytes] of structuralWhitespace) {
+    assert.notEqual(alteredBytes, bytes, 'STRUCTURAL_WHITESPACE_FIXTURE_NO_CHANGE_' + variant);
+    assert.deepEqual(JSON.parse(alteredBytes), snapshot,
+      'STRUCTURAL_WHITESPACE_CHANGED_JSON_SEMANTICS_' + variant);
+    const alteredDigest = digest(alteredBytes);
+    assert.notEqual(alteredDigest, traceHash);
+    const denied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(alteredDigest)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(alteredBytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(denied, ['f'],
+      'RECOMPUTED_HASH_STRUCTURAL_WHITESPACE_ACCEPTED_' + status + '_' + variant);
+  }
+  const whitespaceReadback = pg(`SELECT
+ (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+ COALESCE((SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(whitespaceReadback, ['0:RESERVED:NULL'],
+    'STRUCTURAL_WHITESPACE_MUTATED_SLOT_OR_AUDIT_' + status);
   const changed = { ...snapshot, engine_version: 'changed-after-hash' };
   const jsonbDrift = pg(`SET ROLE ws02_owner_engine;
 SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
@@ -492,6 +522,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
+console.log('PASS_SCOPED_STRUCTURAL_WHITESPACE_RECOMPUTED_SHA_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_OUTER_WHITESPACE_NONCANONICAL_JSON_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_CROSS_YEAR_SAME_KEY_TWO_AUTHORIZED_YEARS_THREE_STATES');
 // The synthetic engine must NOT bypass the envelope by calling the old RPC.
