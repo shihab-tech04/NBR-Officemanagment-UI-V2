@@ -426,6 +426,7 @@ DECLARE decoded jsonb;
         ws02_scan_char text;
         ws02_inside_string boolean;
         ws02_escaped boolean;
+        ws02_escape_code text;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -455,16 +456,16 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits U+0020+ code points directly, except quote and
-    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
-    -- characters are not reviewed W5 bytes, even with a recomputed digest.
-    -- JSONB itself rejects invalid isolated surrogate escapes.
-    IF ws02_scan_char='u'
-       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           ~ '^[0-9a-f]{4}$'
-       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           >= '0020'
-    THEN RETURN false; END IF;
+    -- JSON.stringify emits short escapes for \b, \t, \n, \f, \r and
+    -- lowercase \u00XX for other U+0000..U+001F control characters.
+    -- Reject printable Unicode, long-form short escapes and uppercase hex
+    -- even with a recomputed valid digest. No independent Auth proof here.
+    IF ws02_scan_char='u' THEN
+     ws02_escape_code := pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4);
+     IF ws02_escape_code !~ '^00(0[0-9a-f]|1[0-9a-f])$'
+        OR ws02_escape_code IN ('0008','0009','000a','000c','000d')
+     THEN RETURN false; END IF;
+    END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
@@ -515,6 +516,7 @@ DECLARE decoded jsonb;
         ws02_scan_char text;
         ws02_inside_string boolean;
         ws02_escaped boolean;
+        ws02_escape_code text;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -544,16 +546,16 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits U+0020+ code points directly, except quote and
-    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
-    -- characters are not reviewed W5 bytes, even with a recomputed digest.
-    -- JSONB itself rejects invalid isolated surrogate escapes.
-    IF ws02_scan_char='u'
-       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           ~ '^[0-9a-f]{4}$'
-       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
-           >= '0020'
-    THEN RETURN false; END IF;
+    -- JSON.stringify emits short escapes for \b, \t, \n, \f, \r and
+    -- lowercase \u00XX for other U+0000..U+001F control characters.
+    -- Reject printable Unicode, long-form short escapes and uppercase hex
+    -- even with a recomputed valid digest. No independent Auth proof here.
+    IF ws02_scan_char='u' THEN
+     ws02_escape_code := pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4);
+     IF ws02_escape_code !~ '^00(0[0-9a-f]|1[0-9a-f])$'
+        OR ws02_escape_code IN ('0008','0009','000a','000c','000d')
+     THEN RETURN false; END IF;
+    END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
