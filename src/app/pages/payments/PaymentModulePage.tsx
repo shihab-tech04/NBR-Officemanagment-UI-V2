@@ -359,7 +359,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
           <p><strong>{n.messageCode}</strong> · {n.transactionId}</p>
-          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · Connected SQL simulation notice</p>
+          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · {t('notices')}</p>
         </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
       </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}

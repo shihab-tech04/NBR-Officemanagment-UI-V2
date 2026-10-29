@@ -126,7 +126,7 @@ export const AUDIT_MANUAL_TEST_SUPPLEMENT_BLOCKS: Record<string, ManualBlock[]> 
         [same("48"),same("Closure"),mt("When every condition is satisfied, closure succeeds with governing status Verified.","সব শর্ত পূরণ হলে governing status Verified সহ case close হয়।")],
         [same("49"),same("SLA"),mt("An SLA breach event is created once per case.","SLA breach event একবারই তৈরি হয়।")],
         [same("50"),same("SLA"),mt("The breach event records case, level, limit, elapsed time and actor.","SLA breach event case, level, limit, elapsed ও actor রাখে।")],
-        [same("51"),same("Audit event"),mt("Prototype events have increasing sequence numbers, not timestamps.","Prototype event-এ seq আছে, timestamp নয়।")],
+        [same("51"),same("Audit event"),mt("Events have increasing sequence numbers, not timestamps.","Event-এ seq আছে, timestamp নয়।")],
         [same("52"),same("Audit event"),mt("Verification and sign-off events remain append-only.","Verification ও sign-off event append-only থাকে।")],
         [same("53"),same("Versioning"),mt("Return version is independently auditable.","Return version আলাদাভাবে auditable।")],
         [same("54"),same("Risk policy"),mt("Verification status does not change Risk Level.","Verification status Risk Level বদলায় না।")],

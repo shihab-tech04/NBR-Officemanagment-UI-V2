@@ -120,7 +120,7 @@
     "inlineDraft": "New row",
     "tinInput": "Enter TIN",
     "inlineName": "Taxpayer name",
-    "inlineNotFound": "TIN not found in demo records"
+    "inlineNotFound": "TIN not found in records"
   },
   "stockRegister": {
     "title": "Stock Register",

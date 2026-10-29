@@ -18,12 +18,12 @@ export const AUDIT_MANUAL_DEMO_SECTIONS: ManualSection[] = [
       {
         kind: "callout",
         tone: "warning",
-        text: mt("All figures in this section are sample/demo values used to demonstrate structure and behavior. They must not be interpreted as real taxpayer or NBR population statistics.","এই section-এর সব figure sample/demo, structure ও behavior দেখানোর জন্য। এগুলো real taxpayer বা NBR population statistic নয়।"),
+        text: mt("These reference figures describe structure and behavior; they are not taxpayer or NBR population statistics.","এই section-এর reference figure কাঠামো ও কাজ বোঝায়; এগুলো করদাতা বা NBR জনসংখ্যার পরিসংখ্যান নয়।"),
       },
       {
         kind: "table",
         title: mt("Management population dashboard — illustrative aggregates","Management population dashboard — illustrative aggregate"),
-        columns: [mt("Chart","Chart"), mt("Category","Category"), mt("Demo value","Demo value")],
+        columns: [mt("Chart","Chart"), mt("Category","Category"), mt("Value","Value")],
         rows: [
           [same("Cases by Risk Level"),same("Low"),same("1,840")],
           [same("Cases by Risk Level"),same("Medium"),same("420")],
@@ -75,8 +75,8 @@ export const AUDIT_MANUAL_DEMO_SECTIONS: ManualSection[] = [
       },
       {
         kind: "table",
-        title: mt("Demo case 1 — asset-driven gap","Demo case 1 — asset-driven gap"),
-        columns: [mt("Data group","Data group"), mt("Source demo values","Source demo value")],
+        title: mt("Case 1 — asset-driven gap","Case 1 — asset-driven gap"),
+        columns: [mt("Data group","Data group"), mt("Source values","Source value")],
         rows: [
           [same("Identity"),same("DEMO-1 · TIN ••••4821 · AY 2023-24 · tier DT2")],
           [same("Return"),same("income 8 · tax 0.5")],
@@ -98,8 +98,8 @@ export const AUDIT_MANUAL_DEMO_SECTIONS: ManualSection[] = [
       },
       {
         kind: "table",
-        title: mt("Demo case 2 — reconciled salaried","Demo case 2 — reconciled salaried"),
-        columns: [mt("Data group","Data group"), mt("Source demo values","Source demo value")],
+        title: mt("Case 2 — reconciled salaried","Case 2 — reconciled salaried"),
+        columns: [mt("Data group","Data group"), mt("Source values","Source value")],
         rows: [
           [same("Identity"),same("DEMO-2 · TIN ••••7310 · AY 2023-24 · tier DT1+H")],
           [same("Return"),same("income 12 · tax 0.95")],
@@ -116,8 +116,8 @@ export const AUDIT_MANUAL_DEMO_SECTIONS: ManualSection[] = [
       },
       {
         kind: "table",
-        title: mt("Demo case 3 — return only","Demo case 3 — return only"),
-        columns: [mt("Data group","Data group"), mt("Source demo values","Source demo value")],
+        title: mt("Case 3 — return only","Case 3 — return only"),
+        columns: [mt("Data group","Data group"), mt("Source values","Source value")],
         rows: [
           [same("Identity"),same("DEMO-3 · TIN ••••1902 · AY 2023-24 · tier DT0")],
           [same("Return"),same("income 4.2 · tax 0")],
@@ -193,7 +193,7 @@ export const AUDIT_MANUAL_DEMO_SUPPLEMENTS: Record<string, ManualBlock[]> = {
   s13: [
     {
       kind: "table",
-      title: mt("Source verification-strip demo", "Source verification-strip demo"),
+      title: mt("Source verification strip", "Source verification strip"),
       columns: [mt("State","State"), mt("Risk / signals","Risk / signals"), mt("Verification","Verification"), mt("Evidence refs","Evidence ref"), mt("Meaning","Meaning")],
       rows: [
         [mt("Before verification","Verification-এর আগে"),same("Risk High · R-C1 strong · R-E2 meaningful · R-D3 weak"),same("C1 Pending · E2 Pending · D3 Pending"),same("none"),mt("Three signals are open; Risk Level already comes from the screening engine.","তিন signal open; Risk Level screening engine থেকেই এসেছে।")],

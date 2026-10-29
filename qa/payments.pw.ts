@@ -377,7 +377,7 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
     await expect(bell).toBeVisible();
     await bell.click();
     await expect(page.getByText('New payment record')).toBeVisible();
-    await expect(page.getByText(/Simulated amount .*42,500.00.*No government settlement is confirmed/)).toBeVisible();
+    await expect(page.getByText(/Payment amount .*42,500.00.*No government settlement is confirmed/)).toBeVisible();
     const history=page.getByRole('button',{name:'View all payment records'});
     await expect(history).toBeVisible();
     await history.click();

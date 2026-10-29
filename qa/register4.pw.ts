@@ -577,7 +577,7 @@ test("Register-4 inline TIN lookup and section guard require valid values before
   await draft.getByRole("button",{name:"Save row"}).click();
   await expect(draft.getByText("Enter a matching TIN")).toBeVisible();
   await draft.locator("#register4-inline-table-tin").fill("NO-MATCH");
-  await expect(draft).toContainText("TIN not found in demo records");
+  await expect(draft).toContainText("TIN not found in records");
   await draft.getByRole("button",{name:"Save row"}).click();
   await expect(draft).toBeVisible();
   await draft.locator("#register4-inline-table-tin").fill("TIN-10000");

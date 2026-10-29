@@ -172,14 +172,14 @@ export function ContentManagementPage() {
     setNewDraft(null);
     setSelectedId(values.id);
     setEditing(false);
-    setMessage('Saved in this Office prototype session only. Public TaxPay and shared SQL are unchanged.');
+    setMessage('Saved for this Office session. Public TaxPay and shared SQL are unchanged.');
   }
   function remove() {
     if (!draft || busy || banners.length <= 1) return;
     if (!window.confirm('Remove this banner from the Office preview? Public TaxPay remains unchanged.')) return;
     setBanners(previous => previous.filter(row => row.id !== draft.id));
     setSelectedId(banners.find(row => row.id !== draft.id)?.id ?? null);
-    setMessage('Removed from this Office prototype only. Public TaxPay is unchanged.');
+    setMessage('Removed from this Office session. Public TaxPay is unchanged.');
   }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
   const publishedCount = banners.filter(row => row.published).length;
