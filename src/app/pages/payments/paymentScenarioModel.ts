@@ -31,10 +31,10 @@ const item = (id:string,beneficiary:DemoUserId,category:DemoPaymentCategory,asse
 const txn = (id:string,payer:DemoUserId,at:string,state:DemoTransactionState,allocations:DemoAllocation[]):DemoTransaction => ({
   id,payer,createdAt:at,state,allocations,simulationOnly:true,
   events: [
-    event(id+'-1',at,'CREATED','Synthetic payment intent created; no external submission'),
-    event(id+'-2',at,'REVIEWED', 'Allocations and beneficiary identities reviewed as demo inputs'),
+    event(id+'-1',at,'CREATED','Payment record created; external submission not confirmed'),
+    event(id+'-2',at,'REVIEWED', 'Allocation details recorded'),
     event(id+'-3',at,state==='SIMULATED'?'SIMULATION_RECORDED':state,
-      state==='SIMULATED'?'Simulation complete; no money moved':state==='PENDING'?'Simulation awaiting next action':state==='FAILED'?'Simulated attempt failed':'Simulated reversal; not an official refund')
+      state==='SIMULATED'?'Record saved; settlement not verified':state==='PENDING'?'Awaiting next action':state==='FAILED'?'Payment request failed':'Reversal recorded; refund not verified')
   ]
 });
 /** Coverage-based scenarios, not a claim that every permutation is enumerated. */

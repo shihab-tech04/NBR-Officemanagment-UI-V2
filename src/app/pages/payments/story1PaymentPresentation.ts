@@ -16,7 +16,7 @@ const methodLabels:Record<string,string>={
   SONALI_E_SHEBA:'Sonali e-Sheba',INTERNET_BANKING:'Internet Banking',
   BEFTN_RTGS:'BEFTN / RTGS',VISA:'Visa',MASTERCARD:'Mastercard',
   BANK_BRANCH:'Bank branch',NOW:'Pay online',OTC:'Bank branch',
-  SIMULATED:'Simulated payment',A_CHALLAN_CARD:'Card',
+  SIMULATED:'Payment',A_CHALLAN_CARD:'Card',
 };
 const money=(amount:number)=>'৳'+new Intl.NumberFormat('en-BD',{maximumFractionDigits:2}).format(amount);
 const moneyMinor=(minor:unknown)=>{
@@ -128,8 +128,8 @@ export function toStoryPaymentRow(tx:StoryPayment){
       line=>line.assessmentYear||'—'))).join(', '):explicitTins.length?
       Array.from(new Set(explicit.map(line=>line.assessmentYear||'—'))).join(', '):nonempty(d.assessmentYear)??'—',
     amount:moneyMinor(tx.amountMinor),
-    financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Simulated success':tx.status.replace(/_/g,' '),
-    ledger_status:'No official tax credit',
+    financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Recorded':tx.status.replace(/_/g,' '),
+    ledger_status:'Tax credit not verified',
     ...(method?{payment_channel:methodLabels[method]??method.replace(/_/g,' ')}:{}),
     payment_ref:tx.id,
     ...(nonempty(d.receiptReference)?{acs_reference:d.receiptReference}:{}),
