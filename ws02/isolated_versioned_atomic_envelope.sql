@@ -11,6 +11,10 @@ CREATE FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(
 ) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,ws02_owner AS $versioned$
 DECLARE decoded jsonb;
+        ws02_scan_pos integer;
+        ws02_scan_char text;
+        ws02_inside_string boolean;
+        ws02_escaped boolean;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -28,6 +32,24 @@ BEGIN
  IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
     OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
  THEN RETURN false; END IF;
+ -- Reviewed W5 emits no JSON structural whitespace. Ignore spaces and
+ -- escapes inside quoted strings; reject semantically equivalent re-encodings
+ -- even when a caller recomputes a valid SHA-256. This is NOT a full
+ -- independent implementation of the W5 canonical encoder.
+ ws02_inside_string := false;
+ ws02_escaped := false;
+ FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
+  ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
+  IF ws02_inside_string THEN
+   IF ws02_escaped THEN ws02_escaped := false;
+   ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
+   ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
+   END IF;
+  ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
+   RETURN false;
+  END IF;
+ END LOOP;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -291,6 +313,10 @@ SELECT 'PASS_SCOPED_PRIVATE_WRAPPER_EXACT_ACL_ALLOWLIST_ROLLBACK_ONLY' AS marker
 DO $versioned_body_integrity$
 DECLARE expected_source text := $reviewed_ws02_body$
 DECLARE decoded jsonb;
+        ws02_scan_pos integer;
+        ws02_scan_char text;
+        ws02_inside_string boolean;
+        ws02_escaped boolean;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -308,6 +334,24 @@ BEGIN
  IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
     OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
  THEN RETURN false; END IF;
+ -- Reviewed W5 emits no JSON structural whitespace. Ignore spaces and
+ -- escapes inside quoted strings; reject semantically equivalent re-encodings
+ -- even when a caller recomputes a valid SHA-256. This is NOT a full
+ -- independent implementation of the W5 canonical encoder.
+ ws02_inside_string := false;
+ ws02_escaped := false;
+ FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
+  ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
+  IF ws02_inside_string THEN
+   IF ws02_escaped THEN ws02_escaped := false;
+   ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
+   ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
+   END IF;
+  ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
+   RETURN false;
+  END IF;
+ END LOOP;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -350,6 +394,10 @@ END $unsafe_versioned_body$;
 DO $versioned_body_tamper_check$
 DECLARE expected_source text := $reviewed_ws02_body$
 DECLARE decoded jsonb;
+        ws02_scan_pos integer;
+        ws02_scan_char text;
+        ws02_inside_string boolean;
+        ws02_escaped boolean;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -367,6 +415,24 @@ BEGIN
  IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
     OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
  THEN RETURN false; END IF;
+ -- Reviewed W5 emits no JSON structural whitespace. Ignore spaces and
+ -- escapes inside quoted strings; reject semantically equivalent re-encodings
+ -- even when a caller recomputes a valid SHA-256. This is NOT a full
+ -- independent implementation of the W5 canonical encoder.
+ ws02_inside_string := false;
+ ws02_escaped := false;
+ FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
+  ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
+  IF ws02_inside_string THEN
+   IF ws02_escaped THEN ws02_escaped := false;
+   ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
+   ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
+   END IF;
+  ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
+   RETURN false;
+  END IF;
+ END LOOP;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
@@ -404,6 +470,10 @@ RELEASE SAVEPOINT ws02_versioned_body_tamper;
 DO $versioned_body_restored$
 DECLARE expected_source text := $reviewed_ws02_body$
 DECLARE decoded jsonb;
+        ws02_scan_pos integer;
+        ws02_scan_char text;
+        ws02_inside_string boolean;
+        ws02_escaped boolean;
 BEGIN
  -- Fail before JSON parsing or digesting an oversized untrusted trace.
  IF p_trace_bytes IS NULL
@@ -421,6 +491,24 @@ BEGIN
  IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'
     OR pg_catalog.right(p_trace_bytes,1) IS DISTINCT FROM '}'
  THEN RETURN false; END IF;
+ -- Reviewed W5 emits no JSON structural whitespace. Ignore spaces and
+ -- escapes inside quoted strings; reject semantically equivalent re-encodings
+ -- even when a caller recomputes a valid SHA-256. This is NOT a full
+ -- independent implementation of the W5 canonical encoder.
+ ws02_inside_string := false;
+ ws02_escaped := false;
+ FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
+  ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
+  IF ws02_inside_string THEN
+   IF ws02_escaped THEN ws02_escaped := false;
+   ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
+   ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
+   END IF;
+  ELSIF ws02_scan_char='"' THEN ws02_inside_string := true;
+  ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
+   RETURN false;
+  END IF;
+ END LOOP;
  IF p_trace_encoding_version IS DISTINCT FROM 'NBR_W5_CANONICAL_UTF8_V1'
     OR (p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS) IS DISTINCT FROM true
     OR p_trace_hash IS NULL OR p_trace_hash !~ '^[a-f0-9]{64}$'
