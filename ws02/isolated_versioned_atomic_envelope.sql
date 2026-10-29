@@ -45,7 +45,6 @@ BEGIN
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
     ws02_escaped := false;
-   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -351,7 +350,6 @@ BEGIN
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
     ws02_escaped := false;
-   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -436,7 +434,6 @@ BEGIN
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
     ws02_escaped := false;
-   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -516,7 +513,6 @@ BEGIN
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
     ws02_escaped := false;
-   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
