@@ -185,6 +185,37 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(denied, ['f'],
       'RECOMPUTED_HASH_STRUCTURAL_WHITESPACE_ACCEPTED_' + status + '_' + variant);
   }
+  // JSON.stringify removes redundant fractional zeroes from numeric JSON.
+  // JSONB, JSON.parse and a recomputed SHA alone cannot distinguish 0.1
+  // from 0.10/0.100/0.10e0. The private wrapper must reject those bytes.
+  const fractionalZeroVariants = [
+    ['one_zero', '0.10'],
+    ['two_zeroes', '0.100'],
+    ['exponent', '0.10e0'],
+  ];
+  for (const [kind, noncanonicalNumber] of fractionalZeroVariants) {
+    const needle = '[0.1,true,null]';
+    assert.ok(bytes.includes(needle), 'FRACTIONAL_ZERO_FIXTURE_MISSING_' + kind);
+    const alteredBytes = bytes.replace(needle, '[' + noncanonicalNumber + ',true,null]');
+    assert.notEqual(alteredBytes, bytes);
+    assert.deepEqual(JSON.parse(alteredBytes), snapshot,
+      'FRACTIONAL_ZERO_JSON_SEMANTICS_DRIFT_' + kind);
+    const rejected = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(alteredBytes))},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(alteredBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(rejected, ['f'],
+      'VALID_HASH_REDUNDANT_FRACTIONAL_ZERO_ACCEPTED_' + kind + '_' + status);
+    const readback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(readback, ['0:RESERVED:NULL'],
+      'REDUNDANT_FRACTIONAL_ZERO_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
+  }
   // JSON.stringify emits a literal solidus, not an escaped solidus.
   // Equivalent escaped-solidus bytes with a freshly recomputed digest must
   // fail before any audit/receipt commit; the unescaped canonical positive
@@ -667,6 +698,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
+console.log('PASS_SCOPED_REDUNDANT_FRACTIONAL_ZERO_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
 console.log('PASS_SCOPED_PRINTABLE_ASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_NONASCII_UNICODE_ESCAPES_VALID_HASH_REJECTED_NINE_CASES_THREE_STATES');
