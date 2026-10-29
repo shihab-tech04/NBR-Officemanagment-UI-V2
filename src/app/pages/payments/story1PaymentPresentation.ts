@@ -128,7 +128,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
       line=>line.assessmentYear||'—'))).join(', '):explicitTins.length?
       Array.from(new Set(explicit.map(line=>line.assessmentYear||'—'))).join(', '):nonempty(d.assessmentYear)??'—',
     amount:moneyMinor(tx.amountMinor),
-    financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Recorded':tx.status.replace(/_/g,' '),
+    financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Payment record saved':tx.status.replace(/_/g,' '),
     ledger_status:'Tax credit not verified',
     ...(method?{payment_channel:methodLabels[method]??method.replace(/_/g,' ')}:{}),
     payment_ref:tx.id,

@@ -37,6 +37,8 @@ for (const width of [320, 1280]) for (const language of ['en', 'bn'] as const) {
       await expect(table).not.toContainText(new RegExp(`৳\\s*${digits('50')}`));
       await expect(table).toContainText(ownYear);
       await expect(table).not.toContainText(otherYear);
+      await expect(table).toContainText(language === 'bn' ? 'পেমেন্ট রেকর্ড সংরক্ষিত' : 'Payment record saved');
+      await expect(table).toContainText(language === 'bn' ? 'কর ক্রেডিট যাচাই হয়নি' : 'Tax credit not verified');
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     }
   });

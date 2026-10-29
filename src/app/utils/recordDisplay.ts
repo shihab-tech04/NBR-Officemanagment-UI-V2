@@ -14,6 +14,7 @@ const VALUE_KEYS: Record<string, string> = {
   "Case closed":"caseClosed","Second review sign-off":"secondReviewSignOff","Finding submitted":"findingSubmitted","Range Officer":"rangeOfficer",
   Individual:"individual",Business:"business",Reference:"reference","Assessed Demand":"assessedDemand","Tax with Return":"taxWithReturn",
   "Awaiting bank payment":"awaitingBankPayment","Received by Government":"receivedByGovernment","Not yet credited":"notYetCredited","Eligible — credited":"eligibleCredited","Blocked — under review":"blockedUnderReview",
+  "Payment record saved":"paymentRecordSaved","Tax credit not verified":"taxCreditNotVerified","Not verified":"notVerified","Not connected":"notConnected","Payment":"paymentRecordMethod",
 };
 
 export function localizeRecordValue(value: string, translate: (key: string) => string, language = "en"): string {

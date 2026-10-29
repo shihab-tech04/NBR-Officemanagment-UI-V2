@@ -102,7 +102,7 @@ test('mobile transaction card distinguishes receipt and tax-credit status',async
  await expect(page.locator('.mobile-table-card').first()).toBeVisible({timeout:18000});
  const text=await page.locator('.mobile-table-card-list').innerText();
  expect(text).toContain('Tax credit not verified');
- expect(text).toContain('Recorded');
+ expect(text).toContain('Payment record saved');
 });
 test('small-screen correction modal has tappable actions',async({page})=>{
  await page.setViewportSize({width:360,height:800});

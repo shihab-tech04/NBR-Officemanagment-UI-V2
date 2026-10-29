@@ -20,12 +20,13 @@ const WARNING_STATUSES = new Set([
   "rework requested", "partially verified", "unable to verify", "shadow", "staged",
   "dry run required", "awaiting endorsement", "awaiting approval", "awaiting bank payment", "blocked — under review",
 ]);
-const SECONDARY_STATUSES = new Set(["waived", "superseded", "refuted", "not verified", "read only", "not yet credited"]);
+const SECONDARY_STATUSES = new Set(["waived", "superseded", "refuted", "not verified", "read only", "not yet credited", "tax credit not verified"]);
 
 const STATUS_KEYS: Record<string, string> = {
   "received by government": "receivedByGovernment", "eligible — credited": "eligibleCredited",
   "blocked — under review": "blockedUnderReview", "not yet credited": "notYetCredited",
   "awaiting bank payment": "awaitingBankPayment",
+  "payment record saved": "paymentRecordSaved", "tax credit not verified": "taxCreditNotVerified",
   "active": "active", "inactive": "inactive", "released": "released", "pending": "pending",
   "approved": "approved", "rejected": "rejected", "verified": "verified",
   "unverified": "unverified", "draft": "draft", "submitted": "submitted",
