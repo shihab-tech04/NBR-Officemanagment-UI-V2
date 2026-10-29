@@ -707,6 +707,65 @@ BEGIN
 END $review_facade_body_mutation$;
 SELECT 'PASS_SCOPED_11_ARG_REVIEW_FACADE_BODY_PIN_AND_ROLLBACK_ONLY' AS marker;
 
+-- PostgREST resolves RPCs by exposed name and parameter shape, not merely
+-- the reviewed 11-argument signature. An extra overload could become an
+-- unintended callable endpoint if a future configuration exposed this schema.
+-- Fail closed on ANY same-name overload; do not expose this review schema.
+DO $review_facade_overload_inventory$
+DECLARE overload_count integer;
+BEGIN
+ SELECT count(*) INTO overload_count
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ws02_review_api'
+   AND p.proname='nbr_commit_evaluation_versioned_candidate';
+ IF overload_count IS DISTINCT FROM 1 THEN
+  RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_UNREVIEWED_OVERLOAD';
+ END IF;
+END $review_facade_overload_inventory$;
+
+-- Mutation probe: a one-argument overload receives default PUBLIC EXECUTE
+-- even though the schema itself remains private. Detect the overload and
+-- roll it back before any subsequent synthetic auth/anon execution checks.
+SAVEPOINT ws02_review_overload_probe;
+CREATE FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
+ p_probe text
+) RETURNS boolean LANGUAGE sql VOLATILE SECURITY INVOKER AS $unsafe_overload$
+ SELECT true;
+$unsafe_overload$;
+DO $review_facade_overload_mutation$
+DECLARE overload_count integer;
+BEGIN
+ SELECT count(*) INTO overload_count
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ws02_review_api'
+   AND p.proname='nbr_commit_evaluation_versioned_candidate';
+ IF overload_count IS DISTINCT FROM 2
+    OR NOT pg_catalog.has_function_privilege(
+      'ws02_owner_auth',
+      'ws02_review_api.nbr_commit_evaluation_versioned_candidate(text)',
+      'EXECUTE')
+ THEN RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_OVERLOAD_PROBE_NOT_DETECTED'; END IF;
+END $review_facade_overload_mutation$;
+ROLLBACK TO SAVEPOINT ws02_review_overload_probe;
+RELEASE SAVEPOINT ws02_review_overload_probe;
+DO $review_facade_overload_restored$
+DECLARE overload_count integer;
+BEGIN
+ SELECT count(*) INTO overload_count
+ FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ws02_review_api'
+   AND p.proname='nbr_commit_evaluation_versioned_candidate';
+ IF overload_count IS DISTINCT FROM 1
+    OR pg_catalog.to_regprocedure(
+     'ws02_review_api.nbr_commit_evaluation_versioned_candidate(text)') IS NOT NULL
+ THEN RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_OVERLOAD_NOT_ROLLED_BACK'; END IF;
+END $review_facade_overload_restored$;
+SELECT 'PASS_SCOPED_REVIEW_FACADE_OVERLOAD_GUARD_AND_ROLLBACK_ONLY' AS marker;
+
+
 -- Real non-superuser attempts, not merely catalog checks. No signed JWT
 -- verification is implied by the synthetic PostgreSQL role boundary.
 SAVEPOINT review_auth_attempt;
