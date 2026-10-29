@@ -7,6 +7,7 @@ on:
       - 'supabase/functions/demo-story1-office/**'
       - 'supabase/migrations/**'
       - 'tests/integration/story1OfficeMigrations.sql'
+      - 'tests/integration/officeCorrectionReview.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
@@ -64,3 +65,5 @@ jobs:
           done
       - name: Verify eight categories, idempotency, notices and authorization transitions
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1OfficeMigrations.sql
+      - name: Verify TaxPay correction intake, Office roles, decision outbox and readback
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
