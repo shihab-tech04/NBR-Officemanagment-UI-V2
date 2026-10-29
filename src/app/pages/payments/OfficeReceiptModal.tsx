@@ -43,13 +43,13 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
     window.setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
   const field = (name: string, value: string) => value && value !== '—' ? (
-    <div className="office-receipt__detail" key={name}>
+    <div className="office-receipt__detail receipt-view__detail" key={name}>
       <dt>{name}</dt><dd>{value}</dd>
     </div>
   ) : null;
   return (
     <AppModal open={open} onClose={onClose} size="xl"
-      title={label('Office payment receipt', 'অফিস পেমেন্ট রসিদ')}
+      title={label('Payment receipt details', 'পেমেন্ট রসিদের বিবরণ')}
       footer={<>
         <span className="office-receipt__footer-back">
           <SecondaryButton size="sm" icon={ArrowLeft} onClick={onBack}>{label('Back to details', 'বিস্তারিত তথ্যে ফিরুন')}</SecondaryButton>
@@ -58,25 +58,25 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
         <PrimaryButton size="sm" icon={Printer} onClick={() => window.print()}>{label('Print receipt', 'রসিদ প্রিন্ট')}</PrimaryButton>
       </>}
     >
-      <article id="office-receipt-paper" className="office-receipt__paper" data-testid="office-payment-receipt" lang={bn ? 'bn' : 'en'}>
-        <header className="office-receipt__summary">
+      <article id="office-receipt-paper" className="office-receipt__paper receipt-view__paper receipt-view--embedded office-receipt-parity" data-testid="office-payment-receipt" lang={bn ? 'bn' : 'en'}>
+        <header className="office-receipt__summary receipt-view__summary">
           <div>
-            <p className="office-receipt__eyebrow">{label('Payment record', 'পেমেন্ট রেকর্ড')}</p>
-            <h3>{label('Receipt details', 'রসিদের বিবরণ')}</h3>
+            <p className="office-receipt__eyebrow receipt-view__eyebrow">{label('Payment record', 'পেমেন্ট রেকর্ড')}</p>
+            <h3 className="office-receipt__receipt-heading">{label('Receipt details', 'রসিদের বিবরণ')}</h3>
             <p>{info.service}</p>
           </div>
-          <div className="office-receipt__total">
+          <div className="office-receipt__total receipt-view__amount">
             <p>{label('Total amount', 'সর্বমোট অর্থ')}</p>
             <strong>{info.amount}</strong>
           </div>
         </header>
-        <section className="office-receipt__reference">
+        <section className="office-receipt__reference receipt-view__reference-strip">
           <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong>{info.reference}</strong></div>
           <div><p>{label('Date', 'তারিখ')}</p><strong>{info.date}</strong></div>
         </section>
-        <div className="office-receipt__columns">
-          <section className="office-receipt__section">
-            <h4>{label('Payer and taxpayer details', 'করদাতা ও পরিশোধকারীর তথ্য')}</h4>
+        <div className="office-receipt__columns receipt-view__parties">
+          <section className="office-receipt__section receipt-view__section">
+            <h4 className="receipt-view__section-title">{label('Payer and taxpayer details', 'করদাতা ও পরিশোধকারীর তথ্য')}</h4>
             <dl>
               {field(label('Payer', 'পরিশোধকারী'), info.payer)}
               {field(label('Taxpayer', 'করদাতা'), info.taxpayer)}
@@ -84,8 +84,8 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
               {field(label('Assessment year', 'করবর্ষ'), info.year)}
             </dl>
           </section>
-          <section className="office-receipt__section">
-            <h4>{label('Payment and settlement', 'পেমেন্ট ও নিষ্পত্তির তথ্য')}</h4>
+          <section className="office-receipt__section receipt-view__section">
+            <h4 className="receipt-view__section-title">{label('Payment and settlement', 'পেমেন্ট ও নিষ্পত্তির তথ্য')}</h4>
             <dl>
               {field(label('Payment method', 'পেমেন্ট পদ্ধতি'), info.method)}
               {field(label('Payment status', 'পেমেন্টের অবস্থা'), info.paymentStatus)}
@@ -93,10 +93,10 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
             </dl>
           </section>
         </div>
-        {items.length > 0 && <section className="office-receipt__section office-receipt__breakdown">
-          <h4>{label('Payment breakdown and head classification', 'পেমেন্ট বিবরণ ও খাত')}</h4>
-          <div className="office-receipt__scroll">
-            <table>
+        {items.length > 0 && <section className="office-receipt__section office-receipt__breakdown receipt-view__breakdown">
+          <h4 className="receipt-view__section-title">{label('Payment breakdown and head classification', 'পেমেন্ট বিবরণ ও খাত')}</h4>
+          <div className="office-receipt__scroll receipt-view__breakdown-content">
+            <table className="receipt-view__financial-table">
               <thead><tr>
                 <th>{label('Taxpayer', 'করদাতা')}</th>
                 <th>{label('Payment head', 'পেমেন্ট খাত')}</th>
