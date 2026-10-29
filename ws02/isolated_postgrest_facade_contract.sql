@@ -1224,6 +1224,260 @@ BEGIN
  END LOOP;
  RAISE NOTICE 'PASS_SCOPED_RLS_POLICY_PREDICATE_REWRITE_ROLLBACK_TWO_CASES';
 END $rls_policy_predicate_rewrite_negative_probe$;
+-- An unreviewed user-defined trigger on a private owner, slot or audit table
+-- can introduce a side effect without changing function bodies, RLS policies
+-- or ACLs. Internal foreign-key triggers are expected and excluded. This is
+-- a disposable catalog invariant, not a production schema or Auth assertion.
+DO $private_trigger_boundary$
+DECLARE extra_triggers integer;
+BEGIN
+ SELECT count(*) INTO extra_triggers
+ FROM pg_catalog.pg_trigger t
+ JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid
+ JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='ws02_owner'
+   AND c.relname IN ('owners','slots','evaluation_logs')
+   AND NOT t.tgisinternal;
+ IF extra_triggers<>0 THEN
+  RAISE EXCEPTION 'PRIVATE_UNREVIEWED_USER_TRIGGER_%',extra_triggers;
+ END IF;
+END $private_trigger_boundary$;
+-- Mutation regression: inject a harmless BEFORE INSERT trigger on the audit
+-- table, detect the unreviewed side effect, then roll back both trigger and
+-- function. No synthetic audit rows or hosted taxpayer data are modified.
+DO $private_trigger_negative_probe$
+DECLARE baseline_count integer; mutated_count integer; restored_count integer;
+BEGIN
+ SELECT count(*) INTO baseline_count
+ FROM pg_catalog.pg_trigger t
+ WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+   AND NOT t.tgisinternal;
+ IF baseline_count<>0 THEN
+  RAISE EXCEPTION 'PRIVATE_TRIGGER_BASELINE_DRIFT_%',baseline_count;
+ END IF;
+ BEGIN
+  EXECUTE 'CREATE FUNCTION ws02_owner.__synthetic_trigger_probe()
+    RETURNS trigger LANGUAGE plpgsql AS $probe$ BEGIN RETURN NEW; END $probe
+-- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
+SET LOCAL ROLE ws02_owner_anon;
+DO $anon$
+DECLARE denied boolean:=false;
+BEGIN
+ PERFORM set_config('request.jwt.claim.sub',
+  '60000000-0000-4000-8000-000000000001',true);
+ BEGIN
+  PERFORM ws02_api.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','facade-proof-atomic-00001',
+   repeat('a',64),repeat('b',64),repeat('c',64),'NEEDS_FACTS',
+   '{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'ANON_SPOOFED_CLAIM_EXECUTED_FACADE'; END IF;
+END $anon$;
+RESET ROLE;
+SET LOCAL ROLE ws02_owner_auth;
+DO $auth$
+DECLARE denied boolean:=false;
+BEGIN
+ PERFORM set_config('request.jwt.claims',
+  '{"sub":"60000000-0000-4000-8000-000000000001","role":"service_role"}',true);
+ BEGIN
+  PERFORM ws02_api.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','facade-proof-atomic-00001',
+   repeat('a',64),repeat('b',64),repeat('c',64),'NEEDS_FACTS',
+   '{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'AUTH_SPOOFED_CLAIM_EXECUTED_FACADE'; END IF;
+END $auth$;
+RESET ROLE;
+-- All owners and identities below are synthetic; no migration is authorized.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000001','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000002','2026-27',
+  '60000000-0000-4000-8000-000000000002','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000003','2026-27',
+  '60000000-0000-4000-8000-000000000001','REVOKED'),
+ ('50000000-0000-4000-8000-000000000004','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $reserve$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+        r jsonb; rec uuid;
+BEGIN
+ FOREACH rec IN ARRAY ARRAY[
+  '50000000-0000-4000-8000-000000000001'::uuid,
+  '50000000-0000-4000-8000-000000000004'::uuid] LOOP
+  r:=ws02_owner.nbr_reserve_citizen_evaluation(
+   actor,rec,'2026-27','facade-proof-atomic-00001',
+   repeat('a',64),'NBR_ENGINE_CITIZEN_V2_REVIEW');
+  IF r->>'state' IS DISTINCT FROM 'RESERVED' THEN
+   RAISE EXCEPTION 'FACADE_FIXTURE_RESERVATION_FAILED_%',rec; END IF;
+ END LOOP;
+END $reserve$;
+RESET ROLE;
+-- Simulate an owner revocation after reservation but before atomic receipt.
+UPDATE ws02_owner.owners SET state='REVOKED'
+ WHERE record_id='50000000-0000-4000-8000-000000000004';
+SET LOCAL ROLE ws02_owner_engine;
+DO $negative_and_positive$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ other uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000001';
+ revoked_rec uuid:='50000000-0000-4000-8000-000000000004';
+ idem text:='facade-proof-atomic-00001';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ trace text:=repeat('c',64); audit jsonb; revoked_audit jsonb; audit_patch jsonb;
+BEGIN
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ revoked_audit:=jsonb_set(audit,'{taxpayer_record_id}',
+  to_jsonb(revoked_rec::text));
+ IF ws02_api.nbr_commit_evaluation_atomically(
+   other,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2027-28',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,revoked_rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',revoked_audit)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,repeat('d',64),receipt,trace,'NEEDS_FACTS',audit)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',
+   audit||jsonb_build_object('amounts',jsonb_build_object('balanceDue','99')))
+ THEN RAISE EXCEPTION 'FACADE_ACCEPTED_WRONG_ACTOR_YEAR_REVOKED_HASH_OR_TRACE'; END IF;
+ -- PostgREST-safe facade must inherit the private RPC's consecutive-label
+ -- check; these synthetic negative calls must not consume the reserved slot.
+ -- This is a format check, not legal AY/IY applicability certification.
+ FOR audit_patch IN SELECT value FROM jsonb_array_elements(jsonb_build_array(
+  jsonb_build_object('income_year','2025-25'),
+  jsonb_build_object('income_year','2025-99'),
+  jsonb_build_object('income_year','2025-00'),
+  jsonb_build_object('income_year','2099-99')
+ )) LOOP
+  IF ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',
+   audit||audit_patch) THEN
+   RAISE EXCEPTION 'FACADE_NONCONSECUTIVE_INCOME_YEAR_ACCEPTED_%',audit_patch;
+  END IF;
+ END LOOP;
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ THEN RAISE EXCEPTION 'FACADE_VALID_ATOMIC_COMMIT_DENIED'; END IF;
+ IF ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ THEN RAISE EXCEPTION 'FACADE_DUPLICATE_ATOMIC_COMMIT_ACCEPTED'; END IF;
+END $negative_and_positive$;
+RESET ROLE;
+DO $readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='facade-proof-atomic-00001'
+       AND record_id='50000000-0000-4000-8000-000000000001'
+       AND state='FINALIZED' AND receipt_hash=repeat('b',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+     WHERE idem_key='facade-proof-atomic-00001'
+       AND record_id='50000000-0000-4000-8000-000000000001'
+       AND result_state='NEEDS_FACTS'
+       AND trace_hash=repeat('c',64)
+       AND audit_trace->>'income_year'='2025-26'
+       AND audit_trace->>'idempotency_key'='facade-proof-atomic-00001'
+       AND NOT(audit_trace ? 'amounts'))<>1
+ OR (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='facade-proof-atomic-00001'
+       AND record_id='50000000-0000-4000-8000-000000000004'
+       AND state='RESERVED' AND receipt_hash IS NULL)<>1
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE record_id='50000000-0000-4000-8000-000000000004')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1
+ THEN RAISE EXCEPTION 'FACADE_ATOMIC_TRACE_RECEIPT_OR_REVOCATION_READBACK_FAILED'; END IF;
+END $readback$;
+-- Independent facade-level transaction-abort proof, distinct from the private
+-- RPC rollback suite. A successful synthetic wrapper call must leave no
+-- reservation, audit trace or receipt after the caller rolls back its savepoint.
+-- This is PostgreSQL transaction behavior, NOT signed JWT/owner approval.
+SAVEPOINT ws02_facade_rollback;
+SET LOCAL ROLE ws02_owner_engine;
+DO $facade_rollback$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000002';
+ idem text:='facade-rollback-atomic-00001';
+ req text:=repeat('d',64); receipt text:=repeat('e',64);
+ trace text:=repeat('f',64); reservation jsonb; audit jsonb;
+BEGIN
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FACADE_ROLLBACK_RESERVATION_FAILED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'FAIL_CLOSED',audit) THEN
+  RAISE EXCEPTION 'FACADE_ROLLBACK_ATOMIC_CALL_FAILED'; END IF;
+END $facade_rollback$;
+RESET ROLE;
+DO $facade_pre_rollback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='facade-rollback-atomic-00001'
+       AND state='FINALIZED' AND receipt_hash=repeat('e',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+     WHERE idem_key='facade-rollback-atomic-00001'
+       AND result_state='FAIL_CLOSED' AND trace_hash=repeat('f',64)
+       AND audit_trace->>'income_year'='2025-26')<>1 THEN
+  RAISE EXCEPTION 'FACADE_SAVEPOINT_PRE_ROLLBACK_RECEIPT_MISSING'; END IF;
+END $facade_pre_rollback$;
+ROLLBACK TO SAVEPOINT ws02_facade_rollback;
+RELEASE SAVEPOINT ws02_facade_rollback;
+DO $facade_post_rollback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+     WHERE idem_key='facade-rollback-atomic-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE idem_key='facade-rollback-atomic-00001')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1 THEN
+  RAISE EXCEPTION 'FACADE_SAVEPOINT_ROLLBACK_LEFT_SLOT_TRACE_OR_RECEIPT'; END IF;
+END $facade_post_rollback$;
+ROLLBACK;
+SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
+;
+  EXECUTE 'CREATE TRIGGER ws02_unreviewed_log_write
+    BEFORE INSERT ON ws02_owner.evaluation_logs
+    FOR EACH ROW EXECUTE FUNCTION ws02_owner.__synthetic_trigger_probe()';
+  SELECT count(*) INTO mutated_count
+  FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+    AND NOT t.tgisinternal;
+  IF mutated_count<>1 THEN
+   RAISE EXCEPTION 'PRIVATE_TRIGGER_MUTATION_UNDETECTED_%',mutated_count;
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_TRIGGER_INJECTION';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_TRIGGER_INJECTION' THEN
+   RAISE;
+  END IF;
+ END;
+ SELECT count(*) INTO restored_count
+ FROM pg_catalog.pg_trigger t
+ WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+   AND NOT t.tgisinternal;
+ IF restored_count<>baseline_count
+    OR pg_catalog.to_regprocedure('ws02_owner.__synthetic_trigger_probe()') IS NOT NULL
+ THEN RAISE EXCEPTION 'PRIVATE_TRIGGER_INJECTION_NOT_ROLLED_BACK'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_PRIVATE_TRIGGER_INJECTION_ROLLBACK_ONE_CASE';
+END $private_trigger_negative_probe$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
