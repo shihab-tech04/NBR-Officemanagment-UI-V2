@@ -169,3 +169,126 @@
   body:has(#office-receipt-paper) #office-receipt-paper { margin:0!important; width:100%!important; }
   .office-receipt__section { break-inside:avoid; }
 }
+
+
+/* Office receipt parity: canonical TaxPay ReceiptView paper styles. Both projects use the same core receipt-view
+   structure and verbatim stylesheet rules; local Office data/fields remain intact. */
+.office-receipt-parity {
+  --citizen-bg: var(--color-background);
+  --citizen-primary: var(--color-primary);
+  --citizen-primary-dark: var(--color-primary-dark);
+  --citizen-primary-light: var(--color-primary-alpha-6);
+  --citizen-surface: var(--color-surface);
+  --citizen-border: var(--color-border);
+  --citizen-text: var(--color-text-primary);
+  --citizen-muted: var(--color-text-secondary);
+}
+
+.receipt-view--embedded{max-width:none;width:100%;min-width:0;color:var(--citizen-text);font-family:inherit;font-size:14px;line-height:1.55}
+.receipt-view__paper{min-width:0;margin:0;padding:0;background:var(--citizen-surface);color:var(--citizen-text);border:0;border-radius:0;box-shadow:none}
+.receipt-view__summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.5rem;align-items:center;padding:0 0 1.25rem;border-bottom:1px solid var(--citizen-border)}
+.receipt-view__eyebrow{margin:0 0 .35rem;color:var(--citizen-primary-dark);font-size:14px;font-weight:750;letter-spacing:.015em}
+.receipt-view__summary h3{margin:0;color:var(--citizen-text);font-size:clamp(20px,2.3vw,24px);font-weight:750;line-height:1.35;letter-spacing:-.02em}
+.receipt-view__summary-subtitle{margin:.4rem 0 0;color:var(--citizen-muted);font-size:14px;line-height:1.55}
+.receipt-view__amount{display:grid;justify-items:end;gap:.2rem;min-width:0;text-align:right}
+.receipt-view__amount span,.receipt-view__amount small{font-size:14px;font-weight:600;color:var(--citizen-muted)}
+.receipt-view__amount strong{font-size:clamp(23px,3.15vw,32px);font-weight:800;letter-spacing:-.025em;line-height:1.3;color:var(--citizen-primary-dark);font-variant-numeric:tabular-nums;white-space:nowrap}
+.receipt-view__notice{margin:1rem 0 0;padding:.7rem .9rem;border:1px solid var(--citizen-border);border-left:3px solid var(--citizen-primary);border-radius:.5rem;background:var(--citizen-primary-light);color:var(--citizen-text);font-size:14px;font-weight:550;line-height:1.55}
+.receipt-view__reference-strip{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,.85fr) minmax(0,1fr);align-items:start;gap:1.2rem;margin:0;padding:1.2rem 0;border-bottom:1px solid var(--citizen-border)}
+.receipt-view__reference-strip>div{min-width:0}
+.receipt-view__reference-strip>div>span:first-child{display:block;margin:0 0 .35rem;font-size:14px;font-weight:600;color:var(--citizen-muted)}
+.receipt-view__reference-strip .font-mono-plex{font-size:14px;line-height:1.5;overflow-wrap:anywhere;word-break:normal}
+.receipt-view__reference-number{font-weight:750;color:var(--citizen-primary-dark)}
+.receipt-view__copy{display:grid;place-items:center;flex:none;width:40px;height:40px;min-width:40px;min-height:40px;border:1px solid var(--citizen-border);border-radius:.55rem;color:var(--citizen-primary-dark);background:var(--citizen-surface)}
+.receipt-view__copy:hover{background:var(--citizen-primary-light)}
+.receipt-view__parties{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem;padding:1.4rem 0;border-bottom:1px solid var(--citizen-border)}
+.receipt-view__parties>div{min-width:0}
+.receipt-view__section-title{margin:0 0 .9rem;padding:0 0 .55rem;border-bottom:1px solid var(--citizen-border);font-size:15px;font-weight:750;line-height:1.45;color:var(--citizen-text);letter-spacing:0;text-transform:none}
+.receipt-view__detail{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:.7rem;align-items:start;padding:.32rem 0;font-size:14px;line-height:1.55}
+.receipt-view__detail>span:first-child{min-width:0;color:var(--citizen-muted);font-weight:550;overflow-wrap:anywhere}
+.receipt-view__detail>span:last-child{grid-column:2;min-width:0;color:var(--citizen-text);font-weight:650;overflow-wrap:anywhere}
+.receipt-view__detail .font-mono-plex{font-size:14px;overflow-wrap:anywhere}
+.receipt-view__parties .text-emerald-900{color:var(--citizen-primary-dark)}
+.receipt-view__breakdown{margin:0;padding:1.35rem 0;border-bottom:1px solid var(--citizen-border)}
+.receipt-view__breakdown-content{border:1px solid var(--citizen-border);border-radius:.65rem;overflow:hidden;background:var(--citizen-surface)}
+.receipt-view__table{display:none;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.receipt-view__cards{display:block}
+/* Wider public receipt dialogs can show the table; embedded Pay Tax dialogs use readable cards. */
+@media(min-width:651px){
+ .receipt-modal .receipt-view__table{display:block}
+ .receipt-modal .receipt-view__cards{display:none}
+}
+.receipt-view__financial-table{width:100%;min-width:720px;border-collapse:collapse;font-size:14px;line-height:1.5}
+.receipt-view__financial-table thead{background:var(--citizen-bg);color:var(--citizen-text);font-weight:700}
+.receipt-view__financial-table :is(th,td){padding:.8rem .6rem;vertical-align:top;border-bottom:1px solid var(--citizen-border)}
+.receipt-view__financial-table th{font-size:14px;text-align:left;white-space:normal}
+.receipt-view__financial-table :is(th,td):nth-child(n+3){text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.receipt-view__financial-table tbody td:nth-child(2){min-width:190px;overflow-wrap:anywhere}
+.receipt-view__financial-table td .font-mono-plex{font-size:14px}
+.receipt-view__financial-table tfoot{background:var(--citizen-primary-light);color:var(--citizen-primary-dark)}
+.receipt-view__financial-table tfoot td{border-bottom:0;font-weight:750}
+@media(max-width:760px){
+ .receipt-view__summary{grid-template-columns:minmax(0,1fr);gap:.7rem}
+ .receipt-view__amount{justify-items:start;text-align:left}
+ .receipt-view__reference-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+ .receipt-view__reference-strip>div:first-child{grid-column:1/-1}
+ .receipt-view__parties{gap:1.1rem}
+}
+@media(max-width:650px){
+ .receipt-view__parties{grid-template-columns:minmax(0,1fr);padding:1rem 0}
+ .receipt-view__breakdown{padding:1rem 0}
+ .receipt-view__cards{display:block}
+ .receipt-view__table{display:none}
+ .receipt-view__cards article{padding:1rem}
+ .receipt-view__cards article :is(p,h4,dt,dd,span){font-size:14px;line-height:1.5}
+ .receipt-view__detail{grid-template-columns:minmax(0,40%) minmax(0,1fr)}
+}
+@media print{
+ .receipt-view__paper{border:0!important;box-shadow:none!important;overflow:visible!important}
+ .receipt-view__summary{grid-template-columns:minmax(0,1fr) auto}
+ .receipt-view__amount{justify-items:end;text-align:right}
+ .receipt-view__parties{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .receipt-view__table{display:block!important;overflow:visible!important}
+ .receipt-view__cards{display:none!important}
+ .receipt-view__financial-table{min-width:0;font-size:11px}
+ .receipt-view__financial-table :is(th,td){font-size:11px;padding:.4rem}
+ .receipt-view__breakdown,.receipt-view__parties{break-inside:avoid}
+}
+
+
+
+/* Shared AppModal shell matches the TaxPay ReceiptView modal dimensions.
+   Overlay/focus/close behaviors continue to be owned by AppModal. */
+.app-modal-panel:has(.office-receipt-parity) { width:min(920px,calc(100vw - 32px)); max-width:920px; max-height:calc(100dvh - 2rem); }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-header { min-height:72px; padding:1rem 1.4rem; }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-header__leading { flex:1; justify-content:center; text-align:center; }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-header__title { font-size:20px; line-height:1.4; font-weight:750; letter-spacing:-.02em; }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-body { padding:1.4rem 1.65rem; min-height:0; overflow-y:auto; }
+.app-modal-panel:has(.office-receipt-parity) .app-modal-footer { min-height:76px; padding:.8rem 1.65rem; gap:.65rem; }
+.office-receipt-parity .office-receipt__detail { grid-template-columns:minmax(0,42%) minmax(0,1fr); gap:.7rem; padding:.32rem 0; line-height:1.55; }
+.office-receipt-parity .office-receipt__detail dt { font-size:14px; font-weight:550; color:var(--citizen-muted); }
+.office-receipt-parity .office-receipt__detail dd { font-size:14px; font-weight:650; color:var(--citizen-text); }
+.office-receipt-parity .office-receipt__summary { align-items:center; }
+.office-receipt-parity .office-receipt__summary .office-receipt__eyebrow { color:var(--citizen-primary-dark); }
+.office-receipt-parity .office-receipt__summary > div > p:not(.office-receipt__eyebrow) { font-size:14px; color:var(--citizen-muted); }
+.office-receipt-parity .office-receipt__reference strong { font-size:14px; font-weight:750; color:var(--citizen-primary-dark); overflow-wrap:anywhere; }
+.office-receipt-parity .office-receipt__reference p { font-size:14px; font-weight:600; color:var(--citizen-muted); }
+.office-receipt-parity .office-receipt__columns { gap:2rem; }
+.office-receipt-parity .office-receipt__section h4 { border-bottom:1px solid var(--citizen-border); margin:0 0 .9rem; padding:0 0 .55rem; font-size:15px; font-weight:750; line-height:1.45; }
+.office-receipt-parity .office-receipt__scroll { border:1px solid var(--citizen-border); border-radius:.65rem; overflow-x:auto; }
+.office-receipt-parity .receipt-view__financial-table { min-width:560px; }
+.office-receipt-parity .receipt-view__financial-table :is(td,th):nth-child(3) { text-align:left; white-space:normal; }
+.office-receipt-parity .receipt-view__financial-table :is(td,th):last-child { text-align:right; white-space:nowrap; }
+.office-receipt-parity .receipt-view__financial-table tbody td:nth-child(2) { min-width:130px; }
+.office-receipt-parity .office-receipt__total strong { white-space:normal; }
+@media(max-width:760px){
+  .office-receipt-parity .office-receipt__columns { gap:1.1rem; }
+}
+@media(max-width:650px){
+  .app-modal-panel:has(.office-receipt-parity) { width:100%; height:100dvh; max-width:100%; max-height:100dvh; }
+  .app-modal-panel:has(.office-receipt-parity) .app-modal-header { min-height:64px; padding:.75rem 1rem; }
+  .app-modal-panel:has(.office-receipt-parity) .app-modal-header__title { font-size:18px; }
+  .app-modal-panel:has(.office-receipt-parity) .app-modal-body { padding:1rem; }
+  .app-modal-panel:has(.office-receipt-parity) .app-modal-footer { padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); flex-wrap:wrap; }
+  .office-receipt-parity .office-receipt__columns { grid-template-columns:minmax(0,1fr); }
+}
