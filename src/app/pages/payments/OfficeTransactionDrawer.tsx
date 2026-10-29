@@ -1,159 +1,107 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Printer, Download, Copy } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ResponsiveOverlay } from '../../components/shared/ResponsiveOverlay';
+import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
-import { SecondaryButton } from '../../components/buttons/SecondaryButton';
-import { StatusBadge } from '../../components/badges/StatusBadge';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
-import { getOfficePaymentItems, officeMoney, officeReceiptHtml, type OfficeReceiptInfo } from './officeTransactionDetails';
+import { getOfficePaymentItems, officeMoney, type OfficeReceiptInfo } from './officeTransactionDetails';
+import { OfficeReceiptModal } from './OfficeReceiptModal';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; onClose: () => void };
+const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
 
-const textValue = (value: unknown) =>
-  typeof value === 'string' && value.trim() ? value.trim() : '—';
-
+/** Office register details use exactly the shared DynamicDetailsDrawer design.
+ * Receipt is a separate shared AppModal document, never another drawer layout. */
 export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
-  const { t: common } = useTranslation('common');
   const [receipt, setReceipt] = useState(false);
   const language = i18n.resolvedLanguage || 'en';
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
-  const ref = textValue(row?.payment_ref);
+  const ref = display(row?.payment_ref);
   useEffect(() => { setReceipt(false); }, [ref]);
   const items = useMemo(() => getOfficePaymentItems(source), [source]);
-
   const info: OfficeReceiptInfo = {
-    reference: ref,
-    date: textValue(row?.date),
-    payer: textValue(row?.payer_name),
-    taxpayer: textValue(row?.taxpayer_name),
-    service: textValue(row?.payment_type),
-    year: textValue(row?.assessment_year),
-    amount: textValue(row?.amount),
-    paymentStatus: textValue(row?.financial_receipt_status),
-    creditStatus: textValue(row?.ledger_status),
-    method: textValue(row?.payment_channel),
+    reference: ref, date: display(row?.date), payer: display(row?.payer_name),
+    taxpayer: display(row?.taxpayer_name), service: display(row?.payment_type),
+    year: display(row?.assessment_year), amount: display(row?.amount),
+    paymentStatus: display(row?.financial_receipt_status),
+    creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
   };
-  const hasRecord = Boolean(row);
-  const printReceipt = () => { if (hasRecord) window.print(); };
-  const downloadReceipt = () => {
-    if (!row) return;
-    const html = officeReceiptHtml(info, items, language);
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'office-payment-' + ref.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64) + '.html';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  };
-  const copyReference = () => {
-    if (navigator.clipboard?.writeText && ref !== '—') {
-      void navigator.clipboard.writeText(ref);
-    }
-  };
-  const field = (name: string, value: string) =>
-    value === '—' ? null : (
-      <div className="office-tx__field" key={name}>
-        <dt>{name}</dt>
-        <dd>{value}</dd>
-      </div>
-    );
-  if (!row) return null;
+
+  // Explicit presentation whitelist: never pass serialized allocation JSON,
+  // audit internals, or arbitrary database fields to the shared drawer.
+  const detailRow: TableRow | null = row ? {
+    taxpayer_name: info.taxpayer,
+    status: info.paymentStatus,
+    tin: display(row.tin),
+    date: info.date,
+    payer_name: info.payer,
+    payment_type: info.service,
+    assessment_year: info.year,
+    amount: info.amount,
+    payment_channel: info.method,
+    ledger_status: info.creditStatus,
+    ...(items.length ? { allocation_items: String(items.length) } : {}),
+    payment_ref: info.reference,
+    acs_reference: display(row.acs_reference),
+    notice_reference: display(row.notice_reference),
+  } : null;
+  const groups: Array<[string, string, string]> = [
+    ['payer_name', t('colPayer'), label('Payment information','পেমেন্টের তথ্য')],
+    ['payment_type', t('Service'), label('Payment information','পেমেন্টের তথ্য')],
+    ['assessment_year', t('ay'), label('Payment information','পেমেন্টের তথ্য')],
+    ['amount', t('colAmount'), label('Payment information','পেমেন্টের তথ্য')],
+    ['payment_channel', label('Payment method','পেমেন্ট পদ্ধতি'),label('Payment information','পেমেন্টের তথ্য')],
+    ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
+    ['allocation_items',label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন')],
+    ['payment_ref',label('Transaction ID','লেনদেন আইডি'),label('References','রেফারেন্স')],
+    ['acs_reference',label('Receipt reference','রসিদ রেফারেন্স'),label('References','রেফারেন্স')],
+    ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
+  ];
+
+  const renderValue = (key: string) => key === 'allocation_items' ? (
+    <div className="office-shared-allocation-list">
+      {items.map((item, index) => (
+        <div className="office-shared-allocation-list__item" key={index}>
+          <p><strong>{item.taxpayer}</strong><strong>{officeMoney(item.amountMinor, language)}</strong></p>
+          <p>{item.service} · {item.assessmentYear}</p>
+          {item.economicCode && <p>{label('Economic code', 'অর্থনৈতিক কোড')}: {item.economicCode}</p>}
+          {item.authorization && <p>{label('Authorization', 'অনুমোদন')}: {item.authorization}</p>}
+        </div>
+      ))}
+    </div>
+  ) : undefined;
 
   return (
-    <ResponsiveOverlay
-      open={hasRecord}
-      onClose={onClose}
-      onBack={receipt ? () => setReceipt(false) : undefined}
-      backLabel={label('Details', 'বিস্তারিত')}
-      title={receipt ? label('Payment receipt', 'পেমেন্ট রসিদ') : label('Transaction details', 'লেনদেনের বিবরণ')}
-      closeLabel={common('accessibility.closeDrawer')}
-      desktopWidth={receipt ? '620px' : '520px'}
-      className="office-transaction-drawer"
-      footer={receipt
-        ? <>
-            <SecondaryButton size="sm" icon={Printer} onClick={printReceipt}>{label('Print', 'প্রিন্ট')}</SecondaryButton>
-            <PrimaryButton size="sm" icon={Download} onClick={downloadReceipt}>{label('Download receipt', 'রসিদ ডাউনলোড')}</PrimaryButton>
-          </>
-        : <PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
-            {label('View receipt', 'রসিদ দেখুন')}
-          </PrimaryButton>}
-    >
-      <article className={receipt ? 'office-tx office-tx--receipt' : 'office-tx'} data-testid={receipt ? 'office-payment-receipt' : 'office-transaction-details'}>
-        <section className="office-tx__summary">
-          <div className="office-tx__summary-main">
-            <p className="office-tx__eyebrow">{label('Payment record', 'পেমেন্ট রেকর্ড')}</p>
-            <h3>{info.taxpayer}</h3>
-            <p>{info.date}</p>
-          </div>
-          <div className="office-tx__amount-block">
-            <span>{t('colAmount')}</span>
-            <strong>{info.amount}</strong>
-            <StatusBadge value={info.paymentStatus}/>
-          </div>
-        </section>
-
-        <section className="office-tx__section">
-          <h3>{label('Transaction information', 'লেনদেনের তথ্য')}</h3>
-          <dl className="office-tx__grid">
-            {field(t('colPayer'), info.payer)}
-            {field(t('colTaxpayer'), info.taxpayer)}
-            {field('TIN', textValue(row.tin))}
-            {field(t('Service'), info.service)}
-            {field(t('ay'), info.year)}
-            {field(label('Payment method', 'পেমেন্ট পদ্ধতি'), info.method)}
-          </dl>
-        </section>
-
-        <section className="office-tx__section">
-          <h3>{label('Payment status', 'পেমেন্টের অবস্থা')}</h3>
-          <div className="office-tx__status-grid">
-            <div><p>{label('Payment record', 'পেমেন্ট রেকর্ড')}</p><StatusBadge value={info.paymentStatus}/></div>
-            <div><p>{label('Tax credit', 'কর ক্রেডিট')}</p><StatusBadge value={info.creditStatus}/></div>
-          </div>
-        </section>
-
-        {items.length > 0 && (
-          <section className="office-tx__section">
-            <h3>{label('Taxpayer allocations', 'করদাতা অনুযায়ী বণ্টন')}</h3>
-            <div className="office-tx__allocations">
-              {items.map((item, index) => (
-                <div className="office-tx__allocation" key={index}>
-                  <div className="office-tx__allocation-top">
-                    <h4>{item.taxpayer}</h4>
-                    <strong>{officeMoney(item.amountMinor, language)}</strong>
-                  </div>
-                  <p>{item.service} · {item.assessmentYear}</p>
-                  {item.economicCode && <p>{label('Economic code', 'অর্থনৈতিক কোড')}: {item.economicCode}</p>}
-                  {item.authorization && <p>{label('Authorization', 'অনুমোদন')}: {item.authorization}</p>}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="office-tx__section">
-          <h3>{label('References', 'রেফারেন্স')}</h3>
-          <dl className="office-tx__grid office-tx__grid--single">
-            <div className="office-tx__field">
-              <dt>{label('Transaction ID', 'লেনদেন আইডি')}</dt>
-              <dd className="office-tx__reference"><span>{ref}</span>
-                {ref !== '—' && <button type="button" onClick={copyReference}
-                  aria-label={label('Copy transaction ID', 'লেনদেন আইডি কপি করুন')}>
-                  <Copy size={15}/></button>}
-              </dd>
-            </div>
-            {field(label('Receipt reference', 'রসিদ রেফারেন্স'), textValue(row.acs_reference))}
-            {field(label('Notice reference', 'নোটিশ রেফারেন্স'), textValue(row.notice_reference))}
-          </dl>
-        </section>
-      </article>
-    </ResponsiveOverlay>
+    <>
+      <DynamicDetailsDrawer
+        open={!!detailRow && !receipt}
+        onClose={onClose}
+        title={label('Record Details','রেকর্ডের বিবরণ')}
+        rowData={receipt ? null : detailRow}
+        columns={groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel }))
+          .concat([
+            { key:'taxpayer_name',label:t('colTaxpayer'),groupLabel:'' },
+            { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
+            { key:'tin',label:'TIN',groupLabel:'' },
+            { key:'date',label:t('colDate'),groupLabel:'' },
+          ])}
+        showActions={false}
+        renderValue={renderValue}
+        extraFooterActions={<PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
+          {label('View receipt','রসিদ দেখুন')}
+        </PrimaryButton>}
+      />
+      <OfficeReceiptModal
+        open={!!detailRow && receipt}
+        info={info}
+        items={items}
+        language={language}
+        onBack={() => setReceipt(false)}
+        onClose={() => { setReceipt(false); onClose(); }}
+      />
+    </>
   );
 }
