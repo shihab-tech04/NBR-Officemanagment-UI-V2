@@ -68,7 +68,6 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           <div className="office-receipt__total">
             <p>{label('Total amount', 'সর্বমোট অর্থ')}</p>
             <strong>{info.amount}</strong>
-            <span>{info.paymentStatus}</span>
           </div>
         </header>
         <section className="office-receipt__reference">
@@ -89,7 +88,6 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
             <h4>{label('Payment and settlement', 'পেমেন্ট ও নিষ্পত্তির তথ্য')}</h4>
             <dl>
               {field(label('Payment method', 'পেমেন্ট পদ্ধতি'), info.method)}
-              {field(label('Transaction reference', 'লেনদেন রেফারেন্স'), info.reference)}
               {field(label('Payment status', 'পেমেন্টের অবস্থা'), info.paymentStatus)}
               {field(label('Tax credit status', 'কর ক্রেডিটের অবস্থা'), info.creditStatus)}
             </dl>
@@ -118,7 +116,6 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
             </table>
           </div>
         </section>}
-        <p className="office-receipt__status-note">{label('Tax credit status', 'কর ক্রেডিটের অবস্থা')}: {info.creditStatus}</p>
       </article>
     </AppModal>
   );
