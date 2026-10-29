@@ -112,51 +112,60 @@
 @media(max-width:360px) { .payment-module .dashboard-kpi-grid--1row { grid-template-columns:1fr; } }
 /* Payment register filters use the unchanged Office Management FilterPanel grid. */
 
-/* Office Payments — transaction details and receipt. Uses the existing
-   ResponsiveOverlay drawer, theme tokens and application typography. */
-.office-transaction-drawer .responsive-overlay__body { padding: var(--space-4); }
-.office-tx { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; color: var(--color-text-primary); }
-.office-tx__summary { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-background-subtle); }
-.office-tx__summary-main { min-width: 0; }
-.office-tx__summary-main h3 { font-size: var(--fs-body-md); line-height: 1.45; margin: var(--space-1) 0; overflow-wrap: anywhere; }
-.office-tx__summary-main p { font-size: var(--fs-caption); color: var(--color-text-secondary); margin: 0; }
-.office-tx__eyebrow { font-weight: 600; }
-.office-tx__amount-block { display: flex; align-items: flex-end; flex-direction: column; flex-shrink: 0; gap: var(--space-1); text-align: right; max-width: 48%; }
-.office-tx__amount-block span { font-size: var(--fs-caption); color: var(--color-text-secondary); }
-.office-tx__amount-block strong { font-size: var(--fs-h3); line-height: 1.35; color: var(--color-text-primary); overflow-wrap: anywhere; }
-.office-tx__section { min-width: 0; border-bottom: 1px solid var(--color-border); padding: 0 0 var(--space-4); }
-.office-tx__section:last-child { border-bottom: none; padding-bottom: 0; }
-.office-tx__section h3 { margin: 0 0 var(--space-3); font-size: var(--fs-body-md); line-height: 1.45; font-weight: 600; }
-.office-tx__grid { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
-.office-tx__grid--single { grid-template-columns: 1fr; }
-.office-tx__field { min-width: 0; }
-.office-tx__field dt { margin: 0 0 4px; font-size: var(--fs-caption); color: var(--color-text-secondary); }
-.office-tx__field dd { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-body-sm); font-weight: 500; line-height: 1.6; }
-.office-tx__status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-.office-tx__status-grid > div { min-width: 0; }
-.office-tx__status-grid p { font-size: var(--fs-caption); margin: 0 0 var(--space-2); color: var(--color-text-secondary); }
-.office-tx__allocations { display: grid; gap: var(--space-2); }
-.office-tx__allocation { padding: var(--space-3); background: var(--color-background-subtle); border-radius: var(--radius-md); min-width: 0; }
-.office-tx__allocation-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
-.office-tx__allocation-top h4 { margin: 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
-.office-tx__allocation-top strong { font-size: var(--fs-body-sm); white-space: nowrap; }
-.office-tx__allocation p { margin: var(--space-1) 0 0; font-size: var(--fs-caption); color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.office-tx__reference { display: flex; align-items: center; gap: var(--space-2); }
-.office-tx__reference > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.office-tx__reference button { border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-primary); background: var(--color-surface); padding: 6px; cursor: pointer; }
-.office-tx__reference button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-@media (max-width: 520px) {
-  .office-tx__summary { flex-direction: column; }
-  .office-tx__amount-block { max-width: 100%; align-items: flex-start; text-align: left; }
-  .office-tx__grid, .office-tx__status-grid { grid-template-columns: 1fr; }
+/* Transactions reuse DynamicDetailsDrawer, the established Office drawer.
+   No replacement headings, cards, spacing systems, or drawer shells. */
+.office-shared-allocation-list { display:grid; gap:var(--space-2); width:100%; min-width:0; }
+.office-shared-allocation-list__item { min-width:0; padding:var(--space-3); background:var(--color-primary-alpha-2); border-radius:var(--radius-md); }
+.office-shared-allocation-list__item p { margin:0; overflow-wrap:anywhere; line-height:1.6; font-size:var(--fs-body-sm); }
+.office-shared-allocation-list__item p:first-child { display:flex; justify-content:space-between; flex-wrap:wrap; gap:var(--space-2); }
+.office-shared-allocation-list__item p + p { color:var(--color-text-secondary); font-size:var(--fs-caption); }
+
+/* Office receipt paper follows the approved ReceiptView document hierarchy.
+   Its container, close button and action footer are the shared AppModal. */
+.office-receipt__paper { color:var(--color-text-primary); background:var(--color-surface); min-width:0; }
+.office-receipt__summary { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); padding-bottom:var(--space-4); border-bottom:1px solid var(--color-border); }
+.office-receipt__eyebrow { color:var(--color-primary); font-weight:700; font-size:var(--fs-caption); margin:0 0 var(--space-1); }
+.office-receipt__summary h3 { margin:0 0 var(--space-1); font-size:var(--fs-h3); font-weight:700; }
+.office-receipt__summary p { font-size:var(--fs-body-sm); margin:0; overflow-wrap:anywhere; }
+.office-receipt__summary .office-receipt__eyebrow { margin-bottom:var(--space-1); }
+.office-receipt__summary > div { min-width:0; }
+.office-receipt__total { text-align:right; flex:0 0 auto; max-width:45%; }
+.office-receipt__total strong { font-size:var(--fs-h2); display:block; color:var(--color-primary); overflow-wrap:anywhere; }
+.office-receipt__total span { font-size:var(--fs-caption); color:var(--color-text-secondary); }
+.office-receipt__reference { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:var(--space-4); padding:var(--space-4) 0; border-bottom:1px solid var(--color-border); }
+.office-receipt__reference > div { min-width:0; }
+.office-receipt__reference p { font-size:var(--fs-caption); color:var(--color-text-secondary); margin:0 0 var(--space-1); }
+.office-receipt__reference strong { font-size:var(--fs-body-sm); overflow-wrap:anywhere; display:block; }
+.office-receipt__columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-4); }
+.office-receipt__section { min-width:0; padding-top:var(--space-4); }
+.office-receipt__section h4 { font-size:var(--fs-body-md); font-weight:700; border-bottom:1px solid var(--color-border); padding-bottom:var(--space-2); margin:0 0 var(--space-3); }
+.office-receipt__section dl { margin:0; display:grid; gap:var(--space-3); }
+.office-receipt__detail { display:grid; grid-template-columns:minmax(0,42%) minmax(0,58%); gap:var(--space-2); min-width:0; }
+.office-receipt__detail dt { color:var(--color-text-secondary); font-size:var(--fs-caption); }
+.office-receipt__detail dd { margin:0; font-size:var(--fs-body-sm); font-weight:600; overflow-wrap:anywhere; }
+.office-receipt__scroll { max-width:100%; overflow-x:auto; }
+.office-receipt__scroll table { width:100%; border-collapse:collapse; font-size:var(--fs-body-sm); min-width:540px; }
+.office-receipt__scroll th,.office-receipt__scroll td { padding:var(--space-3) var(--space-2); text-align:left; vertical-align:top; border-bottom:1px solid var(--color-border); overflow-wrap:anywhere; }
+.office-receipt__scroll thead { background:var(--color-primary-alpha-6); }
+.office-receipt__scroll small { display:block; color:var(--color-text-secondary); }
+.office-receipt__scroll .office-receipt__numeric { text-align:right; white-space:nowrap; }
+.office-receipt__scroll tfoot { font-weight:700; }
+.office-receipt__status-note { padding-top:var(--space-4); margin:var(--space-4) 0 0; border-top:1px solid var(--color-border); font-size:var(--fs-body-sm); color:var(--color-text-secondary); }
+.office-receipt__footer-back { margin-right:auto; }
+@media(max-width:640px){
+  .office-receipt__summary,.office-receipt__reference { gap:var(--space-2); }
+  .office-receipt__columns { grid-template-columns:1fr; gap:0; }
+  .office-receipt__total strong { font-size:var(--fs-h3); }
+  .office-receipt__detail { grid-template-columns:minmax(0,40%) minmax(0,60%); }
 }
 @media print {
-  body:has(.office-transaction-drawer) > #root { display: none !important; }
-  .responsive-overlay__backdrop { display: none !important; }
-  .office-transaction-drawer { position: static !important; transform: none !important; width: 100% !important; max-height: none !important; height: auto !important; box-shadow: none !important; border: 0 !important; }
-  .office-transaction-drawer .responsive-overlay__header,
-  .office-transaction-drawer .responsive-overlay__footer { display: none !important; }
-  .office-transaction-drawer .responsive-overlay__body { overflow: visible !important; max-height: none !important; height: auto !important; }
-  .office-tx__reference button { display: none !important; }
-  .office-tx__section, .office-tx__allocation { break-inside: avoid; }
+  body:has(#office-receipt-paper) * { visibility:hidden!important; }
+  body:has(#office-receipt-paper) #office-receipt-paper,
+  body:has(#office-receipt-paper) #office-receipt-paper * { visibility:visible!important; }
+  body:has(#office-receipt-paper) .app-modal-backdrop { position:static!important; background:transparent!important; overflow:visible!important; }
+  body:has(#office-receipt-paper) .app-modal-panel { box-shadow:none!important; border:0!important; max-height:none!important; max-width:100%!important; width:100%!important; overflow:visible!important; }
+  body:has(#office-receipt-paper) .app-modal-header,body:has(#office-receipt-paper) .app-modal-footer { display:none!important; }
+  body:has(#office-receipt-paper) .app-modal-body { overflow:visible!important; padding:0!important; }
+  body:has(#office-receipt-paper) #office-receipt-paper { margin:0!important; width:100%!important; }
+  .office-receipt__section { break-inside:avoid; }
 }

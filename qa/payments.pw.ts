@@ -332,12 +332,14 @@ test('transaction details stay in Office; no citizen TaxPay certificate route',a
   await page.goto('/payments/transactions');
   await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
   await page.getByRole('button',{name:'View Details'}).first().click();
-  const drawer=page.locator('.office-transaction-drawer');
+  const drawer=page.locator('.dynamic-drawer');
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole('button',{name:'View receipt'})).toBeVisible();
   await expect(drawer.getByRole('button',{name:'View certificate'})).toHaveCount(0);
   await drawer.getByRole('button',{name:'View receipt'}).click();
-  await expect(drawer.getByText('Payment receipt', {exact:true}).first()).toBeVisible();
+  await expect(page.locator('.app-modal-panel')).toBeVisible();
+  await expect(page.locator('#office-receipt-paper')).toContainText('Receipt details');
+  await expect(drawer).toHaveCount(0);
   await expect(page).toHaveURL(/\/payments\/transactions$/);
   expect(page.context().pages()).toHaveLength(1);
 });
@@ -391,7 +393,7 @@ for (const width of [1713, 1440, 1280]) {
 }
 
 
-test('Office Transactions keeps details and receipt inside one Office drawer', async ({page}) => {
+test('Office Transactions reuses approved DetailsDrawer and receipt modal', async ({page}) => {
   const reference='e4e43b06-0be4-4cfe-96eb-b75b7176d86e';
   await page.route('**/functions/v1/demo-story1-office/**', route => {
     const payments = new URL(route.request().url()).pathname.endsWith('/payments');
@@ -409,25 +411,45 @@ test('Office Transactions keeps details and receipt inside one Office drawer', a
   await page.goto('/payments/transactions');
   await expect(page.locator('.payment-module__table-card .card-table__action-btn').first()).toBeVisible();
   await page.locator('.payment-module__table-card .card-table__action-btn').first().click();
-  const drawer=page.getByRole('dialog');
-  await expect(drawer).toContainText('Transaction details');
+  const drawer=page.locator('.dynamic-drawer');
+  await expect(drawer).toHaveAttribute('role','dialog');
+  await expect(drawer).toContainText('Record Details');
+  await expect(drawer.locator('.drawer-summary')).toBeVisible();
+  await expect(drawer.locator('.detail-section__head').first()).toBeVisible();
+  await expect(drawer.locator('.drawer-field-grid').first()).toBeVisible();
+  await drawer.screenshot({path:'test-results/office-approved-transaction-drawer.png',animations:'disabled'});
   await expect(drawer).toContainText('Taxpayer allocations');
   await expect(drawer).toContainText('৳150.25');
   await expect(drawer).toContainText('৳23.50');
   await expect(drawer).not.toContainText('{"category"');
   await expect(drawer).not.toContainText('Allocation details');
   await drawer.getByRole('button',{name:'View receipt'}).click();
-  await expect(drawer).toContainText('Payment receipt');
+  const receipt=page.locator('.app-modal-panel');
+  await expect(drawer).toHaveCount(0);
+  await expect(receipt).toContainText('Office payment receipt');
+  const paper=receipt.locator('#office-receipt-paper');
+  await expect(paper.locator('.office-receipt__reference')).toContainText(reference);
+  await expect(paper.locator('.office-receipt__breakdown tbody tr')).toHaveCount(2);
+  await receipt.screenshot({path:'test-results/office-approved-payment-receipt-modal.png',animations:'disabled'});
+  await expect(paper).toContainText('৳150.25');
+  await expect(paper).toContainText('৳23.50');
+  await expect(paper).not.toContainText('{"category"');
   await expect(page).toHaveURL(/\/payments\/transactions$/);
   expect(page.context().pages()).toHaveLength(1);
   const download=page.waitForEvent('download');
-  await drawer.getByRole('button',{name:'Download receipt'}).click();
-  expect((await download).suggestedFilename()).toBe('office-payment-'+reference+'.html');
-  await drawer.getByRole('button',{name:'Details'}).click();
-  await expect(drawer).toContainText('Transaction details');
+  await receipt.getByRole('button',{name:'Download'}).click();
+  const downloaded = await download;
+  expect(downloaded.suggestedFilename()).toBe('office-payment-'+reference+'.html');
+  const html = (await (await import('node:fs/promises')).readFile(await downloaded.path())).toString();
+  expect(html).toContain('office-receipt__paper');
+  expect(html).toContain('৳150.25');
+  expect(html).toContain('৳23.50');
+  await receipt.getByRole('button',{name:'Back to details'}).click();
+  await expect(drawer).toContainText('Record Details');
+  await expect(page.locator('.app-modal-panel')).toHaveCount(0);
 });
 
-test('Office receipt drawer fits a 360px viewport without external navigation',async({page})=>{
+test('Office shared receipt modal fits a 360px viewport without external navigation',async({page})=>{
   await page.setViewportSize({width:360,height:800});
   await page.goto('/payments/transactions');
   await expect(page.locator('.mobile-table-card__action-btn').first()).toBeVisible();
@@ -435,6 +457,9 @@ test('Office receipt drawer fits a 360px viewport without external navigation',a
   const drawer=page.getByRole('dialog');
   await expect(drawer).toBeVisible();
   await drawer.getByRole('button',{name:'View receipt'}).click();
+  await expect(page.locator('.app-modal-panel')).toBeVisible();
+  await expect(page.locator('#office-receipt-paper')).toContainText('Receipt details');
+  await page.locator('.app-modal-panel').screenshot({path:'test-results/office-approved-payment-receipt-mobile.png',animations:'disabled'});
   const over=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
   expect(over).toBeLessThanOrEqual(2);
   await expect(page).toHaveURL(/\/payments\/transactions$/);

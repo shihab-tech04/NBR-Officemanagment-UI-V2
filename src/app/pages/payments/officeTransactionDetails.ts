@@ -74,10 +74,6 @@ export function getOfficePaymentItems(payment: StoryPayment | null): OfficePayme
   return total === payment.amountMinor ? items : [];
 }
 
-const escapeHtml = (value: unknown) => String(value ?? '—').replace(/[&<>"']/g, char => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}[char] ?? char));
-
 export type OfficeReceiptInfo = {
   reference: string;
   date: string;
@@ -90,38 +86,3 @@ export type OfficeReceiptInfo = {
   creditStatus: string;
   method: string;
 };
-
-/** A self-contained, offline printable OFFICE payment record, not a tax certificate. */
-export function officeReceiptHtml(info: OfficeReceiptInfo, items: OfficePaymentItem[], language = 'en'): string {
-  const bn = language.startsWith('bn');
-  const label = (en: string, bangla: string) => bn ? bangla : en;
-  const entry = (name: string, value: string) => '<div class="field"><small>' + escapeHtml(name) +
-    '</small><strong>' + escapeHtml(value) + '</strong></div>';
-  const lines = items.map(item => '<tr><td>' + escapeHtml(item.taxpayer) + '</td><td>' +
-    escapeHtml(item.service) + '</td><td>' + escapeHtml(item.assessmentYear) + '</td><td class="number">' +
-    escapeHtml(officeMoney(item.amountMinor, language)) + '</td></tr>').join('');
-  return '<!doctype html><html lang="' + (bn ? 'bn' : 'en') + '"><head><meta charset="utf-8"><title>' +
-    escapeHtml(label('Office payment receipt', 'অফিস পেমেন্ট রসিদ')) + '</title><style>' +
-    'body{font-family:Arial,sans-serif;color:#17243b;padding:36px;max-width:900px;margin:auto;font-size:14px}' +
-    'header{display:flex;justify-content:space-between;align-items:start;border-bottom:2px solid #235c9b;padding-bottom:16px}' +
-    'h1{font-size:22px;margin:4px 0}h2{font-size:16px;margin-top:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}' +
-    '.field{min-width:0;border-bottom:1px solid #ddd;padding:7px 0}.field small{display:block;color:#65738a;margin-bottom:4px}.field strong{overflow-wrap:anywhere}' +
-    'table{border-collapse:collapse;width:100%;margin-top:10px}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd}.number{text-align:right}' +
-    '.note{margin-top:24px;padding-top:14px;border-top:1px solid #ddd;color:#53647b}@media print{body{padding:0}}' +
-    '</style></head><body><header><div><small>NBR Office Management</small><h1>' +
-    escapeHtml(label('Payment receipt', 'পেমেন্ট রসিদ')) + '</h1></div><strong>' + escapeHtml(info.amount) +
-    '</strong></header><section class="grid">' +
-    entry(label('Transaction reference','লেনদেন রেফারেন্স'), info.reference) +
-    entry(label('Date','তারিখ'), info.date) + entry(label('Payer','পরিশোধকারী'), info.payer) +
-    entry(label('Taxpayer','করদাতা'), info.taxpayer) + entry(label('Service','সেবা'), info.service) +
-    entry(label('Assessment year','করবর্ষ'), info.year) +
-    entry(label('Payment method','পেমেন্ট পদ্ধতি'), info.method) +
-    entry(label('Payment status','পেমেন্টের অবস্থা'), info.paymentStatus) +
-    entry(label('Tax credit status','কর ক্রেডিটের অবস্থা'), info.creditStatus) + '</section>' +
-    (items.length ? '<h2>' + escapeHtml(label('Payment allocations','পেমেন্ট বণ্টন')) +
-      '</h2><table><thead><tr><th>' + escapeHtml(label('Taxpayer','করদাতা')) + '</th><th>' +
-      escapeHtml(label('Service','সেবা')) + '</th><th>' + escapeHtml(label('Assessment year','করবর্ষ')) +
-      '</th><th class="number">' + escapeHtml(label('Amount','পরিমাণ')) + '</th></tr></thead><tbody>' +
-      lines + '</tbody></table>' : '') + '<p class="note">' + escapeHtml(info.creditStatus) +
-    '</p></body></html>';
-}

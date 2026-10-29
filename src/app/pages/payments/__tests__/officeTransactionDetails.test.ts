@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { StoryPayment } from '../story1OfficeApi';
-import { getOfficePaymentItems, officeMoney, officeReceiptHtml } from '../officeTransactionDetails';
+import { getOfficePaymentItems, officeMoney } from '../officeTransactionDetails';
+import { buildDisplayedOfficeReceiptDocument } from '../OfficeReceiptModal';
 
 const transaction: StoryPayment = {
   id: 'e4e43b06-0be4-4cfe-96eb-b75b7176d86e', service: 'OTHER_TAX_PAYMENT',
@@ -41,21 +42,16 @@ describe('Office-native transaction record and receipt', () => {
     ]);
   });
 
-  it('generates a downloadable OFFICE document with escaped record data', () => {
-    const info = {
-      reference: transaction.id, date: '29 Oct 2026', payer: '<script>alert(1)</script>',
-      taxpayer: 'user6, user7', service: 'Tax with Return, Penalty Payment',
-      year: '2026-27, 2025-26', amount: '৳173.75',
-      paymentStatus: 'Payment record saved', creditStatus: 'Tax credit not verified', method: 'Payment',
-    };
-    const html = officeReceiptHtml(info, getOfficePaymentItems(transaction));
-    expect(html).toContain('NBR Office Management');
-    expect(html).toContain('Payment receipt');
-    expect(html).toContain('user7');
-    expect(html).toContain('৳150.25');
+  it('exports exactly the visible shared-modal receipt paper, not a duplicate receipt template', () => {
+    const paper = document.createElement('article');
+    paper.className = 'office-receipt__paper';
+    paper.setAttribute('lang', 'en');
+    paper.textContent = 'user6, user7 · Tax with Return · ৳173.75 <script>alert(1)</script>';
+    const html = buildDisplayedOfficeReceiptDocument(paper, 'Office payment receipt');
+    expect(html).toContain(paper.outerHTML);
+    expect(html).toContain('office-receipt__paper');
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>');
-    expect(html).not.toContain('View certificate');
     expect(html).not.toContain('nbr-taxpay');
   });
 });
