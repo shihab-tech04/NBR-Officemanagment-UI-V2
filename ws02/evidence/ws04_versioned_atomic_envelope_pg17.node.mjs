@@ -216,6 +216,37 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(readback, ['0:RESERVED:NULL'],
       'REDUNDANT_FRACTIONAL_ZERO_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
   }
+  // JSON.stringify collapses negative zero to 0. Valid JSON -0 variants
+  // with freshly recomputed SHA must not be accepted by the private wrapper.
+  // The fixture's applied_rule_count=0 is synthetic, never a tax amount.
+  const negativeZeroVariants = [
+    ['integer', '-0'], ['exponent', '-0e2'],
+    ['upper_exponent', '-0E+2'], ['fraction', '-0.0'],
+  ];
+  for (const [kind, noncanonicalNumber] of negativeZeroVariants) {
+    const needle = '"applied_rule_count":0';
+    assert.ok(bytes.includes(needle), 'NEGATIVE_ZERO_FIXTURE_MISSING_' + kind);
+    const alteredBytes = bytes.replace(needle,
+      '"applied_rule_count":' + noncanonicalNumber);
+    assert.notEqual(alteredBytes, bytes);
+    assert.equal(canonical(JSON.parse(alteredBytes)), bytes,
+      'NEGATIVE_ZERO_CHANGED_CANONICAL_SEMANTICS_' + kind);
+    const denied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(digest(alteredBytes))},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(alteredBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(denied, ['f'],
+      'VALID_HASH_NEGATIVE_ZERO_ACCEPTED_' + kind + '_' + status);
+    const unchanged = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(unchanged, ['0:RESERVED:NULL'],
+      'NEGATIVE_ZERO_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
+  }
   // Zero exponents are valid JSON but never emitted by JSON.stringify.
   // Recompute a valid SHA and prove all three result states fail closed.
   const zeroExponentVariants = [
