@@ -724,15 +724,18 @@ BEGIN
  END IF;
 END $review_facade_overload_inventory$;
 
--- Mutation probe: a one-argument overload receives default PUBLIC EXECUTE
--- even though the schema itself remains private. Detect the overload and
--- roll it back before any subsequent synthetic auth/anon execution checks.
+-- Mutation probe: a one-argument overload plus an explicit unreviewed
+-- EXECUTE grant would become a callable alternate signature if the schema
+-- were later exposed. Detect the overload and roll back all synthetic grants.
 SAVEPOINT ws02_review_overload_probe;
 CREATE FUNCTION ws02_review_api.nbr_commit_evaluation_versioned_candidate(
  p_probe text
 ) RETURNS boolean LANGUAGE sql VOLATILE SECURITY INVOKER AS $unsafe_overload$
  SELECT true;
 $unsafe_overload$;
+GRANT EXECUTE ON FUNCTION
+ ws02_review_api.nbr_commit_evaluation_versioned_candidate(text)
+ TO ws02_owner_auth;
 DO $review_facade_overload_mutation$
 DECLARE overload_count integer;
 BEGIN
