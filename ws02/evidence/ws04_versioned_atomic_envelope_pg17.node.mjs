@@ -492,6 +492,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
+console.log('PASS_SCOPED_OUTER_WHITESPACE_NONCANONICAL_JSON_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_CROSS_YEAR_SAME_KEY_TWO_AUTHORIZED_YEARS_THREE_STATES');
 // The synthetic engine must NOT bypass the envelope by calling the old RPC.
 const direct = spawnSync('psql', ['-X','-Atq','-v','ON_ERROR_STOP=1'], {
