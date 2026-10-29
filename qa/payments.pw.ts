@@ -426,7 +426,16 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   await drawer.getByRole('button',{name:'View receipt'}).click();
   const receipt=page.locator('.app-modal-panel');
   await expect(drawer).toHaveCount(0);
-  await expect(receipt).toContainText('Office payment receipt');
+  await expect(receipt).toContainText('Payment receipt details');
+  // Office and TaxPay must follow the same receipt-paper design contract.
+  await expect(receipt.locator('.receipt-view__paper.receipt-view--embedded')).toHaveCount(1);
+  await expect(receipt.locator('.receipt-view__summary')).toBeVisible();
+  await expect(receipt.locator('.receipt-view__reference-strip')).toBeVisible();
+  await expect(receipt.locator('.receipt-view__parties')).toBeVisible();
+  await expect(receipt.locator('.receipt-view__breakdown')).toBeVisible();
+  await expect(receipt.locator('.receipt-view__financial-table')).toBeVisible();
+  await expect(receipt.locator('.receipt-view__paper')).not.toContainText('Demo receipt only');
+  await expect(receipt.locator('.receipt-view__paper')).not.toContainText('Simulation record');
   const paper=receipt.locator('#office-receipt-paper');
   await expect(paper.locator('.office-receipt__reference')).toContainText(reference);
   await expect(paper.locator('.office-receipt__breakdown tbody tr')).toHaveCount(2);
