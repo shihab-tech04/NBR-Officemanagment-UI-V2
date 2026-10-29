@@ -65,7 +65,7 @@ BEGIN
   -- The anchored prefix only matches a decimal fraction ending at this zero;
   -- quoted strings are excluded by ws02_inside_string.
   ELSIF ws02_scan_char='0'
-    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\\.[0-9]*0$'
+    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\.[0-9]*0$'
     AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1) IN (',',']','}','e','E')
   THEN RETURN false;
   ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
@@ -389,7 +389,7 @@ BEGIN
   -- The anchored prefix only matches a decimal fraction ending at this zero;
   -- quoted strings are excluded by ws02_inside_string.
   ELSIF ws02_scan_char='0'
-    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\\.[0-9]*0$'
+    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\.[0-9]*0$'
     AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1) IN (',',']','}','e','E')
   THEN RETURN false;
   ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
@@ -492,7 +492,7 @@ BEGIN
   -- The anchored prefix only matches a decimal fraction ending at this zero;
   -- quoted strings are excluded by ws02_inside_string.
   ELSIF ws02_scan_char='0'
-    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\\.[0-9]*0$'
+    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\.[0-9]*0$'
     AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1) IN (',',']','}','e','E')
   THEN RETURN false;
   ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
@@ -590,7 +590,7 @@ BEGIN
   -- The anchored prefix only matches a decimal fraction ending at this zero;
   -- quoted strings are excluded by ws02_inside_string.
   ELSIF ws02_scan_char='0'
-    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\\.[0-9]*0$'
+    AND pg_catalog.substr(p_trace_bytes,1,ws02_scan_pos) ~ '\.[0-9]*0$'
     AND pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,1) IN (',',']','}','e','E')
   THEN RETURN false;
   ELSIF ws02_scan_char IN (' ',pg_catalog.chr(9),pg_catalog.chr(10),pg_catalog.chr(13)) THEN
