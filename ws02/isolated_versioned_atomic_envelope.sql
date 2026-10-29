@@ -41,7 +41,11 @@ BEGIN
  FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
   ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
   IF ws02_inside_string THEN
-   IF ws02_escaped THEN ws02_escaped := false;
+   -- The reviewed JS canonical encoder never escapes a solidus.
+   IF ws02_escaped THEN
+    IF ws02_scan_char='/' THEN RETURN false; END IF;
+    ws02_escaped := false;
+   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -343,7 +347,11 @@ BEGIN
  FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
   ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
   IF ws02_inside_string THEN
-   IF ws02_escaped THEN ws02_escaped := false;
+   -- The reviewed JS canonical encoder never escapes a solidus.
+   IF ws02_escaped THEN
+    IF ws02_scan_char='/' THEN RETURN false; END IF;
+    ws02_escaped := false;
+   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -424,7 +432,11 @@ BEGIN
  FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
   ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
   IF ws02_inside_string THEN
-   IF ws02_escaped THEN ws02_escaped := false;
+   -- The reviewed JS canonical encoder never escapes a solidus.
+   IF ws02_escaped THEN
+    IF ws02_scan_char='/' THEN RETURN false; END IF;
+    ws02_escaped := false;
+   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
@@ -500,7 +512,11 @@ BEGIN
  FOR ws02_scan_pos IN 1..pg_catalog.char_length(p_trace_bytes) LOOP
   ws02_scan_char := pg_catalog.substr(p_trace_bytes,ws02_scan_pos,1);
   IF ws02_inside_string THEN
-   IF ws02_escaped THEN ws02_escaped := false;
+   -- The reviewed JS canonical encoder never escapes a solidus.
+   IF ws02_escaped THEN
+    IF ws02_scan_char='/' THEN RETURN false; END IF;
+    ws02_escaped := false;
+   END IF;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
    END IF;
