@@ -440,7 +440,24 @@
 .pagination__controls {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 0.375rem;
+}
+
+.pagination__ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 30px;
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .pagination__controls { width: 100%; justify-content: flex-start; }
 }
 
 .pagination__btn {
