@@ -44,9 +44,10 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits printable ASCII directly (except quote and
-    -- backslash, which use short escapes). \u00XX re-encodings of printable
-    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    -- JSON.stringify emits U+0020+ code points directly, except quote and
+    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
+    -- characters are not reviewed W5 bytes, even with a recomputed digest.
+    -- JSONB itself rejects invalid isolated surrogate escapes.
     IF ws02_scan_char='u'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
@@ -358,9 +359,10 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits printable ASCII directly (except quote and
-    -- backslash, which use short escapes). \u00XX re-encodings of printable
-    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    -- JSON.stringify emits U+0020+ code points directly, except quote and
+    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
+    -- characters are not reviewed W5 bytes, even with a recomputed digest.
+    -- JSONB itself rejects invalid isolated surrogate escapes.
     IF ws02_scan_char='u'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
@@ -451,9 +453,10 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits printable ASCII directly (except quote and
-    -- backslash, which use short escapes). \u00XX re-encodings of printable
-    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    -- JSON.stringify emits U+0020+ code points directly, except quote and
+    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
+    -- characters are not reviewed W5 bytes, even with a recomputed digest.
+    -- JSONB itself rejects invalid isolated surrogate escapes.
     IF ws02_scan_char='u'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
@@ -539,9 +542,10 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
-    -- JSON.stringify emits printable ASCII directly (except quote and
-    -- backslash, which use short escapes). \u00XX re-encodings of printable
-    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    -- JSON.stringify emits U+0020+ code points directly, except quote and
+    -- backslash (short escapes). Re-encoded printable, Bengali or emoji
+    -- characters are not reviewed W5 bytes, even with a recomputed digest.
+    -- JSONB itself rejects invalid isolated surrogate escapes.
     IF ws02_scan_char='u'
        AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
            ~ '^[0-9a-f]{4}$'
