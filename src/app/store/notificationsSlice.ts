@@ -61,8 +61,8 @@ const notificationsSlice = createSlice({
         mirrored.push({
           id, type: "payment", priority: "medium",
           title: bn ? "নতুন পেমেন্ট রেকর্ড" : "New payment record",
-          message: bn ? `সিমুলেশনের পরিমাণ ${amount}। TaxPay থেকে অফিসে সংরক্ষিত হয়েছে। কোনো সরকারি অর্থ পরিশোধ নিশ্চিত হয়নি।`
-                      : `Simulated amount ${amount} recorded in Office. No government settlement is confirmed.`,
+          message: bn ? `পেমেন্টের পরিমাণ ${amount}। TaxPay থেকে অফিসে সংরক্ষিত হয়েছে। সরকারি নিষ্পত্তি নিশ্চিত হয়নি।`
+                      : `Payment amount ${amount} recorded in Office. No government settlement is confirmed.`,
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
           isRead: previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),

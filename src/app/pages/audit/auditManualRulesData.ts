@@ -181,7 +181,7 @@ export const AUDIT_MANUAL_RULE_SECTIONS: ManualSection[] = [
           mt("Second-officer sign-off requires a different officer, named signals, named linked evidence and a meaningful written basis; generic approval text is rejected.","Second-officer sign-off: আলাদা officer, named signals, linked evidence, meaningful basis; generic approval reject।"),
           mt("High/Very High cases cannot close while any signal is Pending; closure needs evidence and second-officer sign-off.","High/Very High case-এ Pending signal থাকলে closure নয়; evidence + second-officer sign-off দরকার।"),
           mt("One case has one SLA clock; a breach escalation event is created once and reused on later checks.","Case-এ এক SLA clock; breach escalation event একবারই।"),
-          mt("Events are append-only with sequence numbers in the prototype; production requires server UTC timestamps.","Prototype event append-only seq number; production-এ server UTC timestamp দরকার।"),
+          mt("Events use sequence numbers; a durable audit trail requires server UTC timestamps.","Event-এ sequence number আছে; স্থায়ী audit trail-এর জন্য server UTC timestamp দরকার।"),
         ],
       },
     ],

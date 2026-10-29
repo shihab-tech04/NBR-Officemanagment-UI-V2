@@ -7,6 +7,7 @@ export type StoryPayment = {
     taxZone?:string;taxCircle?:string;receiptReference?:string;
     paymentChannel?:string;paymentMethod?:string;
     lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;[key:string]:unknown}>;
+    allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string}>;
     receiptMobile?:string;noticeReference?:string;
     payerMode?:string;incomeTaxType?:string;travelRoute?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;

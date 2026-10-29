@@ -14,6 +14,7 @@ const VALUE_KEYS: Record<string, string> = {
   "Case closed":"caseClosed","Second review sign-off":"secondReviewSignOff","Finding submitted":"findingSubmitted","Range Officer":"rangeOfficer",
   Individual:"individual",Business:"business",Reference:"reference","Assessed Demand":"assessedDemand","Tax with Return":"taxWithReturn",
   "Awaiting bank payment":"awaitingBankPayment","Received by Government":"receivedByGovernment","Not yet credited":"notYetCredited","Eligible — credited":"eligibleCredited","Blocked — under review":"blockedUnderReview",
+  "Payment record saved":"paymentRecordSaved","Tax credit not verified":"taxCreditNotVerified","Not verified":"notVerified","Not connected":"notConnected","Payment":"paymentRecordMethod",
 };
 
 export function localizeRecordValue(value: string, translate: (key: string) => string, language = "en"): string {
@@ -25,8 +26,14 @@ export function localizeRecordValue(value: string, translate: (key: string) => s
   }
   if (/^৳-?\d[\d,]*(?:\.\d+)?$/.test(value)) {
     const amount = value.slice(1).replace(/,/g, "");
-    const decimalPlaces = amount.split(".")[1]?.length ?? 0;
-    return `৳${new Intl.NumberFormat(language.startsWith("bn") ? "bn-BD" : "en-BD", {minimumFractionDigits:decimalPlaces, maximumFractionDigits:decimalPlaces}).format(Number(amount))}`;
+    const negative = amount.startsWith("-");
+    const [whole, fraction] = (negative ? amount.slice(1) : amount).split(".");
+    const locale = language.startsWith("bn") ? "bn-BD" : "en-BD";
+    const grouped = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(BigInt(whole));
+    const decimal = fraction === undefined ? "" : new Intl.NumberFormat(locale).formatToParts(1.1).find(part => part.type === "decimal")?.value ?? ".";
+    const localizedFraction = fraction === undefined ? "" : language.startsWith("bn")
+      ? fraction.replace(/\d/g, digit => "০১২৩৪৫৬৭৮৯"[Number(digit)]) : fraction;
+    return `৳${negative ? "-" : ""}${grouped}${decimal}${localizedFraction}`;
   }
   if (/^-?\d+(?:\.\d+)?%$/.test(value) && language.startsWith("bn")) return formatLocalizedPercent(Number(value.slice(0, -1)), language);
   if (language.startsWith("bn") && (/^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2} [A-Za-z]{3} \d{4}$/.test(value))) return formatLocalizedDate(value, language);

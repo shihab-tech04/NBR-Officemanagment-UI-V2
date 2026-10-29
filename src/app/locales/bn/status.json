@@ -64,5 +64,7 @@
   "eligibleCredited": "যোগ্য — ক্রেডিট প্রদানকৃত",
   "blockedUnderReview": "স্থগিত — পর্যালোচনাধীন",
   "notYetCredited": "এখনও ক্রেডিট হয়নি",
-  "awaitingBankPayment": "ব্যাংকের পরিশোধ অপেক্ষমাণ"
+  "awaitingBankPayment": "ব্যাংকের পরিশোধ অপেক্ষমাণ",
+  "paymentRecordSaved": "পেমেন্ট রেকর্ড সংরক্ষিত",
+  "taxCreditNotVerified": "কর ক্রেডিট যাচাই হয়নি"
 }

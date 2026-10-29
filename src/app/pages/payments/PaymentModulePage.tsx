@@ -23,7 +23,7 @@ import {
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
-import { toStoryPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
+import { toStoryPaymentRow, toStoryTaxpayerPaymentRow, storyDetailLabel, storyGroup } from './story1PaymentPresentation';
 import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
@@ -32,33 +32,33 @@ const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(am
 const normal = (value: string) => value || '—';
 const demoProfiles = demoUserIds.map((id,index)=>({
   name:id,tin:`DEMO-TIN-${String(index+1).padStart(3,'0')}`,
-  zone:'Demo only',circle:'Demo only',status:'Demo',type:'Synthetic',
+  zone:'—',circle:'—',status:'Not verified',type:'—',
   nid:'—',phone:'—'
 }));
 const demoUserTin=(id:string)=>`DEMO-TIN-${String(demoUserIds.indexOf(id as typeof demoUserIds[number])+1).padStart(3,'0')}`;
 const demoDate=(value:string)=>new Date(value).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).replace(/\bSept\b/,'Sep');
 const demoTimeline=(events:readonly {occurredAt:string;action:string;note:string}[])=>
-  events.map(e=>`${new Date(e.occurredAt).toISOString()} · ${e.action} · ${e.note}`).join(' | ');
+  events.map(e=>`${new Date(e.occurredAt).toISOString()} · ${e.action==='SIMULATION_RECORDED'?'RECORDED':e.action} · ${e.note}`).join(' | ');
 const demoGlobalRows=demoTransactions.map(tx=>({
   key:tx.id,date:demoDate(tx.createdAt),taxpayer_name:Array.from(new Set(tx.allocations.map(a=>a.beneficiary))).join(', '),
-  tin:'DEMO-MULTI',payer_name:tx.payer,
+  tin:'—',payer_name:tx.payer,
   payment_type:Array.from(new Set(tx.allocations.map(a=>a.category))).join(', '),
   assessment_year:Array.from(new Set(tx.allocations.map(a=>a.assessmentYear))).join(', '),
   income_year:'—',amount:money(transactionTotalMinor(tx)/100),
-  financial_receipt_status:`Demo · ${tx.state}`,ledger_status:'Not credited — demo',
-  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
+  financial_receipt_status:tx.state==='SIMULATED'?'Payment record saved':tx.state,ledger_status:'Tax credit not verified',
+  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'Not connected',
   beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
   allocation_count:tx.allocations.length,
   allocations:tx.allocations.map(a=>`${a.id}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
   transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
-  note:'SIMULATED ONLY — no Government receipt, tax credit, eTIN authentication or ACS settlement'
+  note:'Settlement and tax credit are not verified'
 }));
 const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
   key:`${tx.id}:${a.id}`,date:demoDate(tx.createdAt),taxpayer_name:a.beneficiary,
   tin:demoUserTin(a.beneficiary),payer_name:tx.payer,payment_type:a.category,
   assessment_year:a.assessmentYear,income_year:'—',amount:money(a.amountMinor/100),
-  financial_receipt_status:`Demo · ${tx.state}`,ledger_status:'Not credited — demo',
-  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'No gateway · demo',
+  financial_receipt_status:tx.state==='SIMULATED'?'Payment record saved':tx.state,ledger_status:'Tax credit not verified',
+  tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',payment_channel:'Not connected',
   allocation_id:a.id,transaction_total:money(transactionTotalMinor(tx)/100),
   transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),note:'Beneficiary allocation only; never an official tax credit'
 })));
@@ -66,23 +66,23 @@ const demoAllocationRows=demoTransactions.flatMap(tx=>tx.allocations.map(a=>({
 const liveTransactionRows=(records:SimulationTransaction[])=>records.map(tx=>({
   key:tx.transactionId,date:demoDate(tx.createdAt),
   taxpayer_name:Array.from(new Set(tx.allocations.map(a=>a.beneficiary))).join(', '),
-  tin:'SIMULATED-MULTI',payer_name:tx.payer,payment_type:Array.from(new Set(tx.allocations.map(a=>a.category))).join(', '),
+  tin:'—',payer_name:tx.payer,payment_type:Array.from(new Set(tx.allocations.map(a=>a.category))).join(', '),
   assessment_year:Array.from(new Set(tx.allocations.map(a=>a.assessmentYear))).join(', '),income_year:'—',
-  amount:money(tx.totalMinor/100),financial_receipt_status:'Simulated · '+tx.state,
-  ledger_status:'No official credit',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
-  payment_channel:'Database simulation',beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
+  amount:money(tx.totalMinor/100),financial_receipt_status:tx.state==='SIMULATED'?'Payment record saved':tx.state,
+  ledger_status:'Tax credit not verified',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
+  payment_channel:'Not connected',beneficiary_count:new Set(tx.allocations.map(a=>a.beneficiary)).size,
   allocation_count:tx.allocations.length,
   allocations:tx.allocations.map(a=>`#${a.lineNo}: ${a.beneficiary} / ${a.category} / AY ${a.assessmentYear} / ${money(a.amountMinor/100)}`).join(' | '),
   transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
-  note:'Shared SQL simulation, not a government payment or tax credit'
+  note:'Settlement and tax credit are not verified'
 }));
 const liveAllocationRows=(records:SimulationTransaction[])=>records.flatMap(tx=>tx.allocations.map(a=>({
   key:tx.transactionId+':'+a.lineNo,date:demoDate(tx.createdAt),
   taxpayer_name:a.beneficiary,tin:demoUserTin(a.beneficiary),payer_name:tx.payer,
   payment_type:a.category,assessment_year:a.assessmentYear,income_year:'—',
-  amount:money(a.amountMinor/100),financial_receipt_status:'Simulated · '+tx.state,
-  ledger_status:'No official credit',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
-  payment_channel:'Database simulation',allocation_id:a.id,transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
+  amount:money(a.amountMinor/100),financial_receipt_status:tx.state==='SIMULATED'?'Payment record saved':tx.state,
+  ledger_status:'Tax credit not verified',tax_event_id:'—',payment_ref:tx.id,acs_reference:'—',
+  payment_channel:'Not connected',allocation_id:a.id,transaction_timeline:demoTimeline(tx.events),event_timeline:demoTimeline(tx.events),
   note:'SQL-beneficiary allocation; no official credit'
 })));
 const samplePayments = referencePayments.map(p => ({
@@ -225,14 +225,17 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   // These are linked synthetic records, not an official taxpayer registry or liability ledger.
   const taxpayerAccounts=(()=>{
     const accounts=new Map<string,{key:string;tin:string;taxpayer_name:string;records:number;last_activity:string}>();
+    const sources=new Map(storyPayments.map(payment=>[payment.id,payment]));
     for(const payment of storyRows){
       const tins=String(payment.tin??'').split(',').map(v=>v.trim());
-      const names=String(payment.taxpayer_name??'').split(',').map(v=>v.trim());
       for(let index=0;index<tins.length;index++){
         const tin=tins[index];
         if(!/^[0-9]{12,13}$/.test(tin))continue;
+        const source=sources.get(String(payment.key));
+        const scoped=source?toStoryTaxpayerPaymentRow(source,tin):null;
+        if(!scoped)continue;
         const item=accounts.get(tin);
-        const name=names.length===tins.length&&names[index]&&names[index]!=='—'?names[index]:'TIN '+tin;
+        const name=scoped.taxpayer_name&&scoped.taxpayer_name!=='—'?scoped.taxpayer_name:'TIN '+tin;
         if(item){item.records++;if(Date.parse(payment.date)>Date.parse(item.last_activity))item.last_activity=payment.date;continue;}
         accounts.set(tin,{key:tin,tin,taxpayer_name:name,records:1,last_activity:payment.date});
       }
@@ -242,13 +245,13 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
   const taxP=connectedTaxpayer?{
     name:connectedTaxpayer.taxpayer_name,tin:selectedTin,
-    nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
+    nid:'—',phone:'—',zone:'—',circle:'—',type:'—',status:'Not verified'
   }:[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??{
-    name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'Synthetic',status:'Simulation'
+    name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'—',status:'Not verified'
   };
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
-  const taxPayments=storyRows.filter(p=>String(p.tin??'').split(',').map(v=>v.trim()).includes(selectedTin)
-    && (scopeYear==='all'||String(p.assessment_year).split(',').some(y=>y.trim().replace('–','-')===scopeYear)));
+  const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
+    .filter((row):row is NonNullable<typeof row>=>row!==null);
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)}))];
@@ -295,23 +298,23 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const overview=()=> <>
     {toolbar(t('overview'))}
     <div className="payment-module__year-control">{yearSelect}</div>
-    {storyLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত সিমুলেশন লোড হচ্ছে…':'Loading connected simulations…'}</p>}
+    {storyLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত পেমেন্ট রেকর্ড লোড হচ্ছে…':'Loading connected payment records…'}</p>}
     {storyError&&<p role="alert" className="table-page__desc">{storyError}</p>}
-    {storySummary.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'SQL সিমুলেশনের পরিমাণ যাচাই করা যায়নি।':'Could not verify exact SQL simulation amounts.'}</p>}
+    {storySummary.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টের পরিমাণ যাচাই করা যায়নি।':'Could not verify the payment amounts.'}</p>}
     {showKpis([
-      kpi(i18n.resolvedLanguage==='bn'?'সিমুলেশন রেকর্ড':'Simulated transactions',displayNumber(storySummary.count),CreditCard),
-      kpi(i18n.resolvedLanguage==='bn'?'মোট সিমুলেশন পরিমাণ':'Total simulated amount',storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
+      kpi(i18n.resolvedLanguage==='bn'?'পেমেন্ট রেকর্ড':'Payment records',displayNumber(storySummary.count),CreditCard),
+      kpi(i18n.resolvedLanguage==='bn'?'মোট নথিভুক্ত পরিমাণ':'Total recorded amount',storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
       kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',displayNumber(storySummary.services),BarChart3),
       kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',displayNumber(storySummary.notificationCount),Users),
-      kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ সিমুলেশন':'Latest simulation',storySummary.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
+      kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ রেকর্ড':'Latest record',storySummary.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
-        <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ সিমুলেশন রেকর্ড দেখুন। এই প্রোটোটাইপে কর্মকর্তার অনুমোদন চালু নেই।':'View simulated transactions under Payments > Transactions. Officer approvals are not enabled in this prototype.'}</p>
+        <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ পেমেন্ট রেকর্ড দেখুন। কর্মকর্তার অনুমোদন এখনো চালু নেই।':'View payment records under Payments > Transactions. Officer approvals are not available yet.'}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
         {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
-        {!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত সিমুলেশনের কোনো সাম্প্রতিক বিজ্ঞপ্তি নেই।':'No recent connected simulation notices.'}</p>}
+        {!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সাম্প্রতিক পেমেন্ট বিজ্ঞপ্তি নেই।':'No recent payment notices.'}</p>}
       </section>
     </div>
   </>;
@@ -356,7 +359,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
           <p><strong>{n.messageCode}</strong> · {n.transactionId}</p>
-          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · Connected SQL simulation notice</p>
+          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · {t('notices')}</p>
         </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
       </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}

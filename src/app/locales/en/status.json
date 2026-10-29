@@ -64,5 +64,7 @@
   "eligibleCredited": "Eligible — credited",
   "blockedUnderReview": "Blocked — under review",
   "notYetCredited": "Not yet credited",
-  "awaitingBankPayment": "Awaiting bank payment"
+  "awaitingBankPayment": "Awaiting bank payment",
+  "paymentRecordSaved": "Payment record saved",
+  "taxCreditNotVerified": "Tax credit not verified"
 }

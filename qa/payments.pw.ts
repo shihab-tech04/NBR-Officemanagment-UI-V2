@@ -101,8 +101,8 @@ test('mobile transaction card distinguishes receipt and tax-credit status',async
  await page.goto('/payments/transactions');
  await expect(page.locator('.mobile-table-card').first()).toBeVisible({timeout:18000});
  const text=await page.locator('.mobile-table-card-list').innerText();
- expect(text).toContain('No official tax credit');
- expect(text).toContain('Simulated success');
+ expect(text).toContain('Tax credit not verified');
+ expect(text).toContain('Payment record saved');
 });
 test('small-screen correction modal has tappable actions',async({page})=>{
  await page.setViewportSize({width:360,height:800});
@@ -377,7 +377,7 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
     await expect(bell).toBeVisible();
     await bell.click();
     await expect(page.getByText('New payment record')).toBeVisible();
-    await expect(page.getByText(/Simulated amount .*42,500.00.*No government settlement is confirmed/)).toBeVisible();
+    await expect(page.getByText(/Payment amount .*42,500.00.*No government settlement is confirmed/)).toBeVisible();
     const history=page.getByRole('button',{name:'View all payment records'});
     await expect(history).toBeVisible();
     await history.click();

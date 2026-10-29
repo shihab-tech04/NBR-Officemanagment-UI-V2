@@ -23,7 +23,7 @@ export const AUDIT_MANUAL_CORE_SECTIONS: ManualSection[] = [
           [mt("Uploaded file name","Uploaded file name"), same("risk_framework_v7.html")],
           [mt("Embedded document title","Embedded document title"), mt("Return Risk Screening, Control Flags and Audit Trail — Decision Framework v5","Return Risk Screening, Control Flags ও Audit Trail — Decision Framework v5")],
           [mt("View-layer comment","View-layer comment"), mt("v7 view layer — no new rule is created in this layer","v7 view layer — এই স্তর কোনো নতুন rule তৈরি করে না")],
-          [mt("Prototype decision storage key","Prototype decision storage key"), same("nbr-rsf-v5-decisions")],
+          [mt("Decision storage key","Decision storage key"), same("nbr-rsf-v5-decisions")],
           [mt("Primary form basis","Primary form basis"), mt("IT-11Ga (2023): Return Sl. 1–26, Schedule 1–5, IT-10B, IT-10BB","IT-11Ga (2023): Return Sl. 1–26, Schedule 1–5, IT-10B, IT-10BB")],
         ],
         note: mt(
@@ -583,14 +583,14 @@ export const AUDIT_MANUAL_CORE_SECTIONS: ManualSection[] = [
     number: "16",
     area: "governance",
     sourceOrder: "Reference",
-    title: mt("Audit Trail — prototype versus production", "Audit Trail — prototype বনাম production"),
+    title: mt("Audit Trail and record storage", "নিরীক্ষা লগ ও রেকর্ড সংরক্ষণ"),
     keywords: ["audit trail","append only","identity","event","assessment","human","access","version"],
     blocks: [
       {
         kind: "callout",
         tone: "critical",
-        title: mt("Prototype warning","Prototype warning"),
-        text: mt("The HTML decision panel stores selections in browser localStorage. That is not an audit record. Production must be server-side, append-only and access-controlled.","HTML decision panel browser localStorage-এ selection রাখে। এটি audit record নয়। Production server-side, append-only ও access-controlled হতে হবে।"),
+        title: mt("Storage notice","Storage notice"),
+        text: mt("The decision panel stores selections in browser localStorage. That is not an audit record. A durable audit record requires server-side, append-only storage.","Decision panel browser localStorage-এ selection রাখে। এটি audit record নয়। স্থায়ী audit record-এর জন্য server-side append-only সংরক্ষণ প্রয়োজন।"),
       },
       {
         kind: "table",
@@ -598,7 +598,7 @@ export const AUDIT_MANUAL_CORE_SECTIONS: ManualSection[] = [
         columns: [mt("Group","Group"), mt("Fields","Fields")],
         rows: [
           [same("Identity"),same("Return ID · TIN · Assessment Year · Return Version")],
-          [same("Event"),mt("Event ID · Sequence no. (prototype) · Timestamp — server UTC (production) · Actor ID · Role · Action","Event ID · Sequence no. (prototype) · Timestamp — server UTC (production) · Actor ID · Role · Action")],
+          [same("Event"),mt("Event ID · Sequence no. · Server UTC timestamp · Actor ID · Role · Action","Event ID · Sequence no. · Server UTC timestamp · Actor ID · Role · Action")],
           [same("Data state"),same("Data Quality status · Coverage / Tier · Input snapshot hash · Previous → New value")],
           [same("Assessment"),same("Rule ID + version · Signal strength · Dedup decision · Risk Level · Control Flags · Reason code")],
           [same("Human"),same("Signal-wise verification · Evidence ID → signal link · Finding → supportedBy[] · Sign-off: signals + evidence + basis · Closure state + reason")],
@@ -713,7 +713,7 @@ export const AUDIT_MANUAL_CORE_SECTIONS: ManualSection[] = [
       {
         kind: "table",
         title: mt("Decisions required in the meeting","সভায় সিদ্ধান্ত"),
-        columns: [mt("Decision","Decision"), mt("Still unknown","যা এখনো জানা নেই"), mt("Prototype choices","Prototype choice")],
+        columns: [mt("Decision","Decision"), mt("Still unknown","যা এখনো জানা নেই"), mt("Available choices","Available choice")],
         rows: [
           [mt("Is IT-10B line 10 independently declared?","IT-10B line 10 কি independently declared?"),mt("eReturn form logic and sample return unresolved.","eReturn form logic ও sample return unresolved।"),same("Agree / Modify first / Defer / more evidence")],
           [mt("Adopt the policy of keeping five outputs separate?","পাঁচটি output আলাদা রাখার নীতি গৃহীত?"),mt("Officer workflow review pending.","Officer workflow review বাকি।"),same("Agree / Modify first / Defer / more evidence")],
@@ -723,7 +723,7 @@ export const AUDIT_MANUAL_CORE_SECTIONS: ManualSection[] = [
           [mt("Is external data legally usable?","External data কি আইনত ব্যবহারযোগ্য?"),mt("Source-specific legal basis unresolved.","উৎসভিত্তিক legal basis unresolved।"),same("Agree / Modify first / Defer / more evidence")],
           [mt("Shadow-mode pilot before production?","Production-এর আগে shadow-mode pilot?"),mt("Pilot scope and acceptable false-positive threshold.","Pilot scope ও acceptable false-positive limit।"),same("Agree / Modify first / Defer / more evidence")],
         ],
-        note: mt("In the source prototype these choices exist only in browser localStorage and are explicitly not official records.","Source prototype-এ selection browser localStorage-এ থাকে এবং official record নয়।"),
+        note: mt("These choices are kept only in browser localStorage and are not official records.","এই selection browser localStorage-এ থাকে এবং official record নয়।"),
       },
       {
         kind: "text",

@@ -36,6 +36,9 @@ describe("English and Bengali translations",()=>{
     expect(localizeRecordValue("123456789012",t,"bn")).toBe("123456789012");
     expect(localizeRecordValue("৳50000",t,"bn")).toMatch(/^৳[০-৯,]+$/);
     expect(localizeRecordValue("৳120,000",t,"bn")).toBe("৳১,২০,০০০");
+    expect(localizeRecordValue("৳90,071,992,547,400.01",t,"bn")).toBe("৳৯,০০,৭১,৯৯,২৫,৪৭,৪০০.০১");
+    expect(localizeRecordValue("৳90,071,992,547,400.01",t,"en")).toBe("৳90,071,992,547,400.01");
+    expect(localizeRecordValue("৳-0.01",t,"bn")).toBe("৳-০.০১");
     expect(localizeRecordValue("8%",t,"bn")).toBe("৮%");
     expect(localizeRecordValue("Very High",t,"bn")).toBe(bn["displayValues.veryHigh"]);
     expect(localizeRecordValue("Not determined",t,"bn")).toBe(bn["displayValues.notDetermined"]);
