@@ -434,6 +434,14 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   await expect(receipt.locator('.receipt-view__parties')).toBeVisible();
   await expect(receipt.locator('.receipt-view__breakdown')).toBeVisible();
   await expect(receipt.locator('.receipt-view__financial-table')).toBeVisible();
+  // Desktop amount must not wrap into multiple lines, a previously screenshot-visible regression.
+  const amount = receipt.locator('.receipt-view__amount strong');
+  await expect(amount).toHaveCSS('white-space', 'nowrap');
+  const dimensions = await amount.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { height: element.getBoundingClientRect().height, lineHeight: parseFloat(style.lineHeight) };
+  });
+  expect(dimensions.height).toBeLessThanOrEqual(dimensions.lineHeight + 2);
   await expect(receipt.locator('.receipt-view__paper')).not.toContainText('Demo receipt only');
   await expect(receipt.locator('.receipt-view__paper')).not.toContainText('Simulation record');
   const paper=receipt.locator('#office-receipt-paper');
