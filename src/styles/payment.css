@@ -280,7 +280,8 @@
 .office-receipt-parity .receipt-view__financial-table :is(td,th):nth-child(3) { text-align:left; white-space:normal; }
 .office-receipt-parity .receipt-view__financial-table :is(td,th):last-child { text-align:right; white-space:nowrap; }
 .office-receipt-parity .receipt-view__financial-table tbody td:nth-child(2) { min-width:130px; }
-.office-receipt-parity .office-receipt__total strong { white-space:normal; }
+.office-receipt-parity .office-receipt__total { width:max-content; min-width:max-content; max-width:none; }
+.office-receipt-parity .office-receipt__total strong { white-space:nowrap; overflow-wrap:normal; }
 @media(max-width:760px){
   .office-receipt-parity .office-receipt__columns { gap:1.1rem; }
 }
