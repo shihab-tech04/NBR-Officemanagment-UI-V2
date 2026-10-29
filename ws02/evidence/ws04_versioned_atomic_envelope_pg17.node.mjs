@@ -77,7 +77,7 @@ for (const [i, status] of ['NEEDS_FACTS', 'FAIL_CLOSED', 'CALCULATED'].entries()
     rebate: '0', netTax: '100.00', taxPaid: '0', balanceDue: '100.00',
   } : null;
   const original = {
-    individual: [{ kind: 'synthetic', evidence: 'বাংলা 😀', values: [0.1, true, null] }],
+    individual: [{ kind: 'synthetic', evidence: 'বাংলা 😀 /path', values: [0.1, true, null] }],
     rules: [{ id: 'synthetic-only', state: status, trace: { 'প্রমাণ': [{ '🔑': 'সূত্র' }] } }],
     amounts, engine_version: 'synthetic-isolated',
     input_hash: requestHash, rule_set_hash: 'c'.repeat(64),
@@ -185,6 +185,30 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     assert.deepEqual(denied, ['f'],
       'RECOMPUTED_HASH_STRUCTURAL_WHITESPACE_ACCEPTED_' + status + '_' + variant);
   }
+  // JSON.stringify emits a literal solidus, not an escaped solidus.
+  // Equivalent escaped-solidus bytes with a freshly recomputed digest must
+  // fail before any audit/receipt commit; the unescaped canonical positive
+  // path is exercised by the ordinary successful commit later in this loop.
+  const escapedSolidusBytes = bytes.replace(
+    'বাংলা 😀 /path', String.raw`বাংলা 😀 \/path`);
+  assert.notEqual(escapedSolidusBytes, bytes, 'ESCAPED_SOLIDUS_FIXTURE_NO_CHANGE');
+  assert.deepEqual(JSON.parse(escapedSolidusBytes), snapshot,
+    'ESCAPED_SOLIDUS_CHANGED_JSON_SEMANTICS_' + status);
+  const escapedSolidusHash = digest(escapedSolidusBytes);
+  const escapedSolidusDenied = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(escapedSolidusHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(escapedSolidusBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(escapedSolidusDenied, ['f'],
+    'VALID_HASH_ESCAPED_SOLIDUS_ACCEPTED_' + status);
+  const escapedSolidusReadback = pg(`SELECT
+ (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
+ (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+ COALESCE((SELECT receipt_hash FROM ws02_owner.slots WHERE idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(escapedSolidusReadback, ['0:RESERVED:NULL'],
+    'ESCAPED_SOLIDUS_MUTATED_AUDIT_OR_RECEIPT_' + status);
   const whitespaceReadback = pg(`SELECT
  (SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)})::text || ':' ||
  (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
@@ -522,6 +546,7 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
     ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
     'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
+console.log('PASS_SCOPED_ESCAPED_SOLIDUS_VALID_HASH_REJECTED_THREE_STATES');
 console.log('PASS_SCOPED_STRUCTURAL_WHITESPACE_RECOMPUTED_SHA_REJECTED_TWELVE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_OUTER_WHITESPACE_NONCANONICAL_JSON_REJECTED_NINE_CASES_THREE_STATES');
 console.log('PASS_SCOPED_CROSS_YEAR_SAME_KEY_TWO_AUTHORIZED_YEARS_THREE_STATES');
