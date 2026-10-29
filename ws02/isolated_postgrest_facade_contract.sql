@@ -551,6 +551,98 @@ BEGIN
    WHERE n.nspname='public' AND p.proname='nbr_commit_evaluation_atomically')
  THEN RAISE EXCEPTION 'FACADE_LEAST_PRIVILEGE_OR_PUBLIC_EXPOSURE_FAILURE'; END IF;
 END $acl$;
+-- An unknown role is not covered by checking only the synthetic anon/auth roles.
+-- Require an exact grantee allowlist on BOTH the API function and its schema,
+-- and deny grant options to the synthetic engine. Disposable PG17 only.
+DO $facade_exact_grantee_allowlist$
+BEGIN
+ IF EXISTS (
+  SELECT 1 FROM pg_catalog.pg_proc p
+  CROSS JOIN LATERAL pg_catalog.aclexplode(
+   COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+    AND (a.grantee=0
+      OR a.grantee NOT IN ('ws02_owner_engine'::regrole::oid,p.proowner)
+      OR a.privilege_type<>'EXECUTE'
+      OR (a.grantee='ws02_owner_engine'::regrole::oid AND a.is_grantable))
+ ) THEN RAISE EXCEPTION 'FACADE_UNREVIEWED_FUNCTION_GRANTEE_OR_GRANT_OPTION'; END IF;
+ IF EXISTS (
+  SELECT 1 FROM pg_catalog.pg_namespace n
+  CROSS JOIN LATERAL pg_catalog.aclexplode(
+   COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a
+  WHERE n.nspname='ws02_api'
+    AND (a.grantee=0
+      OR a.grantee NOT IN ('ws02_owner_engine'::regrole::oid,n.nspowner)
+      OR (a.grantee='ws02_owner_engine'::regrole::oid
+          AND (a.privilege_type<>'USAGE' OR a.is_grantable)))
+ ) THEN RAISE EXCEPTION 'FACADE_UNREVIEWED_SCHEMA_GRANTEE_OR_GRANT_OPTION'; END IF;
+END $facade_exact_grantee_allowlist$;
+-- Inject an otherwise unreviewed role with BOTH schema USAGE and RPC EXECUTE.
+-- Prove the exact ACL guard detects it and the subtransaction rolls it back.
+-- The role exists only in this disposable fixture; it is not an Auth principal.
+DO $facade_unreviewed_grantee_negative_probe$
+DECLARE leaked_schema boolean; leaked_function boolean;
+BEGIN
+ IF pg_catalog.has_schema_privilege('ws02_owner_lock','ws02_api','USAGE')
+    OR pg_catalog.has_function_privilege('ws02_owner_lock',
+     'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+     'EXECUTE')
+ THEN RAISE EXCEPTION 'FACADE_UNREVIEWED_ROLE_ALREADY_PRIVILEGED'; END IF;
+ BEGIN
+  GRANT USAGE ON SCHEMA ws02_api TO ws02_owner_lock;
+  GRANT EXECUTE ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) TO ws02_owner_lock;
+  SELECT EXISTS(
+   SELECT 1 FROM pg_catalog.pg_namespace n
+   CROSS JOIN LATERAL pg_catalog.aclexplode(n.nspacl) a
+   WHERE n.nspname='ws02_api' AND a.grantee='ws02_owner_lock'::regrole::oid
+     AND a.privilege_type='USAGE') INTO leaked_schema;
+  SELECT EXISTS(
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+   WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+     AND a.grantee='ws02_owner_lock'::regrole::oid
+     AND a.privilege_type='EXECUTE') INTO leaked_function;
+  IF NOT leaked_schema OR NOT leaked_function THEN
+   RAISE EXCEPTION 'FACADE_UNREVIEWED_ROLE_GRANT_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_UNREVIEWED_GRANT';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_UNREVIEWED_GRANT' THEN RAISE; END IF;
+ END;
+ IF pg_catalog.has_schema_privilege('ws02_owner_lock','ws02_api','USAGE')
+    OR pg_catalog.has_function_privilege('ws02_owner_lock',
+     'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+     'EXECUTE')
+ THEN RAISE EXCEPTION 'FACADE_UNREVIEWED_GRANT_NOT_ROLLED_BACK'; END IF;
+END $facade_unreviewed_grantee_negative_probe$;
+-- An engine WITH GRANT OPTION can delegate the RPC to an unreviewed role.
+-- A mutation must be visible in pg_catalog ACLs and fully rolled back.
+DO $facade_grant_option_negative_probe$
+DECLARE elevated boolean;
+BEGIN
+ BEGIN
+  GRANT EXECUTE ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb)
+   TO ws02_owner_engine WITH GRANT OPTION;
+  SELECT EXISTS(
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+   WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+     AND a.grantee='ws02_owner_engine'::regrole::oid
+     AND a.is_grantable) INTO elevated;
+  IF NOT elevated THEN RAISE EXCEPTION 'FACADE_GRANT_OPTION_NOT_DETECTED'; END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_GRANT_OPTION';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_GRANT_OPTION' THEN RAISE; END IF;
+ END;
+ IF EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+    AND a.grantee='ws02_owner_engine'::regrole::oid AND a.is_grantable)
+ THEN RAISE EXCEPTION 'FACADE_GRANT_OPTION_NOT_ROLLED_BACK'; END IF;
+END $facade_grant_option_negative_probe$;
 -- Negative role-escalation and private-object ACL proof. An exposed API schema
 -- is not sufficient protection if a caller can inherit or SET the engine role,
 -- call its private SECURITY DEFINER RPC, or read receipt/owner tables directly.
