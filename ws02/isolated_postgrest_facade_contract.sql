@@ -32,12 +32,15 @@ DO $facade_metadata$
 DECLARE security_definer boolean; function_volatility "char";
         function_language name; function_config text[]; return_type oid;
         argument_names text[]; default_count integer; variadic_type oid;
-        returns_set boolean;
+        returns_set boolean; function_kind "char"; leakproof boolean;
+        parallel_mode "char";
 BEGIN
  SELECT p.prosecdef,p.provolatile,l.lanname,p.proconfig,p.prorettype,
-        p.proargnames,p.pronargdefaults,p.provariadic,p.proretset
+        p.proargnames,p.pronargdefaults,p.provariadic,p.proretset,
+        p.prokind,p.proleakproof,p.proparallel
  INTO security_definer,function_volatility,function_language,function_config,return_type,
-      argument_names,default_count,variadic_type,returns_set
+      argument_names,default_count,variadic_type,returns_set,
+      function_kind,leakproof,parallel_mode
  FROM pg_catalog.pg_proc p
  JOIN pg_catalog.pg_language l ON l.oid=p.prolang
  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
@@ -54,6 +57,11 @@ BEGIN
     OR default_count IS DISTINCT FROM 0
     OR variadic_type IS DISTINCT FROM 0::oid
     OR returns_set IS DISTINCT FROM false
+    -- An atomic write wrapper must not be declared PARALLEL SAFE/RESTRICTED,
+    -- LEAKPROOF or changed from a normal function to another routine kind.
+    OR function_kind IS DISTINCT FROM 'f'
+    OR leakproof IS DISTINCT FROM false
+    OR parallel_mode IS DISTINCT FROM 'u'
     OR function_config IS NULL
     -- Reject any unreviewed per-function GUC override, even if the reviewed
     -- search_path is still present. A second SET can change SQL behavior.
@@ -67,6 +75,36 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- Regression: a privileged metadata change can incorrectly advertise this
+-- write-bearing facade as PARALLEL SAFE without changing its SQL body or ACL.
+-- The reviewed guard requires pg_proc.proparallel='u'. Roll back the drift.
+-- Disposable PG17 only; never alter a hosted function.
+DO $facade_parallel_negative_probe$
+DECLARE original_parallel "char"; mutated_parallel "char";
+BEGIN
+ SELECT p.proparallel INTO original_parallel FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF original_parallel IS DISTINCT FROM 'u' THEN
+  RAISE EXCEPTION 'FACADE_PARALLEL_BASELINE_DRIFT';
+ END IF;
+ BEGIN
+  ALTER FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) PARALLEL SAFE;
+  SELECT p.proparallel INTO mutated_parallel FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF mutated_parallel IS DISTINCT FROM 's' THEN
+   RAISE EXCEPTION 'FACADE_PARALLEL_SAFE_MUTATION_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_PARALLEL_SAFE';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_PARALLEL_SAFE' THEN RAISE; END IF;
+ END;
+ SELECT p.proparallel INTO mutated_parallel FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated_parallel IS DISTINCT FROM original_parallel THEN
+  RAISE EXCEPTION 'FACADE_PARALLEL_SAFE_MUTATION_NOT_ROLLED_BACK';
+ END IF;
+END $facade_parallel_negative_probe$;
 -- Mutation regression: keep the reviewed search_path while appending a
 -- harmless extra function-local GUC. The exact-config guard must reject the
 -- drift and PostgreSQL must roll the mutation back. Disposable PG17 only.
