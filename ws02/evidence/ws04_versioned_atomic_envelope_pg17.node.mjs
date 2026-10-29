@@ -47,10 +47,11 @@ const sizeGuard = wrapperBody.indexOf("IF p_trace_bytes IS NULL\n    OR pg_catal
 const sizeGuardExit = wrapperBody.indexOf('THEN RETURN false; END IF;', sizeGuard);
 const jsonbSizeGuard = wrapperBody.indexOf('pg_catalog.octet_length(p_audit_trace::text) > 262144');
 const jsonbSizeGuardExit = wrapperBody.indexOf('THEN RETURN false; END IF;', jsonbSizeGuard);
+const outerBraceGuard = wrapperBody.indexOf("IF pg_catalog.left(p_trace_bytes,1) IS DISTINCT FROM '{'");
 const jsonParseGuard = wrapperBody.indexOf('(p_trace_bytes IS JSON OBJECT WITH UNIQUE KEYS)');
 assert.ok(sizeGuard >= 0 && sizeGuardExit > sizeGuard &&
   jsonbSizeGuard > sizeGuardExit && jsonbSizeGuardExit > jsonbSizeGuard &&
-  jsonParseGuard > jsonbSizeGuardExit,
+  outerBraceGuard > jsonbSizeGuardExit && jsonParseGuard > outerBraceGuard,
   'OVERSIZED_TRACE_BYTES_AND_JSONB_MUST_BE_REJECTED_BEFORE_JSON_PARSE');
 assert.ok(edge.includes('validatedAuditTrace = JSON.parse(canonicalAuditTrace)'));
 assert.ok(edgeCall.includes('p_audit_trace: validatedAuditTrace'));
@@ -167,6 +168,35 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(receiptHash)},${q(traceHash)},${q(status)},
  ${q(JSON.stringify(changed))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(jsonbDrift.includes('f'), 'JSONB_SEMANTIC_DRIFT_ACCEPTED_' + status);
+  // JSON OBJECT WITH UNIQUE KEYS and SHA-256 equality alone permit valid
+  // JSON with outer whitespace. The reviewed W5 canonical producer emits a
+  // brace-delimited object with NO surrounding bytes. All variants below have
+  // valid hashes and identical JSONB meaning; private SQL must fail closed.
+  for (const [kind, noncanonicalBytes] of [
+    ['leading_space', ' ' + bytes],
+    ['trailing_newline', bytes + '\n'],
+    ['both_sides', '\t' + bytes + '\r\n'],
+  ]) {
+    assert.deepEqual(JSON.parse(noncanonicalBytes), snapshot,
+      'OUTER_WHITESPACE_JSON_SEMANTICS_DRIFT_' + kind);
+    assert.notEqual(noncanonicalBytes, bytes);
+    const noncanonicalHash = digest(noncanonicalBytes);
+    const rejected = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},'2026-27',${q(idem)},${q(requestHash)},
+ ${q(receiptHash)},${q(noncanonicalHash)},${q(status)},
+ ${q(JSON.stringify(snapshot))}::jsonb,${q(noncanonicalBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+    assert.deepEqual(rejected, ['f'],
+      'NONCANONICAL_OUTER_WHITESPACE_ACCEPTED_' + kind + '_' + status);
+    const readback = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE idem_key=${q(idem)}),'NULL');`);
+    assert.deepEqual(readback, ['0:RESERVED:NULL'],
+      'OUTER_WHITESPACE_MUTATED_AUDIT_OR_RECEIPT_' + kind + '_' + status);
+  }
   // A small canonical trace must not trigger parsing/digest work when the
   // independently supplied JSONB is oversized. No audit or receipt mutation.
   const oversizedJsonb = { ...snapshot, untrusted_extra: 'x'.repeat(262145) };
