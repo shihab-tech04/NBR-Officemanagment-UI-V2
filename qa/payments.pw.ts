@@ -417,6 +417,7 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   await expect(drawer.locator('.drawer-summary')).toBeVisible();
   await expect(drawer.locator('.detail-section__head').first()).toBeVisible();
   await expect(drawer.locator('.drawer-field-grid').first()).toBeVisible();
+  await drawer.screenshot({path:'test-results/office-approved-transaction-drawer.png',animations:'disabled'});
   await expect(drawer).toContainText('Taxpayer allocations');
   await expect(drawer).toContainText('৳150.25');
   await expect(drawer).toContainText('৳23.50');
@@ -429,6 +430,7 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   const paper=receipt.locator('#office-receipt-paper');
   await expect(paper.locator('.office-receipt__reference')).toContainText(reference);
   await expect(paper.locator('.office-receipt__breakdown tbody tr')).toHaveCount(2);
+  await receipt.screenshot({path:'test-results/office-approved-payment-receipt-modal.png',animations:'disabled'});
   await expect(paper).toContainText('৳150.25');
   await expect(paper).toContainText('৳23.50');
   await expect(paper).not.toContainText('{"category"');
@@ -457,6 +459,7 @@ test('Office shared receipt modal fits a 360px viewport without external navigat
   await drawer.getByRole('button',{name:'View receipt'}).click();
   await expect(page.locator('.app-modal-panel')).toBeVisible();
   await expect(page.locator('#office-receipt-paper')).toContainText('Receipt details');
+  await page.locator('.app-modal-panel').screenshot({path:'test-results/office-approved-payment-receipt-mobile.png',animations:'disabled'});
   const over=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
   expect(over).toBeLessThanOrEqual(2);
   await expect(page).toHaveURL(/\/payments\/transactions$/);
