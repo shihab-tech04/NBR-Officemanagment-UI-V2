@@ -945,6 +945,56 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_RELATION_INVENTORY_DRIFT';
  END IF;
 END $runtime_role_boundary$;
+-- Role-attribute negative regression: even with intact function/schema ACLs,
+-- accidental LOGIN or BYPASSRLS on a synthetic PostgREST/Edge role would
+-- invalidate the least-privilege assumptions. Inject one attribute at a time,
+-- detect the changed pg_roles flag, and prove subtransaction rollback.
+-- This tests isolated catalog behavior, NOT real signed JWT revocation.
+DO $runtime_role_attribute_negative_probe$
+DECLARE candidate record; observed boolean;
+BEGIN
+ FOR candidate IN SELECT * FROM (VALUES
+  ('ws02_owner_auth','LOGIN'),
+  ('ws02_owner_auth','BYPASSRLS'),
+  ('ws02_owner_engine','LOGIN'),
+  ('ws02_owner_engine','BYPASSRLS')
+ ) AS cases(role_name,attribute_name) LOOP
+  SELECT CASE candidate.attribute_name
+   WHEN 'LOGIN' THEN r.rolcanlogin
+   ELSE r.rolbypassrls END
+  INTO observed FROM pg_catalog.pg_roles r
+  WHERE r.rolname=candidate.role_name;
+  IF observed IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'RUNTIME_ROLE_ATTRIBUTE_BASELINE_DRIFT_%_%',
+    candidate.role_name,candidate.attribute_name;
+  END IF;
+  BEGIN
+   EXECUTE format('ALTER ROLE %I %s',
+    candidate.role_name,candidate.attribute_name);
+   SELECT CASE candidate.attribute_name
+    WHEN 'LOGIN' THEN r.rolcanlogin
+    ELSE r.rolbypassrls END
+   INTO observed FROM pg_catalog.pg_roles r
+   WHERE r.rolname=candidate.role_name;
+   IF observed IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'RUNTIME_ROLE_ATTRIBUTE_MUTATION_UNDETECTED_%_%',
+     candidate.role_name,candidate.attribute_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_ROLE_ATTRIBUTE';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_ROLE_ATTRIBUTE' THEN RAISE; END IF;
+  END;
+  SELECT CASE candidate.attribute_name
+   WHEN 'LOGIN' THEN r.rolcanlogin
+   ELSE r.rolbypassrls END
+  INTO observed FROM pg_catalog.pg_roles r
+  WHERE r.rolname=candidate.role_name;
+  IF observed IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'RUNTIME_ROLE_ATTRIBUTE_MUTATION_NOT_ROLLED_BACK_%_%',
+    candidate.role_name,candidate.attribute_name;
+  END IF;
+ END LOOP;
+END $runtime_role_attribute_negative_probe$;
 -- Policy inventory regression: ACL denial is not enough if a later change
 -- disables RLS or adds a permissive policy for a new/untrusted role.
 -- Pin the seven private policies and their exact role/command boundaries.
