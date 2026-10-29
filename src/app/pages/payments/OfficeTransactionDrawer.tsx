@@ -81,13 +81,13 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
         onClose={onClose}
         title={label('Record Details','রেকর্ডের বিবরণ')}
         rowData={receipt ? null : detailRow}
-        columns={groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel }))
-          .concat([
-            { key:'taxpayer_name',label:t('colTaxpayer'),groupLabel:'' },
-            { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
-            { key:'tin',label:'TIN',groupLabel:'' },
-            { key:'date',label:t('colDate'),groupLabel:'' },
-          ])}
+        columns={[
+          { key:'taxpayer_name',label:t('colTaxpayer'),groupLabel:'' },
+          { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
+          { key:'tin',label:'TIN',groupLabel:'' },
+          { key:'date',label:t('colDate'),groupLabel:'' },
+          ...groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel })),
+        ]}
         showActions={false}
         renderValue={renderValue}
         extraFooterActions={<PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
