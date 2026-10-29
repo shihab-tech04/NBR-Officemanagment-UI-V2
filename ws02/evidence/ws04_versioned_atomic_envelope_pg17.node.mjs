@@ -398,6 +398,69 @@ WHERE e.idem_key=${q(idem)}) x;`);
   assert.equal(immutable.length, 1, 'FINALIZED_REPLAY_CHANGED_ROW_COUNT_' + status);
   assert.deepEqual(JSON.parse(immutable[0]), saved,
     'FINALIZED_REPLAY_MUTATED_AUDIT_OR_RECEIPT_' + status);
+  // Same taxpayer, actor and idempotency key in a second *authorized* AY:
+  // reject a first-year audit trace against the second-year slot, then
+  // finalize only with a matching second-year trace. This tests composite
+  // year isolation, not the legal validity of either assessment year.
+  const nextYear = '2027-28';
+  const nextReceipt = 'f'.repeat(64);
+  const nextOwner = pg(`INSERT INTO ws02_owner.owners
+    (record_id,assessment_year,actor_id,state)
+    VALUES (${q(record)},${q(nextYear)},${q(actor)},'ACTIVE')
+    RETURNING assessment_year;`);
+  assert.deepEqual(nextOwner, [nextYear], 'SECOND_YEAR_OWNER_FIXTURE_FAILED_' + status);
+  const nextReserve = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_reserve_citizen_evaluation(
+ ${q(actor)},${q(record)},${q(nextYear)},${q(idem)},${q(requestHash)},
+ 'NBR_ENGINE_CITIZEN_V2_REVIEW')->>'state';`);
+  assert.deepEqual(nextReserve, ['RESERVED'],
+    'SAME_IDEMPOTENCY_KEY_DIFFERENT_YEAR_RESERVATION_FAILED_' + status);
+  const mismatchedYearTrace = { ...snapshot, receipt_hash: nextReceipt };
+  const mismatchedYearBytes = verifiedCanonicalAuditTrace(mismatchedYearTrace);
+  const mismatchedYearResult = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},${q(nextYear)},${q(idem)},${q(requestHash)},
+ ${q(nextReceipt)},${q(digest(mismatchedYearBytes))},${q(status)},
+ ${q(JSON.stringify(mismatchedYearTrace))}::jsonb,${q(mismatchedYearBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(mismatchedYearResult, ['f'],
+    'SECOND_YEAR_SLOT_ACCEPTED_FIRST_YEAR_TRACE_' + status);
+  const nextBefore = pg(`SELECT (SELECT count(*) FROM ws02_owner.evaluation_logs
+      WHERE actor_id=${q(actor)} AND record_id=${q(record)}
+        AND assessment_year=${q(nextYear)} AND idem_key=${q(idem)})::text || ':' ||
+      (SELECT state FROM ws02_owner.slots WHERE actor_id=${q(actor)}
+        AND record_id=${q(record)} AND assessment_year=${q(nextYear)}
+        AND idem_key=${q(idem)}) || ':' ||
+      COALESCE((SELECT receipt_hash FROM ws02_owner.slots
+        WHERE actor_id=${q(actor)} AND record_id=${q(record)}
+          AND assessment_year=${q(nextYear)} AND idem_key=${q(idem)}),'NULL');`);
+  assert.deepEqual(nextBefore, ['0:RESERVED:NULL'],
+    'SECOND_YEAR_MISMATCH_MUTATED_AUDIT_OR_RECEIPT_' + status);
+  const nextSnapshot = { ...snapshot, assessment_year: nextYear,
+    income_year: '2026-27', receipt_hash: nextReceipt };
+  const nextBytes = verifiedCanonicalAuditTrace(nextSnapshot);
+  const nextCommit = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},${q(record)},${q(nextYear)},${q(idem)},${q(requestHash)},
+ ${q(nextReceipt)},${q(digest(nextBytes))},${q(status)},
+ ${q(JSON.stringify(nextSnapshot))}::jsonb,${q(nextBytes)},
+ 'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(nextCommit, ['t'], 'SECOND_YEAR_VALID_COMMIT_FAILED_' + status);
+  const yearReadback = pg(`SELECT assessment_year || ':' || state || ':' ||
+      receipt_hash FROM ws02_owner.slots
+    WHERE actor_id=${q(actor)} AND record_id=${q(record)} AND idem_key=${q(idem)}
+    ORDER BY assessment_year;`);
+  assert.deepEqual(yearReadback,
+    ['2026-27:FINALIZED:' + receiptHash, nextYear + ':FINALIZED:' + nextReceipt],
+    'YEAR_SCOPED_SLOTS_OR_RECEIPTS_CROSSED_' + status);
+  const yearAuditReadback = pg(`SELECT assessment_year || ':' ||
+      audit_trace->>'assessment_year' || ':' || receipt_hash
+    FROM ws02_owner.evaluation_logs
+    WHERE actor_id=${q(actor)} AND record_id=${q(record)} AND idem_key=${q(idem)}
+    ORDER BY assessment_year;`);
+  assert.deepEqual(yearAuditReadback,
+    ['2026-27:2026-27:' + receiptHash, nextYear + ':' + nextYear + ':' + nextReceipt],
+    'YEAR_SCOPED_AUDIT_TRACE_OR_RECEIPT_CROSSED_' + status);
 }
 // The synthetic engine must NOT bypass the envelope by calling the old RPC.
 const direct = spawnSync('psql', ['-X','-Atq','-v','ON_ERROR_STOP=1'], {
