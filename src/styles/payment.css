@@ -292,3 +292,6 @@
   .app-modal-panel:has(.office-receipt-parity) .app-modal-footer { padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); flex-wrap:wrap; }
   .office-receipt-parity .office-receipt__columns { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Field heading is already provided by the approved shared detail-section title. */
+.dynamic-drawer .drawer-field:has(.office-shared-allocation-list) > .drawer-field__label { display:none; }
