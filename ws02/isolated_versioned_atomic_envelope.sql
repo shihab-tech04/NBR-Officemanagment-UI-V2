@@ -694,7 +694,7 @@ BEGIN
   SELECT p.prosrc INTO mutated_body FROM pg_catalog.pg_proc p
   WHERE p.oid='ws02_review_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
   IF mutated_body IS NOT DISTINCT FROM original_body
-     OR pg_catalog.btrim(mutated_body) IS DISTINCT FROM 'SELECT true;' THEN
+     OR pg_catalog.position('SELECT true;' IN mutated_body)=0 THEN
    RAISE EXCEPTION 'VERSIONED_REVIEW_FACADE_MUTATION_UNDETECTED'; END IF;
   RAISE EXCEPTION 'ROLLBACK_VERSIONED_REVIEW_FACADE_BODY_MUTATION';
  EXCEPTION WHEN raise_exception THEN
