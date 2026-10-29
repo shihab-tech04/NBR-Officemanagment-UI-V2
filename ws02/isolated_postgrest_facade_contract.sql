@@ -1121,6 +1121,53 @@ BEGIN
   RAISE EXCEPTION 'RLS_POLICY_INJECTION_NOT_ROLLED_BACK';
  END IF;
 END $rls_policy_injection_negative_probe$;
+-- A named RLS policy can keep the same name and policy count while its TO
+-- clause is changed to a citizen-facing role. The exact seven-policy guard
+-- above rejects that drift. Exercise both SELECT and INSERT policy mutations
+-- in rollback-only subtransactions on disposable PG17; no hosted SQL.
+DO $rls_policy_role_rewrite_negative_probe$
+DECLARE candidate record; baseline_roles oid[]; observed_roles oid[];
+BEGIN
+ FOR candidate IN
+  SELECT unnest(ARRAY['logs_rpc_read','logs_engine_insert']) AS policy_name
+ LOOP
+  SELECT p.polroles INTO STRICT baseline_roles
+  FROM pg_catalog.pg_policy p
+  WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+    AND p.polname=candidate.policy_name;
+  IF baseline_roles IS DISTINCT FROM ARRAY['ws02_owner_rpc'::regrole::oid] THEN
+   RAISE EXCEPTION 'RLS_POLICY_ROLE_REWRITE_BASELINE_DRIFT_%',
+    candidate.policy_name;
+  END IF;
+  BEGIN
+   EXECUTE format(
+    'ALTER POLICY %I ON ws02_owner.evaluation_logs TO ws02_owner_auth',
+    candidate.policy_name);
+   SELECT p.polroles INTO STRICT observed_roles
+   FROM pg_catalog.pg_policy p
+   WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+     AND p.polname=candidate.policy_name;
+   IF observed_roles IS DISTINCT FROM ARRAY['ws02_owner_auth'::regrole::oid] THEN
+    RAISE EXCEPTION 'RLS_POLICY_ROLE_REWRITE_NOT_DETECTED_%',
+     candidate.policy_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_RLS_POLICY_ROLE_REWRITE';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_RLS_POLICY_ROLE_REWRITE' THEN
+    RAISE;
+   END IF;
+  END;
+  SELECT p.polroles INTO STRICT observed_roles
+  FROM pg_catalog.pg_policy p
+  WHERE p.polrelid='ws02_owner.evaluation_logs'::regclass
+    AND p.polname=candidate.policy_name;
+  IF observed_roles IS DISTINCT FROM baseline_roles THEN
+   RAISE EXCEPTION 'RLS_POLICY_ROLE_REWRITE_NOT_ROLLED_BACK_%',
+    candidate.policy_name;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_SCOPED_RLS_POLICY_ROLE_REWRITE_ROLLBACK_TWO_CASES';
+END $rls_policy_role_rewrite_negative_probe$;
 -- PostgREST-style claims alone cannot grant a database role the facade.
 -- Claims here are intentionally spoofable session GUCs, not real signed JWTs.
 SET LOCAL ROLE ws02_owner_anon;
