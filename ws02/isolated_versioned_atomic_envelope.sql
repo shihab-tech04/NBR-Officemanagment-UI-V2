@@ -44,6 +44,15 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
+    -- JSON.stringify emits printable ASCII directly (except quote and
+    -- backslash, which use short escapes). \u00XX re-encodings of printable
+    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    IF ws02_scan_char='u'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           ~ '^[0-9a-f]{4}$'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           BETWEEN '0020' AND '007e'
+    THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
@@ -349,6 +358,15 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
+    -- JSON.stringify emits printable ASCII directly (except quote and
+    -- backslash, which use short escapes). \u00XX re-encodings of printable
+    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    IF ws02_scan_char='u'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           ~ '^[0-9a-f]{4}$'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           BETWEEN '0020' AND '007e'
+    THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
@@ -433,6 +451,15 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
+    -- JSON.stringify emits printable ASCII directly (except quote and
+    -- backslash, which use short escapes). \u00XX re-encodings of printable
+    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    IF ws02_scan_char='u'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           ~ '^[0-9a-f]{4}$'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           BETWEEN '0020' AND '007e'
+    THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
@@ -512,6 +539,15 @@ BEGIN
    -- The reviewed JS canonical encoder never escapes a solidus.
    IF ws02_escaped THEN
     IF ws02_scan_char='/' THEN RETURN false; END IF;
+    -- JSON.stringify emits printable ASCII directly (except quote and
+    -- backslash, which use short escapes). \u00XX re-encodings of printable
+    -- ASCII are semantically equal but not canonical W5 producer bytes.
+    IF ws02_scan_char='u'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           ~ '^[0-9a-f]{4}$'
+       AND pg_catalog.lower(pg_catalog.substr(p_trace_bytes,ws02_scan_pos+1,4))
+           BETWEEN '0020' AND '007e'
+    THEN RETURN false; END IF;
     ws02_escaped := false;
    ELSIF ws02_scan_char=pg_catalog.chr(92) THEN ws02_escaped := true;
    ELSIF ws02_scan_char='"' THEN ws02_inside_string := false;
