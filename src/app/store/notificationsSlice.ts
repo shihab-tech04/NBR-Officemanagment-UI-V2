@@ -12,12 +12,16 @@ interface NotificationsState {
   items: Notification[];
   // Timestamp of the last mark-all-read action; closes races with delayed SQL fetches.
   readThroughMs: number | null;
+  readStateMode: "demo" | "officer";
+  readStateOfficerUid: string | null;
 }
 
 const initialState: NotificationsState = {
   // Payment notices must come from mirrored SQL, not the old fictional payment fixture.
   items: MOCK_NOTIFICATIONS.filter(notice => notice.type !== "payment"),
   readThroughMs: null,
+  readStateMode: "demo",
+  readStateOfficerUid: null,
 };
 
 // ── Slice ─────────────────────────────────────────────────────────────────────
@@ -33,10 +37,23 @@ const notificationsSlice = createSlice({
       state.items.forEach((n) => { n.isRead = true; });
       state.readThroughMs = Date.now();
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: number[] }>) {
+    markOfficerNotificationRead(state, action: PayloadAction<{ id: string; officerUid: string }>) {
+      if (state.readStateMode !== "officer" || state.readStateOfficerUid !== action.payload.officerUid) return;
+      const item = state.items.find((n) => n.id === action.payload.id);
+      if (item) item.isRead = true;
+    },
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: number[]; officerUid?: string | null }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
-      const previousRead = new Map(state.items.map(notice => [notice.id, notice.isRead]));
+      const nextReadStateMode = action.payload.useOfficerReadState ? "officer" : "demo";
+      const nextOfficerUid = action.payload.useOfficerReadState ? action.payload.officerUid ?? null : null;
+      const canReusePreviousRead = state.readStateMode === nextReadStateMode &&
+        (nextReadStateMode === "demo" || state.readStateOfficerUid === nextOfficerUid);
+      const previousRead = canReusePreviousRead
+        ? new Map(state.items.map(notice => [notice.id, notice.isRead]))
+        : new Map<string, boolean>();
+      state.readStateMode = nextReadStateMode;
+      state.readStateOfficerUid = nextOfficerUid;
       const seen = new Set<string>();
       const bn = action.payload.language === "bn";
       const saved = action.payload.tabReadState;
@@ -85,6 +102,7 @@ const notificationsSlice = createSlice({
 export const {
   markNotificationRead,
   markAllNotificationsRead,
+  markOfficerNotificationRead,
   syncMirroredPaymentNotices,
   setNotifications,
 } = notificationsSlice.actions;
