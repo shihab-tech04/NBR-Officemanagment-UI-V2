@@ -1,0 +1,79 @@
+name: Office Story notice read state - disposable PostgreSQL 17
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - '.github/workflows/office-story-notice-read-state-disposable-pg17.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - '.github/workflows/office-story-notice-read-state-disposable-pg17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  office-story-notice-read-state:
+    name: Office story read-state migration and SQL contract on disposable PostgreSQL 17
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: correction_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d correction_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Load synthetic auth, officer roles, and Story payment fixture
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReviewFixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadStateFixture.sql
+
+      - name: Apply the real Office Story notice read-state migration twice
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
+
+      - name: Exercise identity ownership, role denial, retries, filtering, and recovery
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadState.sql
