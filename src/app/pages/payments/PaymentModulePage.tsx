@@ -202,7 +202,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
         const queue=await listOfficeCorrectionInquiries();
         if(active){setOfficeCorrectionQueue(queue);setOfficeCorrectionError('');setOfficeCorrectionLoading(false);}
       }catch(error){
-        if(active){setOfficeCorrectionQueue({enabled:false,role:null,items:[]});setOfficeCorrectionError(error instanceof Error?error.message:'Office correction queue unavailable');setOfficeCorrectionLoading(false);}
+        if(active){setOfficeCorrectionQueue({enabled:false,role:null,items:[]});setOfficeCorrectionError(t('officeCorrectionQueueUnavailable'));setOfficeCorrectionLoading(false);}
       }
     };
     setOfficeCorrectionLoading(true);
@@ -251,7 +251,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       setCorrectionDecision(null);setCorrectionDecisionReason('');setDetails(null);
       setCorrectionRefreshKey(value=>value+1);
     }catch(error){
-      setCorrectionDecisionError(error instanceof Error?error.message:t('officeCorrectionDecisionFailed'));
+      setCorrectionDecisionError(t('officeCorrectionDecisionFailed'));
     }finally{setCorrectionDecisionSubmitting(false);}
   };
   const keys=paymentColumns(t);
