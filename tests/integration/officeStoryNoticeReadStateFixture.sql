@@ -1,5 +1,47 @@
--- Minimal disposable Story payment tables required by the read-receipt migration.
--- This fixture contains synthetic rows only and is loaded before the real migration.
+-- Minimal PostgreSQL 17 prerequisites for the real Office Story read-state migration.
+-- Synthetic identities only; this workflow runs on a disposable database.
+DO $roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END;
+$roles$;
+
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users(id uuid PRIMARY KEY,email text UNIQUE);
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+LANGUAGE sql STABLE SET search_path TO ''
+AS $function$
+  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
+$function$;
+
+CREATE SCHEMA IF NOT EXISTS payment_sync;
+CREATE TABLE IF NOT EXISTS payment_sync.settings(singleton boolean PRIMARY KEY,origin text NOT NULL);
+CREATE TABLE IF NOT EXISTS payment_sync.officer_roles(
+  user_uid uuid PRIMARY KEY REFERENCES auth.users(id),role text NOT NULL,
+  active boolean NOT NULL
+);
+
+INSERT INTO auth.users(id,email) VALUES
+  ('80000000-0000-4000-8000-000000000011','maker@example.invalid'),
+  ('80000000-0000-4000-8000-000000000012','reviewer@example.invalid'),
+  ('80000000-0000-4000-8000-000000000013','approver@example.invalid'),
+  ('80000000-0000-4000-8000-000000000014','viewer@example.invalid')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO payment_sync.settings(singleton,origin) VALUES(true,'OFFICE_SQL')
+ON CONFLICT (singleton) DO UPDATE SET origin=EXCLUDED.origin;
+INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
+  ('80000000-0000-4000-8000-000000000011','MAKER',true),
+  ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
+  ('80000000-0000-4000-8000-000000000013','APPROVER',true),
+  ('80000000-0000-4000-8000-000000000014','VIEWER',true)
+ON CONFLICT (user_uid) DO UPDATE SET role=EXCLUDED.role,active=EXCLUDED.active;
+
+-- Minimal Story tables and synthetic events; no payment/notice rows are changed by the tested RPCs.
 CREATE SCHEMA IF NOT EXISTS demo_payment;
 CREATE TABLE IF NOT EXISTS demo_payment.story_payments(
   id uuid PRIMARY KEY,
