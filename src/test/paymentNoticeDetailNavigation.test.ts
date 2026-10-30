@@ -37,7 +37,6 @@ describe("Office payment notice detail routing", () => {
   it("keeps the payment table and detail drawer labels available in English and Bengali", () => {
     expect(en.transactions).toBeTruthy();
     expect(bn.transactions).toBeTruthy();
-    expect(en.viewReceipt).toBeTruthy();
-    expect(bn.viewReceipt).toBeTruthy();
+    expect(drawer).toContain("label('View receipt','রসিদ দেখুন')");
   });
 });
