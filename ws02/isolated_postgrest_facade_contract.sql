@@ -1670,6 +1670,77 @@ BEGIN
  IF NOT denied THEN RAISE EXCEPTION 'AUTH_SPOOFED_CLAIM_EXECUTED_FACADE'; END IF;
 END $auth$;
 RESET ROLE;
+-- Non-superuser session identity test: SET LOCAL ROLE under a superuser
+-- is not sufficient evidence that a PostgREST authenticated principal cannot
+-- escalate via forged request.jwt.* GUCs. Switch actual SESSION AUTHORIZATION
+-- to synthetic NOLOGIN roles inside rollback-safe savepoints, then assert
+-- that neither role can SET ROLE to the trusted Edge producer or execute
+-- the private invoker facade. These claims are NOT verified signed JWTs.
+SAVEPOINT ws02_facade_real_auth_session;
+SET SESSION AUTHORIZATION ws02_owner_auth;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+ '60000000-0000-4000-8000-000000000001',true);
+SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $facade_non_superuser_auth$
+DECLARE denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_api.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','facade-non-superuser-auth-00001',
+   repeat('a',64),repeat('b',64),repeat('c',64),'FAIL_CLOSED','{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT denied OR NOT escalation_denied
+   OR current_user IS DISTINCT FROM 'ws02_owner_auth' THEN
+  RAISE EXCEPTION 'FACADE_AUTH_SESSION_CLAIM_ESCALATION'; END IF;
+END $facade_non_superuser_auth$;
+ROLLBACK TO SAVEPOINT ws02_facade_real_auth_session;
+RELEASE SAVEPOINT ws02_facade_real_auth_session;
+SAVEPOINT ws02_facade_real_anon_session;
+SET SESSION AUTHORIZATION ws02_owner_anon;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+ '60000000-0000-4000-8000-000000000001',true);
+SELECT pg_catalog.set_config('request.jwt.claim.role','ws02_owner_engine',true);
+SELECT pg_catalog.set_config('request.jwt.claims',
+ '{"sub":"60000000-0000-4000-8000-000000000001","role":"ws02_owner_engine"}',true);
+DO $facade_non_superuser_anon$
+DECLARE denied boolean:=false; escalation_denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_api.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001',
+   '2026-27','facade-non-superuser-anon-00001',
+   repeat('a',64),repeat('b',64),repeat('c',64),'FAIL_CLOSED','{}'::jsonb);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ BEGIN
+  EXECUTE 'SET ROLE ws02_owner_engine';
+ EXCEPTION WHEN insufficient_privilege THEN escalation_denied:=true;
+ END;
+ IF NOT denied OR NOT escalation_denied
+   OR current_user IS DISTINCT FROM 'ws02_owner_anon' THEN
+  RAISE EXCEPTION 'FACADE_ANON_SESSION_CLAIM_ESCALATION'; END IF;
+END $facade_non_superuser_anon$;
+ROLLBACK TO SAVEPOINT ws02_facade_real_anon_session;
+RELEASE SAVEPOINT ws02_facade_real_anon_session;
+DO $facade_non_superuser_no_rows$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+   WHERE idem_key LIKE 'facade-non-superuser-%')
+  OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+   WHERE idem_key LIKE 'facade-non-superuser-%')
+ THEN RAISE EXCEPTION 'FACADE_NON_SUPERUSER_CLAIMS_LEFT_ROWS'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_NON_SUPERUSER_FORGED_CLAIMS_DENIED';
+END $facade_non_superuser_no_rows$;
 -- All owners and identities below are synthetic; no migration is authorized.
 INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
  ('50000000-0000-4000-8000-000000000001','2026-27',
