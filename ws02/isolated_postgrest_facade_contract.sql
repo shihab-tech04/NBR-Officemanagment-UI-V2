@@ -2446,5 +2446,52 @@ BEGIN
  THEN RAISE EXCEPTION 'ENGINE_IMMUTABILITY_SAVEPOINT_ROLLBACK_FAILED'; END IF;
  RAISE NOTICE 'PASS_SCOPED_ENGINE_FINALIZED_RECEIPT_AND_SLOT_DIRECT_MUTATION_DENIED';
 END $immutability_rollback$;
+-- Direct INSERT must not bypass the owner-bound atomic reservation/receipt
+-- contract. This test uses disposable PG17 role permissions, not real Auth.
+-- Intentionally use DEFAULT VALUES: authorization must fail before any
+-- missing-column/constraint validation or partial row can occur.
+SAVEPOINT ws02_engine_direct_insert_denial;
+DO $engine_direct_insert_acl$
+BEGIN
+ IF has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','INSERT')
+ OR has_table_privilege('ws02_owner_engine','ws02_owner.slots','INSERT') THEN
+  RAISE EXCEPTION 'ENGINE_DIRECT_INSERT_ACL_UNEXPECTEDLY_GRANTED';
+ END IF;
+END $engine_direct_insert_acl$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $engine_direct_insert_denial$
+DECLARE log_denied boolean:=false; slot_denied boolean:=false;
+BEGIN
+ BEGIN
+  INSERT INTO ws02_owner.evaluation_logs DEFAULT VALUES;
+ EXCEPTION WHEN insufficient_privilege THEN log_denied:=true;
+ END;
+ BEGIN
+  INSERT INTO ws02_owner.slots DEFAULT VALUES;
+ EXCEPTION WHEN insufficient_privilege THEN slot_denied:=true;
+ END;
+ IF NOT (log_denied AND slot_denied) THEN
+  RAISE EXCEPTION 'ENGINE_DIRECT_INSERT_BYPASSED_ATOMIC_CONTRACT';
+ END IF;
+END $engine_direct_insert_denial$;
+RESET ROLE;
+DO $engine_direct_insert_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ OR (SELECT count(*) FROM ws02_owner.slots WHERE state='FINALIZED')<>3
+ OR EXISTS(SELECT 1 FROM ws02_owner.slots WHERE state NOT IN ('RESERVED','FINALIZED'))
+ THEN RAISE EXCEPTION 'ENGINE_DIRECT_INSERT_DENIAL_LEFT_PARTIAL_DATA'; END IF;
+END $engine_direct_insert_readback$;
+ROLLBACK TO SAVEPOINT ws02_engine_direct_insert_denial;
+RELEASE SAVEPOINT ws02_engine_direct_insert_denial;
+DO $engine_direct_insert_rollback$
+BEGIN
+ IF has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','INSERT')
+ OR has_table_privilege('ws02_owner_engine','ws02_owner.slots','INSERT')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ OR (SELECT count(*) FROM ws02_owner.slots WHERE state='FINALIZED')<>3
+ THEN RAISE EXCEPTION 'ENGINE_DIRECT_INSERT_ROLLBACK_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_ENGINE_DIRECT_INSERT_DENIED';
+END $engine_direct_insert_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
