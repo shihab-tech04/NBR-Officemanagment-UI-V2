@@ -9,6 +9,8 @@ import {
 import { useNotificationsState } from "./useNotificationsState";
 import type { Notification } from "../store/notificationsSlice";
 import { markDemoNoticeViewed, markAllDemoNoticesViewed } from "../services/demoNotificationReadState";
+import { setOfficeStoryNoticeRead } from "../services/officeStoryNoticeReadState";
+import { isSharedAuditMode } from "../pages/audit/auditSharedSql";
 
 // Re-export for backwards compat
 export type { Notification };
@@ -34,16 +36,44 @@ export function useNotifications(
 
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
-      if (notification.type === "payment") markDemoNoticeViewed(notification.id);
-      dispatch(markNotificationRead(notification.id));
+      if (notification.type !== "payment") {
+        dispatch(markNotificationRead(notification.id));
+      } else if (isSharedAuditMode()) {
+        if (Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0) {
+          void setOfficeStoryNoticeRead(notification.targetNoticeId!, true)
+            .then(() => dispatch(markNotificationRead(notification.id)))
+            .catch(() => {
+              // Leave it unread so another click or the next refresh retries the receipt.
+            });
+        }
+      } else {
+        markDemoNoticeViewed(notification.id);
+        dispatch(markNotificationRead(notification.id));
+      }
       startTransition(() => navigate(notificationTargetPath(notification)));
     },
     [dispatch, navigate]
   );
 
   const handleMarkAllRead = useCallback(() => {
-    markAllDemoNoticesViewed(notifications.filter(n => n.type === "payment").map(n => n.id));
-    dispatch(markAllNotificationsRead());
+    if (!isSharedAuditMode()) {
+      markAllDemoNoticesViewed(notifications.filter(n => n.type === "payment").map(n => n.id));
+      dispatch(markAllNotificationsRead());
+      return;
+    }
+
+    const paymentNotices = notifications.filter(n => n.type === "payment");
+    const otherNotifications = notifications.filter(n => n.type !== "payment");
+    for (const notification of otherNotifications) {
+      dispatch(markNotificationRead(notification.id));
+    }
+    const receiptable = paymentNotices.filter(
+      notification => Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0
+    );
+    void Promise.allSettled(receiptable.map(async notification => {
+      await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);
+      dispatch(markNotificationRead(notification.id));
+    }));
   }, [dispatch, notifications]);
 
   return {
