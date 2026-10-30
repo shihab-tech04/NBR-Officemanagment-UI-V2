@@ -3,10 +3,13 @@ import { useSelector, useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
 import { readDemoNoticeState } from "../services/demoNotificationReadState";
+import { getOfficeStoryNoticeReadState } from "../services/officeStoryNoticeReadState";
+import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import type { RootState, AppDispatch } from "../store/store";
 import {
   markNotificationRead,
   markAllNotificationsRead,
+  clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
 } from "../store/notificationsSlice";
 import type { Notification } from "../store/notificationsSlice";
@@ -20,13 +23,47 @@ export function useNotificationsState() {
     const refresh = async () => {
       try {
         const [notices, payments] = await Promise.all([getStoryNotices(), getRecentStoryPayments()]);
-        if (active) dispatch(syncMirroredPaymentNotices({ notices, payments, language, tabReadState: readDemoNoticeState() }));
+        if (!active) return;
+        if (isSharedAuditMode()) {
+          // A failed or role-denied read is shown as unverified/unread. The next
+          // focus, online event, or periodic refresh retries against the officer's own rows.
+          let officerReadNoticeIds: number[] = [];
+          let officerUid: string | null = null;
+          try {
+            const snapshot = await getOfficeStoryNoticeReadState(
+              notices.slice(0, 100).map(notice => notice.id)
+            );
+            officerUid = snapshot.officerUid;
+            officerReadNoticeIds = snapshot.notices.filter(state => state.isRead).map(state => state.noticeId);
+          } catch {
+            // Do not fall back to tab storage or another officer's in-memory state.
+          }
+          if (active) dispatch(syncMirroredPaymentNotices({
+            notices, payments, language, useOfficerReadState: true, officerReadNoticeIds, officerUid,
+          }));
+          return;
+        }
+        dispatch(syncMirroredPaymentNotices({
+          notices, payments, language, tabReadState: readDemoNoticeState(),
+        }));
       } catch {
-        // A failed read cannot be interpreted as zero notices or as payment success.
+        // A failed event read cannot be interpreted as zero notices or payment success.
         // Retain the last verified event snapshot until the next successful fetch.
       }
     };
     void refresh();
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    if (isSharedAuditMode()) {
+      try {
+        authSubscription = getAuditSqlClient().auth.onAuthStateChange(event => {
+          if (!active || !["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event)) return;
+          dispatch(clearOfficerNoticeReadState());
+          window.setTimeout(() => { if (active) void refresh(); }, 0);
+        }).data.subscription;
+      } catch {
+        // The next visibility, focus, online, or timer refresh retries the authenticated read.
+      }
+    }
     // Browser timers are throttled in background tabs. Refresh on return to the
     // Office instead of requiring a full reload or a fresh payment submission.
     const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
@@ -40,6 +77,7 @@ export function useNotificationsState() {
     window.addEventListener("online", onOnline);
     return () => {
       active = false;
+      authSubscription?.unsubscribe();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);

@@ -127,9 +127,10 @@ export function preloadAllRoutes() {
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
-function PaymentRoute() {
-  const { subNav, tin } = useParams<{ subNav: string; tin?: string }>();
-  return <PaymentModulePage page={tin ? "taxpayer-360" : (subNav || "overview")} taxpayerTin={tin} />;
+export function PaymentRoute() {
+  const { subNav, tin, paymentId } = useParams<{ subNav: string; tin?: string; paymentId?: string }>();
+  const page = paymentId ? "transactions" : tin ? "taxpayer-360" : (subNav || "overview");
+  return <PaymentModulePage page={page} taxpayerTin={tin} paymentId={paymentId} />;
 }
 
 export const router = createBrowserRouter([
@@ -160,6 +161,7 @@ export const router = createBrowserRouter([
       { path: "payments",        loader: async () => redirect("/payments/overview") },
       { path: "payments/overview", Component: PaymentsOverviewPage },
       { path: "payments/taxpayer-360/:tin", Component: PaymentRoute },
+      { path: "payments/transactions/record/:paymentId", Component: PaymentRoute },
       { path: "payments/:subNav", Component: PaymentRoute },
       { path: "administration",  Component: PlaceholderPage },
 
