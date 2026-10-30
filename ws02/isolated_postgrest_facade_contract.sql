@@ -601,6 +601,49 @@ BEGIN
   RAISE EXCEPTION 'FACADE_UNTRUSTED_ROLE_CAN_EXECUTE_API_ROUTINE';
  END IF;
 END $facade_surface$;
+-- Regression for the existing API-surface invariant: an additional named
+-- overload in ws02_api or a same-name public shadow RPC must be rejected,
+-- even if its default EXECUTE ACL is already revoked. PostgreSQL/PostgREST
+-- function resolution must not silently gain an unreviewed alternate path.
+-- Both synthetic functions are created and rolled back inside PG17 only.
+DO $facade_shadow_rpc_negative_probe$
+DECLARE candidate text; observed integer; baseline integer;
+BEGIN
+ SELECT count(*) INTO baseline FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ws02_api';
+ IF baseline<>1 OR EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname='nbr_commit_evaluation_atomically'
+ ) THEN RAISE EXCEPTION 'FACADE_SHADOW_PROBE_BASELINE_DRIFT'; END IF;
+ FOREACH candidate IN ARRAY ARRAY['OVERLOAD','PUBLIC_SHADOW'] LOOP
+  BEGIN
+   IF candidate='OVERLOAD' THEN
+    EXECUTE $ddl$CREATE FUNCTION ws02_api.nbr_commit_evaluation_atomically(payload jsonb)
+      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ddl$;
+    SELECT count(*) INTO observed FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='ws02_api';
+    IF observed<>2 THEN RAISE EXCEPTION 'FACADE_OVERLOAD_MUTATION_UNDETECTED'; END IF;
+   ELSE
+    EXECUTE $ddl$CREATE FUNCTION public.nbr_commit_evaluation_atomically(payload jsonb)
+      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ddl$;
+    SELECT count(*) INTO observed FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname='nbr_commit_evaluation_atomically';
+    IF observed<>1 THEN RAISE EXCEPTION 'FACADE_PUBLIC_SHADOW_MUTATION_UNDETECTED'; END IF;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SHADOW_%',candidate;
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SHADOW_'||candidate THEN RAISE; END IF;
+  END;
+  IF pg_catalog.to_regprocedure('ws02_api.nbr_commit_evaluation_atomically(jsonb)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.nbr_commit_evaluation_atomically(jsonb)') IS NOT NULL
+  THEN RAISE EXCEPTION 'FACADE_SHADOW_MUTATION_NOT_ROLLED_BACK_%',candidate; END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_OVERLOAD_AND_PUBLIC_SHADOW_ROLLBACK_TWO_CASES';
+END $facade_shadow_rpc_negative_probe$;
 -- Negative fixture: verify that the catalog check sees BOTH a new table and
 -- a new view. Each probe is rolled back by its own PL/pgSQL subtransaction.
 -- This is not a hosted PostgREST or citizen-data integration test.
