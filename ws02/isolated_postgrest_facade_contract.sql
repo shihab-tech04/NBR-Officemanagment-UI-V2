@@ -1861,5 +1861,101 @@ BEGIN
  OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1 THEN
   RAISE EXCEPTION 'FACADE_SAVEPOINT_ROLLBACK_LEFT_SLOT_TRACE_OR_RECEIPT'; END IF;
 END $facade_post_rollback$;
+-- Positive and negative assessment-year isolation through the real synthetic
+-- PostgREST-style facade. The same actor/record/idempotency key is authorized
+-- for two distinct synthetic years; a mismatched trace must fail closed,
+-- while two correctly scoped atomic receipts remain independent. Revoking
+-- one year must not revoke the other. This does NOT validate legal AY/IY
+-- applicability, signed JWTs, or a real taxpayer ownership source.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000006','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000006','2027-28',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $facade_two_years$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec uuid:='50000000-0000-4000-8000-000000000006';
+ idem text:='facade-year-isolation-00001';
+ req_a text:=repeat('a',64); req_b text:=repeat('d',64);
+ receipt_a text:=repeat('b',64); receipt_b text:=repeat('e',64);
+ trace_a text:=repeat('c',64); trace_b text:=repeat('f',64);
+ audit_a jsonb; audit_b jsonb; reserved_a jsonb; reserved_b jsonb;
+BEGIN
+ reserved_a:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req_a,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ reserved_b:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2027-28',idem,req_b,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reserved_a->>'state' IS DISTINCT FROM 'RESERVED'
+ OR reserved_b->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FACADE_TWO_YEAR_SAME_KEY_RESERVATION_COLLISION'; END IF;
+ audit_a:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req_a,'receipt_hash',receipt_a,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ audit_b:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2027-28','income_year','2026-27',
+  'authorized_request_hash',req_b,'receipt_hash',receipt_b,
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2027-28',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_a)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_b)
+ THEN RAISE EXCEPTION 'FACADE_CROSS_YEAR_AUDIT_REPLAY_ACCEPTED'; END IF;
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR NOT ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2027-28',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b)
+ THEN RAISE EXCEPTION 'FACADE_TWO_YEAR_VALID_ATOMIC_COMMIT_DENIED'; END IF;
+ IF ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+   actor,rec,'2027-28',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b)
+ THEN RAISE EXCEPTION 'FACADE_TWO_YEAR_DUPLICATE_COMMIT_ACCEPTED'; END IF;
+END $facade_two_years$;
+RESET ROLE;
+UPDATE ws02_owner.owners SET state='REVOKED'
+ WHERE record_id='50000000-0000-4000-8000-000000000006'
+   AND assessment_year='2026-27';
+SET LOCAL ROLE ws02_owner_engine;
+DO $facade_year_revocation$
+BEGIN
+ IF ws02_owner.nbr_authorize_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001',
+  '50000000-0000-4000-8000-000000000006','2026-27')
+ OR NOT ws02_owner.nbr_authorize_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001',
+  '50000000-0000-4000-8000-000000000006','2027-28')
+ THEN RAISE EXCEPTION 'FACADE_CROSS_YEAR_REVOCATION_LEAK'; END IF;
+END $facade_year_revocation$;
+RESET ROLE;
+DO $facade_two_year_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+   WHERE record_id='50000000-0000-4000-8000-000000000006'
+   AND idem_key='facade-year-isolation-00001' AND state='FINALIZED')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000006'
+   AND idem_key='facade-year-isolation-00001')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000006'
+   AND assessment_year='2026-27' AND request_hash=repeat('a',64)
+   AND receipt_hash=repeat('b',64) AND trace_hash=repeat('c',64)
+   AND result_state='NEEDS_FACTS'
+   AND audit_trace->>'assessment_year'='2026-27')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000006'
+   AND assessment_year='2027-28' AND request_hash=repeat('d',64)
+   AND receipt_hash=repeat('e',64) AND trace_hash=repeat('f',64)
+   AND result_state='FAIL_CLOSED'
+   AND audit_trace->>'assessment_year'='2027-28')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ THEN RAISE EXCEPTION 'FACADE_TWO_YEAR_ATOMIC_RECEIPT_ISOLATION_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_TWO_YEAR_SAME_KEY_ISOLATION';
+END $facade_two_year_readback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
