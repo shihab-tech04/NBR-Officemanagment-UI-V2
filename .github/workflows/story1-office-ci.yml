@@ -69,7 +69,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1OfficeMigrations.sql
       - name: Verify TaxPay correction intake, Office roles, decision outbox and readback
         run: |
-          if [[ -f tests/integration/officeCorrectionReview.sql ]]; then
+          if [[ -f tests/integration/officeCorrectionReview.sql && -f tests/integration/officeCorrectionReviewFixture.sql ]]; then
             psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
           else
             echo "Correction contract is exercised by its dedicated PR workflow."
