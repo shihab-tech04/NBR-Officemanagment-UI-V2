@@ -7,6 +7,7 @@ import type { AppDispatch } from "../store/store";
 import {
   markNotificationRead,
   markAllNotificationsRead,
+  markOfficerNotificationRead,
 } from "../store/notificationsSlice";
 import { useNotificationsState } from "./useNotificationsState";
 import type { Notification } from "../store/notificationsSlice";
@@ -44,7 +45,7 @@ export function useNotifications(
       } else if (isSharedAuditMode()) {
         if (Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0) {
           void setOfficeStoryNoticeRead(notification.targetNoticeId!, true)
-            .then(() => dispatch(markNotificationRead(notification.id)))
+            .then(officerUid => dispatch(markOfficerNotificationRead({ id: notification.id, officerUid })))
             .catch(() => {
               toast.error(t("readStateSaveFailed"));
             });
@@ -76,8 +77,8 @@ export function useNotifications(
       notification => Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0
     );
     void Promise.allSettled(receiptable.map(async notification => {
-      await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);
-      dispatch(markNotificationRead(notification.id));
+      const officerUid = await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);
+      dispatch(markOfficerNotificationRead({ id: notification.id, officerUid }));
     })).then(results => {
       if (receiptable.length !== paymentNotices.length || results.some(result => result.status === "rejected")) {
         toast.error(t("readStateSaveFailed"));
