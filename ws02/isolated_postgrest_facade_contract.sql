@@ -75,6 +75,41 @@ BEGIN
    security_definer,function_volatility,function_language,return_type,function_config;
  END IF;
 END $facade_metadata$;
+-- Defense-in-depth: PostgreSQL normally grants EXECUTE on newly created
+-- functions to PUBLIC. The isolated owner DDL revoked the creator's global
+-- function default (a schema-local REVOKE alone cannot undo that default).
+-- Prove a *future* RPC in the exposed schema is not executable by the
+-- synthetic authenticated role by default. Deliberately grant PUBLIC EXECUTE
+-- inside a disposable subtransaction, detect it, then roll back the entire
+-- probe function. No real PostgREST schema, Auth role or hosted SQL is used.
+DO $future_facade_default_acl_probe$
+DECLARE default_execute boolean; granted_execute boolean;
+BEGIN
+ IF pg_catalog.to_regprocedure('ws02_api.__synthetic_future_rpc_probe()') IS NOT NULL THEN
+  RAISE EXCEPTION 'FUTURE_FACADE_PROBE_NAME_COLLISION';
+ END IF;
+ BEGIN
+  EXECUTE 'CREATE FUNCTION ws02_api.__synthetic_future_rpc_probe() RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+  SELECT pg_catalog.has_function_privilege('ws02_owner_auth',
+   'ws02_api.__synthetic_future_rpc_probe()','EXECUTE') INTO default_execute;
+  IF default_execute IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'FUTURE_FACADE_DEFAULT_PUBLIC_EXECUTE_EXPOSED';
+  END IF;
+  EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_api.__synthetic_future_rpc_probe() TO PUBLIC';
+  SELECT pg_catalog.has_function_privilege('ws02_owner_auth',
+   'ws02_api.__synthetic_future_rpc_probe()','EXECUTE') INTO granted_execute;
+  IF granted_execute IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'FUTURE_FACADE_PUBLIC_EXECUTE_MUTATION_UNDETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FUTURE_FACADE_PUBLIC_GRANT';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FUTURE_FACADE_PUBLIC_GRANT' THEN RAISE; END IF;
+ END;
+ IF pg_catalog.to_regprocedure('ws02_api.__synthetic_future_rpc_probe()') IS NOT NULL THEN
+  RAISE EXCEPTION 'FUTURE_FACADE_PROBE_FUNCTION_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FUTURE_FACADE_DEFAULT_EXECUTE_DENIAL_AND_ROLLBACK';
+END $future_facade_default_acl_probe$;
 -- Negative regression: SECURITY DEFINER on the PostgREST-style facade
 -- would elevate the synthetic Edge caller to the migration owner's identity.
 -- Prove pg_proc.prosecdef detects that privilege-boundary drift and that a
