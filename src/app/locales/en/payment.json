@@ -31,6 +31,7 @@
   "type": "Type",
   "status": "Status",
   "officeCorrectionLoading": "Loading Office correction inquiries…",
+  "officeCorrectionQueueUnavailable": "The Office correction queue is unavailable. Try again when the review service is available.",
   "officeCorrectionRole": "Your Office review role",
   "officeCorrectionItems": "inquiries",
   "officeCorrectionRoleNames": {
@@ -55,7 +56,7 @@
   "officeCorrectionDecisionHelp": "The decision is sent to TaxPay for SQL confirmation. It records the review outcome and does not change a financial record.",
   "officeCorrectionDecisionReason": "Decision reason",
   "officeCorrectionReasonError": "Enter a reason between 5 and 1000 characters.",
-  "officeCorrectionDecisionFailed": "The Office could not record this correction decision.",
+  "officeCorrectionDecisionFailed": "TaxPay has not confirmed this decision. Refresh the queue before retrying.",
   "officeCorrectionSubmitDecision": "Submit decision",
   "officeCorrectionSubmitting": "Submitting…",
   "officeCorrectionDecisionPending": "Waiting for TaxPay confirmation",
