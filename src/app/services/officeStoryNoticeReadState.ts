@@ -11,7 +11,7 @@ export type OfficeStoryNoticeReadSnapshot = {
 
 function noticeId(value: unknown): number | null {
   const parsed = typeof value === "number" ? value
-    : typeof value === "string" && /^\\d+$/.test(value) ? Number(value) : NaN;
+    : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : NaN;
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
