@@ -3,6 +3,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
 import { readDemoNoticeState } from "../services/demoNotificationReadState";
+import { getOfficeStoryNoticeReadState } from "../services/officeStoryNoticeReadState";
+import { isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import type { RootState, AppDispatch } from "../store/store";
 import {
   markNotificationRead,
@@ -20,9 +22,29 @@ export function useNotificationsState() {
     const refresh = async () => {
       try {
         const [notices, payments] = await Promise.all([getStoryNotices(), getRecentStoryPayments()]);
-        if (active) dispatch(syncMirroredPaymentNotices({ notices, payments, language, tabReadState: readDemoNoticeState() }));
+        if (!active) return;
+        if (isSharedAuditMode()) {
+          // A failed or role-denied read is shown as unverified/unread. The next
+          // focus, online event, or periodic refresh retries against the officer's own rows.
+          let officerReadNoticeIds: number[] = [];
+          try {
+            const states = await getOfficeStoryNoticeReadState(
+              notices.slice(0, 100).map(notice => notice.id)
+            );
+            officerReadNoticeIds = states.filter(state => state.isRead).map(state => state.noticeId);
+          } catch {
+            // Do not fall back to tab storage or another officer's in-memory state.
+          }
+          if (active) dispatch(syncMirroredPaymentNotices({
+            notices, payments, language, useOfficerReadState: true, officerReadNoticeIds,
+          }));
+          return;
+        }
+        dispatch(syncMirroredPaymentNotices({
+          notices, payments, language, tabReadState: readDemoNoticeState(),
+        }));
       } catch {
-        // A failed read cannot be interpreted as zero notices or as payment success.
+        // A failed event read cannot be interpreted as zero notices or payment success.
         // Retain the last verified event snapshot until the next successful fetch.
       }
     };
