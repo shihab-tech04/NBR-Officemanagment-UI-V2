@@ -13,6 +13,18 @@ import { markDemoNoticeViewed, markAllDemoNoticesViewed } from "../services/demo
 // Re-export for backwards compat
 export type { Notification };
 
+const paymentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Route a mirrored payment notice to its exact SQL-backed detail record. */
+export function notificationTargetPath(notification: Notification): string {
+  const paymentId = notification.type === "payment" ? notification.targetPaymentId : undefined;
+  if (paymentId && paymentIdPattern.test(paymentId)) {
+    return `/payments/transactions/record/${encodeURIComponent(paymentId)}`;
+  }
+  const { main, sub, third } = notification.destination;
+  return third ? `/${main}/${sub}/${third}` : sub ? `/${main}/${sub}` : `/${main}`;
+}
+
 export function useNotifications(
   _onNavigate?: (destination: { main: string; sub?: string; third?: string }) => void
 ) {
@@ -24,9 +36,7 @@ export function useNotifications(
     (notification: Notification) => {
       if (notification.type === "payment") markDemoNoticeViewed(notification.id);
       dispatch(markNotificationRead(notification.id));
-      const { main, sub, third } = notification.destination;
-      const path = third ? `/${main}/${sub}/${third}` : sub ? `/${main}/${sub}` : `/${main}`;
-      startTransition(() => navigate(path));
+      startTransition(() => navigate(notificationTargetPath(notification)));
     },
     [dispatch, navigate]
   );
