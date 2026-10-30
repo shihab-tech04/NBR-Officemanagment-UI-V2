@@ -437,6 +437,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
     {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
     {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}
+    {!officeCorrectionLoading&&!officeCorrectionQueue.enabled&&!officeCorrectionError&&
+      <p className="table-page__desc" role="status">{t('officeCorrectionQueueUnavailable')}</p>}
     {officeCorrectionQueue.enabled&&officeCorrectionQueue.role&&<p className="table-page__desc" role="status">
       {t('officeCorrectionRole')}: {t(`officeCorrectionRoleNames.${officeCorrectionQueue.role}`,{defaultValue:officeCorrectionQueue.role})}
       {' · '}{officeCorrectionQueue.items.length} {t('officeCorrectionItems')}
