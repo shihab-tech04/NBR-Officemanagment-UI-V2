@@ -9,6 +9,7 @@ import type { RootState, AppDispatch } from "../store/store";
 import {
   markNotificationRead,
   markAllNotificationsRead,
+  clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
 } from "../store/notificationsSlice";
 import type { Notification } from "../store/notificationsSlice";
@@ -54,8 +55,10 @@ export function useNotificationsState() {
     let authSubscription: { unsubscribe: () => void } | null = null;
     if (isSharedAuditMode()) {
       try {
-        authSubscription = getAuditSqlClient().auth.onAuthStateChange(() => {
-          if (active) void refresh();
+        authSubscription = getAuditSqlClient().auth.onAuthStateChange(event => {
+          if (!active || !["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event)) return;
+          dispatch(clearOfficerNoticeReadState());
+          window.setTimeout(() => { if (active) void refresh(); }, 0);
         }).data.subscription;
       } catch {
         // The next visibility, focus, online, or timer refresh retries the authenticated read.
