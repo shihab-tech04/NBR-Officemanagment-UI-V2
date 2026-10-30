@@ -13,6 +13,8 @@ export interface Notification {
   id: string;
   /** Exact SQL payment row to open when this is a mirrored payment notice. */
   targetPaymentId?: string;
+  /** Exact Story payment notice ID used for the officer-owned read receipt. */
+  targetNoticeId?: number;
   type: NotificationType;
   priority: NotificationPriority;
   title: string;
