@@ -2061,5 +2061,95 @@ BEGIN
  THEN RAISE EXCEPTION 'FACADE_TWO_YEAR_ATOMIC_RECEIPT_ISOLATION_FAILED'; END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_TWO_YEAR_SAME_KEY_ISOLATION';
 END $facade_two_year_readback$;
+-- Same actor/year/key across two different ACTIVE taxpayer records must be
+-- independently scoped. A cross-record auditTrace substitution must fail
+-- before either receipt is finalized. Synthetic disposable PG17 only.
+SAVEPOINT ws02_facade_two_records;
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000007','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE'),
+ ('50000000-0000-4000-8000-000000000008','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $facade_two_records$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000001';
+ rec_a uuid:='50000000-0000-4000-8000-000000000007';
+ rec_b uuid:='50000000-0000-4000-8000-000000000008';
+ idem text:='facade-record-isolation-00001';
+ req_a text:=repeat('a',64); req_b text:=repeat('d',64);
+ receipt_a text:=repeat('b',64); receipt_b text:=repeat('e',64);
+ trace_a text:=repeat('c',64); trace_b text:=repeat('f',64);
+ audit_a jsonb; audit_b jsonb; reservation_a jsonb; reservation_b jsonb;
+BEGIN
+ reservation_a:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec_a,'2026-27',idem,req_a,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ reservation_b:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec_b,'2026-27',idem,req_b,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation_a->>'state' IS DISTINCT FROM 'RESERVED'
+ OR reservation_b->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'FACADE_TWO_RECORDS_SAME_KEY_RESERVATION_COLLISION'; END IF;
+ audit_a:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec_a::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req_a,'receipt_hash',receipt_a,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ audit_b:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec_b::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req_b,'receipt_hash',receipt_b,
+  'idempotency_key',idem,'result_status','FAIL_CLOSED',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_a,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_b)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_b,'2026-27',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_a)
+ THEN RAISE EXCEPTION 'FACADE_CROSS_RECORD_AUDIT_REPLAY_ACCEPTED'; END IF;
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_a,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR NOT ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_b,'2026-27',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b)
+ THEN RAISE EXCEPTION 'FACADE_TWO_RECORDS_VALID_COMMIT_DENIED'; END IF;
+ IF ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_a,'2026-27',idem,req_a,receipt_a,trace_a,'NEEDS_FACTS',audit_a)
+ OR ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec_b,'2026-27',idem,req_b,receipt_b,trace_b,'FAIL_CLOSED',audit_b)
+ THEN RAISE EXCEPTION 'FACADE_TWO_RECORDS_DUPLICATE_COMMIT_ACCEPTED'; END IF;
+END $facade_two_records$;
+RESET ROLE;
+DO $facade_two_records_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+  WHERE idem_key='facade-record-isolation-00001' AND state='FINALIZED')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE idem_key='facade-record-isolation-00001')<>2
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id='50000000-0000-4000-8000-000000000007'
+  AND assessment_year='2026-27' AND request_hash=repeat('a',64)
+  AND receipt_hash=repeat('b',64) AND trace_hash=repeat('c',64)
+  AND audit_trace->>'taxpayer_record_id'='50000000-0000-4000-8000-000000000007')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+  WHERE record_id='50000000-0000-4000-8000-000000000008'
+  AND assessment_year='2026-27' AND request_hash=repeat('d',64)
+  AND receipt_hash=repeat('e',64) AND trace_hash=repeat('f',64)
+  AND audit_trace->>'taxpayer_record_id'='50000000-0000-4000-8000-000000000008')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>5
+ THEN RAISE EXCEPTION 'FACADE_TWO_RECORDS_ATOMIC_RECEIPT_ISOLATION_FAILED'; END IF;
+END $facade_two_records_readback$;
+ROLLBACK TO SAVEPOINT ws02_facade_two_records;
+RELEASE SAVEPOINT ws02_facade_two_records;
+DO $facade_two_records_rollback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.owners
+  WHERE record_id IN ('50000000-0000-4000-8000-000000000007'::uuid,
+                      '50000000-0000-4000-8000-000000000008'::uuid))
+ OR EXISTS(SELECT 1 FROM ws02_owner.slots
+  WHERE idem_key='facade-record-isolation-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+  WHERE idem_key='facade-record-isolation-00001')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ THEN RAISE EXCEPTION 'FACADE_TWO_RECORDS_ROLLBACK_LEFT_DATA'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_TWO_RECORDS_SAME_YEAR_SAME_KEY_ISOLATION';
+END $facade_two_records_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
