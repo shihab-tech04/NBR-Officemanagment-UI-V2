@@ -621,14 +621,14 @@ BEGIN
   BEGIN
    IF candidate='OVERLOAD' THEN
     EXECUTE $ddl$CREATE FUNCTION ws02_api.nbr_commit_evaluation_atomically(payload jsonb)
-      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ddl$;
+      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ $ddl$;
     SELECT count(*) INTO observed FROM pg_catalog.pg_proc p
     JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname='ws02_api';
     IF observed<>2 THEN RAISE EXCEPTION 'FACADE_OVERLOAD_MUTATION_UNDETECTED'; END IF;
    ELSE
     EXECUTE $ddl$CREATE FUNCTION public.nbr_commit_evaluation_atomically(payload jsonb)
-      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ddl$;
+      RETURNS boolean LANGUAGE sql SECURITY INVOKER AS $body$ SELECT true $body$ $ddl$;
     SELECT count(*) INTO observed FROM pg_catalog.pg_proc p
     JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname='public' AND p.proname='nbr_commit_evaluation_atomically';
