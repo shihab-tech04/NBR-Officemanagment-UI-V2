@@ -2298,5 +2298,84 @@ BEGIN
  THEN RAISE EXCEPTION 'FACADE_EXECUTE_REVOKE_NOT_ROLLED_BACK'; END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_PRODUCER_EXECUTE_REVOKED_AFTER_RESERVATION_NO_RECEIPT_ROLLBACK';
 END $facade_execute_revoke_rollback$;
+-- Cross-layer revocation: a trusted producer may retain the PostgREST-style
+-- facade EXECUTE grant while losing EXECUTE on its private atomic target.
+-- SECURITY INVOKER must not launder the missing private permission. The
+-- reservation, ACL mutation and all data are disposable PG17 fixtures only.
+-- This does NOT simulate Auth-provider JWT revocation or production ownership.
+SAVEPOINT ws02_private_atomic_execute_revocation;
+SET LOCAL ROLE ws02_owner_engine;
+DO $private_atomic_revoke_reserve$
+DECLARE reservation jsonb;
+BEGIN
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001'::uuid,
+  '50000000-0000-4000-8000-000000000001'::uuid,
+  '2026-27','private-atomic-revoked-00001',repeat('a',64),
+  'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_REVOKE_RESERVATION_FAILED'; END IF;
+END $private_atomic_revoke_reserve$;
+RESET ROLE;
+REVOKE EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_atomically(
+ uuid,uuid,text,text,text,text,text,text,jsonb) FROM ws02_owner_engine;
+DO $private_atomic_revoke_acl$
+BEGIN
+ IF NOT has_function_privilege('ws02_owner_engine',
+  'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+  'EXECUTE')
+ OR has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+  'EXECUTE') THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_REVOKE_ACL_BOUNDARY_NOT_ESTABLISHED'; END IF;
+END $private_atomic_revoke_acl$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $private_atomic_revoke_denied$
+DECLARE denied boolean:=false;
+ audit jsonb:=jsonb_build_object(
+  'actor_user_id','60000000-0000-4000-8000-000000000001',
+  'taxpayer_record_id','50000000-0000-4000-8000-000000000001',
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',repeat('a',64),
+  'receipt_hash',repeat('b',64),
+  'idempotency_key','private-atomic-revoked-00001',
+  'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+BEGIN
+ BEGIN
+  PERFORM ws02_api.nbr_commit_evaluation_atomically(
+   '60000000-0000-4000-8000-000000000001'::uuid,
+   '50000000-0000-4000-8000-000000000001'::uuid,
+   '2026-27','private-atomic-revoked-00001',
+   repeat('a',64),repeat('b',64),repeat('c',64),
+   'NEEDS_FACTS',audit);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN
+  RAISE EXCEPTION 'FACADE_LAUNDERED_REVOKED_PRIVATE_ATOMIC_EXECUTE'; END IF;
+END $private_atomic_revoke_denied$;
+RESET ROLE;
+DO $private_atomic_revoke_no_write$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+     WHERE idem_key='private-atomic-revoked-00001' AND state='RESERVED')<>1
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE idem_key='private-atomic-revoked-00001') THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_REVOKE_LEFT_PARTIAL_RECEIPT'; END IF;
+END $private_atomic_revoke_no_write$;
+ROLLBACK TO SAVEPOINT ws02_private_atomic_execute_revocation;
+RELEASE SAVEPOINT ws02_private_atomic_execute_revocation;
+DO $private_atomic_revoke_rollback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+     WHERE idem_key='private-atomic-revoked-00001')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE idem_key='private-atomic-revoked-00001')
+ OR NOT has_function_privilege('ws02_owner_engine',
+  'ws02_owner.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+  'EXECUTE') THEN
+  RAISE EXCEPTION 'PRIVATE_ATOMIC_EXECUTE_REVOKE_NOT_ROLLED_BACK'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_PRIVATE_ATOMIC_EXECUTE_REVOKED_AFTER_RESERVATION_NO_RECEIPT_ROLLBACK';
+END $private_atomic_revoke_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
