@@ -42,6 +42,13 @@ const notificationsSlice = createSlice({
       const item = state.items.find((n) => n.id === action.payload.id);
       if (item) item.isRead = true;
     },
+    clearOfficerNoticeReadState(state) {
+      if (state.readStateMode !== "officer") return;
+      state.readStateOfficerUid = null;
+      state.items.forEach(notice => {
+        if (notice.type === "payment") notice.isRead = false;
+      });
+    },
     syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: number[]; officerUid?: string | null }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
@@ -103,6 +110,7 @@ export const {
   markNotificationRead,
   markAllNotificationsRead,
   markOfficerNotificationRead,
+  clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
   setNotifications,
 } = notificationsSlice.actions;
