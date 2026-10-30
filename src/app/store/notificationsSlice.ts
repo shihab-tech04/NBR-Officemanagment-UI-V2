@@ -33,7 +33,7 @@ const notificationsSlice = createSlice({
       state.items.forEach((n) => { n.isRead = true; });
       state.readThroughMs = Date.now();
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState }>) {
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: number[] }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
       const previousRead = new Map(state.items.map(notice => [notice.id, notice.isRead]));
@@ -41,6 +41,7 @@ const notificationsSlice = createSlice({
       const bn = action.payload.language === "bn";
       const saved = action.payload.tabReadState;
       const savedIds = new Set(saved?.ids ?? []);
+      const officerReadIds = new Set(action.payload.officerReadNoticeIds ?? []);
       const readThrough = Math.max(state.readThroughMs ?? 0, saved?.readThroughMs ?? 0);
       const mirrored: Notification[] = [];
       // A notice alone contains no amount. Resolve it only against an exact
@@ -65,8 +66,11 @@ const notificationsSlice = createSlice({
                       : `Payment amount ${amount} recorded in Office. No government settlement is confirmed.`,
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
-          isRead: previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
+          isRead: action.payload.useOfficerReadState
+            ? officerReadIds.has(event.id)
+            : previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
           targetPaymentId: event.paymentId,
+          targetNoticeId: event.id,
           destination: { main: "payments", sub: "transactions" },
         });
       }
