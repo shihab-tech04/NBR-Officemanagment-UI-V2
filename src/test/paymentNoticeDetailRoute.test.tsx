@@ -7,7 +7,7 @@ import "../app/i18n/config";
 import { PaymentRoute } from "../app/routes";
 import { store } from "../app/store";
 
-const paymentId = "4b94da20-7cce-4fd7-98bd-a1cbb86cb9d9";
+const { paymentId } = vi.hoisted(() => ({ paymentId: "4b94da20-7cce-4fd7-98bd-a1cbb86cb9d9" }));
 
 vi.mock("../app/pages/payments/story1OfficeApi", () => ({
   getStoryPayments: async () => [{
