@@ -101,6 +101,47 @@ $reviewer_reads$;
 
 RESET ROLE;
 SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000013',true);
+DO $approver_reads$
+DECLARE v_state jsonb;
+BEGIN
+  v_state:=public.payment_v1_office_story_notice_read_state(ARRAY[101]::bigint[]);
+  IF NOT (v_state @> '[{"noticeId":101,"isRead":false}]'::jsonb) THEN
+    RAISE EXCEPTION 'Approver should be able to read their own initial receipt state';
+  END IF;
+END;
+$approver_reads$;
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000014',true);
+DO $incorrect_role$
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_office_story_notice_read_state(ARRAY[101]::bigint[]);
+    RAISE EXCEPTION 'Active non-payment role was incorrectly accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Active payment officer role required' THEN RAISE; END IF;
+  END;
+END;
+$incorrect_role$;
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','',true);
+DO $missing_identity$
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_office_story_notice_read_state(ARRAY[101]::bigint[]);
+    RAISE EXCEPTION 'Missing signed-in officer identity was incorrectly accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Authorized Office officer required' THEN RAISE; END IF;
+  END;
+END;
+$missing_identity$;
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $maker_clears_only_own$
 DECLARE v_state jsonb;
