@@ -2377,5 +2377,74 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_ATOMIC_EXECUTE_REVOKE_NOT_ROLLED_BACK'; END IF;
  RAISE NOTICE 'PASS_SCOPED_PRIVATE_ATOMIC_EXECUTE_REVOKED_AFTER_RESERVATION_NO_RECEIPT_ROLLBACK';
 END $private_atomic_revoke_rollback$;
+-- Synthetic trusted Edge role must never mutate finalized receipts or slots
+-- directly. Preserve byte-for-byte row values after denied UPDATE/DELETE.
+-- This does not prove tamper resistance against a compromised SQL owner,
+-- signed Auth or production PostgREST; only disposable PG17 role permissions.
+SAVEPOINT ws02_engine_receipt_immutability;
+CREATE TEMP TABLE ws02_receipt_before ON COMMIT DROP AS
+ SELECT * FROM ws02_owner.evaluation_logs;
+CREATE TEMP TABLE ws02_slot_before ON COMMIT DROP AS
+ SELECT * FROM ws02_owner.slots;
+DO $immutability_fixture$
+BEGIN
+ IF (SELECT count(*) FROM ws02_receipt_before)<>3
+    OR (SELECT count(*) FROM ws02_slot_before WHERE state='FINALIZED')<>3
+ THEN RAISE EXCEPTION 'RECEIPT_IMMUTABILITY_BASELINE_NOT_FINALIZED'; END IF;
+END $immutability_fixture$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $immutability_denial$
+DECLARE update_log_denied boolean:=false;
+        delete_log_denied boolean:=false;
+        update_slot_denied boolean:=false;
+        delete_slot_denied boolean:=false;
+BEGIN
+ BEGIN
+  UPDATE ws02_owner.evaluation_logs SET trace_hash=repeat('f',64);
+ EXCEPTION WHEN insufficient_privilege THEN update_log_denied:=true;
+ END;
+ BEGIN
+  DELETE FROM ws02_owner.evaluation_logs;
+ EXCEPTION WHEN insufficient_privilege THEN delete_log_denied:=true;
+ END;
+ BEGIN
+  UPDATE ws02_owner.slots SET receipt_hash=repeat('f',64)
+   WHERE state='FINALIZED';
+ EXCEPTION WHEN insufficient_privilege THEN update_slot_denied:=true;
+ END;
+ BEGIN
+  DELETE FROM ws02_owner.slots WHERE state='FINALIZED';
+ EXCEPTION WHEN insufficient_privilege THEN delete_slot_denied:=true;
+ END;
+ IF NOT (update_log_denied AND delete_log_denied
+         AND update_slot_denied AND delete_slot_denied) THEN
+  RAISE EXCEPTION 'ENGINE_DIRECT_FINALIZED_RECEIPT_OR_SLOT_MUTATION_ALLOWED';
+ END IF;
+END $immutability_denial$;
+RESET ROLE;
+DO $immutability_readback$
+BEGIN
+ IF EXISTS (SELECT * FROM ws02_owner.evaluation_logs
+            EXCEPT SELECT * FROM ws02_receipt_before)
+ OR EXISTS (SELECT * FROM ws02_receipt_before
+            EXCEPT SELECT * FROM ws02_owner.evaluation_logs)
+ OR EXISTS (SELECT * FROM ws02_owner.slots
+            EXCEPT SELECT * FROM ws02_slot_before)
+ OR EXISTS (SELECT * FROM ws02_slot_before
+            EXCEPT SELECT * FROM ws02_owner.slots) THEN
+  RAISE EXCEPTION 'ENGINE_DENIED_MUTATION_CHANGED_FINALIZED_ROWS';
+ END IF;
+END $immutability_readback$;
+ROLLBACK TO SAVEPOINT ws02_engine_receipt_immutability;
+RELEASE SAVEPOINT ws02_engine_receipt_immutability;
+DO $immutability_rollback$
+BEGIN
+ IF pg_catalog.to_regclass('pg_temp.ws02_receipt_before') IS NOT NULL
+ OR pg_catalog.to_regclass('pg_temp.ws02_slot_before') IS NOT NULL
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ OR (SELECT count(*) FROM ws02_owner.slots WHERE state='FINALIZED')<>3
+ THEN RAISE EXCEPTION 'ENGINE_IMMUTABILITY_SAVEPOINT_ROLLBACK_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_ENGINE_FINALIZED_RECEIPT_AND_SLOT_DIRECT_MUTATION_DENIED';
+END $immutability_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
