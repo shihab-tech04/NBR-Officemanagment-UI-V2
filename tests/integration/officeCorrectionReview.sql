@@ -1,8 +1,9 @@
 -- Disposable cross-app correction review contract. No production data or
 -- financial tables are used; every review fixture is rolled back.
+\ir officeCorrectionReviewFixture.sql
 BEGIN;
 
--- The PostgreSQL 17 workflow applies the prerequisite fixture, then the source migration, before this test.
+-- The fixture is idempotent for the existing Office SQL workflow as well as PG17.
 CREATE TEMP TABLE correction_test_state(
   stage text PRIMARY KEY,message_id uuid NOT NULL,claim_token uuid
 ) ON COMMIT DROP;
@@ -184,22 +185,21 @@ END;
 $maker_ack_retry$;
 
 RESET ROLE;
-INSERT INTO payment_sync.officer_roles(user_uid,role,active)
-VALUES('80000000-0000-4000-8000-000000000011','REVIEWER',true);
 SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
-DO $same_officer$
+DO $stale_maker_stage$
 BEGIN
   BEGIN
     PERFORM public.payment_v1_correction_officer_action(
-      '80000000-0000-4000-8000-000000000002','REVIEWER_VERIFY',
-      'Maker cannot review the same inquiry','80000000-0000-4000-8000-000000000040');
-    RAISE EXCEPTION 'Same officer completed a second review stage';
+      '80000000-0000-4000-8000-000000000002','MAKER_ACKNOWLEDGE',
+      'A stale Maker action must not be replayed as a new stage',
+      '80000000-0000-4000-8000-000000000040');
+    RAISE EXCEPTION 'Stale Maker stage was accepted';
   EXCEPTION WHEN OTHERS THEN
-    IF SQLERRM<>'Correction review stages require separate officers' THEN RAISE; END IF;
+    IF SQLERRM<>'Correction review sequence mismatch' THEN RAISE; END IF;
   END;
 END;
-$same_officer$;
+$stale_maker_stage$;
 
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000012',true);
 DO $reviewer$
