@@ -182,6 +182,37 @@ BEGIN
  END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_SECURITY_DEFINER_ROLLBACK_ONE_CASE';
 END $facade_definer_negative_probe$;
+-- Mutation regression: the facade's function-local search_path must not be
+-- redirected to public. Detect catalog drift and prove the isolated ALTER
+-- rolls back; this is NOT hosted PostgREST or signed JWT validation.
+DO $facade_search_path_negative_probe$
+DECLARE baseline text[]; mutated text[];
+BEGIN
+ SELECT p.proconfig INTO STRICT baseline FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF baseline IS DISTINCT FROM ARRAY['search_path=pg_catalog, ws02_owner']::text[]
+    AND baseline IS DISTINCT FROM ARRAY['search_path=pg_catalog,ws02_owner']::text[] THEN
+  RAISE EXCEPTION 'FACADE_SEARCH_PATH_BASELINE_DRIFT_%',baseline;
+ END IF;
+ BEGIN
+  ALTER FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) SET search_path = public;
+  SELECT p.proconfig INTO STRICT mutated FROM pg_catalog.pg_proc p
+  WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+  IF mutated IS NULL OR NOT ('search_path=public'=ANY(mutated)) THEN
+   RAISE EXCEPTION 'FACADE_SEARCH_PATH_REDIRECT_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SEARCH_PATH_REDIRECT';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SEARCH_PATH_REDIRECT' THEN RAISE; END IF;
+ END;
+ SELECT p.proconfig INTO STRICT mutated FROM pg_catalog.pg_proc p
+ WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure;
+ IF mutated IS DISTINCT FROM baseline THEN
+  RAISE EXCEPTION 'FACADE_SEARCH_PATH_REDIRECT_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SEARCH_PATH_REDIRECT_ROLLBACK';
+END $facade_search_path_negative_probe$;
 -- Regression: a privileged metadata change can incorrectly advertise this
 -- write-bearing facade as PARALLEL SAFE without changing its SQL body or ACL.
 -- The reviewed guard requires pg_proc.proparallel='u'. Roll back the drift.
