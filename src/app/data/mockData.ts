@@ -11,6 +11,8 @@ export type NotificationPriority = "high" | "medium" | "low";
 
 export interface Notification {
   id: string;
+  /** Exact SQL payment row to open when this is a mirrored payment notice. */
+  targetPaymentId?: string;
   type: NotificationType;
   priority: NotificationPriority;
   title: string;
