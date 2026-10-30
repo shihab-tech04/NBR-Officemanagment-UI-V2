@@ -443,6 +443,9 @@ jobs:
           awk '/^INSERT INTO ws02_owner.owners\(record_id,assessment_year,actor_id,state\) VALUES/{exit} {print}' ws02/isolated_owner_receipt_contract.sql > /tmp/ws02_facade_ddl.sql
           echo 'COMMIT;' >> /tmp/ws02_facade_ddl.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_facade_ddl.sql >/tmp/ws02_facade_setup.log
+          # Independent private-schema USAGE revocation after reservation; rollback
+          # restores the disposable DDL before the existing facade suite.
+          psql -X -v ON_ERROR_STOP=1 -f ws02/evidence/private_schema_usage_revocation_pg17.sql
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_postgrest_facade_contract.sql
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
           echo 'PASS_DISPOSABLE_FACADE_NOT_AUTH_JWT_OR_PRODUCTION_APPROVAL'
