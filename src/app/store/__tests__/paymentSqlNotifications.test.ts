@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import reducer, { markNotificationRead, markAllNotificationsRead, syncMirroredPaymentNotices } from "../notificationsSlice";
+import reducer, { markNotificationRead, markAllNotificationsRead, markOfficerNotificationRead, syncMirroredPaymentNotices } from "../notificationsSlice";
 import type { StoryPayment } from "../../pages/payments/story1OfficeApi";
 import { notificationTargetPath } from "../../hooks/useNotifications";
 
@@ -47,15 +47,31 @@ describe("Office SQL-backed payment bell", () => {
     const unread = reducer(undefined, sync([first]));
     const markedByMaker = reducer(unread, syncMirroredPaymentNotices({
       notices: [first], payments: [payment], language: "en",
-      useOfficerReadState: true, officerReadNoticeIds: [first.id],
+      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [first.id],
     }));
     expect(markedByMaker.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(true);
 
     const reviewerRefresh = reducer(markedByMaker, syncMirroredPaymentNotices({
       notices: [first], payments: [payment], language: "en",
-      useOfficerReadState: true, officerReadNoticeIds: [],
+      useOfficerReadState: true, officerUid: "reviewer-uid", officerReadNoticeIds: [],
     }));
     expect(reviewerRefresh.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);
+  });
+  it("does not reuse or apply a delayed read receipt across officer identities", () => {
+    const maker = reducer(undefined, syncMirroredPaymentNotices({
+      notices: [first], payments: [payment], language: "en",
+      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [first.id],
+    }));
+    expect(maker.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(true);
+
+    const reviewer = reducer(maker, syncMirroredPaymentNotices({
+      notices: [first], payments: [payment], language: "en",
+      useOfficerReadState: true, officerUid: "reviewer-uid", officerReadNoticeIds: [],
+    }));
+    const delayedMakerWrite = reducer(reviewer, markOfficerNotificationRead({
+      id: "sql-payment-91", officerUid: "maker-uid",
+    }));
+    expect(delayedMakerWrite.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);
   });
   it("fails closed on missing transaction, negative, fractional, or unsafe minor-unit amounts", () => {
     const invalid: StoryPayment[] = [
