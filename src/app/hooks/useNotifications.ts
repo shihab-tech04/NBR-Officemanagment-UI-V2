@@ -1,6 +1,8 @@
 import { useCallback, startTransition } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import type { AppDispatch } from "../store/store";
 import {
   markNotificationRead,
@@ -32,6 +34,7 @@ export function useNotifications(
 ) {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const { t } = useTranslation("notifications");
   const { notifications, unreadCount } = useNotificationsState();
 
   const handleNotificationClick = useCallback(
@@ -43,8 +46,10 @@ export function useNotifications(
           void setOfficeStoryNoticeRead(notification.targetNoticeId!, true)
             .then(() => dispatch(markNotificationRead(notification.id)))
             .catch(() => {
-              // Leave it unread so another click or the next refresh retries the receipt.
+              toast.error(t("readStateSaveFailed"));
             });
+        } else {
+          toast.error(t("readStateSaveFailed"));
         }
       } else {
         markDemoNoticeViewed(notification.id);
@@ -52,7 +57,7 @@ export function useNotifications(
       }
       startTransition(() => navigate(notificationTargetPath(notification)));
     },
-    [dispatch, navigate]
+    [dispatch, navigate, t]
   );
 
   const handleMarkAllRead = useCallback(() => {
@@ -73,8 +78,12 @@ export function useNotifications(
     void Promise.allSettled(receiptable.map(async notification => {
       await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);
       dispatch(markNotificationRead(notification.id));
-    }));
-  }, [dispatch, notifications]);
+    })).then(results => {
+      if (receiptable.length !== paymentNotices.length || results.some(result => result.status === "rejected")) {
+        toast.error(t("readStateSaveFailed"));
+      }
+    });
+  }, [dispatch, notifications, t]);
 
   return {
     notifications,
