@@ -115,7 +115,12 @@ $maker_clears_only_own$;
 
 RESET ROLE;
 DO $row_isolation$
-DECLARE v_rows integer;
+DECLARE
+  v_rows integer;
+  v_payment_count bigint;
+  v_payment_digest text;
+  v_notice_count bigint;
+  v_notice_digest text;
 BEGIN
   SELECT count(*) INTO v_rows FROM payment_sync.officer_story_notice_reads
   WHERE notice_id=101 AND officer_uid='80000000-0000-4000-8000-000000000012';
@@ -125,24 +130,27 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Officer rows were not isolated by authenticated identity';
   END IF;
-  IF EXISTS (
-    SELECT 1 FROM story_notice_financial_guard before
-    JOIN LATERAL (
-      SELECT count(*)::bigint row_count,
-        md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY row_to_json(t)::text),'')) content_digest
-      FROM demo_payment.story_payments t
-    ) after ON before.relation_name='demo_payment.story_payments'
-    WHERE before.row_count<>after.row_count OR before.content_digest<>after.content_digest
-  ) OR EXISTS (
-    SELECT 1 FROM story_notice_financial_guard before
-    JOIN LATERAL (
-      SELECT count(*)::bigint row_count,
-        md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY row_to_json(t)::text),'')) content_digest
-      FROM demo_payment.story_notifications t
-    ) after ON before.relation_name='demo_payment.story_notifications'
-    WHERE before.row_count<>after.row_count OR before.content_digest<>after.content_digest
+
+  SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY row_to_json(t)::text),''))
+    INTO v_payment_count,v_payment_digest
+  FROM demo_payment.story_payments t;
+  IF NOT EXISTS (
+    SELECT 1 FROM story_notice_financial_guard g
+    WHERE g.relation_name='demo_payment.story_payments'
+      AND g.row_count=v_payment_count AND g.content_digest=v_payment_digest
   ) THEN
-    RAISE EXCEPTION 'Read-state action mutated a payment or notification event';
+    RAISE EXCEPTION 'Read-state action mutated the payment table';
+  END IF;
+
+  SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY row_to_json(t)::text),''))
+    INTO v_notice_count,v_notice_digest
+  FROM demo_payment.story_notifications t;
+  IF NOT EXISTS (
+    SELECT 1 FROM story_notice_financial_guard g
+    WHERE g.relation_name='demo_payment.story_notifications'
+      AND g.row_count=v_notice_count AND g.content_digest=v_notice_digest
+  ) THEN
+    RAISE EXCEPTION 'Read-state action mutated the payment notice event table';
   END IF;
 END;
 $row_isolation$;
