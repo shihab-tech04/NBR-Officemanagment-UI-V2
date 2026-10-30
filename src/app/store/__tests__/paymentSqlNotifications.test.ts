@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import reducer, { markNotificationRead, markAllNotificationsRead, syncMirroredPaymentNotices } from "../notificationsSlice";
 import type { StoryPayment } from "../../pages/payments/story1OfficeApi";
+import { notificationTargetPath } from "../../hooks/useNotifications";
 
 const paymentId = "33333333-3333-4333-8333-333333333333";
 const first = { id: 91, paymentId, type: "NEW_SIMULATED_PAYMENT", createdAt: "2026-10-25T04:00:00Z" };
@@ -21,10 +22,17 @@ describe("Office SQL-backed payment bell", () => {
     const rows = state.items.filter(item => item.type === "payment");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: "sql-payment-91", isRead: false,
+      targetPaymentId: paymentId,
       destination: { main: "payments", sub: "transactions" } });
+    expect(notificationTargetPath(rows[0])).toBe(`/payments/transactions/record/${paymentId}`);
     expect(rows[0].message).toContain("৳1,250.50");
     expect(rows[0].message).toContain("No government settlement is confirmed");
     expect(rows[0].message).not.toContain("Tax credit posted");
+  });
+  it("fails closed to the transactions list for an invalid payment deep-link ID", () => {
+    const notice = reducer(undefined, sync([first])).items.find(item => item.type === "payment")!;
+    expect(notificationTargetPath({ ...notice, targetPaymentId: "not-a-payment-id" }))
+      .toBe("/payments/transactions");
   });
   it("preserves a viewed notice on refresh/language change and retains the actual amount", () => {
     const state = reducer(undefined, sync([first]));
