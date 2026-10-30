@@ -1,37 +1,8 @@
 -- Disposable cross-app correction review contract. No production data or
--- financial tables are used; every fixture is rolled back.
+-- financial tables are used; every review fixture is rolled back.
 BEGIN;
 
-CREATE SCHEMA auth;
-CREATE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql STABLE SET search_path TO ''
-AS $function$
-  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
-$function$;
-
-CREATE TABLE payment_sync.settings(singleton boolean PRIMARY KEY,origin text NOT NULL);
-CREATE TABLE payment_sync.officer_roles(
-  user_uid uuid NOT NULL,role text NOT NULL,active boolean NOT NULL,
-  PRIMARY KEY(user_uid,role)
-);
-CREATE TABLE payment_sync.control_outbox(
-  message_id uuid PRIMARY KEY,request_id uuid NOT NULL,target_origin text NOT NULL,
-  payload jsonb NOT NULL,delivery_state text NOT NULL DEFAULT 'PENDING',
-  attempts integer NOT NULL DEFAULT 0,
-  acknowledged_at timestamptz,last_error text,next_attempt_at timestamptz NOT NULL DEFAULT now(),
-  claim_token uuid
-);
-CREATE TABLE payment_sync.officer_decisions(
-  request_id uuid NOT NULL,officer_uid uuid NOT NULL,officer_role text NOT NULL,
-  action_code text NOT NULL,reason text NOT NULL,idempotency_key uuid NOT NULL,
-  message_id uuid NOT NULL,UNIQUE(request_id,officer_uid,idempotency_key)
-);
-INSERT INTO payment_sync.settings VALUES(true,'OFFICE_SQL');
-INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
-  ('80000000-0000-4000-8000-000000000011','MAKER',true),
-  ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
-  ('80000000-0000-4000-8000-000000000013','APPROVER',true);
-
+-- The PostgreSQL 17 workflow applies the prerequisite fixture, then the source migration, before this test.
 CREATE TEMP TABLE correction_test_state(
   stage text PRIMARY KEY,message_id uuid NOT NULL,claim_token uuid
 ) ON COMMIT DROP;
