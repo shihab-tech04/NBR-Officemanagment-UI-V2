@@ -1499,6 +1499,67 @@ BEGIN
   RAISE EXCEPTION 'PRIVATE_UNREVIEWED_USER_TRIGGER_%',extra_triggers;
  END IF;
 END $private_trigger_boundary$;
+-- PostgreSQL's internal FK triggers are not user-defined triggers. They
+-- enforce the reviewed owner -> reservation -> audit receipt relationships.
+-- A privileged DISABLE TRIGGER can silently bypass FK enforcement while
+-- the preceding unreviewed-trigger count remains zero. Pin their enabled
+-- state in this disposable fixture; this does not certify hosted SQL.
+DO $private_fk_trigger_state_boundary$
+DECLARE fk_trigger_count integer; disabled_fk_trigger_count integer;
+BEGIN
+ SELECT count(*),count(*) FILTER (WHERE t.tgenabled IS DISTINCT FROM 'O')
+ INTO fk_trigger_count,disabled_fk_trigger_count
+ FROM pg_catalog.pg_trigger t
+ JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid
+ JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='ws02_owner'
+   AND c.relname IN ('owners','slots','evaluation_logs')
+   AND t.tgisinternal AND t.tgconstraint<>0;
+ IF fk_trigger_count<4 OR disabled_fk_trigger_count<>0 THEN
+  RAISE EXCEPTION 'PRIVATE_FK_TRIGGER_DISABLED_OR_MISSING_%_%',
+   fk_trigger_count,disabled_fk_trigger_count;
+ END IF;
+END $private_fk_trigger_state_boundary$;
+-- Mutation: disable one real internal FK trigger on the synthetic audit
+-- table, detect the disabled catalog state and prove rollback restores it.
+-- Only the disposable PG17 CI database superuser can perform this DDL.
+DO $private_fk_trigger_disable_negative_probe$
+DECLARE trigger_name name; observed_state "char";
+BEGIN
+ SELECT t.tgname INTO STRICT trigger_name
+ FROM pg_catalog.pg_trigger t
+ WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+   AND t.tgisinternal AND t.tgconstraint<>0
+ ORDER BY t.tgname LIMIT 1;
+ SELECT t.tgenabled INTO STRICT observed_state
+ FROM pg_catalog.pg_trigger t
+ WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+   AND t.tgname=trigger_name;
+ IF observed_state IS DISTINCT FROM 'O' THEN
+  RAISE EXCEPTION 'PRIVATE_FK_TRIGGER_BASELINE_DISABLED';
+ END IF;
+ BEGIN
+  EXECUTE format('ALTER TABLE ws02_owner.evaluation_logs DISABLE TRIGGER %I',trigger_name);
+  SELECT t.tgenabled INTO STRICT observed_state
+  FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+    AND t.tgname=trigger_name;
+  IF observed_state IS DISTINCT FROM 'D' THEN
+   RAISE EXCEPTION 'PRIVATE_FK_TRIGGER_DISABLE_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PRIVATE_FK_TRIGGER_DISABLE';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PRIVATE_FK_TRIGGER_DISABLE' THEN RAISE; END IF;
+ END;
+ SELECT t.tgenabled INTO STRICT observed_state
+ FROM pg_catalog.pg_trigger t
+ WHERE t.tgrelid='ws02_owner.evaluation_logs'::regclass
+   AND t.tgname=trigger_name;
+ IF observed_state IS DISTINCT FROM 'O' THEN
+  RAISE EXCEPTION 'PRIVATE_FK_TRIGGER_DISABLE_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_PRIVATE_FK_TRIGGER_DISABLE_ROLLBACK_ONE_CASE';
+END $private_fk_trigger_disable_negative_probe$;
 -- Mutation regression: inject a harmless BEFORE INSERT trigger on the audit
 -- table, detect the unreviewed side effect, then roll back both trigger and
 -- function. No synthetic audit rows or hosted taxpayer data are modified.
