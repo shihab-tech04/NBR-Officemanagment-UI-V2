@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
 import { readDemoNoticeState } from "../services/demoNotificationReadState";
 import { getOfficeStoryNoticeReadState } from "../services/officeStoryNoticeReadState";
-import { isSharedAuditMode } from "../pages/audit/auditSharedSql";
+import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import type { RootState, AppDispatch } from "../store/store";
 import {
   markNotificationRead,
@@ -27,16 +27,18 @@ export function useNotificationsState() {
           // A failed or role-denied read is shown as unverified/unread. The next
           // focus, online event, or periodic refresh retries against the officer's own rows.
           let officerReadNoticeIds: number[] = [];
+          let officerUid: string | null = null;
           try {
-            const states = await getOfficeStoryNoticeReadState(
+            const snapshot = await getOfficeStoryNoticeReadState(
               notices.slice(0, 100).map(notice => notice.id)
             );
-            officerReadNoticeIds = states.filter(state => state.isRead).map(state => state.noticeId);
+            officerUid = snapshot.officerUid;
+            officerReadNoticeIds = snapshot.notices.filter(state => state.isRead).map(state => state.noticeId);
           } catch {
             // Do not fall back to tab storage or another officer's in-memory state.
           }
           if (active) dispatch(syncMirroredPaymentNotices({
-            notices, payments, language, useOfficerReadState: true, officerReadNoticeIds,
+            notices, payments, language, useOfficerReadState: true, officerReadNoticeIds, officerUid,
           }));
           return;
         }
@@ -49,6 +51,16 @@ export function useNotificationsState() {
       }
     };
     void refresh();
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    if (isSharedAuditMode()) {
+      try {
+        authSubscription = getAuditSqlClient().auth.onAuthStateChange(() => {
+          if (active) void refresh();
+        }).data.subscription;
+      } catch {
+        // The next visibility, focus, online, or timer refresh retries the authenticated read.
+      }
+    }
     // Browser timers are throttled in background tabs. Refresh on return to the
     // Office instead of requiring a full reload or a fresh payment submission.
     const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
@@ -62,6 +74,7 @@ export function useNotificationsState() {
     window.addEventListener("online", onOnline);
     return () => {
       active = false;
+      authSubscription?.unsubscribe();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
