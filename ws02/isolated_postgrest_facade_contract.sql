@@ -1744,6 +1744,73 @@ BEGIN
  OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1
  THEN RAISE EXCEPTION 'FACADE_ATOMIC_TRACE_RECEIPT_OR_REVOCATION_READBACK_FAILED'; END IF;
 END $readback$;
+-- Owner transfer is distinct from REVOKED: an ACTIVE record reassigned to
+-- another synthetic principal after reservation must not let the former owner
+-- finalize a receipt, nor let the new owner reuse the old owner's replay slot.
+-- These are disposable PG17 identities, NOT an authoritative citizen mapping.
+INSERT INTO ws02_owner.owners(record_id,assessment_year,actor_id,state) VALUES
+ ('50000000-0000-4000-8000-000000000005','2026-27',
+  '60000000-0000-4000-8000-000000000001','ACTIVE');
+SET LOCAL ROLE ws02_owner_engine;
+DO $transfer_reservation$
+DECLARE reservation jsonb;
+BEGIN
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  '60000000-0000-4000-8000-000000000001',
+  '50000000-0000-4000-8000-000000000005',
+  '2026-27','facade-transfer-atomic-00001',repeat('a',64),
+  'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'TRANSFER_FIXTURE_RESERVATION_FAILED'; END IF;
+END $transfer_reservation$;
+RESET ROLE;
+UPDATE ws02_owner.owners
+ SET actor_id='60000000-0000-4000-8000-000000000002'
+ WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND assessment_year='2026-27' AND state='ACTIVE';
+SET LOCAL ROLE ws02_owner_engine;
+DO $transfer_denial$
+DECLARE old_actor uuid:='60000000-0000-4000-8000-000000000001';
+ new_actor uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000005';
+ req text:=repeat('a',64); receipt text:=repeat('b',64);
+ trace text:=repeat('c',64); audit jsonb;
+BEGIN
+ audit:=jsonb_build_object(
+  'actor_user_id',old_actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key','facade-transfer-atomic-00001',
+  'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF ws02_api.nbr_commit_evaluation_atomically(
+  old_actor,rec,'2026-27','facade-transfer-atomic-00001',
+  req,receipt,trace,'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'TRANSFER_FORMER_OWNER_FINALIZED_OLD_RESERVATION'; END IF;
+ audit:=jsonb_set(audit,'{actor_user_id}',to_jsonb(new_actor::text));
+ IF ws02_api.nbr_commit_evaluation_atomically(
+  new_actor,rec,'2026-27','facade-transfer-atomic-00001',
+  req,receipt,trace,'NEEDS_FACTS',audit) THEN
+  RAISE EXCEPTION 'TRANSFER_NEW_OWNER_REUSED_FORMER_OWNER_SLOT'; END IF;
+END $transfer_denial$;
+RESET ROLE;
+DO $transfer_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.owners
+     WHERE record_id='50000000-0000-4000-8000-000000000005'
+       AND assessment_year='2026-27'
+       AND actor_id='60000000-0000-4000-8000-000000000002'
+       AND state='ACTIVE')<>1
+ OR (SELECT count(*) FROM ws02_owner.slots
+     WHERE record_id='50000000-0000-4000-8000-000000000005'
+       AND actor_id='60000000-0000-4000-8000-000000000001'
+       AND state='RESERVED' AND receipt_hash IS NULL)<>1
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+     WHERE record_id='50000000-0000-4000-8000-000000000005')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1
+ THEN RAISE EXCEPTION 'TRANSFER_DENIAL_LEFT_RECEIPT_OR_OWNER_DRIFT'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_OWNER_TRANSFER_AFTER_RESERVATION_DENIED_TWO_ACTORS';
+END $transfer_readback$;
 -- Independent facade-level transaction-abort proof, distinct from the private
 -- RPC rollback suite. A successful synthetic wrapper call must leave no
 -- reservation, audit trace or receipt after the caller rolls back its savepoint.
