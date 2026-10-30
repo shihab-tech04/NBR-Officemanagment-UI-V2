@@ -66,6 +66,7 @@ const notificationsSlice = createSlice({
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
           isRead: previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
+          targetPaymentId: event.paymentId,
           destination: { main: "payments", sub: "transactions" },
         });
       }
