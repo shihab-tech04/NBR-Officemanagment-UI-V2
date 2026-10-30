@@ -7,6 +7,45 @@ BEGIN;
 CREATE SCHEMA ws02_api;
 REVOKE ALL ON SCHEMA ws02_api FROM PUBLIC;
 GRANT USAGE ON SCHEMA ws02_api TO ws02_owner_engine;
+-- Guard the facade schema owner independently of function owner and ACL.
+-- A runtime role owning the schema could CREATE a shadow RPC or ALTER grants.
+-- This is synthetic PG17 catalog evidence only, not production ownership.
+DO $facade_schema_owner_boundary$
+DECLARE original_owner oid; mutated_owner oid; runtime_role name;
+BEGIN
+ SELECT n.nspowner INTO STRICT original_owner
+ FROM pg_catalog.pg_namespace n WHERE n.nspname='ws02_api';
+ FOREACH runtime_role IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+  'ws02_owner_rpc','ws02_owner_lock'
+ ] LOOP
+  IF original_owner IS NOT DISTINCT FROM runtime_role::regrole::oid
+     OR pg_catalog.pg_has_role(runtime_role,original_owner,'MEMBER')
+     OR pg_catalog.pg_has_role(runtime_role,original_owner,'USAGE')
+     OR pg_catalog.pg_has_role(runtime_role,original_owner,'SET') THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_OWNER_RUNTIME_ESCALATION_%',runtime_role;
+  END IF;
+ END LOOP;
+ -- A privileged synthetic schema takeover must be detectable and reversible.
+ -- Exception subtransaction restores the schema owner; no hosted SQL touched.
+ BEGIN
+  ALTER SCHEMA ws02_api OWNER TO ws02_owner_engine;
+  SELECT n.nspowner INTO STRICT mutated_owner
+  FROM pg_catalog.pg_namespace n WHERE n.nspname='ws02_api';
+  IF mutated_owner IS DISTINCT FROM 'ws02_owner_engine'::regrole::oid THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_OWNER_TAKEOVER_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_OWNER';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_OWNER' THEN RAISE; END IF;
+ END;
+ SELECT n.nspowner INTO STRICT mutated_owner
+ FROM pg_catalog.pg_namespace n WHERE n.nspname='ws02_api';
+ IF mutated_owner IS DISTINCT FROM original_owner THEN
+  RAISE EXCEPTION 'FACADE_SCHEMA_OWNER_TAKEOVER_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_OWNER_TAKEOVER_ROLLBACK';
+END $facade_schema_owner_boundary$;
 -- A SECURITY INVOKER facade cannot elevate a PostgREST role. The sole
 -- synthetic trusted Edge role already has the narrow private EXECUTE grant.
 -- Do not grant this facade to anon/auth or place it in public.
