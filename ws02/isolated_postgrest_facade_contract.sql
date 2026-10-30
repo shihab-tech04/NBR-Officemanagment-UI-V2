@@ -722,6 +722,67 @@ BEGIN
      'EXECUTE')
  THEN RAISE EXCEPTION 'FACADE_UNREVIEWED_GRANT_NOT_ROLLED_BACK'; END IF;
 END $facade_unreviewed_grantee_negative_probe$;
+-- PUBLIC is a distinct grant target: every present/future PostgREST role
+-- inherits it, even when the named anon/auth ACLs remain unchanged. Mutate
+-- BOTH schema USAGE and function EXECUTE inside a disposable subtransaction,
+-- assert the effective access and catalog drift, then verify full rollback.
+-- No hosted schema or public endpoint is created by this test.
+DO $facade_public_grant_negative_probe$
+DECLARE leaked_schema boolean; leaked_function boolean;
+BEGIN
+ IF pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','USAGE')
+    OR pg_catalog.has_function_privilege('ws02_owner_auth',
+      'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+      'EXECUTE')
+ THEN RAISE EXCEPTION 'FACADE_PUBLIC_GRANT_BASELINE_ALREADY_OPEN'; END IF;
+ BEGIN
+  GRANT USAGE ON SCHEMA ws02_api TO PUBLIC;
+  GRANT EXECUTE ON FUNCTION ws02_api.nbr_commit_evaluation_atomically(
+   uuid,uuid,text,text,text,text,text,text,jsonb) TO PUBLIC;
+  SELECT EXISTS (
+   SELECT 1 FROM pg_catalog.pg_namespace n
+   CROSS JOIN LATERAL pg_catalog.aclexplode(n.nspacl) a
+   WHERE n.nspname='ws02_api' AND a.grantee=0
+     AND a.privilege_type='USAGE'
+  ) INTO leaked_schema;
+  SELECT EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+   WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+     AND a.grantee=0 AND a.privilege_type='EXECUTE'
+  ) INTO leaked_function;
+  IF NOT leaked_schema OR NOT leaked_function
+     OR NOT pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','USAGE')
+     OR NOT pg_catalog.has_function_privilege('ws02_owner_anon',
+      'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+      'EXECUTE')
+  THEN RAISE EXCEPTION 'FACADE_PUBLIC_GRANT_MUTATION_NOT_DETECTED'; END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_PUBLIC_GRANT';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_PUBLIC_GRANT' THEN RAISE; END IF;
+ END;
+ IF pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','USAGE')
+    OR pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','USAGE')
+    OR pg_catalog.has_function_privilege('ws02_owner_auth',
+     'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+     'EXECUTE')
+    OR pg_catalog.has_function_privilege('ws02_owner_anon',
+     'ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)',
+     'EXECUTE')
+    OR EXISTS (
+     SELECT 1 FROM pg_catalog.pg_namespace n
+     CROSS JOIN LATERAL pg_catalog.aclexplode(n.nspacl) a
+     WHERE n.nspname='ws02_api' AND a.grantee=0
+    )
+    OR EXISTS (
+     SELECT 1 FROM pg_catalog.pg_proc p
+     CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a
+     WHERE p.oid='ws02_api.nbr_commit_evaluation_atomically(uuid,uuid,text,text,text,text,text,text,jsonb)'::regprocedure
+       AND a.grantee=0
+    )
+ THEN RAISE EXCEPTION 'FACADE_PUBLIC_GRANT_ROLLBACK_INCOMPLETE'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_PUBLIC_SCHEMA_AND_FUNCTION_GRANT_ROLLBACK';
+END $facade_public_grant_negative_probe$;
 -- An engine WITH GRANT OPTION can delegate the RPC to an unreviewed role.
 -- A mutation must be visible in pg_catalog ACLs and fully rolled back.
 DO $facade_grant_option_negative_probe$
