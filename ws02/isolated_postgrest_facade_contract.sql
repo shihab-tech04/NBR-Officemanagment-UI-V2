@@ -1842,6 +1842,79 @@ BEGIN
  THEN RAISE EXCEPTION 'TRANSFER_DENIAL_LEFT_RECEIPT_OR_OWNER_DRIFT'; END IF;
  RAISE NOTICE 'PASS_SCOPED_OWNER_TRANSFER_AFTER_RESERVATION_DENIED_TWO_ACTORS';
 END $transfer_readback$;
+-- A legitimate new owner may reserve the SAME idempotency key under their own
+-- actor scope only after the former owner's reservation has been denied.
+-- This positive fixture is rolled back so later counts remain unchanged.
+-- Synthetic identities only; no real citizen ownership or JWT proof.
+SAVEPOINT ws02_transfer_fresh_owner_positive;
+SET LOCAL ROLE ws02_owner_engine;
+DO $transfer_fresh_owner_positive$
+DECLARE actor uuid:='60000000-0000-4000-8000-000000000002';
+ rec uuid:='50000000-0000-4000-8000-000000000005';
+ idem text:='facade-transfer-atomic-00001';
+ req text:=repeat('d',64); receipt text:=repeat('e',64);
+ trace text:=repeat('f',64); reservation jsonb; audit jsonb;
+BEGIN
+ reservation:=ws02_owner.nbr_reserve_citizen_evaluation(
+  actor,rec,'2026-27',idem,req,'NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF reservation->>'state' IS DISTINCT FROM 'RESERVED' THEN
+  RAISE EXCEPTION 'TRANSFER_NEW_OWNER_FRESH_RESERVATION_DENIED'; END IF;
+ audit:=jsonb_build_object(
+  'actor_user_id',actor::text,'taxpayer_record_id',rec::text,
+  'assessment_year','2026-27','income_year','2025-26',
+  'authorized_request_hash',req,'receipt_hash',receipt,
+  'idempotency_key',idem,'result_status','NEEDS_FACTS',
+  'contract_version','NBR_ENGINE_CITIZEN_V2_REVIEW');
+ IF NOT ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ THEN RAISE EXCEPTION 'TRANSFER_NEW_OWNER_FRESH_COMMIT_DENIED'; END IF;
+ IF ws02_api.nbr_commit_evaluation_atomically(
+  actor,rec,'2026-27',idem,req,receipt,trace,'NEEDS_FACTS',audit)
+ THEN RAISE EXCEPTION 'TRANSFER_NEW_OWNER_DUPLICATE_COMMIT_ACCEPTED'; END IF;
+END $transfer_fresh_owner_positive$;
+RESET ROLE;
+DO $transfer_fresh_owner_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.slots
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND idem_key='facade-transfer-atomic-00001'
+   AND actor_id='60000000-0000-4000-8000-000000000001'
+   AND state='RESERVED' AND receipt_hash IS NULL)<>1
+ OR (SELECT count(*) FROM ws02_owner.slots
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND idem_key='facade-transfer-atomic-00001'
+   AND actor_id='60000000-0000-4000-8000-000000000002'
+   AND state='FINALIZED' AND receipt_hash=repeat('e',64))<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND idem_key='facade-transfer-atomic-00001'
+   AND actor_id='60000000-0000-4000-8000-000000000002'
+   AND request_hash=repeat('d',64) AND receipt_hash=repeat('e',64)
+   AND trace_hash=repeat('f',64)
+   AND audit_trace->>'actor_user_id'='60000000-0000-4000-8000-000000000002')<>1
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND actor_id='60000000-0000-4000-8000-000000000001')
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>2
+ THEN RAISE EXCEPTION 'TRANSFER_NEW_OWNER_RECEIPT_OR_OLD_SLOT_CONTAMINATED'; END IF;
+END $transfer_fresh_owner_readback$;
+ROLLBACK TO SAVEPOINT ws02_transfer_fresh_owner_positive;
+RELEASE SAVEPOINT ws02_transfer_fresh_owner_positive;
+DO $transfer_fresh_owner_rollback_readback$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ws02_owner.slots
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND actor_id='60000000-0000-4000-8000-000000000002')
+ OR EXISTS(SELECT 1 FROM ws02_owner.evaluation_logs
+   WHERE record_id='50000000-0000-4000-8000-000000000005')
+ OR (SELECT count(*) FROM ws02_owner.slots
+   WHERE record_id='50000000-0000-4000-8000-000000000005'
+   AND actor_id='60000000-0000-4000-8000-000000000001'
+   AND state='RESERVED')<>1
+ OR (SELECT count(*) FROM ws02_owner.evaluation_logs)<>1
+ THEN RAISE EXCEPTION 'TRANSFER_NEW_OWNER_POSITIVE_PROBE_NOT_ROLLED_BACK'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_OWNER_TRANSFER_FRESH_RESERVATION_AFTER_DENIAL';
+END $transfer_fresh_owner_rollback_readback$;
 -- Independent facade-level transaction-abort proof, distinct from the private
 -- RPC rollback suite. A successful synthetic wrapper call must leave no
 -- reservation, audit trace or receipt after the caller rolls back its savepoint.
