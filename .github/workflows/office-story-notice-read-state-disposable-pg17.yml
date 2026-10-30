@@ -55,7 +55,6 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: |
-          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReviewFixture.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadStateFixture.sql
 
       - name: Apply the real Office Story notice read-state migration twice
