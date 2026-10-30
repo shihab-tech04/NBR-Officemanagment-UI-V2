@@ -23,6 +23,7 @@ describe("Office SQL-backed payment bell", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: "sql-payment-91", isRead: false,
       targetPaymentId: paymentId,
+      targetNoticeId: first.id,
       destination: { main: "payments", sub: "transactions" } });
     expect(notificationTargetPath(rows[0])).toBe(`/payments/transactions/record/${paymentId}`);
     expect(rows[0].message).toContain("৳1,250.50");
@@ -41,6 +42,20 @@ describe("Office SQL-backed payment bell", () => {
     const notice = updated.items.find(item => item.id === "sql-payment-91");
     expect(notice).toMatchObject({ isRead: true, module: "পেমেন্টস" });
     expect(notice?.message).toContain("৳1,250.50");
+  });
+  it("uses server read state as officer-specific authority on refresh", () => {
+    const unread = reducer(undefined, sync([first]));
+    const markedByMaker = reducer(unread, syncMirroredPaymentNotices({
+      notices: [first], payments: [payment], language: "en",
+      useOfficerReadState: true, officerReadNoticeIds: [first.id],
+    }));
+    expect(markedByMaker.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(true);
+
+    const reviewerRefresh = reducer(markedByMaker, syncMirroredPaymentNotices({
+      notices: [first], payments: [payment], language: "en",
+      useOfficerReadState: true, officerReadNoticeIds: [],
+    }));
+    expect(reviewerRefresh.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);
   });
   it("fails closed on missing transaction, negative, fractional, or unsafe minor-unit amounts", () => {
     const invalid: StoryPayment[] = [
