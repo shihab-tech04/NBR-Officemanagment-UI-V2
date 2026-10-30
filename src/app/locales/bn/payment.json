@@ -31,6 +31,7 @@
   "type": "ধরন",
   "status": "অবস্থা",
   "officeCorrectionLoading": "অফিস সংশোধন অনুসন্ধান লোড হচ্ছে…",
+  "officeCorrectionQueueUnavailable": "অফিস সংশোধন পর্যালোচনা তালিকা এখন পাওয়া যাচ্ছে না। পর্যালোচনা সেবা চালু হলে আবার চেষ্টা করুন।",
   "officeCorrectionRole": "আপনার অফিস পর্যালোচনা ভূমিকা",
   "officeCorrectionItems": "টি অনুসন্ধান",
   "officeCorrectionRoleNames": {
@@ -55,7 +56,7 @@
   "officeCorrectionDecisionHelp": "সিদ্ধান্তটি SQL নিশ্চিতকরণের জন্য TaxPay-এ পাঠানো হবে। এটি পর্যালোচনার ফল নথিভুক্ত করে, কোনো আর্থিক রেকর্ড পরিবর্তন করে না।",
   "officeCorrectionDecisionReason": "সিদ্ধান্তের কারণ",
   "officeCorrectionReasonError": "৫ থেকে ১০০০ অক্ষরের মধ্যে কারণ লিখুন।",
-  "officeCorrectionDecisionFailed": "অফিস সংশোধন সিদ্ধান্ত নথিভুক্ত করতে পারেনি।",
+  "officeCorrectionDecisionFailed": "TaxPay এই সিদ্ধান্ত নিশ্চিত করেনি। আবার চেষ্টা করার আগে তালিকাটি হালনাগাদ করুন।",
   "officeCorrectionSubmitDecision": "সিদ্ধান্ত জমা দিন",
   "officeCorrectionSubmitting": "জমা হচ্ছে…",
   "officeCorrectionDecisionPending": "TaxPay নিশ্চিতকরণের অপেক্ষায়",
