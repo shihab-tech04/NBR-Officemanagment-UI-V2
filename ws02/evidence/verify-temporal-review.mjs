@@ -27,7 +27,15 @@ for(const row of manifest.candidates){
  assert.equal(row.review_status,'OPEN_WS01_SOURCE_AND_SCOPE');
  assert.ok(typeof row.rule_key==='string' && row.rule_key.trim().length>1); // Canonical IDs may contain Bengali letters.
  assert.match(row.version_id,/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
- assert.ok(row.effective_from_text.slice(0,10)>start);
+ // This is only a lexical candidate filter, not a legal effective-date ruling.
+ // Reject malformed calendar prefixes before comparing ISO YYYY-MM-DD strings.
+ assert.equal(typeof row.effective_from_text,'string');
+ const prefix=row.effective_from_text.slice(0,10);
+ assert.match(prefix,/^\\d{4}-\\d{2}-\\d{2}$/);
+ const parsed=new Date(prefix+'T00:00:00.000Z');
+ assert.ok(!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0,10)===prefix,
+   'INVALID_EFFECTIVE_FROM_CALENDAR_PREFIX: '+row.rule_key);
+ assert.ok(prefix>start);
  assert.equal(row.canonical_source_ref,'NBR_Task07_Withholding_Atomic_Rules_CLOSED.json#rules');
  assert.equal(row.affects_calculation,true);
  assert.equal(row.affects_submission,false);
