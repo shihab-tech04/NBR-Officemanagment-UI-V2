@@ -31,7 +31,7 @@ for(const row of manifest.candidates){
  // Reject malformed calendar prefixes before comparing ISO YYYY-MM-DD strings.
  assert.equal(typeof row.effective_from_text,'string');
  const prefix=row.effective_from_text.slice(0,10);
- assert.match(prefix,/^\\d{4}-\\d{2}-\\d{2}$/);
+ assert.match(prefix,/^\d{4}-\d{2}-\d{2}$/);
  const parsed=new Date(prefix+'T00:00:00.000Z');
  assert.ok(!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0,10)===prefix,
    'INVALID_EFFECTIVE_FROM_CALENDAR_PREFIX: '+row.rule_key);
