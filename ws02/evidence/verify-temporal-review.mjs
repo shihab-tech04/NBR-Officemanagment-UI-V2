@@ -21,6 +21,13 @@ assert.deepEqual(manifest.counts.by_recorded_execution_status,{
 assert.equal(manifest.counts.affects_calculation,132);
 assert.equal(manifest.counts.affects_submission,0);
 assert.equal(new Set(manifest.candidates.map(x=>x.rule_key)).size,132);
+// Reconcile manifest summary with actual rows, not just expected constants.
+const actualStatuses=Object.fromEntries(['FACT_GATED','CURRENT_EXECUTABLE','FAIL_CLOSED'].map(status=>[
+  status,manifest.candidates.filter(row=>row.execution_status===status).length
+]));
+assert.deepEqual(actualStatuses,manifest.counts.by_recorded_execution_status);
+assert.equal(manifest.candidates.filter(row=>row.affects_calculation===true).length,manifest.counts.affects_calculation);
+assert.equal(manifest.candidates.filter(row=>row.affects_submission===true).length,manifest.counts.affects_submission);
 assert.equal(new Set(manifest.candidates.map(x=>x.version_id)).size,132);
 const start='2026-06-30';
 for(const row of manifest.candidates){
