@@ -23,3 +23,7 @@ These requirements apply to **Administration & Requests > Rules & Calculation**,
 A docs/UI-only change may prove no shared-data-contract impact rather than making a fake database write; it still requires non-regression evidence. User requests to release mean perform a safe release of independently verified scope, not certify unrelated incomplete functionality.
 
 **This file is a coding and review instruction only; it is not evidence that SQL, authentication, legal certification or three-way parity is already implemented.**
+
+## November 1, 2026 — mandatory canonical SQL parity and evidence gate
+
+Before changing any eReturn Rules & Calculation input, return, tax year, rule, form or calculation, follow [ERETURN_THREE_WAY_SYNC_ACCEPTANCE_20261101.md](docs/ERETURN_THREE_WAY_SYNC_ACCEPTANCE_20261101.md) **and** the existing Golden policy. Canonical source is SQL project `gtorruuhvohafapctxym`, not the Office-specific database or a browser snapshot. Convert full UI AY to SQL AY explicitly, verify AY/IY identity and authorization, and never infer statutory certification from SQL `executable`. A changed rule is not complete without Office authorized SQL write/read-back, approved API version and Citizen output/hash parity plus applicable legal/numeric/E2E release gates. Preserve frozen UI, baseline and unrelated work. Unverified = BLOCKED, not 100% or LIVE.
