@@ -40,6 +40,17 @@ describe('image crop dialog', () => {
     expect(cancel).not.toHaveBeenCalled();
   });
 
+  it('uses the separately approved 768 × 520 mobile crop instead of stretching desktop', async () => {
+    const apply = vi.fn();
+    const cancel = vi.fn();
+    const user = userEvent.setup();
+    render(<ImageCropDialog file={new File(['png'], 'mobile.png', { type: 'image/png' })}
+      title="mobile banner" outputWidth={768} outputHeight={520} onApply={apply} onCancel={cancel} />);
+    await screen.findByText(/768 × 520 px/);
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
+  });
+
   it('dismisses without creating a replacement image', async () => {
     const cancel = vi.fn();
     const apply = vi.fn();
