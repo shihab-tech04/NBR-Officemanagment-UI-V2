@@ -47,12 +47,12 @@ jobs:
           tar -cf /tmp/pre-release-offsite.tar -C recovery \
             pre-release-history.bundle pre-release-source.tar.gz BASE_SHA SHA256SUMS
           mkdir -p offsite-shards
-          split -b 6m -d -a 2 /tmp/pre-release-offsite.tar offsite-shards/part-
-          test "$(find offsite-shards -name 'part-*' -type f | wc -l)" -eq 4
+          split -b 2m -d -a 2 /tmp/pre-release-offsite.tar offsite-shards/part-
+          test "$(find offsite-shards -name 'part-*' -type f | wc -l)" -eq 12
           cat offsite-shards/part-* > /tmp/offsite-reconstructed.tar
           cmp -s /tmp/pre-release-offsite.tar /tmp/offsite-reconstructed.tar
           sha256sum /tmp/pre-release-offsite.tar | sed 's|/tmp/pre-release-offsite.tar|offsite-joined.tar|' > offsite-shards/WHOLE_SHA256SUMS
-          echo "PASS: independently reconstructable four-part pre-release archive"
+          echo "PASS: independently reconstructable twelve-part pre-release archive"
       - uses: actions/upload-artifact@v4
         with:
           name: office-offsite-history-part-00
@@ -78,6 +78,62 @@ jobs:
         with:
           name: office-offsite-history-part-03
           path: offsite-shards/part-03
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-04
+          path: offsite-shards/part-04
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-05
+          path: offsite-shards/part-05
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-06
+          path: offsite-shards/part-06
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-07
+          path: offsite-shards/part-07
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-08
+          path: offsite-shards/part-08
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-09
+          path: offsite-shards/part-09
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-10
+          path: offsite-shards/part-10
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-offsite-history-part-11
+          path: offsite-shards/part-11
           retention-days: 7
           compression-level: 0
           if-no-files-found: error
