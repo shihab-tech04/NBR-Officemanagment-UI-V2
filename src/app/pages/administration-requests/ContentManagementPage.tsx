@@ -24,7 +24,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
 const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
 const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
 const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'nbr-office-taxpay-cms-session' } }) : null;
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
