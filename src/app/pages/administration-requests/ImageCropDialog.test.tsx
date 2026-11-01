@@ -27,7 +27,7 @@ describe('image crop dialog', () => {
     const cancel = vi.fn();
     const file = new File(['png'], 'photo.png', { type: 'image/png' });
     const user = userEvent.setup();
-    render(<ImageCropDialog file={file} title="desktop banner" outputWidth={1600} outputHeight={800} onApply={apply} onCancel={cancel} />);
+    render(<ImageCropDialog file={file} title="desktop banner" outputWidth={2172} outputHeight={724} onApply={apply} onCancel={cancel} />);
     await waitFor(() => expect(document.querySelector('canvas[aria-label="desktop banner crop preview. Drag to reposition."]')).toBeInTheDocument());
     await waitFor(() => expect(drawImage).toHaveBeenCalled());
     await user.click(screen.getByRole('button', { name: 'Apply crop' }));
@@ -36,8 +36,19 @@ describe('image crop dialog', () => {
     expect(exported.name).toBe('photo-cropped.png');
     expect(exported.type).toBe('image/png');
     expect(exported.size).toBeGreaterThan(0);
-    expect(screen.getByText(/1600 × 800 px/)).toBeInTheDocument();
+    expect(screen.getByText(/2172 × 724 px/)).toBeInTheDocument();
     expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it('uses the separately approved 768 × 520 mobile crop instead of stretching desktop', async () => {
+    const apply = vi.fn();
+    const cancel = vi.fn();
+    const user = userEvent.setup();
+    render(<ImageCropDialog file={new File(['png'], 'mobile.png', { type: 'image/png' })}
+      title="mobile banner" outputWidth={768} outputHeight={520} onApply={apply} onCancel={cancel} />);
+    await screen.findByText(/768 × 520 px/);
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
   });
 
   it('dismisses without creating a replacement image', async () => {

@@ -28,6 +28,13 @@
 .cms-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-bottom: var(--space-5); }
 .cms-upload { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-3); }
 .cms-upload img, .cms-no-image { width: 100%; aspect-ratio: 16 / 7; object-fit: contain; background: var(--color-background, #f4f6f9); border-radius: var(--radius-md); }
+.cms-upload--desktop img, .cms-upload--desktop .cms-no-image { aspect-ratio: 3 / 1; }
+.cms-upload--mobile img, .cms-upload--mobile .cms-no-image { aspect-ratio: 768 / 520; }
+.cms-editor__note { color: var(--color-text-secondary); font-size: 13px; margin: var(--space-3) 0; }
+.cms-login { display: flex; flex-direction: column; gap: 6px; max-width: 360px; font-size: 14px; font-weight: 600; }
+.cms-login input { width: 100%; min-height: 42px; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 9px 12px; background: var(--color-surface, #fff); color: var(--color-text-primary); font: inherit; }
+.cms-login input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
 .cms-no-image { display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: var(--space-2); }
 .cms-no-image p, .cms-upload > p { font-size: 12px; margin: var(--space-2) 0 0; }
 .cms-upload-label { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; margin-top: var(--space-3); color: var(--color-primary); font-weight: 600; }
