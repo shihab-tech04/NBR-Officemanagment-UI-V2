@@ -359,7 +359,7 @@ export function ContentManagementPage() {
               // agreement: category controls the default, not the record ID.
               // Previously uploaded/cropped artwork remains authoritative.
               const preview = (editing && (device === 'desktop' ? desktopPreview : mobilePreview)) || imageUrl(path) || (device === 'mobile' ? imageUrl(draft.desktop_image_path) : null) || originalImageUrl(defaultBannerImageId(draft.service_code));
-              return <div className="cms-upload" key={device}>
+              return <div className={`cms-upload cms-upload--${device}`} key={device}>
                 <h3>{device === 'desktop' ? 'Desktop image' : 'Mobile image'}</h3>
                 {preview ? <img src={preview} alt={`${device} banner preview`} /> : <div className="cms-no-image"><ImagePlus size={26}/><p>No image selected</p></div>}
                 {editing && file && <p>Cropped image ready: {file.name}</p>}
@@ -375,13 +375,13 @@ export function ContentManagementPage() {
                   if (device === 'desktop') setDesktopFile(null);
                   else setMobileFile(null);
                 }}>Remove image</button>}
-                {editing && <p>PNG, JPG or JPEG · Crop before saving · Max 5 MB</p>}
+                {editing && <p>PNG or JPEG · Desktop 2172 × 724 · Mobile 768 × 520 · Max 5 MB</p>}
               </div>;
             })}
           </div>
           <p className="cms-editor__note">{draft.service_code ? 'Service text is stored as accessible banner metadata. The homepage heading, description, and two payment buttons stay fixed to the main banner.' : 'The main banner controls the fixed heading, description and primary payment button on the taxpayer homepage.'}</p>
           <div className="cms-fields">{fields.map(field => <div className="cms-field" key={field.key}><label htmlFor={`cms-${field.key}`}>{field.label}</label>
-            {editing && (!draft.service_code || draft.id === 'intro') ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
+            {editing ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
               <input id={`cms-${field.key}`} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />) :
               <p className="cms-readonly-value">{draft[field.key]}</p>}
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
