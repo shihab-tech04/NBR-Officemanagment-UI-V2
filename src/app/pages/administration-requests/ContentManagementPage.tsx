@@ -399,7 +399,7 @@ export function ContentManagementPage() {
               </div>;
             })}
           </div>
-          <p className="cms-editor__note">{draft.service_code ? 'Service text is stored as accessible banner metadata. The homepage heading, description, and two payment buttons stay fixed to the main banner.' : 'The main banner controls the fixed heading, description and primary payment button on the taxpayer homepage.'}</p>
+          <p className="cms-editor__note">{draft.service_code ? 'Service headings and descriptions are announced when artwork changes. The visible heading, description and payment actions remain fixed; only the Travel Tax action label controls the second fixed button.' : 'The main banner controls the fixed heading, description and primary payment button on the taxpayer homepage.'}</p>
           <div className="cms-fields">{fields.map(field => <div className="cms-field" key={field.key}><label htmlFor={`cms-${field.key}`}>{field.label}</label>
             {editing ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
               <input id={`cms-${field.key}`} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />) :
