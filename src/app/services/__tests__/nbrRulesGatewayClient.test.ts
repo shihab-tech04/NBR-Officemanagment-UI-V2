@@ -22,4 +22,12 @@ describe("public-only Office Rules gateway", () => {
     expect("openRuleAdminSession" in gateway).toBe(false);
     expect("nbrRulesAuth" in gateway).toBe(false);
   });
+  it("rejects duplicate or inconsistent AY/IY records, never treating them as synchronized",async()=>{
+    const valid = {assessmentYear:"2026-27",incomeYear:"2025-26",state:"active",executable:true};
+    const asFetcher=(years:unknown)=> (async()=>new Response(JSON.stringify({years}),{status:200})) as typeof fetch;
+    await expect(gateway.readPublicRuleYears(asFetcher([valid,valid]))).rejects.toThrow("NBR_RULES_SQL_CONTRACT_MISMATCH");
+    await expect(gateway.readPublicRuleYears(asFetcher([{...valid,incomeYear:"2024-25"}]))).rejects.toThrow("NBR_RULES_SQL_CONTRACT_MISMATCH");
+    await expect(gateway.readPublicRuleYears(asFetcher([{...valid,executable:"true"}]))).rejects.toThrow("NBR_RULES_SQL_CONTRACT_MISMATCH");
+    await expect(gateway.readPublicRuleYears(asFetcher([]))).rejects.toThrow("NBR_RULES_SQL_CONTRACT_MISMATCH");
+  });
 });
