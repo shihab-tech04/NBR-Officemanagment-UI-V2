@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { RulesSqlLivePanel } from "./RulesSqlLivePanel";
+import { RulesSqlReadbackPanel } from "./RulesSqlReadbackPanel";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { TaxYearDraftStepper } from "./TaxYearDraftStepper";
@@ -233,6 +234,7 @@ export function RulesCalculationPage() {
               options={[{value:"",label:tr("All groups","সব গ্রুপ")},
                 ...SQL_RULE_GROUPS.map((g)=>({value:g.id,label:`${bn?g.bn:g.en} (${g.count})`}))]}/>
           </div>
+          <RulesSqlReadbackPanel year={year} bn={bn} />
           {!isRuleListYear && <p className="rules-engine__scope" role="status">
             {tr("Historical rules have not been reconstructed for this year. No current-year records are copied backward.", "এই করবর্ষের ঐতিহাসিক বিধি পুনর্গঠিত নয়। বর্তমান বিধি পিছনের বছরে অনুলিপি করা হয় না।")}
           </p>}
