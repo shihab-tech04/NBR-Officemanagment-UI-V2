@@ -37,6 +37,7 @@ jobs:
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
           VITE_TAXPAY_CMS_SUPABASE_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
+          VITE_NBR_RULES_PUBLISHABLE_KEY: 'sb_publishable_ZwFis7EMwMNdqZNsTi5CKA_8Rs0JNgP'
           VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
       - run: |
           cp dist/index.html dist/404.html
