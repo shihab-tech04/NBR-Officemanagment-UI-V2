@@ -168,6 +168,31 @@ export function ContentManagementPage() {
   }, [authState]);
 
   useEffect(() => {
+    if (!cms || authState !== 'authorized') return;
+    const sync = () => {
+      // Preserve in-progress edits. Versioned SQL saves reject stale drafts.
+      if (editing) return;
+      void refresh().catch(error => setMessage((error as Error).message));
+    };
+    const channel = cms.channel('verified-office-banner-updates')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'taxpay_site_banners',
+      }, sync)
+      .subscribe();
+    window.addEventListener('focus', sync);
+    window.addEventListener('online', sync);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') sync();
+    }, 30_000);
+    return () => {
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('online', sync);
+      window.clearInterval(interval);
+      void cms.removeChannel(channel);
+    };
+  }, [authState, editing]);
+
+  useEffect(() => {
     const index = banners.findIndex(row => row.id === selectedId);
     if (newDraft && newDraft.id === selectedId) {
       setDraft(newDraft);
