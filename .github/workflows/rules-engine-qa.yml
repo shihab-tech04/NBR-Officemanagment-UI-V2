@@ -17,6 +17,7 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
+          VITE_NBR_RULES_PUBLISHABLE_KEY: 'sb_publishable_ZwFis7EMwMNdqZNsTi5CKA_8Rs0JNgP'
       - run: npm test -- --reporter=default
       - run: npx tsx src/app/i18n/validateLocales.ts
       - name: Verify live NBR replacement Rules gateway security and browser origin
