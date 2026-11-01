@@ -232,6 +232,19 @@ export function ContentManagementPage() {
     return key;
   }
 
+  async function cleanupUnusedImages(paths: string[]) {
+    if (!cms || !paths.length) return;
+    const { data, error } = await cms.from('taxpay_site_banners')
+      .select('desktop_image_path, mobile_image_path');
+    if (error) throw error;
+    const unused = paths.filter(path => !(data || []).some(row =>
+      row.desktop_image_path === path || row.mobile_image_path === path,
+    ));
+    if (!unused.length) return;
+    const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(unused);
+    if (cleanupError) throw cleanupError;
+  }
+
   async function save() {
     if (!cms || !draft || !authUid || authState !== 'authorized' || busy) return;
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
@@ -275,10 +288,7 @@ export function ContentManagementPage() {
       const oldPaths = [draft.desktop_image_path, draft.mobile_image_path].filter(
         (path): path is string => !!path && ![desktopPath, mobilePath].includes(path),
       );
-      if (oldPaths.length) {
-        const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(oldPaths);
-        if (cleanupError) setMessage('Banner published. Old image cleanup needs attention: ' + cleanupError.message);
-      }
+      await cleanupUnusedImages(oldPaths);
       setMessage(previous => previous || 'Saved to SQL. The public TaxPay banner will refresh automatically.');
     } catch (error) {
       if (!committed && uploads.length) await cms.storage.from('taxpay-banners').remove(uploads);
@@ -292,21 +302,22 @@ export function ContentManagementPage() {
     if (!cms || !draft || !authUid || busy || banners.length <= 1) return;
     if (!window.confirm('Delete this banner from SQL and remove it from public TaxPay?')) return;
     setBusy(true); setMessage('');
+    let removed = false;
     try {
       const { data, error } = await cms.from('taxpay_site_banners').delete()
         .eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('This banner changed in another session. Reload before deleting.');
+      removed = true;
       const paths = [draft.desktop_image_path, draft.mobile_image_path].filter((path): path is string => !!path);
       setNewDraft(null); setEditing(false);
       await refresh();
-      if (paths.length) {
-        const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(paths);
-        if (cleanupError) { setMessage('Banner deleted; old image cleanup failed: ' + cleanupError.message); return; }
-      }
+      await cleanupUnusedImages(paths);
       setMessage('Banner deleted from SQL and public TaxPay.');
     } catch (error) {
-      setMessage('Delete not completed: ' + (error as Error).message);
+      setMessage((removed
+        ? 'Banner deleted from SQL, but refresh or image cleanup failed: '
+        : 'Delete not completed: ') + (error as Error).message);
     } finally { setBusy(false); }
   }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
