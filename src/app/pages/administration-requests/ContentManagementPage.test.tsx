@@ -75,6 +75,19 @@ describe('verified TaxPay banner CMS', () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
+  it('locks canonical Intro category, publishing and deletion controls', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    expect(screen.queryByRole('combobox', { name: 'Banner category' })).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Publish banner' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Remove banner' })).not.toBeInTheDocument();
+    expect(screen.getByText('Main banner (fixed)')).toBeInTheDocument();
+  });
+
   it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
     const { client, rpc } = makeClient(true);
     deps.createClient.mockReturnValue(client);
