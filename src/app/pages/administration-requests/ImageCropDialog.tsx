@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Crop, RotateCcw, X } from 'lucide-react';
+import { Crop, RotateCcw } from 'lucide-react';
+import { AppModal } from '../../components/modals/AppModal';
 import { cropWindow, MAX_IMAGE_BYTES, validateImageFile } from './imageCrop';
 
 type ImageCropDialogProps = {
@@ -55,12 +56,6 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
     ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, PREVIEW_WIDTH, previewHeight);
   }, [bitmap, aspect, zoom, panX, panY, previewHeight]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) { if (event.key === 'Escape' && !processing) onCancel(); }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onCancel, processing]);
-
   function startDrag(event: PointerEvent<HTMLCanvasElement>) {
     if (!bitmap) return;
     dragging.current = { x: event.clientX, y: event.clientY, panX, panY };
@@ -103,33 +98,33 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
     finally { setProcessing(false); }
   }
 
-  return <div className="cms-crop-backdrop" role="presentation">
-    <section className="cms-crop-dialog" role="dialog" aria-modal="true" aria-label={`Crop ${title}`}>
-      <div className="cms-crop__heading">
-        <div><h2><Crop size={20} /> Crop {title}</h2><p>Drag the image or use the sliders to choose what appears on TaxPay.</p></div>
-        <button type="button" onClick={onCancel} aria-label="Close crop editor" disabled={processing}><X size={20}/></button>
+  return <AppModal
+    open={true}
+    title={`Crop ${title}`}
+    size="xl"
+    onClose={() => { if (!processing) onCancel(); }}
+    footer={<div className="cms-crop__footer">
+      <span>{outputWidth} × {outputHeight} px · {aspect.toFixed(2)}:1 · up to 5 MB</span>
+      <div className="cms-crop__actions">
+        <button type="button" onClick={() => { setZoom(1); setPanX(0); setPanY(0); }} disabled={!bitmap || processing}><RotateCcw size={15}/> Reset</button>
+        <button type="button" onClick={onCancel} disabled={processing}>Cancel</button>
+        <button className="cms-primary" type="button" onClick={() => void apply()} disabled={!bitmap || processing}><Crop size={15}/>{processing ? 'Cropping…' : 'Apply crop'}</button>
       </div>
-      <div className="cms-crop__stage">
-        {bitmap ? <canvas ref={canvasRef} width={PREVIEW_WIDTH} height={previewHeight} aria-label={`${title} crop preview. Drag to reposition.`}
-          onPointerDown={startDrag} onPointerMove={drag} onPointerUp={() => { dragging.current = null; }}
-          onPointerCancel={() => { dragging.current = null; }} /> :
-          <p>{error || 'Loading image preview…'}</p>}
-      </div>
-      <div className="cms-crop__controls">
-        <label>Zoom <input type="range" min="1" max="3" step="0.05" value={zoom} onChange={event => setZoom(Number(event.target.value))} disabled={!bitmap}/><span>{Math.round(zoom * 100)}%</span></label>
-        <label>Horizontal <input type="range" min="-1" max="1" step="0.01" value={panX} onChange={event => setPanX(Number(event.target.value))} disabled={!bitmap}/></label>
-        <label>Vertical <input type="range" min="-1" max="1" step="0.01" value={panY} onChange={event => setPanY(Number(event.target.value))} disabled={!bitmap}/></label>
-        <label>Save as <select value={outputType} onChange={event => setOutputType(event.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPG / JPEG</option></select></label>
-      </div>
-      <div className="cms-crop__footer">
-        <span>{outputWidth} × {outputHeight} px · {aspect.toFixed(2)}:1 · up to 5 MB</span>
-        <div className="cms-crop__actions">
-          <button type="button" onClick={() => { setZoom(1); setPanX(0); setPanY(0); }} disabled={!bitmap || processing}><RotateCcw size={15}/> Reset</button>
-          <button type="button" onClick={onCancel} disabled={processing}>Cancel</button>
-          <button className="cms-primary" type="button" onClick={() => void apply()} disabled={!bitmap || processing}><Crop size={15}/>{processing ? 'Cropping…' : 'Apply crop'}</button>
-        </div>
-      </div>
-      {error && <p className="cms-crop__error" role="alert">{error}</p>}
-    </section>
-  </div>;
+    </div>}
+  >
+    <p className="cms-editor__note">Drag the image or use the sliders to choose what appears on TaxPay.</p>
+    <div className="cms-crop__stage">
+      {bitmap ? <canvas ref={canvasRef} width={PREVIEW_WIDTH} height={previewHeight} aria-label={`${title} crop preview. Drag to reposition.`}
+        onPointerDown={startDrag} onPointerMove={drag} onPointerUp={() => { dragging.current = null; }}
+        onPointerCancel={() => { dragging.current = null; }} /> :
+        <p>{error || 'Loading image preview…'}</p>}
+    </div>
+    <div className="cms-crop__controls">
+      <label>Zoom <input type="range" min="1" max="3" step="0.05" value={zoom} onChange={event => setZoom(Number(event.target.value))} disabled={!bitmap}/><span>{Math.round(zoom * 100)}%</span></label>
+      <label>Horizontal <input type="range" min="-1" max="1" step="0.01" value={panX} onChange={event => setPanX(Number(event.target.value))} disabled={!bitmap}/></label>
+      <label>Vertical <input type="range" min="-1" max="1" step="0.01" value={panY} onChange={event => setPanY(Number(event.target.value))} disabled={!bitmap}/></label>
+      <label>Save as <select value={outputType} onChange={event => setOutputType(event.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPG / JPEG</option></select></label>
+    </div>
+    {error && <p className="cms-crop__error" role="alert">{error}</p>}
+  </AppModal>;
 }
