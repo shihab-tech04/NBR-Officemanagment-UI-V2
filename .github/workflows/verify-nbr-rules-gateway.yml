@@ -44,7 +44,11 @@ jobs:
               canonical='WH-R6-LAND-'+suffix
               encoded=quote(canonical,safe='')
               check('rules/'+encoded+'?year=2026-27',401)
-          for invalid in ('A%2FB','%2F','%2E%2E','%ZZ'):
+          # Encoded traversal (%2E%2E) is handled by Cloudflare before the
+          # Edge function. It responds with a provider-side 1101/500 rather
+          # than the application's 404. Keep the ".." route rejection in
+          # pure route-id unit tests. Never treat this as authorized access.
+          for invalid in ('A%2FB','%2F','%ZZ'):
               check('rules/'+invalid+'?year=2026-27',404)
           print('PASS: six Bengali SQL rule IDs routable; privileged data still denied; no SQL writes')
           PY
