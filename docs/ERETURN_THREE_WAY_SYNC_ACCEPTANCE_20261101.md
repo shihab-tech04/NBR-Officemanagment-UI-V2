@@ -29,7 +29,7 @@ Each proposed change must complete the exact sequence:
 - Repository baselines: Office `32889528f7d921110e445faf9a20f94d3ead3be9`; Citizen `903cccfdd5efe57efe87251995cc207894a7f664`.
 - Rules SQL queried successfully: **4** year records, **366** canonical identities, **733** versions and **733** runtime bindings. **1** Auth user and **3** active admin-principal records exist; this does **not** verify a working authorized Office admin session.
 - Rules API and `nbr-rules-office-gateway` are deployed in canonical Rules SQL. The Office public year reader was already present; full Office rule rows still display a recorded snapshot. Citizen statutory computation intentionally fails closed.
-- This change set adds strict public AY/IY validation and live year parity messaging, not synchronized admin rule publishing, citizen calculation certification or a verified production E2E filing flow.
+- This change set adds strict public AY/IY validation and live year parity messaging; the Office Rules library now also includes a **separate protected, read-only** live SQL rule-version panel. It requires genuine Rules-SQL Auth and a permission-bound session. **Authenticated browser read-back remains UNVERIFIED** until an authorized officer exercises it. Rule proposal/approval/publishing, citizen calculation certification and production E2E filing remain BLOCKED.
 - Full 100% sync remains **BLOCKED** until role-bound Office protected read/write, approved versioned calculation API, independent legal/numeric gates and public end-to-end read-back all pass.
 
 ## Mandatory evidence row
