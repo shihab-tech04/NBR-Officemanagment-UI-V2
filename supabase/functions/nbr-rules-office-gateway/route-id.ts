@@ -15,7 +15,8 @@ export function isRuleRouteId(raw: string | undefined): boolean {
 
 /** Prevent double encoding between gateway URL.pathname and Rules API. */
 export function normalizeGatewaySegment(raw: string): string {
-  const decoded = decodeURIComponent(raw);
+  // Guard before decoding so malformed percent escapes also fail with the
+  // same safe error (rather than a raw URIError leaking from route handling).
   if (!isRuleRouteId(raw)) throw new Error("INVALID_RULES_GATEWAY_PATH");
-  return encodeURIComponent(decoded);
+  return encodeURIComponent(decodeURIComponent(raw));
 }
