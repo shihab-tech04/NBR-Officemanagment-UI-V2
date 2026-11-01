@@ -39,6 +39,8 @@ function makeClient(authorized: boolean) {
       signOut: vi.fn(),
     },
     rpc,
+    channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() })),
+    removeChannel: vi.fn(async () => 'ok'),
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
     storage: { from: vi.fn(() => ({
       getPublicUrl: (path: string) => ({ data: { publicUrl: 'https://storage.test/' + path } }),
