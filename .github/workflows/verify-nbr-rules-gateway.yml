@@ -1,0 +1,50 @@
+name: Verify live Bengali NBR Rules gateway identity and access denial
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/nbr-rules-office-gateway/**'
+      - '.github/workflows/verify-nbr-rules-gateway.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public years and protected Unicode detail denial
+        run: |
+          python3 - <<'PY'
+          import json
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          from urllib.parse import quote
+          base='https://gtorruuhvohafapctxym.supabase.co/functions/v1/nbr-rules-office-gateway'
+          origin='https://shihab-tech04.github.io'
+          def check(path,expected,method='GET'):
+              request=Request(base+'/'+path,method=method,headers={'Origin':origin,'Accept':'application/json'})
+              try:
+                  with urlopen(request,timeout=25) as response:
+                      status=response.status
+                      headers=response.headers
+                      content=response.read()
+              except HTTPError as error:
+                  status=error.code
+                  headers=error.headers
+                  content=error.read()
+              assert status==expected,(path,status,expected,content[:130])
+              assert headers.get('Access-Control-Allow-Origin')==origin,(path,headers)
+              return content
+          years=json.loads(check('public/years',200))
+          assert any(y['assessmentYear']=='2026-27' and y['incomeYear']=='2025-26' for y in years['years'])
+          check('rules?year=2026-27',401)
+          check('session/auto',401,'POST')
+          for suffix in ('ক','খ','গ','ঘ','ঙ','চ'):
+              canonical='WH-R6-LAND-'+suffix
+              encoded=quote(canonical,safe='')
+              check('rules/'+encoded+'?year=2026-27',401)
+          for invalid in ('A%2FB','%2F','%2E%2E','%ZZ'):
+              check('rules/'+invalid+'?year=2026-27',404)
+          print('PASS: six Bengali SQL rule IDs routable; privileged data still denied; no SQL writes')
+          PY
