@@ -282,7 +282,9 @@ export function ContentManagementPage() {
       setMessage(previous => previous || 'Saved to SQL. The public TaxPay banner will refresh automatically.');
     } catch (error) {
       if (!committed && uploads.length) await cms.storage.from('taxpay-banners').remove(uploads);
-      setMessage('Save not completed: ' + (error as Error).message + '. Refresh the banner before retrying.');
+      setMessage(committed
+        ? 'Saved to SQL, but refresh or image cleanup failed: ' + (error as Error).message + '. Refresh to verify.'
+        : 'Save not completed: ' + (error as Error).message + '. Refresh the banner before retrying.');
     } finally { setBusy(false); }
   }
 
@@ -332,7 +334,14 @@ export function ContentManagementPage() {
 
   return <main className="cms-page">
     <header className="cms-page__heading">
-      <div><h1>Content Management</h1><p>Manage published TaxPay banner images, order and bilingual content through verified SQL.</p></div><button type="button" onClick={() => { void refresh().catch(err => setMessage((err as Error).message)); }}>Refresh</button>
+      <div><h1>Content Management</h1><p>Manage published TaxPay banner images, order and bilingual content through verified SQL.</p></div>
+      <div className="cms-editor__header-actions">
+        <button type="button" onClick={() => {
+          if (editing && !window.confirm('Discard unsaved banner changes and refresh?')) return;
+          void refresh().catch(err => setMessage((err as Error).message));
+        }}>Refresh</button>
+        <button type="button" onClick={() => { void cms?.auth.signOut().then(() => { setAuthUid(null); setAuthState('signed-out'); }); }}>Sign out</button>
+      </div>
     </header>
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
@@ -340,8 +349,8 @@ export function ContentManagementPage() {
     </div>
     {tab === 'logo' ? <SiteLogoPanel cms={cms} /> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
-          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={addBanner}><Plus size={16}/> Add banner</button></div>
-          {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
+          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={() => { if (!editing || window.confirm('Discard unsaved banner changes?')) addBanner(); }}><Plus size={16}/> Add banner</button></div>
+          {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { if (editing && row.id !== selectedId && !window.confirm('Discard unsaved banner changes?')) return; setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
             <span><strong>{row.heading_en}</strong><small>{row.service_code ? 'Service Banner' : 'Main Banner'} · Serial {index + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
           </button>)}
@@ -389,7 +398,7 @@ export function ContentManagementPage() {
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>}</div>
-            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {busy ? 'Saving…' : isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
