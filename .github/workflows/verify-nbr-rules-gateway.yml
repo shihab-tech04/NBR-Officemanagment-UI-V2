@@ -48,7 +48,20 @@ jobs:
           # Edge function. It responds with a provider-side 1101/500 rather
           # than the application's 404. Keep the ".." route rejection in
           # pure route-id unit tests. Never treat this as authorized access.
-          for invalid in ('A%2FB','%2F','%ZZ'):
+          for invalid in ('A%2FB','%2F'):
               check('rules/'+invalid+'?year=2026-27',404)
+          # Cloudflare rejects malformed percent escapes with its own
+          # HTTP 400 before a request reaches the Edge handler; CORS is
+          # applied by the application and is not present on this response.
+          # The pure route-id unit test independently rejects '%ZZ'.
+          malformed=Request(base+'/rules/%ZZ?year=2026-27',headers={
+              'Origin':origin,'Accept':'application/json'})
+          try:
+              with urlopen(malformed,timeout=25) as response:
+                  raise AssertionError(('malformed escape accepted',response.status))
+          except HTTPError as error:
+              assert error.code == 400, ('expected Cloudflare malformed-path rejection',error.code)
+              denied=error.read(1024)
+              assert b'Bearer' not in denied and b'rule_data' not in denied
           print('PASS: six Bengali SQL rule IDs routable; privileged data still denied; no SQL writes')
           PY
