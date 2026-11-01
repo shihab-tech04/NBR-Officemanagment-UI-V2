@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const allowedOrigins = new Set(["https://shihab-tech04.github.io", "http://localhost:5173"]);
-const isId = (s:string) => /^[A-Za-z0-9_-]{1,100}$/.test(s);
+import { isRuleRouteId, normalizeGatewaySegment } from "./route-id.ts";
+const isId = isRuleRouteId;
 function cors(origin:string|null): HeadersInit {
   return {
     "Access-Control-Allow-Origin":origin&&allowedOrigins.has(origin)?origin:"https://shihab-tech04.github.io",
@@ -37,7 +38,7 @@ Deno.serve(async (request:Request) => {
     return reply(401,"Administrator authentication required");
  const base=Deno.env.get("SUPABASE_URL");
  if(!base)return reply(503,"Project configuration missing");
- const target=new URL(base+"/functions/v1/nbr-rules-api/"+route.map(encodeURIComponent).join("/"));
+ const target=new URL(base+"/functions/v1/nbr-rules-api/"+route.map(normalizeGatewaySegment).join("/"));
  target.search=url.search;
  const forward=new Headers({"accept":"application/json"});
  if(token)forward.set("authorization",token);
