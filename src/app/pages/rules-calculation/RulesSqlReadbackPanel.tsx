@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { AppTextField } from "../../components/forms/AppTextField";
+import { AppSelectField } from "../../components/forms/AppSelectField";
+import {
+  submitImmutableRuleReviewProposal,
+  type VerifiedRuleReviewReceipt,
+} from "../../services/nbrRuleReviewProposals";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -24,6 +29,13 @@ export function RulesSqlReadbackPanel({ year, bn }: { year: string; bn: boolean 
   const sessionRef = useRef<RulesOfficerSession | null>(null);
   const [page, setPage] = useState(1);
   const [readback, setReadback] = useState<LiveRulesPage | null>(null);
+  const [reviewRule, setReviewRule] = useState("");
+  const [reviewSource, setReviewSource] = useState("");
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState("");
+  const [reviewReceipt, setReviewReceipt] = useState<VerifiedRuleReviewReceipt | null>(null);
 
   useEffect(() => {
     return () => {
@@ -36,6 +48,10 @@ export function RulesSqlReadbackPanel({ year, bn }: { year: string; bn: boolean 
   useEffect(() => {
     setPage(1);
     setReadback(null);
+    setReviewRule("");
+    setReviewStatus("");
+    setReviewReceipt(null);
+    setReviewConfirmed(false);
   }, [year]);
 
   useEffect(() => {
@@ -60,6 +76,45 @@ export function RulesSqlReadbackPanel({ year, bn }: { year: string; bn: boolean 
     }).finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [session, year, page, bn]);
+
+  useEffect(() => {
+    setReviewRule("");
+    setReviewReceipt(null);
+    setReviewConfirmed(false);
+  }, [page]);
+
+  const submitReview = async () => {
+    const current = readback?.rules.find(rule => rule.rule_id === reviewRule);
+    if (!session || !current || !reviewConfirmed || reviewBusy) return;
+    setReviewBusy(true);
+    setReviewStatus("");
+    setReviewReceipt(null);
+    try {
+      const receipt = await submitImmutableRuleReviewProposal(
+        session, current, reviewSource, reviewReason
+      );
+      setReviewReceipt(receipt);
+      setReviewConfirmed(false);
+      setReviewReason("");
+      setReviewSource("");
+      setReviewRule("");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      setReviewStatus(code === "NBR_RULES_PROPOSAL_OUTCOME_UNVERIFIED"
+        ? tr(
+          "The outcome cannot be verified. Check the protected SQL audit before attempting another submission.",
+          "ফলাফল যাচাই হয়নি। পুনরায় জমা দেওয়ার আগে সুরক্ষিত SQL অডিট যাচাই করুন।"
+        )
+        : code === "NBR_RULES_DUPLICATE_REVIEW_REQUEST"
+          ? tr("An equivalent review request is already recorded. Do not submit it again.", "একই পর্যালোচনা অনুরোধ আগে নথিভুক্ত হয়েছে। পুনরায় জমা দেবেন না।")
+          : tr(
+            "Review request was rejected. Verify officer permissions, official source URL, change reason and current version.",
+            "পর্যালোচনা অনুরোধ প্রত্যাখ্যাত। কর্মকর্তার অনুমতি, সরকারি উৎস, কারণ ও বর্তমান সংস্করণ যাচাই করুন।"
+          ));
+    } finally {
+      setReviewBusy(false);
+    }
+  };
 
   const connect = async () => {
     if (busy || session) return;
@@ -90,6 +145,12 @@ export function RulesSqlReadbackPanel({ year, bn }: { year: string; bn: boolean 
     setReadback(null);
     setPassword("");
     setStatus("");
+    setReviewRule("");
+    setReviewSource("");
+    setReviewReason("");
+    setReviewConfirmed(false);
+    setReviewReceipt(null);
+    setReviewStatus("");
     if (active) void signOutRulesOfficer(active).catch(() => {
       setStatus(tr("Server session revocation could not be confirmed.", "সার্ভার সেশন বাতিল হয়েছে কি না যাচাই করা যায়নি।"));
     });
@@ -154,6 +215,55 @@ export function RulesSqlReadbackPanel({ year, bn }: { year: string; bn: boolean 
             rows={rows} mobileCardMapping={{primary:"rule_id",meta:["revision_no","legal_source","execution"]}}/>
           {readback.total > 25 && <Pagination page={page} total={readback.total} perPage={25}
             onPage={setPage} perPageOptions={[25]} onPerPageChange={() => {}} />}
+          {year === "2026-27" && session.permissions.includes("tax_rule.propose_change") && (
+            <div className="rules-engine__panel">
+              <h3>{tr("Request legal review of an immutable rule", "অপরিবর্তনীয় বিধির আইনি পর্যালোচনা অনুরোধ")}</h3>
+              <p>{tr(
+                "Creates a version-linked DRAFT request with SQL audit read-back. It does not edit, approve, publish or execute an active rule.",
+                "বর্তমান সংস্করণের সাথে যুক্ত একটি খসড়া অনুরোধ SQL অডিটে নথিভুক্ত করে। সক্রিয় বিধি পরিবর্তন, অনুমোদন, প্রকাশ বা কার্যকর করে না।"
+              )}</p>
+              <div className="rules-engine__filters rules-engine__filters--rules">
+                <AppSelectField id="rules-review-rule" compact
+                  label={tr("Rule for review", "পর্যালোচনার বিধি")} value={reviewRule}
+                  onChange={value => { setReviewRule(value); setReviewStatus(""); setReviewReceipt(null); }}
+                  searchableAfter={5} disabled={reviewBusy}
+                  options={[{ value:"", label:tr("Select one current SQL rule", "একটি বর্তমান SQL বিধি নির্বাচন করুন") },
+                    ...readback.rules.map(rule => ({value:rule.rule_id,label:rule.rule_id}))]}/>
+                <AppTextField id="rules-review-legal-source" compact
+                  label={tr("Official legal source URL", "সরকারি আইনি উৎসের URL")}
+                  value={reviewSource} onChange={setReviewSource} disabled={reviewBusy}
+                  placeholder="https://nbr.gov.bd/..." maxLength={600}/>
+                <AppTextField id="rules-review-reason" compact
+                  label={tr("Reason for independent review (30+ characters)", "স্বতন্ত্র পর্যালোচনার কারণ (কমপক্ষে ৩০ অক্ষর)")}
+                  value={reviewReason} onChange={setReviewReason} disabled={reviewBusy}
+                  maxLength={700}/>
+              </div>
+              <label>
+                <input type="checkbox" checked={reviewConfirmed} disabled={reviewBusy}
+                  onChange={event => setReviewConfirmed(event.target.checked)} />
+                {" "}{tr(
+                  "I understand that this is an unapproved legal review request, not a change to citizen tax calculation.",
+                  "আমি বুঝেছি এটি অননুমোদিত আইনি পর্যালোচনার অনুরোধ, নাগরিকের কর গণনার পরিবর্তন নয়।"
+                )}
+              </label>
+              <div className="rules-engine__list-actions">
+                <PrimaryButton size="sm" onClick={() => { void submitReview(); }}
+                  disabled={reviewBusy || !reviewConfirmed || !reviewRule || !reviewSource.trim() || reviewReason.trim().length < 30}>
+                  {reviewBusy ? tr("Recording request…", "অনুরোধ নথিভুক্ত হচ্ছে…")
+                    : tr("Submit review request", "পর্যালোচনার অনুরোধ জমা দিন")}
+                </PrimaryButton>
+                <SecondaryButton size="sm" disabled={reviewBusy}
+                  onClick={() => { setReviewRule(""); setReviewSource(""); setReviewReason(""); setReviewConfirmed(false); setReviewStatus(""); }}>
+                  {tr("Cancel", "বাতিল")}
+                </SecondaryButton>
+              </div>
+              {reviewReceipt && <p role="status">
+                {tr("DRAFT proposal and SQL audit verified. Citizen rules unchanged.", "খসড়া অনুরোধ ও SQL অডিট যাচাই হয়েছে। নাগরিকের বিধি অপরিবর্তিত।")}
+                {" "}{reviewReceipt.requestId}
+              </p>}
+              {reviewStatus && <p role="alert">{reviewStatus}</p>}
+            </div>
+          )}
         </>}
     </>}
     {status && <p role="alert">{status}</p>}
