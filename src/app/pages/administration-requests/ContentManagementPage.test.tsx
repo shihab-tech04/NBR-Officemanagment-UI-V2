@@ -62,6 +62,12 @@ describe('verified TaxPay banner CMS', () => {
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByText(/Verified administrator access is required/);
+    expect(deps.createClient).toHaveBeenCalledWith(
+      'https://cms.test.supabase.co', 'sb_publishable_test',
+      expect.objectContaining({ auth: expect.objectContaining({
+        persistSession: true, storageKey: 'nbr-office-taxpay-cms-session',
+      }) }),
+    );
     expect(screen.getByRole('button', { name: 'Sign in securely' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
     expect(client.from).not.toHaveBeenCalled();
