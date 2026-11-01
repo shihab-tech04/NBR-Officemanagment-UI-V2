@@ -46,7 +46,22 @@ jobs:
           assert any(y['assessmentYear']=='2026-27' for y in payload['years'])
           status, headers, raw = call('years')
           assert status == 401, (status,raw[:150])
-          print('PASS: live Rules gateway CORS, tax-year catalog and unauthorized denial')
+          assert call('rules?year=2026-27')[0] == 401
+          assert call('session/auto', method='POST')[0] == 401
+          runtime_url = 'https://gtorruuhvohafapctxym.supabase.co/functions/v1/nbr-tax-engine/status'
+          with urlopen(Request(runtime_url,headers={'Origin':origin,'Accept':'application/json'}),timeout=25) as response:
+              assert response.status == 200
+              live = json.load(response)
+          import re
+          assert live.get('activeYear') == '2026-27'
+          assert live.get('incomeYear') == '2025-26'
+          assert live.get('ruleCount') == live.get('runtimeBindingCount') == 366
+          assert live.get('missingRuntimeBindingCount') == live.get('unhandledRuleCount') == 0
+          assert live.get('allRuleNodesMapped') is True
+          assert live.get('sourceRegistryVersion') == 'FINAL_2026_09_30'
+          assert re.fullmatch(r'[0-9a-f]{64}',live.get('syncFingerprint',''))
+          print('PASS: Office and Citizen share canonical SQL runtime identity; protected Rules APIs deny anonymous access')
+
           PY
 
   off-github-backup-source:
