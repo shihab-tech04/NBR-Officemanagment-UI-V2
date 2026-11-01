@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { emailForPrimaryAdminId } from '../../utils/primaryAdminIdentity';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
@@ -23,7 +25,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
 const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
 const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
 const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) : null;
+  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }) : null;
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
@@ -50,11 +52,11 @@ function imageUrl(path: string | null) {
 }
 
 const originalImages: Record<string, string> = {
-  intro: 'taxpay-hero-payment-v3.webp',
-  return: 'taxpay-hero-return-v3.webp',
-  advance: 'taxpay-hero-advance-v3.webp',
-  withholding: 'taxpay-hero-withholding-v3.webp',
-  travel: 'taxpay-hero-travel-v6.webp',
+  intro: 'taxpay-hero-intro-v9.webp',
+  return: 'taxpay-hero-return-v9.webp',
+  advance: 'taxpay-hero-advance-v9.webp',
+  withholding: 'taxpay-hero-withholding-v9.webp',
+  travel: 'taxpay-hero-travel-v9.webp',
 };
 const bannerImageByService: Record<string, string> = {
   TAX_WITH_RETURN: 'return', ADVANCE_TAX: 'advance',
@@ -81,6 +83,10 @@ export function ContentManagementPage() {
   const desktopPreview = useImagePreview(desktopFile);
   const mobilePreview = useImagePreview(mobileFile);
   const [busy, setBusy] = useState(false);
+  const [cmsUser, setCmsUser] = useState<User | null>(null);
+  const [cmsPassword, setCmsPassword] = useState('');
+  const [cmsId, setCmsId] = useState('admin');
+  const [authReady, setAuthReady] = useState(false);
   const [message, setMessage] = useState('');
 
   const refresh = async () => {
@@ -93,8 +99,31 @@ export function ContentManagementPage() {
   };
 
   useEffect(() => {
-    void refresh().catch(err => setMessage(err.message));
+    let live = true;
+    if (!cms) { setAuthReady(true); return; }
+    void cms.auth.getUser().then(({data}) => { if(live){setCmsUser(data.user);setAuthReady(true);} }).catch(() => {if(live)setAuthReady(true);});
+    const {data:{subscription}}=cms.auth.onAuthStateChange((_event,session)=>{if(live)setCmsUser(session?.user??null);});
+    return ()=>{live=false;subscription.unsubscribe();};
   }, []);
+  useEffect(() => {
+    if (!cmsUser) {setBanners([]);setSelectedId(null);return;}
+    void refresh().catch(err=>setMessage((err as Error).message));
+  }, [cmsUser?.id]);
+  async function signIn() {
+    if (!cms || busy) return;
+    const email=emailForPrimaryAdminId(cmsId);
+    if(!email || !cmsPassword){setMessage('Enter approved admin ID and administrator password.');return;}
+    setBusy(true);
+    try {
+      const {error}=await cms.auth.signInWithPassword({email,password:cmsPassword});
+      if(error)throw error;
+      const {data, error:roleError}=await cms.rpc('taxpay_is_verified_portal_admin');
+      if(roleError || data!==true){await cms.auth.signOut();throw new Error('Verified CMS administrator permission required.');}
+      setMessage('');
+    }catch(e){setMessage((e as Error).message);}
+    finally{setCmsPassword('');setBusy(false);}
+  }
+  async function signOut(){await cms?.auth.signOut();setCmsUser(null);setMessage('');}
 
   useEffect(() => {
     const index = banners.findIndex(row => row.id === selectedId);
@@ -147,47 +176,74 @@ export function ContentManagementPage() {
     setMessage('');
   }
 
-  function save() {
-    if (!draft || busy) return;
+  async function save() {
+    if (!cms || !cmsUser || !draft || busy) return;
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
-      setMessage('Complete English and Bangla fields within the mobile character limits.');
-      return;
+      setMessage('Complete English and Bangla fields within the mobile character limits.');return;
     }
-    const existing = banners.find(row => row.id === draft.id);
-    const isNew = !existing && newDraft?.id === draft.id;
-    const values: Banner = {
-      ...draft,
-      desktop_image_path: desktopFile ? URL.createObjectURL(desktopFile) : draft.desktop_image_path,
-      mobile_image_path: mobileFile ? URL.createObjectURL(mobileFile) : draft.mobile_image_path,
-      updated_at: new Date().toISOString(), updated_by: null,
-      version: isNew ? 1 : draft.version + 1,
-    };
-    setBanners(previous => {
-      const next = isNew ? [...previous, values] : previous.map(row => row.id === values.id ? values : row);
-      const from = next.findIndex(row => row.id === values.id);
-      const [moved] = next.splice(from, 1);
-      next.splice(Math.max(0, Math.min(next.length, desiredPosition - 1)), 0, moved);
-      return next.map((row,index)=>({...row,sort_order:index+1}));
-    });
-    setNewDraft(null);
-    setSelectedId(values.id);
-    setEditing(false);
-    setMessage('Saved for this Office session. Public TaxPay and shared SQL are unchanged.');
+    setBusy(true);setMessage('');
+    const uploaded:string[]=[];
+    try {
+      const paths={desktop_image_path:draft.desktop_image_path,mobile_image_path:draft.mobile_image_path};
+      for(const [device,file] of [['desktop',desktopFile],['mobile',mobileFile]] as const) {
+        if(!file)continue;
+        if(!isSupportedImageType(file))throw new Error('PNG/JPEG images must be 5 MB or less.');
+        const ext=file.type==='image/png'?'png':'jpg';
+        const path=`banners/${draft.id}/${device}-${crypto.randomUUID()}.${ext}`;
+        const {error}=await cms.storage.from('taxpay-banners').upload(path,file,{contentType:file.type,upsert:false});
+        if(error)throw error;
+        uploaded.push(path);
+        if(device==='desktop')paths.desktop_image_path=path;else paths.mobile_image_path=path;
+      }
+      const payload={
+        service_code:draft.service_code,published:draft.published,heading_en:draft.heading_en,heading_bn:draft.heading_bn,
+        description_en:draft.description_en,description_bn:draft.description_bn,
+        mobile_heading_en:draft.mobile_heading_en,mobile_heading_bn:draft.mobile_heading_bn,
+        mobile_description_en:draft.mobile_description_en,mobile_description_bn:draft.mobile_description_bn,
+        action_en:draft.action_en,action_bn:draft.action_bn,...paths,updated_by:cmsUser.id
+      };
+      const old=banners.find(row=>row.id===draft.id);
+      if(old){
+        const {data,error}=await cms.from('taxpay_site_banners').update(payload).eq('id',draft.id).eq('version',old.version).select('id').maybeSingle();
+        if(error)throw error;
+        if(!data)throw new Error('Concurrent edit detected. Refresh and retry.');
+      }else{
+        const {error}=await cms.from('taxpay_site_banners').insert({...payload,id:draft.id,sort_order:banners.length});
+        if(error)throw error;
+      }
+      uploaded.length=0;
+      const {error:orderError}=await cms.rpc('taxpay_set_banner_position',{p_banner_id:draft.id,p_position:desiredPosition});
+      if(orderError)throw new Error('Content saved; reorder failed: '+orderError.message);
+      await refresh();setNewDraft(null);setEditing(false);setDesktopFile(null);setMobileFile(null);
+      setMessage('Saved to shared SQL. TaxPay refreshes within 30 seconds.');
+    }catch(e){
+      if(uploaded.length)await cms.storage.from('taxpay-banners').remove(uploaded);
+      setMessage((e as Error).message);await refresh().catch(()=>{});
+    }finally{setBusy(false);}
   }
-  function remove() {
-    if (!draft || busy || banners.length <= 1) return;
-    if (!window.confirm('Remove this banner from the Office preview? Public TaxPay remains unchanged.')) return;
-    setBanners(previous => previous.filter(row => row.id !== draft.id));
-    setSelectedId(banners.find(row => row.id !== draft.id)?.id ?? null);
-    setMessage('Removed from this Office session. Public TaxPay is unchanged.');
+  async function remove() {
+    if(!cms||!cmsUser||!draft||busy||banners.length<=1)return;
+    if(!window.confirm('Delete this banner from shared SQL and TaxPay?'))return;
+    setBusy(true);
+    try {
+      const {error}=await cms.from('taxpay_site_banners').delete().eq('id',draft.id);
+      if(error)throw error;
+      await refresh();setMessage('Deleted from shared SQL; TaxPay will refresh.');
+    }catch(e){setMessage((e as Error).message);}finally{setBusy(false);}
   }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
   const publishedCount = banners.filter(row => row.published).length;
 
   return <main className="cms-page">
     <header className="cms-page__heading">
-      <div><h1>Content Management</h1><p>Preview TaxPay content. Changes stay in this Office session and do not publish to TaxPay.</p></div>
+      <div><h1>Content Management</h1><p>Manage TaxPay banners through verified shared SQL.</p></div>{cmsUser && <button type="button" onClick={()=>void signOut()}>Sign out CMS</button>}
     </header>
+    {!authReady ? <p role="status">Checking CMS access…</p> : !cms ? <p role="alert">CMS configuration unavailable.</p> : !cmsUser ? <form className="cms-login" onSubmit={event=>{event.preventDefault();void signIn();}}>
+      <label htmlFor="cms-admin-id">Admin ID<input id="cms-admin-id" value={cmsId} onChange={event=>setCmsId(event.target.value)} autoComplete="username"/></label>
+      <label htmlFor="cms-admin-password">CMS password<input id="cms-admin-password" type="password" value={cmsPassword} onChange={event=>setCmsPassword(event.target.value)} autoComplete="current-password"/></label>
+      <button type="submit" className="cms-primary" disabled={busy}>Sign in to CMS</button>
+      {message && <p role="alert">{message}</p>}
+    </form> : <>
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
@@ -203,8 +259,8 @@ export function ContentManagementPage() {
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
           <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
-          <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service (preview only)</small></div>{editing ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner'}</strong>}</div>
-          <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Preview display order only; live TaxPay is unchanged</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
+          <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner'}</strong>}</div>
+          <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Published order on TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
             {(['desktop','mobile'] as const).map(device => {
               const path = device === 'desktop' ? draft.desktop_image_path : draft.mobile_image_path;
@@ -248,11 +304,11 @@ export function ContentManagementPage() {
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
     {cropTask && <ImageCropDialog key={`${cropTask.device}-${cropTask.file.name}-${cropTask.file.lastModified}`} file={cropTask.file}
-      title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 1600 : 1200}
-      outputHeight={800} onCancel={() => setCropTask(null)} onApply={cropped => {
+      title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 2172 : 768}
+      outputHeight={cropTask.device === 'desktop' ? 724 : 520} onCancel={() => setCropTask(null)} onApply={cropped => {
         if (cropTask.device === 'desktop') setDesktopFile(cropped);
         else setMobileFile(cropped);
         setCropTask(null);
-      }} />}
+      }} />}</>}
   </main>;
 }
