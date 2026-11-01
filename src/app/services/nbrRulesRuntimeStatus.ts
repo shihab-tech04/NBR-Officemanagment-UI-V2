@@ -42,10 +42,10 @@ export async function readNbrRulesRuntimeStatus(
     typeof body.activeYear !== "string" || !validYear(body.activeYear) ||
     typeof body.incomeYear !== "string" || !validYear(body.incomeYear) ||
     Number(body.incomeYear.slice(0, 4)) + 1 !== Number(body.activeYear.slice(0, 4)) ||
-    !Number.isSafeInteger(body.ruleCount) || Number(body.ruleCount) < 1 ||
-    !Number.isSafeInteger(body.runtimeBindingCount) ||
-    !Number.isSafeInteger(body.unhandledRuleCount) ||
-    !Number.isSafeInteger(body.missingRuntimeBindingCount) ||
+    (typeof body.ruleCount !== "number" || !Number.isSafeInteger(body.ruleCount)) || Number(body.ruleCount) < 1 ||
+    (typeof body.runtimeBindingCount !== "number" || !Number.isSafeInteger(body.runtimeBindingCount)) ||
+    (typeof body.unhandledRuleCount !== "number" || !Number.isSafeInteger(body.unhandledRuleCount)) ||
+    (typeof body.missingRuntimeBindingCount !== "number" || !Number.isSafeInteger(body.missingRuntimeBindingCount)) ||
     Number(body.runtimeBindingCount) < 0 ||
     Number(body.unhandledRuleCount) < 0 ||
     Number(body.missingRuntimeBindingCount) < 0 ||
