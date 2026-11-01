@@ -2493,5 +2493,45 @@ BEGIN
  THEN RAISE EXCEPTION 'ENGINE_DIRECT_INSERT_ROLLBACK_FAILED'; END IF;
  RAISE NOTICE 'PASS_SCOPED_ENGINE_DIRECT_INSERT_DENIED';
 END $engine_direct_insert_rollback$;
+-- Isolated PG17: TRUNCATE requires its own privilege, independent of DML.
+-- Synthetic role check only; does not certify JWT revocation or citizen ownership.
+SAVEPOINT ws02_engine_truncate_denial;
+DO $truncate_acl$
+BEGIN
+ IF has_table_privilege('ws02_owner_engine','ws02_owner.evaluation_logs','TRUNCATE')
+ OR has_table_privilege('ws02_owner_engine','ws02_owner.slots','TRUNCATE')
+ THEN RAISE EXCEPTION 'ENGINE_TRUNCATE_PRIVILEGE_GRANTED'; END IF;
+END $truncate_acl$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $truncate_denial$
+DECLARE logs_denied boolean:=false; slots_denied boolean:=false;
+BEGIN
+ BEGIN
+  TRUNCATE ws02_owner.evaluation_logs;
+ EXCEPTION WHEN insufficient_privilege THEN logs_denied:=true;
+ END;
+ BEGIN
+  TRUNCATE ws02_owner.slots;
+ EXCEPTION WHEN insufficient_privilege THEN slots_denied:=true;
+ END;
+ IF NOT (logs_denied AND slots_denied)
+ THEN RAISE EXCEPTION 'ENGINE_DIRECT_TRUNCATE_ALLOWED'; END IF;
+END $truncate_denial$;
+RESET ROLE;
+DO $truncate_readback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ OR (SELECT count(*) FROM ws02_owner.slots WHERE state='FINALIZED')<>3
+ THEN RAISE EXCEPTION 'ENGINE_TRUNCATE_CHANGED_FINALIZED_RECEIPTS'; END IF;
+END $truncate_readback$;
+ROLLBACK TO SAVEPOINT ws02_engine_truncate_denial;
+RELEASE SAVEPOINT ws02_engine_truncate_denial;
+DO $truncate_rollback$
+BEGIN
+ IF (SELECT count(*) FROM ws02_owner.evaluation_logs)<>3
+ OR (SELECT count(*) FROM ws02_owner.slots WHERE state='FINALIZED')<>3
+ THEN RAISE EXCEPTION 'ENGINE_TRUNCATE_ROLLBACK_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_ENGINE_DIRECT_TRUNCATE_DENIED';
+END $truncate_rollback$;
 ROLLBACK;
 SELECT 'DISPOSABLE_WS02_POSTGREST_STYLE_FACADE_PASS_ONLY' AS result;
