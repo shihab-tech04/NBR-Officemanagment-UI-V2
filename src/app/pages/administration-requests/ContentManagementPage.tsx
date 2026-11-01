@@ -7,6 +7,7 @@ import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { useImagePreview } from './useImagePreview';
 import { PRIMARY_ADMIN_EMAIL } from '../../utils/primaryAdminIdentity';
+import { SConfirmModal } from '../../components/modals/SConfirmModal';
 
 type Banner = {
   id: string; service_code: string | null; sort_order: number; published: boolean;
@@ -89,6 +90,7 @@ export function ContentManagementPage() {
   const [authCode, setAuthCode] = useState('');
   const [authPending, setAuthPending] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
+  const [deleteRequested, setDeleteRequested] = useState(false);
 
   const refreshSession = useCallback(async () => {
     if (!cms) { setAuthState('signed-out'); setAuthUid(null); return; }
@@ -324,8 +326,7 @@ export function ContentManagementPage() {
   }
 
   async function remove() {
-    if (!cms || !draft || !authUid || busy || banners.length <= 1) return;
-    if (!window.confirm('Delete this banner from SQL and remove it from public TaxPay?')) return;
+    if (!cms || !draft || !authUid || busy || banners.length <= 1 || draft.id === 'intro') return;
     setBusy(true); setMessage('');
     let removed = false;
     try {
@@ -394,7 +395,7 @@ export function ContentManagementPage() {
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
           <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
-          <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner'}</strong>}</div>
+          <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing && draft.id !== 'intro' ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner'}</strong>}</div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Published order in TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
             {(['desktop','mobile'] as const).map(device => {
@@ -432,13 +433,21 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && <div className="cms-actions">
-            <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
-              {!isNewBanner && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => void remove()}><Trash2 size={16}/> Remove banner</button>}</div>
+            <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
+              {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>
             <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={() => void save()}><Save size={16}/> {busy ? 'Saving…' : isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
+    {deleteRequested && draft && <SConfirmModal
+      title="Remove banner"
+      message={`Delete “${draft.heading_en}” from shared SQL and public TaxPay? This cannot be undone.`}
+      confirmLabel="Delete banner"
+      danger
+      onClose={() => setDeleteRequested(false)}
+      onConfirm={() => { setDeleteRequested(false); void remove(); }}
+    />}
     {cropTask && <ImageCropDialog key={`${cropTask.device}-${cropTask.file.name}-${cropTask.file.lastModified}`} file={cropTask.file}
       title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 2172 : 768}
       outputHeight={cropTask.device === 'desktop' ? 724 : 520} onCancel={() => setCropTask(null)} onApply={cropped => {
