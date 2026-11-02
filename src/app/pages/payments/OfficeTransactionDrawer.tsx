@@ -45,11 +45,31 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
     ledger_status: info.creditStatus,
     ...(items.length ? { allocation_items: String(items.length) } : {}),
     payment_ref: info.reference,
+    tax_event_id: '—',
+    payment_transaction_id: source?.id ?? '—',
+    payer_tin: '—',
+    income_year: '—',
+    tax_zone: display(source?.details?.taxZone),
+    tax_circle: display(source?.details?.taxCircle),
+    payment_lifecycle: source ? 'recorded' : '—',
+    activity_history: source ? 'recorded' : '—',
+    tax_treatment: label('Not verified','যাচাই হয়নি'),
+    where_this_counts: label('Recorded payment, not verified tax credit','পেমেন্ট নথিভুক্ত; কর ক্রেডিট যাচাই হয়নি'),
     acs_reference: display(row.acs_reference),
     notice_reference: display(row.notice_reference),
   } : null;
   const groups: Array<[string, string, string]> = [
-    ['payer_name', t('colPayer'), label('Payment information','পেমেন্টের তথ্য')],
+    ['payer_name', t('colPayer'), label('Payer & taxpayer','পরিশোধকারী ও করদাতা')],
+    ['payer_tin', 'Payer TIN',label('Payer & taxpayer','পরিশোধকারী ও করদাতা')],
+    ['tax_event_id',label('Tax event ID','কর ঘটনার আইডি'),label('Payment identity','পেমেন্ট পরিচিতি')],
+    ['payment_transaction_id',label('Payment transaction ID','পেমেন্ট লেনদেন আইডি'),label('Payment identity','পেমেন্ট পরিচিতি')],
+    ['income_year',label('Income year','আয়বর্ষ'),label('Payment information','পেমেন্টের তথ্য')],
+    ['tax_zone',label('Tax zone','কর অঞ্চল'),label('Payment information','পেমেন্টের তথ্য')],
+    ['tax_circle',label('Tax circle','কর সার্কেল'),label('Payment information','পেমেন্টের তথ্য')],
+    ['payment_lifecycle',label('Payment lifecycle','পেমেন্টের ধাপসমূহ'),label('Payment lifecycle','পেমেন্টের ধাপসমূহ')],
+    ['activity_history',label('Activity history','কার্যক্রমের ইতিহাস'),label('Activity history','কার্যক্রমের ইতিহাস')],
+    ['tax_treatment',label('Tax treatment','কর সমন্বয়'),label('Tax treatment','কর সমন্বয়')],
+    ['where_this_counts',label('Where this payment counts','এই পেমেন্ট কোথায় গণনা হয়'),label('Tax treatment','কর সমন্বয়')],
     ['payment_type', t('Service'), label('Payment information','পেমেন্টের তথ্য')],
     ['assessment_year', t('ay'), label('Payment information','পেমেন্টের তথ্য')],
     ['amount', t('colAmount'), label('Payment information','পেমেন্টের তথ্য')],
@@ -61,7 +81,19 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
     ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
   ];
 
-  const renderValue = (key: string) => key === 'allocation_items' ? (
+  const renderValue = (key: string) => key === 'payment_lifecycle' || key === 'activity_history' ? (
+    <ol aria-label={key==='payment_lifecycle'?label('Payment lifecycle','পেমেন্টের ধাপসমূহ'):label('Activity history','কার্যক্রমের ইতিহাস')} className="space-y-2">
+      {source && <li className="border-l-2 border-current pl-3 text-sm">
+        <p className="font-semibold">{label('Payment record created','পেমেন্ট রেকর্ড তৈরি হয়েছে')}</p>
+        <p>{Number.isFinite(Date.parse(source.createdAt))?new Date(source.createdAt).toLocaleString(bn?'bn-BD':'en-GB'):'—'}</p>
+        <p>{label('Source: TaxPay SQL payment feed','উৎস: ট্যাক্সপে SQL পেমেন্ট ফিড')}</p>
+      </li>}
+      {source && <li className="border-l-2 border-current pl-3 text-sm">
+        <p className="font-semibold">{label('Recorded status','নথিভুক্ত অবস্থা')}: {source.status.replace(/_/g,' ')}</p>
+        <p>{label('No Treasury-settlement or tax-credit event confirmed','ট্রেজারি নিষ্পত্তি বা কর ক্রেডিট নিশ্চিত নয়')}</p>
+      </li>}
+    </ol>
+  ) : key === 'allocation_items' ? (
     <div className="office-shared-allocation-list">
       {items.map((item, index) => (
         <div className="office-shared-allocation-list__item" key={index}>
