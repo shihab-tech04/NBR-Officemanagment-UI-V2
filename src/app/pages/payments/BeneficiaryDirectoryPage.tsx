@@ -84,10 +84,21 @@ export function BeneficiaryDirectoryPage(){
     return()=>window.removeEventListener('focus',focus);
   },[refresh]);
   const names=useMemo(()=>new Map(snapshot.lists.map(list=>[list.id,list.name])),[snapshot.lists]);
-  const visible=useMemo(()=>snapshot.people.filter(person=>
-    (person.tin+' '+person.display_name+' '+(names.get(person.list_id)??'')+' '+person.owner_uid)
-      .toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
-  ),[snapshot.people,names,query]);
+  const visible=useMemo(()=>{
+    // Every saved list is reviewable in Office, even with zero contacts.
+    const members=new Map<string,SavedPerson[]>();
+    for(const person of snapshot.people){
+      const group=members.get(person.list_id)??[];
+      group.push(person);members.set(person.list_id,group);
+    }
+    return snapshot.lists.flatMap(list=>{
+      const stored=members.get(list.id);
+      const rows=stored?.length?stored:[{id:'empty-'+list.id,owner_uid:list.owner_uid,list_id:list.id,tin:'',display_name:'',created_at:list.created_at}];
+      return rows.filter(person=>
+        (person.tin+' '+person.display_name+' '+list.name+' '+person.owner_uid)
+          .toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+    });
+  },[snapshot.lists,snapshot.people,query]);
   return <section className="table-page space-y-4 p-4 sm:p-6" data-testid="office-beneficiary-directory">
     <header className="table-page__header flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="table-page__title">{tr('Beneficiaries','উপকারভোগী')}</h1>
@@ -113,12 +124,12 @@ export function BeneficiaryDirectoryPage(){
           <tbody>{visible.map(person=><tr key={person.id} className="border-t border-slate-200">
             <td className="p-3 font-mono">{person.owner_uid.slice(0,8)}…</td>
             <td className="p-3">{names.get(person.list_id)??'—'}</td>
-            <td className="p-3 font-mono">{person.tin}</td>
-            <td className="p-3">{person.display_name}</td>
+            <td className="p-3 font-mono">{person.tin||'—'}</td>
+            <td className="p-3">{person.display_name||tr('Empty list','খালি তালিকা')}</td>
           </tr>)}</tbody>
         </table>
         {visible.length===0&&<p className="p-5 text-center text-slate-600">
-          {tr(snapshot.people.length?'No matching beneficiaries':'No saved beneficiary records','কোনো সংরক্ষিত উপকারভোগী নেই')}
+          {tr(snapshot.lists.length?'No matching beneficiaries':'No saved beneficiary records','কোনো সংরক্ষিত উপকারভোগী নেই')}
         </p>}
       </div>
     </>}
