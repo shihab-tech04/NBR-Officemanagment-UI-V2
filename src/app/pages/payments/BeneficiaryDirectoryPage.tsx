@@ -68,20 +68,27 @@ export function BeneficiaryDirectoryPage(){
   const [error,setError]=useState('');
   const [query,setQuery]=useState('');
   const sessionRevision=useRef(0);
+  const currentUserId=useRef<string|null>(null);
   const clearSnapshot=()=>setSnapshot({lists:[],people:[]});
   useEffect(()=>{
     let active=true;
     const listener=db.auth.onAuthStateChange((_event,session)=>{
       if(!active)return;
-      sessionRevision.current++;
-      setAccountId(session?.user?.id??null);
-      setSnapshot({lists:[],people:[]});
+      const nextId=session?.user?.id??null;
+      if(currentUserId.current!==nextId){
+        currentUserId.current=nextId;
+        sessionRevision.current++;
+        setAccountId(nextId);
+        setSnapshot({lists:[],people:[]});
+      }
       setAccountLoading(false);
     });
     const revision=sessionRevision.current;
     void db.auth.getUser().then(({data,error})=>{
       if(active&&revision===sessionRevision.current){
-        setAccountId(error?null:data.user?.id??null);
+        const nextId=error?null:data.user?.id??null;
+        currentUserId.current=nextId;
+        setAccountId(nextId);
         setAccountLoading(false);
       }
     }).catch(()=>{if(active&&revision===sessionRevision.current)setAccountLoading(false);});
@@ -132,7 +139,7 @@ export function BeneficiaryDirectoryPage(){
     setAuthMessage('');
     const {error:signOutError}=await db.auth.signOut({scope:'local'});
     if(signOutError)setAuthMessage(tr('Sign-out failed. Please try again.','সাইন আউট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'));
-    else {sessionRevision.current++;setAccountId(null);clearSnapshot();setError('');}
+    else {sessionRevision.current++;currentUserId.current=null;setAccountId(null);clearSnapshot();setError('');}
   };
   const names=useMemo(()=>new Map(snapshot.lists.map(list=>[list.id,list.name])),[snapshot.lists]);
   const visible=useMemo(()=>{
