@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'src/app/pages/administration-requests/ContentManagementPage*'
+      - 'src/app/pages/administration-requests/PublicIssueReportsPanel*'
       - 'src/app/pages/administration-requests/ImageCropDialog*'
       - 'src/styles/content-management.css'
       - '.github/workflows/banner-cms-integration.yml'
@@ -21,7 +22,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Verify protected CMS and production crop contracts
-        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx
+        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/PublicIssueReportsPanel.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx
       - name: Compile exact approved Office design
         run: npm run build
         env:

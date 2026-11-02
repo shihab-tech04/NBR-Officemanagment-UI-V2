@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
+import { PublicIssueReportsPanel } from './PublicIssueReportsPanel';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { useImagePreview } from './useImagePreview';
@@ -70,7 +71,7 @@ function originalImageUrl(id: string) {
 }
 
 export function ContentManagementPage() {
-  const [tab, setTab] = useState<'banners' | 'logo'>('banners');
+  const [tab, setTab] = useState<'banners' | 'logo' | 'reports'>('banners');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Banner | null>(null);
@@ -383,8 +384,9 @@ export function ContentManagementPage() {
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
+      <button type="button" role="tab" aria-selected={tab === 'reports'} className={`tab-bar__tab${tab === 'reports' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('reports')}>Public reports</button>
     </div>
-    {tab === 'logo' ? <SiteLogoPanel cms={cms} /> : <div className="cms-layout">
+    {tab === 'logo' ? <SiteLogoPanel cms={cms} /> : tab === 'reports' ? (cms && authUid ? <PublicIssueReportsPanel cms={cms} authUid={authUid} /> : <p role="alert">Verified administrator session required.</p>) : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={() => { if (!editing || window.confirm('Discard unsaved banner changes?')) addBanner(); }}><Plus size={16}/> Add banner</button></div>
           {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { if (editing && row.id !== selectedId && !window.confirm('Discard unsaved banner changes?')) return; setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>

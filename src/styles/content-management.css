@@ -112,3 +112,19 @@
 .cms-crop__actions button:disabled { opacity: .5; cursor: not-allowed; }
 .cms-crop__error { padding: var(--space-3); margin: var(--space-3) 0 0; border-radius: var(--radius-md); background: #fff0f0; color: #a22332 !important; font-size: 13px; }
 @media (max-width: 600px) { .cms-crop__controls { grid-template-columns: 1fr; } .cms-crop__footer { align-items: flex-start; flex-direction: column; } .cms-crop__actions { width: 100%; } .cms-crop__actions button:last-child { margin-left: auto; } .cms-crop__stage { min-height: 90px; padding: 7px; } }
+
+
+/* Public support queue reuses CMS panel, tab and button tokens. */
+.cms-reports { width: 100%; }
+.cms-reports__filters { display: grid; grid-template-columns: minmax(0,2fr) minmax(160px,1fr); gap: var(--space-3); margin: var(--space-4) 0; }
+.cms-reports__filters label,.cms-reports__review label { display: flex; flex-direction: column; gap: var(--space-2); font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.cms-reports input,.cms-reports select,.cms-reports textarea { min-height: 44px; width: 100%; max-width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2); background: var(--color-surface,#fff); color: var(--color-text-primary); font: inherit; }
+.cms-reports__table-scroll { width: 100%; max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.cms-reports__table { width: 100%; min-width: 700px; border-collapse: collapse; text-align: left; font-size: 14px; }
+.cms-reports__table th,.cms-reports__table td { border-bottom: 1px solid var(--color-border); padding: var(--space-3); vertical-align: top; max-width: 380px; overflow-wrap: anywhere; }
+.cms-reports__table th { color: var(--color-text-secondary); font-weight: 700; }
+.cms-reports__table td button { min-height: 44px; color: var(--color-primary); font: inherit; cursor: pointer; text-align: left; }
+.cms-reports__table td button[aria-pressed="true"] { text-decoration: underline; font-weight: 700; }
+.cms-reports__review { display: grid; gap: var(--space-3); margin-top: var(--space-4); border-top: 1px solid var(--color-border); padding-top: var(--space-4); max-width: 760px; }
+.cms-reports__review .cms-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); }
+@media (max-width: 600px) { .cms-reports__filters { grid-template-columns: 1fr; } }
