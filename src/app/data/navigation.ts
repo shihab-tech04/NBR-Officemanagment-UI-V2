@@ -202,6 +202,7 @@ export const NAVIGATION: MainNavDef[] = [
       { id: "overview", label: "Overview", labelKey: "navigation.payments.overview", icon: LayoutDashboard },
       { id: "transactions", label: "Transactions", labelKey: "navigation.payments.transactions", icon: Receipt },
       { id: "taxpayer-360", label: "Taxpayer 360", labelKey: "navigation.payments.taxpayer360", icon: FileSearch },
+      { id: "beneficiaries", label: "Beneficiaries", labelKey: "navigation.payments.beneficiaries", icon: ClipboardList },
       { id: "corrections", label: "Corrections", labelKey: "navigation.payments.corrections", icon: FilePen },
       { id: "incidents", label: "Incidents", labelKey: "navigation.payments.incidents", icon: ShieldAlert },
       { id: "offline-events", label: "Offline Events", labelKey: "navigation.payments.offlineEvents", icon: CloudUpload },
