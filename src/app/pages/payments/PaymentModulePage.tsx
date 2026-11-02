@@ -25,6 +25,7 @@ import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,
 import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice } from './story1OfficeApi';
 import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
+import {OfficeTaxJourney} from './OfficeTaxJourney';
 import { summarizeMirroredDemoPayments } from './story1SqlSummary';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
@@ -296,6 +297,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
     .filter((row):row is NonNullable<typeof row>=>row!==null);
+  const journeySourceById=new Map(storyPayments.map(payment=>[payment.id,payment.createdAt]));
+  const taxpayerJourneyEntries=taxPayments.map(record=>({record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''}));
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const correctionStateLabel=(state:string)=>t(`officeCorrectionState.${state}`,{defaultValue:state.replace(/_/g,' ')});
@@ -419,11 +422,13 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       kpi(t('eligible'),'—',CheckCircle2,'neutral'),
       kpi(t('blocked'),'—',ShieldAlert,'neutral'),
     ])}
-    <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger'].map(id=>({id,label:t(id)}))}/></div>
+    <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
     </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <section className="card payment-module__card"><h2>{t('correctionsTab')}</h2><p className="table-page__desc">{t('correctionsNotVerified')}</p></section> :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
+      taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
+        language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
       taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
         {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
