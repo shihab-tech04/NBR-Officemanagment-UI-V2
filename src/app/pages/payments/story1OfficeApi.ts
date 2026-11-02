@@ -9,7 +9,7 @@ export type StoryPayment = {
     lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;[key:string]:unknown}>;
     allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string}>;
     batchId?:string;batchItemId?:string;batchItemIndex?:number;batchItemCount?:number;
-    receiptMobile?:string;noticeReference?:string;
+    receiptMobile?:string;receiptEmail?:string;noticeReference?:string;
     payerMode?:string;incomeTaxType?:string;travelRoute?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
   };
