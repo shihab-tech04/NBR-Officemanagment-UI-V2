@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import {createClient} from '@supabase/supabase-js';
 import {useTranslation} from 'react-i18next';
 
@@ -6,22 +6,12 @@ import {useTranslation} from 'react-i18next';
 // A verified Korbritto portal administrator is checked by Auth AND SQL RLS.
 const URL='https://eyqhoavnitkrajvyqvxn.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id';
-const SESSION_ONLY='taxpay:session-only:v1';
-const storage={
-  getItem(key:string){
-    if(typeof window==='undefined')return null;
-    try{return (window.sessionStorage.getItem(SESSION_ONLY)==='1'?window.sessionStorage:window.localStorage).getItem(key);}catch{return null;}
-  },
-  setItem(key:string,value:string){
-    if(typeof window==='undefined')return;
-    try{(window.sessionStorage.getItem(SESSION_ONLY)==='1'?window.sessionStorage:window.localStorage).setItem(key,value);}catch{ /* Browser storage unavailable. */ }
-  },
-  removeItem(key:string){
-    if(typeof window==='undefined')return;
-    try{window.localStorage.removeItem(key);window.sessionStorage.removeItem(key);}catch{ /* Ignore unavailable storage. */ }
-  },
-};
-const db=createClient(URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storage}});
+// Separate Office-origin session: a TaxPay-site login does not carry cookies or
+// local storage to Office Management's distinct domain.
+const db=createClient(URL,PUBLISHABLE_KEY,{auth:{
+  persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,
+  storageKey:'office-taxpay-admin-session-v1',flowType:'pkce'
+}});
 interface SavedList {id:string;owner_uid:string;name:string;created_at:string}
 interface SavedPerson {id:string;owner_uid:string;list_id:string;tin:string;display_name:string;created_at:string}
 interface Snapshot {lists:SavedList[];people:SavedPerson[]}
@@ -68,21 +58,89 @@ export function BeneficiaryDirectoryPage(){
   const bn=i18n.resolvedLanguage?.startsWith('bn')??false;
   const tr=(en:string,bnText:string)=>bn?bnText:en;
   const [snapshot,setSnapshot]=useState<Snapshot>({lists:[],people:[]});
-  const [loading,setLoading]=useState(true);
+  const [accountId,setAccountId]=useState<string|null>(null);
+  const [accountLoading,setAccountLoading]=useState(true);
+  const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const [signInBusy,setSignInBusy]=useState(false);
+  const [authMessage,setAuthMessage]=useState('');
+  const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   const [query,setQuery]=useState('');
+  const sessionRevision=useRef(0);
+  const currentUserId=useRef<string|null>(null);
+  const clearSnapshot=()=>setSnapshot({lists:[],people:[]});
+  useEffect(()=>{
+    let active=true;
+    const listener=db.auth.onAuthStateChange((_event,session)=>{
+      if(!active)return;
+      const nextId=session?.user?.id??null;
+      if(currentUserId.current!==nextId){
+        currentUserId.current=nextId;
+        sessionRevision.current++;
+        setAccountId(nextId);
+        setSnapshot({lists:[],people:[]});
+      }
+      setAccountLoading(false);
+    });
+    const revision=sessionRevision.current;
+    void db.auth.getUser().then(({data,error})=>{
+      if(active&&revision===sessionRevision.current){
+        const nextId=error?null:data.user?.id??null;
+        currentUserId.current=nextId;
+        setAccountId(nextId);
+        setAccountLoading(false);
+      }
+    }).catch(()=>{if(active&&revision===sessionRevision.current)setAccountLoading(false);});
+    return()=>{active=false;listener.data.subscription.unsubscribe();};
+  },[]);
   const refresh=useCallback(async()=>{
+    const revision=sessionRevision.current;
     setLoading(true);setError('');
-    try{setSnapshot(await readSnapshot());}
-    catch(e){setError(e instanceof Error?e.message:'Could not load beneficiary records.');}
-    finally{setLoading(false);}
+    try {
+      const loaded=await readSnapshot();
+      if(revision===sessionRevision.current)setSnapshot(loaded);
+    } catch(e){
+      if(revision===sessionRevision.current){
+        setSnapshot({lists:[],people:[]});
+        setError(e instanceof Error?e.message:'Could not load beneficiary records.');
+      }
+    } finally {if(revision===sessionRevision.current)setLoading(false);}
   },[]);
   useEffect(()=>{
+    if(accountLoading||!accountId)return;
     void refresh();
     const focus=()=>{if(document.visibilityState!=='hidden')void refresh();};
     window.addEventListener('focus',focus);
     return()=>window.removeEventListener('focus',focus);
-  },[refresh]);
+  },[accountId,accountLoading,refresh]);
+  const signIn=async(event:FormEvent)=>{
+    event.preventDefault();
+    if(!email.trim()||!password)return;
+    setSignInBusy(true);setAuthMessage('');
+    const {error:signInError}=await db.auth.signInWithPassword({email:email.trim(),password});
+    setPassword('');
+    setSignInBusy(false);
+    if(signInError)setAuthMessage(tr('Sign-in failed. Check your email and password.','সাইন ইন ব্যর্থ হয়েছে। ইমেইল ও পাসওয়ার্ড যাচাই করুন।'));
+  };
+  const sendSignInLink=async()=>{
+    if(!email.trim())return;
+    setSignInBusy(true);setAuthMessage('');
+    // An Office-origin callback, not a TaxPay-origin session, is required.
+    // Supabase must allowlist this URL in Auth Redirect URLs.
+    const callback=new URL('/NBR-Officemanagment-UI-V2/payments/beneficiaries',window.location.origin).toString();
+    const {error:sendError}=await db.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:callback,shouldCreateUser:false}});
+    setSignInBusy(false);
+    setAuthMessage(sendError
+      ? tr('Could not send the sign-in link. Try password sign-in.','সাইন ইন লিংক পাঠানো যায়নি। পাসওয়ার্ড ব্যবহার করুন।')
+      : tr('Check your email for the Office sign-in link.','অফিস সাইন ইন লিংকের জন্য ইমেইল দেখুন।'));
+  };
+  const signOut=async()=>{
+    setAuthMessage('');
+    const {error:signOutError}=await db.auth.signOut({scope:'local'});
+    if(signOutError)setAuthMessage(tr('Sign-out failed. Please try again.','সাইন আউট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'));
+    else {sessionRevision.current++;currentUserId.current=null;setAccountId(null);clearSnapshot();setError('');}
+  };
   const names=useMemo(()=>new Map(snapshot.lists.map(list=>[list.id,list.name])),[snapshot.lists]);
   const visible=useMemo(()=>{
     // Every saved list is reviewable in Office, even with zero contacts.
@@ -103,16 +161,27 @@ export function BeneficiaryDirectoryPage(){
     <header className="table-page__header flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="table-page__title">{tr('Beneficiaries','উপকারভোগী')}</h1>
         <p className="table-page__desc">{tr('Saved taxpayer lists · read only','সংরক্ষিত করদাতার তালিকা · শুধু দেখা যাবে')}</p></div>
-      <button type="button" className="table-card__toolbar-btn" disabled={loading} onClick={()=>void refresh()}>{tr('Refresh','রিফ্রেশ')}</button>
+      {accountId&&<div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="table-card__toolbar-btn" disabled={loading} onClick={()=>void refresh()}>{tr('Refresh','রিফ্রেশ')}</button>
+        <button type="button" className="table-card__toolbar-btn" onClick={()=>void signOut()}>{tr('Sign out','সাইন আউট')}</button>
+      </div>}
     </header>
-    {error&&<div role="alert" className="rounded-lg border border-amber-300 p-4">
-      <p>{error}</p>
-      <a className="text-sm underline" href="https://shihab-tech04.github.io/nbr-taxpay/?action=secure_workspace&returnTo=beneficiaries">
-        {tr('Sign in to Korbritto','করবৃত্তে সাইন ইন')}
-      </a>
-    </div>}
-    {loading&&<p role="status">{tr('Loading saved lists…','সংরক্ষিত তালিকা লোড হচ্ছে…')}</p>}
-    {!loading&&!error&&<>
+    {accountLoading&&<p role="status">{tr('Checking administrator session…','অ্যাডমিন সেশন যাচাই করা হচ্ছে…')}</p>}
+    {!accountLoading&&!accountId&&<form onSubmit={event=>void signIn(event)} className="max-w-lg space-y-3 rounded-lg border border-slate-200 bg-white p-4 sm:p-5" data-testid="office-beneficiary-admin-login">
+      <p className="text-sm text-slate-700">{tr('Sign in here with your verified Korbritto administrator account.','যাচাইকৃত করবৃত্ত অ্যাডমিন অ্যাকাউন্ট দিয়ে এখানে সাইন ইন করুন।')}</p>
+      <label className="block space-y-1"><span>{tr('Email address','ইমেইল ঠিকানা')}</span>
+        <input className="w-full rounded-md border border-slate-300 p-3" type="email" autoComplete="username" required value={email} onChange={event=>setEmail(event.target.value)}/></label>
+      <label className="block space-y-1"><span>{tr('Password','পাসওয়ার্ড')}</span>
+        <input className="w-full rounded-md border border-slate-300 p-3" type="password" autoComplete="current-password" value={password} onChange={event=>setPassword(event.target.value)}/></label>
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" className="table-card__toolbar-btn" disabled={signInBusy||!email.trim()||!password}>{tr('Sign in','সাইন ইন')}</button>
+        <button type="button" className="table-card__toolbar-btn" disabled={signInBusy||!email.trim()} onClick={()=>void sendSignInLink()}>{tr('Email sign-in link','ইমেইলে সাইন ইন লিংক')}</button>
+      </div>
+    </form>}
+    {authMessage&&<p role="status" className="text-sm text-slate-700">{authMessage}</p>}
+    {accountId&&error&&<div role="alert" className="rounded-lg border border-amber-300 p-4"><p>{error}</p></div>}
+    {accountId&&loading&&<p role="status">{tr('Loading saved lists…','সংরক্ষিত তালিকা লোড হচ্ছে…')}</p>}
+    {accountId&&!loading&&!error&&<>
       <p role="status" className="table-page__desc">{snapshot.lists.length} {tr('lists','টি তালিকা')} · {snapshot.people.length} {tr('beneficiaries','জন উপকারভোগী')}</p>
       <label className="block space-y-1"><span>{tr('Search','খুঁজুন')}</span>
         <input className="w-full max-w-lg rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
