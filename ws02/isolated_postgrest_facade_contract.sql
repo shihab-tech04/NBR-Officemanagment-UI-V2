@@ -46,6 +46,38 @@ BEGIN
  END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_OWNER_TAKEOVER_ROLLBACK';
 END $facade_schema_owner_boundary$;
+-- PostgREST-style exposure requires schema USAGE as well as function EXECUTE.
+-- A PUBLIC/anon/auth schema-USAGE grant is an independent privilege drift;
+-- prove that a privileged accidental grant is detected and rolled back.
+-- Disposable PG17 only, not an approved hosted exposed schema.
+DO $facade_schema_usage_negative_probe$
+DECLARE role_name text; baseline boolean; mutated boolean;
+BEGIN
+ FOREACH role_name IN ARRAY ARRAY['ws02_owner_anon','ws02_owner_auth'] LOOP
+  SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','USAGE') INTO baseline;
+  IF baseline IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_BASELINE_EXPOSED_%',role_name;
+  END IF;
+  BEGIN
+   EXECUTE format('GRANT USAGE ON SCHEMA ws02_api TO %I',role_name);
+   SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','USAGE') INTO mutated;
+   IF mutated IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_MUTATION_UNDETECTED_%',role_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_USAGE';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_USAGE' THEN RAISE; END IF;
+  END;
+  SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','USAGE') INTO mutated;
+  IF mutated IS DISTINCT FROM baseline THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_GRANT_NOT_ROLLED_BACK_%',role_name;
+  END IF;
+ END LOOP;
+ IF pg_catalog.has_schema_privilege('ws02_owner_engine','ws02_api','USAGE') IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'FACADE_ENGINE_SCHEMA_USAGE_MISSING';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_USAGE_GRANT_ROLLBACK';
+END $facade_schema_usage_negative_probe$;
 -- Synthetic schema-CREATE mutation regression: the trusted producer may
 -- EXECUTE the reviewed facade but must never CREATE shadow endpoints in the
 -- exposed namespace. A privileged accidental GRANT must be detectable and
