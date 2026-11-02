@@ -46,6 +46,40 @@ BEGIN
  END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_OWNER_TAKEOVER_ROLLBACK';
 END $facade_schema_owner_boundary$;
+-- Synthetic schema-CREATE mutation regression: the trusted producer may
+-- EXECUTE the reviewed facade but must never CREATE shadow endpoints in the
+-- exposed namespace. A privileged accidental GRANT must be detectable and
+-- rolled back without affecting any hosted schema or citizen data.
+DO $facade_schema_create_negative_probe$
+DECLARE role_name text; baseline boolean; mutated boolean;
+BEGIN
+ FOREACH role_name IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine'
+ ] LOOP
+  SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','CREATE')
+   INTO baseline;
+  IF baseline IS DISTINCT FROM false THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_CREATE_BASELINE_EXPOSED_%',role_name;
+  END IF;
+  BEGIN
+   EXECUTE format('GRANT CREATE ON SCHEMA ws02_api TO %I',role_name);
+   SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','CREATE')
+    INTO mutated;
+   IF mutated IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'FACADE_SCHEMA_CREATE_GRANT_MUTATION_UNDETECTED_%',role_name;
+   END IF;
+   RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_CREATE_GRANT';
+  EXCEPTION WHEN raise_exception THEN
+   IF SQLERRM <> 'ROLLBACK_SYNTHETIC_FACADE_SCHEMA_CREATE_GRANT' THEN RAISE; END IF;
+  END;
+  SELECT pg_catalog.has_schema_privilege(role_name,'ws02_api','CREATE')
+   INTO mutated;
+  IF mutated IS DISTINCT FROM baseline THEN
+   RAISE EXCEPTION 'FACADE_SCHEMA_CREATE_GRANT_NOT_ROLLED_BACK_%',role_name;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_CREATE_DENIAL_AND_GRANT_ROLLBACK';
+END $facade_schema_create_negative_probe$;
 -- A SECURITY INVOKER facade cannot elevate a PostgREST role. The sole
 -- synthetic trusted Edge role already has the narrow private EXECUTE grant.
 -- Do not grant this facade to anon/auth or place it in public.
