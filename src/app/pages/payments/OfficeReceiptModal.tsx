@@ -86,6 +86,7 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
             <h4 className="receipt-view__section-title">{label('Payer and taxpayer details', 'করদাতা ও পরিশোধকারীর তথ্য')}</h4>
             <dl>
               {field(label('Payer', 'পরিশোধকারী'), info.payer)}
+              {info.receiptEmail && field(label('Receipt email', 'রসিদের ইমেইল'), info.receiptEmail)}
               {field(label('Taxpayer', 'করদাতা'), info.taxpayer)}
               {field(label('Payment service', 'পেমেন্টের ধরন'), info.service)}
               {field(label('Assessment year', 'করবর্ষ'), info.year)}

@@ -92,6 +92,7 @@ export type OfficeReceiptInfo = {
   reference: string;
   date: string;
   payer: string;
+  receiptEmail?:string;
   taxpayer: string;
   service: string;
   year: string;
@@ -103,3 +104,11 @@ export type OfficeReceiptInfo = {
   batchItemIndex?:number;
   batchItemCount?:number;
 };
+
+/** Read exactly the optional email persisted in the mirrored SQL payment; no inferred contact. */
+export function sourceReceiptEmail(details:StoryPayment['details']):string|undefined {
+  const value=details?.receiptEmail;
+  if(typeof value!=='string')return undefined;
+  const normalized=value.trim();
+  return normalized||undefined;
+}

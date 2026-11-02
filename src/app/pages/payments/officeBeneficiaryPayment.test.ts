@@ -1,5 +1,5 @@
 import { describe,it,expect } from 'vitest';
-import { getOfficePaymentItems } from './officeTransactionDetails';
+import { getOfficePaymentItems, sourceReceiptEmail } from './officeTransactionDetails';
 import type { StoryPayment } from './story1OfficeApi';
 
 const original:StoryPayment = {
@@ -40,6 +40,11 @@ describe('Office beneficiary payment receipt and 360 source reconciliation',()=>
     expect(getOfficePaymentItems(original,{
       taxpayerTin:'009876543210',assessmentYear:'2026-27'
     })).toEqual([]);
+  });
+  it('shows only a source-recorded optional email, never a fabricated contact',()=>{
+    expect(sourceReceiptEmail({...original.details,receiptEmail:'  payer@example.com  '})).toBe('payer@example.com');
+    expect(sourceReceiptEmail(original.details)).toBeUndefined();
+    expect(sourceReceiptEmail({...original.details,receiptEmail:'   '})).toBeUndefined();
   });
   it('fails closed when the total differs from SQL, not misattributing money',()=>{
     expect(getOfficePaymentItems({...original,amountMinor:5001})).toEqual([]);

@@ -5,7 +5,7 @@ import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDra
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
-import { getOfficePaymentItems, officeMoney, type OfficeReceiptInfo } from './officeTransactionDetails';
+import { getOfficePaymentItems, officeMoney, sourceReceiptEmail, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
@@ -39,6 +39,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     year: display(row?.assessment_year), amount: display(row?.amount),
     paymentStatus: display(row?.financial_receipt_status),
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
+    receiptEmail:sourceReceiptEmail(source?.details),
     ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
       ? {batchId:source.details.batchId}:{}),
     ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)
