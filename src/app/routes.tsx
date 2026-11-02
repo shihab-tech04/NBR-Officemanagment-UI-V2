@@ -51,6 +51,7 @@ const ContentManagementPage    = lazy(() => import("./pages/administration-reque
 const AuditModulePage          = lazy(() => import("./pages/audit/AuditModulePage").then(m => ({ default: m.AuditModulePage })));
 const PaymentsOverviewPage    = lazy(() => import("./pages/payments/PaymentsOverviewPage").then(m => ({ default: m.PaymentsOverviewPage })));
 const PaymentModulePage = lazy(() => import("./pages/payments/PaymentModulePage").then(m => ({ default: m.PaymentModulePage })));
+const BeneficiaryDirectoryPage = lazy(() => import("./pages/payments/BeneficiaryDirectoryPage").then(m => ({ default: m.BeneficiaryDirectoryPage })));
 const RulesCalculationPage = lazy(() => import("./pages/rules-calculation/RulesCalculationPage").then(m => ({ default: m.RulesCalculationPage })));
 
 // ─── Param-based route components ────────────────────────────────────────────
@@ -159,6 +160,7 @@ export const router = createBrowserRouter([
       { path: "audit/:subNav",   Component: AuditModulePage },
       { path: "payments",        loader: async () => redirect("/payments/overview") },
       { path: "payments/overview", Component: PaymentsOverviewPage },
+      { path: "payments/beneficiaries", Component: BeneficiaryDirectoryPage },
       { path: "payments/taxpayer-360/:tin", Component: PaymentRoute },
       { path: "payments/:subNav", Component: PaymentRoute },
       { path: "administration",  Component: PlaceholderPage },
