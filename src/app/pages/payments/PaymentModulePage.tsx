@@ -213,9 +213,10 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const isTransactionDetails = details?.title === t('transactions');
-  // Taxpayer 360 rows are beneficiary-scoped projections of a larger payment.
-  // Never attach the full parent allocations to their individual detail drawer.
-  const selectedStoryPayment = isTransactionDetails && current === 'transactions'
+  // The 360 payment drawer receives the same canonical SQL parent as Transactions.
+  // Its display is independently scoped to the selected TIN and year below.
+  const selectedStoryPayment = isTransactionDetails &&
+    (current === 'transactions' || current === 'taxpayer-360')
     ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
     : null;
   const selectedCorrectionId=typeof details?.record.__correctionInquiryId==='string'
@@ -483,6 +484,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <OfficeTransactionDrawer
       row={isTransactionDetails ? details?.record ?? null : null}
       source={selectedStoryPayment}
+      scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}
+      scopeYear={isTransactionDetails && current==='taxpayer-360' ? scopeYear : undefined}
       onClose={() => setDetails(null)}
     />
     <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
