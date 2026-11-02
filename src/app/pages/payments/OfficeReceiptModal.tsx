@@ -74,6 +74,13 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong>{info.reference}</strong></div>
           <div><p>{label('Date', 'তারিখ')}</p><strong>{info.date}</strong></div>
         </section>
+        {info.batchId&&<section className="office-receipt__reference receipt-view__reference-strip" data-testid="office-receipt-batch-identity">
+          <div><p>{label('Batch reference','ব্যাচ রেফারেন্স')}</p><strong className="break-all">{info.batchId}</strong></div>
+          {info.batchItemIndex&&info.batchItemCount&&<div>
+            <p>{label('Record in batch','ব্যাচের রেকর্ড')}</p>
+            <strong>{info.batchItemIndex}/{info.batchItemCount}</strong>
+          </div>}
+        </section>}
         <div className="office-receipt__columns receipt-view__parties">
           <section className="office-receipt__section receipt-view__section">
             <h4 className="receipt-view__section-title">{label('Payer and taxpayer details', 'করদাতা ও পরিশোধকারীর তথ্য')}</h4>
@@ -98,13 +105,15 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           <div className="office-receipt__scroll receipt-view__breakdown-content">
             <table className="receipt-view__financial-table">
               <thead><tr>
-                <th>{label('Taxpayer', 'করদাতা')}</th>
+                <th>{label('Taxpayer / TIN', 'করদাতা / টিআইএন')}</th>
                 <th>{label('Payment head', 'পেমেন্ট খাত')}</th>
                 <th>{label('Assessment year', 'করবর্ষ')}</th>
-                <th className="office-receipt__numeric">{label('Amount (BDT)', 'পরিমাণ (টাকা)')}</th>
+                <th className="office-receipt__numeric">{label('Amount (৳)', 'পরিমাণ (৳)')}</th>
               </tr></thead>
               <tbody>{items.map((item,index) => <tr key={index}>
-                <td>{item.taxpayer}</td>
+                <td>{item.taxpayer}
+                  {item.taxpayerTin&&!item.taxpayer.includes(item.taxpayerTin)&&<small className="block">{label('TIN','টিআইএন')}: {item.taxpayerTin}</small>}
+                </td>
                 <td>{item.service}{item.economicCode && <small>{label('Economic code', 'অর্থনৈতিক কোড')}: {item.economicCode}</small>}</td>
                 <td>{item.assessmentYear}</td>
                 <td className="office-receipt__numeric">{officeMoney(item.amountMinor, language)}</td>

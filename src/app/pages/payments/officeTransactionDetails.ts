@@ -3,6 +3,7 @@ import { paymentServiceName } from './story1PaymentPresentation';
 
 export type OfficePaymentItem = {
   taxpayer: string;
+  taxpayerTin?: string;
   service: string;
   assessmentYear: string;
   amountMinor: number;
@@ -24,7 +25,8 @@ export function officeMoney(minor: number, language = 'en'): string {
 
 /** Present only allocations that reconcile to the source transaction.
  * Do not guess a taxpayer, tax head, or amount from an incomplete record. */
-export function getOfficePaymentItems(payment: StoryPayment | null): OfficePaymentItem[] {
+export type OfficePaymentScope={taxpayerTin:string;assessmentYear?:string};
+export function getOfficePaymentItems(payment: StoryPayment | null, scope?: OfficePaymentScope): OfficePaymentItem[] {
   if (!payment || !validAmount(payment.amountMinor)) return [];
   const details = payment.details;
   if (!details) return [];
@@ -38,6 +40,9 @@ export function getOfficePaymentItems(payment: StoryPayment | null): OfficePayme
     if (lines.some(line => typeof line?.beneficiary !== 'string' || !validAmount(line.amountMinor))) return [];
     items = lines.map(line => ({
       taxpayer: human(line.beneficiary),
+      ...(typeof line.beneficiary === 'string' && /^user([1-9]|10)$/.test(line.beneficiary)
+        ? {taxpayerTin:line.beneficiary==='user10'?'1010101010101':line.beneficiary.slice(4).repeat(13)}
+        : {}),
       service: paymentServiceName[human(line.category)] ?? human(line.category),
       assessmentYear: human(line.assessmentYear),
       amountMinor: line.amountMinor!,
@@ -50,6 +55,7 @@ export function getOfficePaymentItems(payment: StoryPayment | null): OfficePayme
       const head = lines.find(line => line?.headId === a.headId);
       return {
         taxpayer: human(a.taxpayerName) !== '—' ? human(a.taxpayerName) + ' · ' + a.taxpayerTin : 'TIN ' + a.taxpayerTin,
+        taxpayerTin:a.taxpayerTin,
         service: human(head?.headNameEn) !== '—' ? human(head?.headNameEn) : paymentServiceName[payment.service] ?? payment.service,
         assessmentYear: human(a.assessmentYear),
         amountMinor: a.amountMinor!,
@@ -59,6 +65,8 @@ export function getOfficePaymentItems(payment: StoryPayment | null): OfficePayme
   } else {
     items = lines.filter(line => validAmount(line?.amountMinor)).map(line => ({
       taxpayer: human(details.taxpayerName) !== '—' ? human(details.taxpayerName) : human(details.taxpayerTin) !== '—' ? 'TIN ' + details.taxpayerTin : '—',
+      ...(typeof details.taxpayerTin==='string'&&/^\d{12,13}$/.test(details.taxpayerTin)
+        ? {taxpayerTin:details.taxpayerTin}:{}),
       service: human(line.headNameEn) !== '—' ? human(line.headNameEn) : paymentServiceName[payment.service] ?? payment.service,
       assessmentYear: human(details.assessmentYear),
       amountMinor: line.amountMinor!,
@@ -71,7 +79,13 @@ export function getOfficePaymentItems(payment: StoryPayment | null): OfficePayme
     total += item.amountMinor;
     if (!Number.isSafeInteger(total)) return [];
   }
-  return total === payment.amountMinor ? items : [];
+  if(total !== payment.amountMinor)return [];
+  if(!scope)return items;
+  if(!/^\d{12,13}$/.test(scope.taxpayerTin))return [];
+  const selected=items.filter(item=>item.taxpayerTin===scope.taxpayerTin&&
+    (!scope.assessmentYear||scope.assessmentYear==='all'||
+     item.assessmentYear.replace('–','-')===scope.assessmentYear));
+  return selected;
 }
 
 export type OfficeReceiptInfo = {
@@ -85,4 +99,7 @@ export type OfficeReceiptInfo = {
   paymentStatus: string;
   creditStatus: string;
   method: string;
+  batchId?:string;
+  batchItemIndex?:number;
+  batchItemCount?:number;
 };

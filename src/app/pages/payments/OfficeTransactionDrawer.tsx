@@ -8,12 +8,12 @@ import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
 
-type Props = { row: TableRow | null; source: StoryPayment | null; onClose: () => void };
+type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
 const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
 
 /** Office register details use exactly the shared DynamicDetailsDrawer design.
  * Receipt is a separate shared AppModal document, never another drawer layout. */
-export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
+export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
   const [receipt, setReceipt] = useState(false);
   const language = i18n.resolvedLanguage || 'en';
@@ -21,13 +21,28 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const ref = display(row?.payment_ref);
   useEffect(() => { setReceipt(false); }, [ref]);
-  const items = useMemo(() => getOfficePaymentItems(source), [source]);
+  const items = useMemo(() => getOfficePaymentItems(source, scopeTin
+    ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
+  // In Taxpayer 360 the projected amount must equal only this beneficiary's
+  // reconciled SQL allocations; never export the full parent payment total.
+  const scopedMinor = items.reduce((total,item)=>total+item.amountMinor,0);
+  const displayedAmount = String(row?.amount??'').replace(/[৳,\s]/g,'').trim();
+  const amountParts = /^(\d+)(?:\.(\d{1,2}))?$/.exec(displayedAmount);
+  const sourceAmountMinor = amountParts
+    ? Number(amountParts[1])*100 + Number((amountParts[2]??'').padEnd(2,'0')) : NaN;
+  const itemTotalCorrect = !scopeTin || (items.length>0 && Number.isSafeInteger(scopedMinor) &&
+    Number.isSafeInteger(sourceAmountMinor) && scopedMinor===sourceAmountMinor);
+  const receiptItems = itemTotalCorrect ? items : [];
   const info: OfficeReceiptInfo = {
     reference: ref, date: display(row?.date), payer: display(row?.payer_name),
     taxpayer: display(row?.taxpayer_name), service: display(row?.payment_type),
     year: display(row?.assessment_year), amount: display(row?.amount),
     paymentStatus: display(row?.financial_receipt_status),
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
+    ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
+      ? {batchId:source.details.batchId}:{}),
+    ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)
+      ? {batchItemIndex:source?.details?.batchItemIndex,batchItemCount:source?.details?.batchItemCount}:{}),
   };
 
   // Explicit presentation whitelist: never pass serialized allocation JSON,
@@ -43,7 +58,7 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
-    ...(items.length ? { allocation_items: String(items.length) } : {}),
+    ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
     payment_transaction_id: source?.id ?? '—',
@@ -95,7 +110,7 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
     </ol>
   ) : key === 'allocation_items' ? (
     <div className="office-shared-allocation-list">
-      {items.map((item, index) => (
+      {receiptItems.map((item, index) => (
         <div className="office-shared-allocation-list__item" key={index}>
           <p><strong>{item.taxpayer}</strong><strong>{officeMoney(item.amountMinor, language)}</strong></p>
           <p>{item.service} · {item.assessmentYear}</p>
@@ -122,14 +137,17 @@ export function OfficeTransactionDrawer({ row, source, onClose }: Props) {
         ]}
         showActions={false}
         renderValue={renderValue}
-        extraFooterActions={<PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
-          {label('View receipt','রসিদ দেখুন')}
-        </PrimaryButton>}
+        extraFooterActions={itemTotalCorrect
+          ? <PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
+              {label('View receipt','রসিদ দেখুন')}
+            </PrimaryButton>
+          : <p role="alert" className="text-sm text-red-700">{label(
+              'Payment allocation mismatch — receipt unavailable','পেমেন্টের বরাদ্দ মেলেনি — রসিদ অনুপলব্ধ')}</p>}
       />
       <OfficeReceiptModal
         open={!!detailRow && receipt}
         info={info}
-        items={items}
+        items={receiptItems}
         language={language}
         onBack={() => setReceipt(false)}
         onClose={() => { setReceipt(false); onClose(); }}
