@@ -36,15 +36,29 @@ async function get<T>(path:string):Promise<T> {
 }
 /** All UI-submitted transactions; no fixed 100-record cut-off. */
 export async function getStoryPayments():Promise<StoryPayment[]> {
-  const records:StoryPayment[]=[];
+  const records=new Map<string,StoryPayment>();
   const pageSize=100;
-  for(let page=1;page<=100;page++){
+  // Follow the SQL-reported total instead of silently dropping records after
+  // page 100. A bounded maximum protects browsers from erroneous API totals.
+  const maxPages=2000;
+  let total=0;
+  for(let page=1;page<=maxPages;page++){
     const result=await get<{items:StoryPayment[];total:number;page:number}>('/payments?page='+page+'&perPage='+pageSize);
-    if(!Array.isArray(result.items)||!Number.isSafeInteger(result.total))throw Error('Invalid transaction page');
-    records.push(...result.items);
-    if(records.length>=result.total)return records.filter(p=>!knownLegacyBrowserTest(p));
+    if(!Array.isArray(result.items)||!Number.isSafeInteger(result.total)||result.total<0||
+       result.page!==page||result.items.length>pageSize)
+      throw Error('Invalid transaction page');
+    total=Math.max(total,result.total);
+    for(const payment of result.items) {
+      if(!payment||typeof payment.id!=='string'||!payment.id)throw Error('Invalid payment identity');
+      records.set(payment.id,payment);
+    }
+    // Offset pages can change while new payments are arriving: never
+    // represent missing or duplicated pages as a complete history.
+    if(records.size>=total)return [...records.values()].filter(p=>!knownLegacyBrowserTest(p));
+    if(result.items.length===0||page>=Math.ceil(total/pageSize)+2)
+      throw Error('Payment history changed during pagination; retry');
   }
-  throw Error('Transaction history exceeds the retrieval limit');
+  throw Error('Payment history exceeds the safe retrieval limit');
 }
 /** One page paired with the Office bell's newest SQL events (not a history scan). */
 export async function getRecentStoryPayments(): Promise<StoryPayment[]> {
