@@ -27,8 +27,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   // reconciled SQL allocations; never export the full parent payment total.
   const scopedMinor = items.reduce((total,item)=>total+item.amountMinor,0);
   const displayedAmount = String(row?.amount??'').replace(/[৳,\s]/g,'').trim();
-  const sourceAmountMinor = /^\d+(?:\.\d{1,2})?$/.test(displayedAmount)
-    ? Number(displayedAmount)*100 : NaN;
+  const amountParts = /^(\d+)(?:\.(\d{1,2}))?$/.exec(displayedAmount);
+  const sourceAmountMinor = amountParts
+    ? Number(amountParts[1])*100 + Number((amountParts[2]??'').padEnd(2,'0')) : NaN;
   const itemTotalCorrect = !scopeTin || (items.length>0 && Number.isSafeInteger(scopedMinor) &&
     Number.isSafeInteger(sourceAmountMinor) && scopedMinor===sourceAmountMinor);
   const receiptItems = itemTotalCorrect ? items : [];
