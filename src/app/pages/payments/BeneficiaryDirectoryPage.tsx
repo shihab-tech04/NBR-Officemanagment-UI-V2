@@ -13,7 +13,14 @@ const db=createClient(URL,PUBLISHABLE_KEY,{auth:{
   storageKey:'office-taxpay-admin-session-v1',flowType:'pkce'
 }});
 interface SavedList {id:string;owner_uid:string;name:string;created_at:string}
-interface SavedPerson {id:string;owner_uid:string;list_id:string;tin:string;display_name:string;created_at:string}
+interface SavedPerson {id:string;owner_uid:string;list_id:string;tin:string;display_name:string;tag:string|null;relationship:string|null;created_at:string}
+const tagName=(tag:string|null,relation:string|null,bn:boolean)=>{
+  const tags:Record<string,[string,string]>={clients:['Clients','ক্লায়েন্ট'],friends_family:['Friends & family members','বন্ধু ও পরিবারের সদস্য'],others:['Others','অন্যান্য']};
+  const relatives:Record<string,[string,string]>={father:['Father','বাবা'],mother:['Mother','মা'],siblings:['Siblings','ভাইবোন'],son:['Son','ছেলে'],daughter:['Daughter','মেয়ে'],spouse:['Spouse','স্বামী/স্ত্রী'],friends:['Friends','বন্ধু']};
+  const label=tag?tags[tag]?.[bn?1:0]:null;
+  if(!label)return bn?'পূর্বের তথ্য · ট্যাগ নেই':'Previously saved · No tag';
+  return tag==='friends_family'&&relation&&relatives[relation]?label+' · '+relatives[relation][bn?1:0]:label;
+};
 interface Snapshot {lists:SavedList[];people:SavedPerson[]}
 
 /** Read every page, not just the PostgREST project max-rows page. */
@@ -42,7 +49,7 @@ async function readSnapshot():Promise<Snapshot>{
     }),
     collectOfficeBeneficiaryPages<SavedPerson>(async(from,to)=>{
       const {data,error}=await db.from('taxpay_beneficiaries')
-        .select('id,owner_uid,list_id,tin,display_name,created_at')
+        .select('id,owner_uid,list_id,tin,display_name,tag,relationship,created_at')
         .order('owner_uid').order('created_at').order('id').range(from,to);
       if(error)throw error;
       return (data??[]) as SavedPerson[];
@@ -151,12 +158,12 @@ export function BeneficiaryDirectoryPage(){
     }
     return snapshot.lists.flatMap(list=>{
       const stored=members.get(list.id);
-      const rows=stored?.length?stored:[{id:'empty-'+list.id,owner_uid:list.owner_uid,list_id:list.id,tin:'',display_name:'',created_at:list.created_at}];
+      const rows=stored?.length?stored:[{id:'empty-'+list.id,owner_uid:list.owner_uid,list_id:list.id,tin:'',display_name:'',tag:null,relationship:null,created_at:list.created_at}];
       return rows.filter(person=>
-        (person.tin+' '+person.display_name+' '+list.name+' '+person.owner_uid)
+        (person.tin+' '+person.display_name+' '+list.name+' '+person.owner_uid+' '+tagName(person.tag,person.relationship,bn))
           .toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
     });
-  },[snapshot.lists,snapshot.people,query]);
+  },[snapshot.lists,snapshot.people,query,bn]);
   return <section className="table-page space-y-4 p-4 sm:p-6" data-testid="office-beneficiary-directory">
     <header className="table-page__header flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="table-page__title">{tr('Beneficiaries','উপকারভোগী')}</h1>
@@ -185,16 +192,18 @@ export function BeneficiaryDirectoryPage(){
       <p role="status" className="table-page__desc">{snapshot.lists.length} {tr('lists','টি তালিকা')} · {snapshot.people.length} {tr('beneficiaries','জন উপকারভোগী')}</p>
       <label className="block space-y-1"><span>{tr('Search','খুঁজুন')}</span>
         <input className="w-full max-w-lg rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900"
-          type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={tr('Name, TIN or list','নাম, টিআইএন বা তালিকা')}/>
+          type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder={tr('Name, TIN, list or tag','নাম, টিআইএন, তালিকা বা ট্যাগ')}/>
       </label>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead className="bg-slate-100"><tr><th className="p-3">{tr('Account','অ্যাকাউন্ট')}</th><th className="p-3">{tr('List','তালিকা')}</th><th className="p-3">{tr('TIN','টিআইএন')}</th><th className="p-3">{tr('Name','নাম')}</th></tr></thead>
+          <thead className="bg-slate-100"><tr><th className="p-3">{tr('Account','অ্যাকাউন্ট')}</th><th className="p-3">{tr('List','তালিকা')}</th><th className="p-3">{tr('TIN','টিআইএন')}</th><th className="p-3">{tr('Name','নাম')}</th><th className="p-3">{tr('Tag','ট্যাগ')}</th><th className="p-3">{tr('Relationship','সম্পর্ক')}</th></tr></thead>
           <tbody>{visible.map(person=><tr key={person.id} className="border-t border-slate-200">
             <td className="p-3 font-mono">{person.owner_uid.slice(0,8)}…</td>
             <td className="p-3">{names.get(person.list_id)??'—'}</td>
             <td className="p-3 font-mono">{person.tin||'—'}</td>
             <td className="p-3">{person.display_name||tr('Empty list','খালি তালিকা')}</td>
+            <td className="p-3">{person.tin?tagName(person.tag,null,bn):'—'}</td>
+            <td className="p-3">{person.tag==='friends_family'?tagName(person.tag,person.relationship,bn).split(' · ').slice(1).join(' · ')||'—':'—'}</td>
           </tr>)}</tbody>
         </table>
         {visible.length===0&&<p className="p-5 text-center text-slate-600">
