@@ -105,6 +105,34 @@ BEGIN
  END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_PUBLIC_USAGE_GRANT_ROLLBACK';
 END $facade_public_usage_negative_probe$;
+-- PUBLIC CREATE is a separate implicit schema escalation from PUBLIC USAGE.
+-- A broad grant could permit anonymous shadow-function creation if USAGE
+-- is later enabled. Verify mutation detection and transactional rollback.
+DO $facade_public_create_negative_probe$
+DECLARE baseline boolean; mutated boolean;
+BEGIN
+ SELECT pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','CREATE') INTO baseline;
+ IF baseline IS DISTINCT FROM false
+ OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','CREATE') IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'FACADE_PUBLIC_CREATE_BASELINE_EXPOSED';
+ END IF;
+ BEGIN
+  GRANT CREATE ON SCHEMA ws02_api TO PUBLIC;
+  SELECT pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','CREATE') INTO mutated;
+  IF mutated IS DISTINCT FROM true
+   OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','CREATE') IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'FACADE_PUBLIC_CREATE_GRANT_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PUBLIC_CREATE';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PUBLIC_CREATE' THEN RAISE; END IF;
+ END;
+ IF pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','CREATE') IS DISTINCT FROM false
+ OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','CREATE') IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'FACADE_PUBLIC_CREATE_GRANT_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_PUBLIC_CREATE_GRANT_ROLLBACK';
+END $facade_public_create_negative_probe$;
 -- Synthetic schema-CREATE mutation regression: the trusted producer may
 -- EXECUTE the reviewed facade but must never CREATE shadow endpoints in the
 -- exposed namespace. A privileged accidental GRANT must be detectable and
