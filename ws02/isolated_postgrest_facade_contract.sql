@@ -78,6 +78,33 @@ BEGIN
  END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_USAGE_GRANT_ROLLBACK';
 END $facade_schema_usage_negative_probe$;
+-- PUBLIC is an implicit grant to every runtime role. Check it independently
+-- so a broad grant cannot evade the explicit anon/auth ACL probes above.
+-- This is a rollback-only mutation in disposable PostgreSQL 17.
+DO $facade_public_usage_negative_probe$
+DECLARE baseline boolean; mutated boolean;
+BEGIN
+ SELECT pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','USAGE') INTO baseline;
+ IF baseline IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'FACADE_PUBLIC_USAGE_BASELINE_EXPOSED';
+ END IF;
+ BEGIN
+  GRANT USAGE ON SCHEMA ws02_api TO PUBLIC;
+  SELECT pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','USAGE') INTO mutated;
+  IF mutated IS DISTINCT FROM true
+   OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','USAGE') IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'FACADE_PUBLIC_USAGE_GRANT_NOT_DETECTED';
+  END IF;
+  RAISE EXCEPTION 'ROLLBACK_SYNTHETIC_PUBLIC_USAGE';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM <> 'ROLLBACK_SYNTHETIC_PUBLIC_USAGE' THEN RAISE; END IF;
+ END;
+ IF pg_catalog.has_schema_privilege('ws02_owner_anon','ws02_api','USAGE') IS DISTINCT FROM false
+ OR pg_catalog.has_schema_privilege('ws02_owner_auth','ws02_api','USAGE') IS DISTINCT FROM false THEN
+  RAISE EXCEPTION 'FACADE_PUBLIC_USAGE_GRANT_NOT_ROLLED_BACK';
+ END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_PUBLIC_USAGE_GRANT_ROLLBACK';
+END $facade_public_usage_negative_probe$;
 -- Synthetic schema-CREATE mutation regression: the trusted producer may
 -- EXECUTE the reviewed facade but must never CREATE shadow endpoints in the
 -- exposed namespace. A privileged accidental GRANT must be detectable and
