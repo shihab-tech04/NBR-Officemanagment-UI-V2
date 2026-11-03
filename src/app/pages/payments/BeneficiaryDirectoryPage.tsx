@@ -13,12 +13,13 @@ const db=createClient(URL,PUBLISHABLE_KEY,{auth:{
   storageKey:'office-taxpay-admin-session-v1',flowType:'pkce'
 }});
 interface SavedList {id:string;owner_uid:string;name:string;created_at:string}
-interface SavedPerson {id:string;owner_uid:string;list_id:string;tin:string;display_name:string;tag:string|null;relationship:string|null;created_at:string}
-const tagName=(tag:string|null,relation:string|null,bn:boolean)=>{
+interface SavedPerson {id:string;owner_uid:string;list_id:string;tin:string;display_name:string;tag:string|null;relationship:string|null;other_label:string|null;created_at:string}
+export const tagName=(tag:string|null,relation:string|null,bn:boolean,otherLabel:string|null=null)=>{
   const tags:Record<string,[string,string]>={clients:['Clients','ক্লায়েন্ট'],friends_family:['Friends & family members','বন্ধু ও পরিবারের সদস্য'],others:['Others','অন্যান্য']};
   const relatives:Record<string,[string,string]>={father:['Father','বাবা'],mother:['Mother','মা'],siblings:['Siblings','ভাইবোন'],son:['Son','ছেলে'],daughter:['Daughter','মেয়ে'],spouse:['Spouse','স্বামী/স্ত্রী'],friends:['Friends','বন্ধু']};
   const label=tag?tags[tag]?.[bn?1:0]:null;
   if(!label)return bn?'পূর্বের তথ্য · ট্যাগ নেই':'Previously saved · No tag';
+  if(tag==='others'&&otherLabel?.trim())return label+' · '+otherLabel.trim();
   return tag==='friends_family'&&relation&&relatives[relation]?label+' · '+relatives[relation][bn?1:0]:label;
 };
 interface Snapshot {lists:SavedList[];people:SavedPerson[]}
@@ -49,7 +50,7 @@ async function readSnapshot():Promise<Snapshot>{
     }),
     collectOfficeBeneficiaryPages<SavedPerson>(async(from,to)=>{
       const {data,error}=await db.from('taxpay_beneficiaries')
-        .select('id,owner_uid,list_id,tin,display_name,tag,relationship,created_at')
+        .select('id,owner_uid,list_id,tin,display_name,tag,relationship,other_label,created_at')
         .order('owner_uid').order('created_at').order('id').range(from,to);
       if(error)throw error;
       return (data??[]) as SavedPerson[];
@@ -158,9 +159,9 @@ export function BeneficiaryDirectoryPage(){
     }
     return snapshot.lists.flatMap(list=>{
       const stored=members.get(list.id);
-      const rows=stored?.length?stored:[{id:'empty-'+list.id,owner_uid:list.owner_uid,list_id:list.id,tin:'',display_name:'',tag:null,relationship:null,created_at:list.created_at}];
+      const rows=stored?.length?stored:[{id:'empty-'+list.id,owner_uid:list.owner_uid,list_id:list.id,tin:'',display_name:'',tag:null,relationship:null,other_label:null,created_at:list.created_at}];
       return rows.filter(person=>
-        (person.tin+' '+person.display_name+' '+list.name+' '+person.owner_uid+' '+tagName(person.tag,person.relationship,bn))
+        (person.tin+' '+person.display_name+' '+list.name+' '+person.owner_uid+' '+tagName(person.tag,person.relationship,bn,person.other_label))
           .toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
     });
   },[snapshot.lists,snapshot.people,query,bn]);
@@ -202,8 +203,8 @@ export function BeneficiaryDirectoryPage(){
             <td className="p-3">{names.get(person.list_id)??'—'}</td>
             <td className="p-3 font-mono">{person.tin||'—'}</td>
             <td className="p-3">{person.display_name||tr('Empty list','খালি তালিকা')}</td>
-            <td className="p-3">{person.tin?tagName(person.tag,null,bn):'—'}</td>
-            <td className="p-3">{person.tag==='friends_family'?tagName(person.tag,person.relationship,bn).split(' · ').slice(1).join(' · ')||'—':'—'}</td>
+            <td className="p-3">{person.tin?tagName(person.tag,null,bn,person.other_label):'—'}</td>
+            <td className="p-3">{person.tag==='friends_family'?tagName(person.tag,person.relationship,bn,person.other_label).split(' · ').slice(1).join(' · ')||'—':'—'}</td>
           </tr>)}</tbody>
         </table>
         {visible.length===0&&<p className="p-5 text-center text-slate-600">
