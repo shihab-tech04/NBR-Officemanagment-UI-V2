@@ -103,6 +103,12 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
   assert.ok(crossYear.includes('f'), 'WS02_CROSS_YEAR_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
+  // Both denied commits must leave the reservation intact and no receipt behind.
+  // A false return without this check could conceal a partially finalized slot.
+  const deniedSlot = pg(`SELECT state, coalesce(receipt_hash, '<NULL>')
+FROM ws02_owner.slots WHERE idem_key=${q(idem)};`);
+  assert.deepEqual(deniedSlot, ['RESERVED|<NULL>'],
+    'NEGATIVE_COMMIT_CHANGED_SLOT_OR_RECEIPT_' + status);
   const commit = pg(`SET ROLE ws02_owner_engine;
 SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(actor)},${q(record)},'2026-27',
