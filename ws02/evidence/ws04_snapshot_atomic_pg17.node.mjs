@@ -101,6 +101,13 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
   assert.ok(crossYear.includes('f'), 'WS02_CROSS_YEAR_ACCEPTED_' + status);
+  // A valid actor and year must not be able to finalize a different request hash.
+  const wrongRequest = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_atomically(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q('d'.repeat(64))},${q(receiptHash)},${q(traceHash)},
+ ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
+  assert.ok(wrongRequest.includes('f'), 'WS02_WRONG_REQUEST_HASH_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
   // Both denied commits must leave the reservation intact and no receipt behind.
