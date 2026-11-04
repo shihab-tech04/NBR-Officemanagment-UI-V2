@@ -133,6 +133,15 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
   assert.ok(replay.includes('f'), 'WS02_DUPLICATE_FINALIZATION_ACCEPTED_' + status);
+  // A denied replay must not silently rewrite the committed receipt or audit trace.
+  const replayRead = pg(`SELECT row_to_json(x)::text FROM (
+SELECT e.audit_trace, e.trace_hash, e.result_state, s.state, s.receipt_hash
+FROM ws02_owner.evaluation_logs e JOIN ws02_owner.slots s
+USING (actor_id,record_id,assessment_year,idem_key)
+WHERE e.idem_key=${q(idem)}) x;`);
+  assert.equal(replayRead.length, 1, 'WS02_REPLAY_CHANGED_LOG_COUNT_' + status);
+  assert.deepEqual(JSON.parse(replayRead[0]), saved,
+    'WS02_REPLAY_MUTATED_ATOMIC_RECEIPT_OR_TRACE_' + status);
 }
 console.log('PASS_SCOPED_WS04_EXACT_SNAPSHOT_WS02_ATOMIC_PG17_THREE_STATES_ONLY');
 console.log('HOLD: Synthetic role, no signed Auth, no SQL-side digest enforcement, no taxpayer owner source, no certified tax amounts.');
