@@ -142,6 +142,10 @@ WHERE e.idem_key=${q(idem)}) x;`);
   assert.equal(replayRead.length, 1, 'WS02_REPLAY_CHANGED_LOG_COUNT_' + status);
   assert.deepEqual(JSON.parse(replayRead[0]), saved,
     'WS02_REPLAY_MUTATED_ATOMIC_RECEIPT_OR_TRACE_' + status);
+  const replayAuditCount = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs
+WHERE idem_key=${q(idem)};`);
+  assert.deepEqual(replayAuditCount, ['1'],
+    'WS02_REPLAY_INSERTED_EXTRA_AUDIT_ROW_' + status);
 }
 console.log('PASS_SCOPED_WS04_EXACT_SNAPSHOT_WS02_ATOMIC_PG17_THREE_STATES_ONLY');
 console.log('HOLD: Synthetic role, no signed Auth, no SQL-side digest enforcement, no taxpayer owner source, no certified tax amounts.');
