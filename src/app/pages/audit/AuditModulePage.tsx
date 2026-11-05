@@ -33,7 +33,8 @@ const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
-import { getAuditCandidates } from "./auditCandidateStore";
+import { getAuditCandidates, loadAuditCandidates } from "./auditCandidateStore";
+import { hasLoadedAuditDemo, isAuditDemoMode, subscribeAuditDemo } from "./auditDemoSql";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
@@ -1284,6 +1285,33 @@ export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
   const { t } = useTranslation("audit");
   const { assessmentYear } = useSettings();
+  const [auditDemoVersion, setAuditDemoVersion] = useState(0);
+  const [auditDemoError, setAuditDemoError] = useState("");
+  const [auditDemoLoading, setAuditDemoLoading] = useState(isAuditDemoMode() && !hasLoadedAuditDemo());
+  const refreshAuditDemo = async () => {
+    if (!isAuditDemoMode()) return;
+    setAuditDemoError("");
+    try {
+      await loadAuditCandidates();
+    } catch (error) {
+      setAuditDemoError(error instanceof Error ? error.message : "Shared demo data could not be loaded");
+    } finally {
+      setAuditDemoLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!isAuditDemoMode()) return;
+    const unsubscribe = subscribeAuditDemo(() => setAuditDemoVersion((value) => value + 1));
+    const onFocus = () => { void refreshAuditDemo(); };
+    window.addEventListener("focus", onFocus);
+    void refreshAuditDemo();
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+  // Recompute all Audit table and dashboard views from the same SQL snapshot.
+  void auditDemoVersion;
   const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
 
   const opts = (values: string[]) => values;
@@ -1485,6 +1513,14 @@ export function AuditModulePage() {
     mobileCardMapping:{primary:"action",identifier:"event_id",meta:["actor_role","return_id"],date:"timestamp_utc"},
     readOnly:true,
   };
+
+  if (auditDemoError) return (
+    <div className="table-page" role="alert">
+      <p className="form-helper">{auditDemoError}</p>
+      <button type="button" className="table-card__toolbar-btn" onClick={() => { setAuditDemoLoading(true); void refreshAuditDemo(); }}>Retry loading Audit data</button>
+    </div>
+  );
+  if (auditDemoLoading) return <div className="table-page" role="status">Loading shared dummy Audit records…</div>;
 
   switch (subNav) {
     case "audit-overview": return <AuditOverviewPage />;
