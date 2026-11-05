@@ -5292,3 +5292,19 @@
   .audit-explainer-drawer .audit-story__fact { padding: var(--space-2); }
   .audit-explainer-drawer .audit-story__progress-grid { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Keep Audit progress accessible without displacing the approved profile story. */
+.audit-progress-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+}
+.audit-progress-disclosure > summary::-webkit-details-marker { display: none; }
+.audit-progress-disclosure > summary::after {
+  content: "▾";
+  color: var(--color-text-secondary);
+  margin-inline-start: auto;
+  transition: transform 0.15s ease;
+}
+.audit-progress-disclosure[open] > summary::after { transform: rotate(180deg); }
+.audit-progress-disclosure > .form-stack { padding: var(--space-4) var(--space-5); }
