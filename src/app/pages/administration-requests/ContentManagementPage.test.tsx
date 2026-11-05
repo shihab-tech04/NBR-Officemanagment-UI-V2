@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,6 +20,8 @@ function row() {
 
 function makeClient(authorized: boolean, hasSession = authorized) {
   const banners = [row()];
+  let sessionActive = hasSession;
+  let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
   query.order = vi.fn(() => query);
   query.then = (onFulfilled: (value: unknown) => unknown) =>
@@ -31,8 +33,11 @@ function makeClient(authorized: boolean, hasSession = authorized) {
   });
   const client = {
     auth: {
-      getSession: vi.fn(async () => ({ data: { session: hasSession ? { user: { id: 'verified-user' } } : null }, error: null })),
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      getSession: vi.fn(async () => ({ data: { session: sessionActive ? { user: { id: 'verified-user' } } : null }, error: null })),
+      onAuthStateChange: vi.fn((callback: () => void) => {
+        onAuthChange = callback;
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      }),
       signInWithPassword: vi.fn(),
       signInWithOtp: vi.fn(),
       verifyOtp: vi.fn(),
@@ -47,7 +52,10 @@ function makeClient(authorized: boolean, hasSession = authorized) {
       remove: vi.fn(async () => ({ error: null })),
     })) },
   };
-  return { client, rpc };
+  return { client, rpc, setSession(isActive: boolean) {
+    sessionActive = isActive;
+    onAuthChange?.();
+  } };
 }
 
 describe('verified TaxPay banner CMS', () => {
@@ -100,6 +108,26 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(screen.getByRole('button', { name: 'Edit banner' }));
     expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+  });
+
+  it('preserves an unsaved banner draft and Cancel when an auth refresh reloads SQL rows', async () => {
+    const { client, setSession } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const heading = screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading, 'Unsaved draft stays open');
+    expect(heading).toHaveValue('Unsaved draft stays open');
+    act(() => { setSession(false); });
+    await waitFor(() => expect(screen.getByText(/To publish live changes, sign in to Office once/)).toBeInTheDocument());
+    act(() => { setSession(true); });
+    await waitFor(() => expect(screen.queryByText(/To publish live changes, sign in to Office once/)).not.toBeInTheDocument());
+    expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Unsaved draft stays open');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeVisible();
   });
 
   it('locks canonical Intro category, publishing and deletion controls', async () => {
