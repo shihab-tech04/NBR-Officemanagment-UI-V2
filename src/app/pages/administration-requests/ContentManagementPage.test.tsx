@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifyPublicImage } from './verifyPublicImage';
 
 const deps = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: deps.createClient }));
 
 function row() {
@@ -24,6 +26,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
   query.order = vi.fn(() => query);
+  query.eq = vi.fn(() => query);
   query.then = (onFulfilled: (value: unknown) => unknown) =>
     Promise.resolve({ data: banners, error: null }).then(onFulfilled);
   const rpc = vi.fn(async (name: string, args?: unknown) => {
@@ -76,6 +79,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
 
 describe('verified TaxPay banner CMS', () => {
   beforeEach(() => {
+    vi.mocked(verifyPublicImage).mockResolvedValue(undefined);
     vi.resetModules();
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_URL', 'https://cms.test.supabase.co');
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
@@ -201,7 +205,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Publicly verified headline');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByText(/verified in the public TaxPay banner feed/)).toBeInTheDocument();
+    expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
     expect(publicClient.from).toHaveBeenCalledWith('taxpay_site_banners');
     expect(deps.createClient).toHaveBeenCalledWith('https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({ persistSession: false, autoRefreshToken: false }) }));
@@ -218,7 +222,16 @@ describe('verified TaxPay banner CMS', () => {
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Unseen on public');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText(/Public TaxPay visibility does not match the committed SQL banner/)).toBeInTheDocument();
-    expect(screen.queryByText(/verified in the public TaxPay banner feed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
+  });
+
+  it('explains that service text is announced while fixed Taxpayer copy stays unchanged', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    render(<ContentManagementPage />);
+    await screen.findByRole('button', { name: 'Edit banner' });
+    expect(screen.getByText(/controls the Taxpayer homepage’s fixed left heading/)).toBeInTheDocument();
   });
 
   it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
