@@ -1,9 +1,10 @@
 import type { TableRow } from "../modulePageUtils";
+import { buildAuditTaxpayerPopulation } from "./auditSignalEngine";
 
 
 // mismatch_amount is representative screening-demo data for Candidate Preview decision support.
 // It is not assessed tax, a demand, or a legal Finding.
-export const ALL_TAXPAYER_ROWS: TableRow[] = [
+const ORIGINAL_TAXPAYER_ROWS: TableRow[] = [
   { id:"P1", taxpayer_name:"Rahman Enterprise", tin:"******4821", return_id:"RET-2026-10482", assessment_year:"2025-26", return_version:"v1", circle:"Circle-1", data_quality:"Complete", coverage_tier:"DT3", available_data:"Return + TDS + wealth/expenditure + history + permitted external data", signals:"R-C1 + R-E2", risk_level:"Very High", control_flags:"—", mismatch_amount:737872, audit_state:"Not Started", reason_code:"Strong reconciliation gap plus independent external asset-registry signal" },
   { id:"P2", taxpayer_name:"Karim & Sons", tin:"******4917", return_id:"RET-2026-10491", assessment_year:"2025-26", return_version:"v1", circle:"Circle-2", data_quality:"Complete", coverage_tier:"DT1", available_data:"Return + TDS + IT-10B / IT-10BB totals", signals:"R-C1", risk_level:"High", control_flags:"F1", mismatch_amount:920000, audit_state:"Verifying", reason_code:"Single strong reconciliation signal; F1 handled separately" },
   { id:"P3", taxpayer_name:"Haque Traders", tin:"******5024", return_id:"RET-2026-10502", assessment_year:"2025-26", return_version:"v2", circle:"Circle-3", data_quality:"Complete", coverage_tier:"DT2", available_data:"DT1 + component-level expenditure/assets/Schedule 4/5/TDS", signals:"R-B1 + R-C1", risk_level:"High", control_flags:"—", mismatch_amount:680000, audit_state:"Ready for Review", reason_code:"Signals deduplicated before priority assignment" },
@@ -41,6 +42,8 @@ export const ALL_TAXPAYER_ROWS: TableRow[] = [
   { id:"P35", taxpayer_name:"Royal Paper Mills", tin:"******7234", return_id:"RET-2026-10723", assessment_year:"2025-26", return_version:"v1", circle:"Circle-3", data_quality:"Complete", coverage_tier:"DT3", available_data:"Internal data + history + permitted external data", signals:"R-C2 + R-E3", risk_level:"Very High", control_flags:"—", mismatch_amount:1100000, audit_state:"Second Review", reason_code:"Multi-year gap plus independent external turnover signal" },
   { id:"P36", taxpayer_name:"Unity Chemicals", tin:"******7298", return_id:"RET-2026-10729", assessment_year:"2025-26", return_version:"v1", circle:"Circle-4", data_quality:"Complete", coverage_tier:"DT1", available_data:"Return + TDS + wealth/expenditure totals", signals:"R-A2", risk_level:"Low", control_flags:"F2", mismatch_amount:4500000, audit_state:"Not Started", reason_code:"Basic tax-payable anomaly signal with separate surcharge consistency control" },
 ];
+
+export const ALL_TAXPAYER_ROWS: TableRow[] = buildAuditTaxpayerPopulation(ORIGINAL_TAXPAYER_ROWS);
 
 export const RISK_CASE_ROWS: TableRow[] = [
   { id:"1", case_id:"CASE-2026-001", return_id:"RET-2026-10482", tin:"******4821", assessment_year:"2025-26", return_version:"v1", circle:"Circle-1", coverage_tier:"DT3", risk_level:"Very High", signals:"R-C1 (strong) + R-E2 (meaningful, independent external family)", verification_summary:"R-C1 Verified; R-E2 Pending", evidence_status:"Evidence Pending", evidence_refs:"Bank statement REF-101; Registry extract requested", finding_status:"Locked", sla:"1 working day (proposed)", case_status:"Evidence Pending", assigned_to:"DCT — Circle-1", reason_code:"Independent funds-flow + registry corroboration" },

@@ -39,7 +39,7 @@ describe("candidate Quick summary source and length controls", () => {
     expect(summary).toContain("R-C1");
     expect(summary).toContain("R-E2");
     expect(summary).toContain("2025-26");
-    expect(summary).toContain("737,872");
+    expect(summary).toContain(new Intl.NumberFormat("en-US").format(Number(source.mismatch_amount)));
     expect(summary).toContain("not assessed tax");
     expect(summary).toContain("no confirmed finding");
   });
