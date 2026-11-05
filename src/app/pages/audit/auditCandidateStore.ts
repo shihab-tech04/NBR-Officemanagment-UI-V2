@@ -265,7 +265,8 @@ const AUDIT_STATUS_TRANSITIONS: Record<string, string[]> = {
   "Verifying": ["Evidence Pending", "Ready for Review"],
   "Evidence Pending": ["Verifying", "Ready for Review"],
   "Ready for Review": ["Verifying", "Second Review"],
-  "Second Review": ["Ready for Review", "Closed"],
+  "Second Review": ["Ready for Review", "Rework Requested", "Closed"],
+  "Rework Requested": ["Verifying", "Ready for Review"],
   "Closed": [],
 };
 
