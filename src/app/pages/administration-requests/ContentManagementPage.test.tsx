@@ -77,7 +77,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.queryByText(/Sign out of Office and use/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign in securely' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add banner' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit banner' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Edit banner' })).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
