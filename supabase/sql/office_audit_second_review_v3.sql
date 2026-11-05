@@ -273,7 +273,7 @@ create or replace function public.office_audit_submit_finding(
   p_candidate_id uuid,p_signal_code text,p_evidence_ref text,
   p_verification_note text,p_finding_summary text
 ) returns table(evidence_id uuid,finding_id uuid)
-language plpgsql security invoker set search_path=pg_catalog,public as $
+language plpgsql security invoker set search_path=pg_catalog,public as $audit_finding$
 declare v_case public.office_audit_candidates%rowtype;
   v_evidence uuid; v_finding uuid;
 begin
@@ -300,7 +300,7 @@ begin
   values(p_candidate_id,v_evidence,p_signal_code,p_finding_summary,auth.uid())
   returning id into v_finding;
   return query select v_evidence,v_finding;
-end $;
+end $audit_finding$;
 revoke execute on function public.office_audit_submit_finding(uuid,text,text,text,text) from public,anon;
 grant execute on function public.office_audit_submit_finding(uuid,text,text,text,text) to authenticated;
 
