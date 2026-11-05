@@ -37,7 +37,7 @@ for (const viewport of viewports) {
         expect(overview).not.toContain('444,444');
         expect(overview).not.toContain('1,000,000');
         expect(overview).not.toContain('4M+');
-        await expect(page.locator('.audit-overview-v5 .audit-overview-v5__donut')).toContainText('36');
+        await expect(page.locator('.audit-overview-v5 .audit-overview-v5__donut')).toContainText('64');
         await expect(page.locator('.audit-overview__scope-badge')).toHaveCount(0);
       }
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth-innerWidth);
@@ -47,7 +47,7 @@ for (const viewport of viewports) {
   });
 }
 
-test('risk signal totals come from all 36 loaded records, including overlapping signals', async ({page}) => {
+test('risk signal totals come from all 64 loaded records, including overlapping signals', async ({page}) => {
   await page.setViewportSize({width:1366,height:865});
   await page.goto('/audit/audit-overview');
   await expect(page.locator('.audit-overview-v5__parameters')).toBeVisible();
@@ -57,7 +57,7 @@ test('risk signal totals come from all 36 loaded records, including overlapping 
   expect(await rows.count()).toBeGreaterThan(9);
   const seen=await rows.locator(':scope > strong').allTextContents();
   expect(seen.every(value=>/^\d+$/.test(value.trim()))).toBeTruthy();
-  expect(seen.every(value=>Number(value)<=36)).toBeTruthy();
+  expect(seen.every(value=>Number(value)<=64)).toBeTruthy();
   await page.locator('.audit-overview-v5__parameters').getByRole('button',{name:'Circle',exact:true}).click();
   await expect(page.locator('.audit-overview-v5__chart-detail').first()).toContainText('Circle-');
   await expect(page.locator('.audit-overview-v6__scope')).toContainText('unmapped');
