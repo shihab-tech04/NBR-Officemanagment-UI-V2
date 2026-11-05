@@ -213,16 +213,29 @@ for(const width of [1704,1440,1280]) {
   await page.screenshot({path:`test-results/payment-corrections-filter-${width}.png`,animations:'disabled'});
  });
 }
-test('Corrections filter genuinely applies status and clears it',async({page})=>{
+test('Corrections filters and clears a session draft status, without presenting reference cases',async({page})=>{
  await page.setViewportSize({width:1440,height:900});
  await page.goto('/payments/corrections');
+ await expect(page.getByText('CR-2026-000045')).toHaveCount(0);
+ await page.getByRole('button',{name:'Add New'}).click();
+ await page.locator('#payment-draft-tin').click();
+ await page.getByRole('option',{name:'Md. Rahman · 123456789012'}).click();
+ await page.locator('#payment-draft-reference').fill('QA-CORRECTION-REFERENCE-01');
+ await page.locator('#payment-draft-reason').fill('Wrong assessment year selected');
+ await page.locator('#payment-draft-evidence').fill('Test-only draft without persisted officer decision');
+ await page.getByRole('button',{name:'Review draft',exact:true}).click();
+ await page.getByRole('button',{name:'Add to list',exact:true}).click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('Draft');
  await page.getByRole('button',{name:'Filter',exact:true}).click();
  await page.locator('#filter-status').click();
- await page.getByRole('option',{name:'Blocked'}).click();
+ await page.getByRole('option',{name:'Draft',exact:true}).click();
  await page.getByRole('button',{name:'Apply Filters'}).click();
  await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await expect(page.locator('.applied-chips__clear')).toBeVisible();
  await page.locator('.applied-chips__clear').click();
- await expect(page.locator('.card-table tbody tr')).toHaveCount(2);
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await expect(page.getByText('CR-2026-000031')).toHaveCount(0);
 });
 test('Corrections mobile filter uses shared bottom sheet, and Bengali headings resolve',async({page})=>{
  await page.setViewportSize({width:390,height:844});
@@ -249,17 +262,38 @@ for(const route of ['transactions','corrections','incidents','offline-events']){
   await page.screenshot({path:`test-results/parity-${route}-1440.png`,animations:'disabled'});
  });
 }
-test('Offline Events uses localized search and AY filter actually narrows its source records',async({page})=>{
+test('Offline Events filters an unsent draft by year instead of a fictitious liability change',async({page})=>{
  await page.setViewportSize({width:1440,height:900});
  await page.goto('/payments/offline-events');
  await expect(page.locator('.payment-module__table-card .table-card__search-wrapper input[placeholder="Search event, taxpayer or order"]')).toBeVisible();
+ await expect(page.getByText('OFE-2026-000008')).toHaveCount(0);
+ await page.getByRole('button',{name:'Add New'}).click();
+ await page.locator('#payment-draft-tin').click();
+ await page.getByRole('option',{name:'Md. Rahman · 123456789012'}).click();
+ await page.locator('#payment-draft-type').click();
+ await page.getByRole('option',{name:'Offline payment',exact:true}).click();
+ await page.locator('#payment-draft-year').click();
+ await page.getByRole('option',{name:'2027–28',exact:true}).click();
+ await page.locator('#payment-draft-component').click();
+ await page.getByRole('option',{name:'Regular tax',exact:true}).click();
+ await page.locator('#payment-draft-amount').fill('150');
+ await page.locator('#payment-draft-reference').fill('QA-OFFLINE-REFERENCE-01');
+ await page.locator('#payment-draft-source').fill('Session-only test source');
+ await page.locator('#payment-draft-reason').fill('Test assessment-year filter');
+ await page.locator('#payment-draft-evidence').fill('Unsubmitted test draft without a verified financial event');
+ await page.getByRole('button',{name:'Review draft',exact:true}).click();
+ await page.getByRole('button',{name:'Add to list',exact:true}).click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await expect(page.locator('.card-table tbody tr').first()).toContainText('Draft');
  await page.getByRole('button',{name:'Filter',exact:true}).click();
  await page.locator('#filter-ay').click();
- await page.getByRole('option',{name:'2027–28'}).click();
+ await page.getByRole('option',{name:'2026-27',exact:true}).click();
  await page.getByRole('button',{name:'Apply Filters'}).click();
  await expect(page.locator('.payment-module__table-card .table-card__count')).toContainText('0 records');
- await expect(page.getByText('OFE-2026-000008')).toHaveCount(0);
  await expect(page.getByText('No records match your search criteria')).toBeVisible();
+ await page.locator('.applied-chips__clear').click();
+ await expect(page.locator('.card-table tbody tr')).toHaveCount(1);
+ await expect(page.getByText('OFE-2026-000008')).toHaveCount(0);
 });
 
 // Sorting belongs in the table column headers, never a floating toolbar dropdown.
