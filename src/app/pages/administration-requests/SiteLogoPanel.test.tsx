@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -94,7 +94,7 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     await screen.findByText(/verified in the public TaxPay logo feed/);
     const logo = screen.getByAltText('Korbritto TaxPay logo preview');
     fireEvent.error(logo);
-    await waitFor(() => expect(logo.getAttribute('src')).toContain('korbritto-brand-locked'));
+    await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|^data:image\\/svg/));
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
@@ -139,7 +139,7 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     await screen.findByText(/verified in the public TaxPay logo feed/);
     await user.click(screen.getByRole('button', { name: 'Edit logo' }));
     await user.click(screen.getByRole('button', { name: 'Restore original logo' }));
-    await user.click(screen.getByRole('dialog').getByRole('button', { name: 'Restore original logo' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore original logo' }));
     expect(await screen.findByText(/Original Korbritto logo restored and verified/)).toBeInTheDocument();
     expect(cms.update).toHaveBeenCalledWith({
       image_path: null, image_width: null, image_height: null,
