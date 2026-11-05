@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -83,6 +83,18 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     const source = img.getAttribute('src') || '';
     expect(source.includes('korbritto-brand-locked') || source.startsWith('data:image/svg+xml')).toBe(true);
     expect(cms.from).toHaveBeenCalledWith('taxpay_site_logo');
+  });
+
+  it('falls back to the approved brand if the active preview image fails', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms();
+    render(<SiteLogoPanel cms={cms.client} canPublish />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    await screen.findByText(/verified in the public TaxPay logo feed/);
+    const logo = screen.getByAltText('Korbritto TaxPay logo preview');
+    fireEvent.error(logo);
+    await waitFor(() => expect(logo.getAttribute('src')).toContain('korbritto-brand-locked'));
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
