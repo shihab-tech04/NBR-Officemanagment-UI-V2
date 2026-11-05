@@ -74,8 +74,9 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   // A calculated single signal must not repeat its full title in both the
   // selection-reason card and the signal card.
   await expect(quickSummary.getByRole("heading", { name: "Why this taxpayer is selected for audit" })).toHaveCount(0);
-  await expect(quickSummary.getByText("View decision path and evidence")).toBeVisible();
-  await expect(quickSummary.locator(".audit-summary-drawer__changes").first()).toContainText("1-year change");
+  // Preserve October's concise summary and keep all decision/evidence details in the linked drawer.
+  await expect(quickSummary.locator(".audit-summary-drawer__signal")).toHaveCount(1);
+  await expect(quickSummary.locator(".audit-summary-drawer__signal-context, .audit-summary-drawer__signal-action, .audit-summary-drawer__changes, .audit-summary-drawer__formula")).toHaveCount(0);
   await quickSummary.getByRole("button", { name: /R-A1: .*asset/i }).click();
   const decision = page.getByRole("dialog", { name: /R-A1/i });
   await expect(decision.locator(".audit-signal-flow")).toBeVisible();
