@@ -79,6 +79,23 @@ describe("Office Audit device-local candidate lifecycle", () => {
     expect(getLocalAuditStatusEvents("1900-01")).toHaveLength(0);
   });
 
+  it("creates only a distinct local case draft and never invents a verified finding", () => {
+    const all = getAuditCandidates();
+    const baseline = getAuditYearScope("2025-26", all);
+    const candidate = all.find((row) =>
+      row.assessment_year === "2025-26" && row.audit_status === "Not Started" &&
+      !baseline.riskCases.some((item) => item.return_id === row.return_id));
+    expect(candidate).toBeDefined();
+    changeLocalAuditCandidateStatus(candidate!.candidate_id, "Assigned", "Assigned for source verification");
+    const next = getAuditYearScope("2025-26", getAuditCandidates());
+    const record = next.riskCases.find((item) => item.return_id === candidate!.return_id);
+    expect(String(record?.case_id)).toMatch(/^LOCAL-CASE-/);
+    expect(record?.verification_summary).toBe("Not independently verified");
+    expect(record?.finding_status).toBe("Not recorded");
+    expect(next.trailRows.some((row) => row.return_id === candidate!.return_id &&
+      String(row.action).includes("Candidate status:"))).toBe(true);
+  });
+
   it("rolls back the candidate update when audit history cannot be saved", () => {
     const candidate = getAuditCandidates().find((row) => row.audit_status === "Not Started")!;
     const originalSetItem = Storage.prototype.setItem;
