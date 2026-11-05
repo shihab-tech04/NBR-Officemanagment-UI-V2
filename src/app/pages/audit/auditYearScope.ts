@@ -11,6 +11,7 @@ import { isSharedAuditMode } from "./auditSharedSql";
 export function getAuditYearScope(
   assessmentYear: string,
   allCandidates: AuditCandidateRecord[],
+  sharedEvents: TableRow[] = [],
 ) {
   // Without certified SQL-backed source records, never show local sample returns,
   // officer reviews or events in a connected Audit environment.
@@ -20,10 +21,19 @@ export function getAuditYearScope(
       // Preserve authorized SQL candidates that the caller already loaded;
       // never replace them with the browser's local population.
       candidates: allCandidates.filter((row) => row.assessment_year === assessmentYear),
-      riskCases: [] as TableRow[],
+      riskCases: allCandidates
+        .filter(row => row.assessment_year===assessmentYear && row.audit_status!=="Not Started")
+        .map(row=>({
+          id:row.candidate_id,case_id:row.candidate_id,
+          return_id:row.return_id,tin:row.tin,assessment_year:row.assessment_year,
+          zone:row.zone,circle:row.circle,coverage_tier:row.coverage_tier,
+          risk_level:row.risk_level,signals:row.signals,
+          case_status:row.audit_status,evidence_status:"—",sla:"—",
+          return_version:"—",
+        })) as TableRow[],
       controlRows: [] as TableRow[],
       secondReviewRows: [] as TableRow[],
-      trailRows: [] as TableRow[],
+      trailRows: sharedEvents,
     };
   }
   const matchesYear = (row: TableRow) =>
