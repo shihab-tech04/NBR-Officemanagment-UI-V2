@@ -2369,7 +2369,7 @@ export function AuditCandidatesPage({
           <p className="table-page__desc">{tableDescription}</p>
         </div>
 
-        {!selectedBatchId && !sharedDataError && !sharedDataLoading && (
+        {!selectedBatchId && !isSharedAuditMode() && !sharedDataError && !sharedDataLoading && (
           <div className="table-page__actions">
             <button
               type="button"
