@@ -205,7 +205,12 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
       ...customLegacy.filter((item) => !seededIds.has(item.candidate_id)),
       ...seeded,
     ];
-    window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(merged));
+    try {
+      window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(merged));
+    } catch {
+      // Read-only prototype access is possible even when storage is denied.
+      // The explicit batch write path reports persistence failure instead.
+    }
     return merged;
   }
 
