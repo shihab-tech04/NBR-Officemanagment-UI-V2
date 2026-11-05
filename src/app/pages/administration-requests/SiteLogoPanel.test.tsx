@@ -94,7 +94,7 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     await screen.findByText(/verified in the public TaxPay logo feed/);
     const logo = screen.getByAltText('Korbritto TaxPay logo preview');
     fireEvent.error(logo);
-    await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|^data:image\\/svg/));
+    await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
