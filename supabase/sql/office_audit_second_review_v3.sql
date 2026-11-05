@@ -78,7 +78,8 @@ with check (
     select 1 from public.office_audit_candidates c
     join public.office_audit_memberships m on m.user_id=(select auth.uid())
     join public.office_audit_case_evidence e on e.id=evidence_id
-    where c.id=candidate_id and e.candidate_id=c.id and e.signal_code=signal_code
+    where c.id=office_audit_findings.candidate_id and e.candidate_id=c.id
+      and e.signal_code=office_audit_findings.signal_code
       and m.active and m.office_role='circle_user'
       and m.zone=c.zone and m.circle=c.circle
       and c.audit_status in ('Verifying','Evidence Pending')
