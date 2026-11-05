@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CheckCircle2, ClipboardList, Clock, Database, FileSearch, Info, ListChecks, Users,
@@ -52,7 +52,7 @@ const RISK_LEVELS = ["Low","Medium","High","Very High"] as const;
 const ALL_ZONES_VALUE = "__ALL_ZONES__";
 const CIRCLE_SCOPE_SEPARATOR = "|||";
 const SCREENING_RUN_STORAGE_KEY = "nbr-audit-screening-run-v1";
-const SCREENING_READY_AFTER_MS = 2 * 60 * 60 * 1000;
+const SCREENING_READY_AFTER_MS = 0;
 
 type ScreeningRunSnapshot = {
   assessmentYear: string;
@@ -192,6 +192,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewPerPage, setReviewPerPage] = useState(10);
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
+  const confirmInFlight = useRef(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   const activeSteps = TRACK_STEPS[track];
   const activeStepId = activeSteps[step] ?? activeSteps[activeSteps.length - 1];
@@ -684,35 +686,46 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   const modeledFinalCount = finalRows.length;
 
   const confirmCandidates = async () => {
-    if (!finalRows.length) return;
+    if (!finalRows.length || confirmInFlight.current) return;
+    // A second click must never create another batch while the first save is pending.
+    confirmInFlight.current = true;
+    setConfirmBusy(true);
     try {
-    await saveAuditCandidates(finalRows, {
-      assessmentYear,
-      track: t(TRACKS.find((item) => item.id === track)?.titleKey ?? "initiate.tracks.risk.title"),
-      selectionBasis,
-      funnelRule: funnelBasis,
-      zone: zone === ALL_ZONES_VALUE ? t("initiate.summary.allZones") : zone,
-      populationConsidered: clampCount(modeledPopulationCount),
-      eligibleAfterReadiness: clampCount(modeledReadinessCount),
-      matchedCriteria: clampCount(modeledMatchedCount),
-      afterPreview: matchedRows.length,
-      finalCandidates: clampCount(modeledFinalCount),
-    });
+      const saved = await saveAuditCandidates(finalRows, {
+        assessmentYear,
+        track: t(TRACKS.find((item) => item.id === track)?.titleKey ?? "initiate.tracks.risk.title"),
+        selectionBasis,
+        funnelRule: funnelBasis,
+        zone: zone === ALL_ZONES_VALUE ? t("initiate.summary.allZones") : zone,
+        populationConsidered: clampCount(modeledPopulationCount),
+        eligibleAfterReadiness: clampCount(modeledReadinessCount),
+        matchedCriteria: clampCount(modeledMatchedCount),
+        afterPreview: matchedRows.length,
+        finalCandidates: clampCount(modeledFinalCount),
+      });
+      const expected = new Set(finalRows.map((row) => String(row.return_id)));
+      const confirmed = saved.filter((row) =>
+        row.assessment_year === assessmentYear && expected.has(row.return_id));
+      if (confirmed.length !== expected.size ||
+          new Set(confirmed.map((row) => row.batch_id)).size !== 1) {
+        throw new Error("Audit batch confirmation did not return the selected candidates");
+      }
+      // Only report completion after the persistent store has acknowledged the batch.
+      toast.success(t("initiate.toast.candidatesConfirmed", { count: finalRows.length }));
+      if (track === "risk") {
+        setScreeningRun(null);
+        try { window.localStorage.removeItem(SCREENING_RUN_STORAGE_KEY); } catch {
+          // The confirmed batch is independent of the temporary screening snapshot.
+        }
+      }
+      onConfirmed();
+      closeFreshSession();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Candidate confirmation could not be verified");
-      return;
+    } finally {
+      confirmInFlight.current = false;
+      setConfirmBusy(false);
     }
-    toast.success(t("initiate.toast.candidatesConfirmed", { count: finalRows.length }));
-    if (track === "risk") {
-      setScreeningRun(null);
-      try {
-        window.localStorage.removeItem(SCREENING_RUN_STORAGE_KEY);
-      } catch {
-        // Candidate confirmation is still complete if storage is unavailable.
-      }
-    }
-    onConfirmed();
-    closeFreshSession();
   };
 
   const populationStepIndex = activeSteps.indexOf("population");
@@ -1795,7 +1808,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
           {t("initiate.actions.continue")}
         </PrimaryButton>
       ) : (
-        <PrimaryButton size="sm" disabled={!stepValid} onClick={confirmCandidates}>
+        <PrimaryButton size="sm" loading={confirmBusy} disabled={!stepValid || confirmBusy} onClick={confirmCandidates}>
           {t("initiate.actions.confirmCandidates")}
         </PrimaryButton>
       )}
