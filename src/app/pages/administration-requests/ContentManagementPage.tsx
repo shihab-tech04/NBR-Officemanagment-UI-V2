@@ -201,7 +201,7 @@ export function ContentManagementPage() {
   }
 
   async function uploadImage(file: File, bannerId: string): Promise<string> {
-    if (!cms || !authUid) throw new Error('A verified administrator session is required.');
+    if (!cms || !authUid) throw new Error('Your Office session does not have content publishing permission.');
     if (!IMAGE_FILE_ACCEPT.includes(file.type) || file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
       throw new Error('Select a cropped PNG or JPEG image up to 5 MB.');
     }
@@ -315,7 +315,7 @@ export function ContentManagementPage() {
       </div>
     </header>
     {authState === 'checking' && !banners.length && <p role="status">Loading TaxPay content…</p>}
-    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. Publishing to the shared TaxPay SQL requires verified administrator credentials entered at the existing Office login.</p>}
+    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. To publish live changes, sign in to Office once with the password for your authorized Office account.</p>}
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
@@ -368,7 +368,7 @@ export function ContentManagementPage() {
               <p className="cms-readonly-value">{draft[field.key]}</p>}
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
-          {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">This is an unpublished preview. To publish changes, sign in through Office with verified Content Management administrator credentials.</p>}
+          {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">This is an unpublished preview. Publishing requires an Office sign-in with a valid account password and publishing permission.</p>}
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>
