@@ -66,23 +66,44 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     setSharedBusy(true);
     try {
       const cms = getTaxPayCmsClient();
+      if (!cms && password) {
+        throw new Error("Office content service is unavailable. Publishing sign-in could not be verified.");
+      }
       if (cms) {
         const { error: signOutError } = await cms.auth.signOut({ scope: "local" });
-        if (signOutError) throw new Error("Could not reset the previous publishing session.");
+        if (signOutError) throw new Error("The previous Content Management session could not be cleared. Retry sign-in.");
         if (password) {
-          const { error } = await cms.auth.signInWithPassword({
+          // The existing Office form is the only sign-in for the TaxPay editor.
+          // An invalid password must not silently downgrade to a preview after
+          // the user supplied credentials expecting to publish.
+          const { data, error } = await cms.auth.signInWithPassword({
             email: PRIMARY_ADMIN_EMAIL, password,
           });
-          // An Office preview password is not automatically an SQL credential.
-          // The CMS continues to deny writes unless its RLS verifier succeeds.
-          if (error) setSharedError("Office access is available, but TaxPay publishing credentials were not verified.");
+          if (error || !data?.session?.user?.id) {
+            throw new Error("Office sign-in failed. Check your password and try again.");
+          }
+          // Verify the identity against Supabase Auth, then check the existing
+          // SQL permission once at Office entry. Never trust a local admin
+          // marker or front-end role to authorize database writes.
+          const { data: verified, error: verifyError } = await cms.auth.getUser();
+          if (verifyError || !verified?.user || verified.user.is_anonymous ||
+              verified.user.id !== data.session.user.id) {
+            await cms.auth.signOut({ scope: "local" });
+            throw new Error("Office session could not be verified. Please sign in again.");
+          }
+          const { data: mayPublish, error: permissionError } =
+            await cms.rpc("taxpay_is_verified_portal_admin");
+          if (permissionError || mayPublish !== true) {
+            await cms.auth.signOut({ scope: "local" });
+            throw new Error("This Office account does not have permission to publish TaxPay content.");
+          }
         }
       }
       setPassword("");
       onOfficeEnter?.();
       navigate("/dashboard/dashboard-main");
-    } catch {
-      setSharedError("The previous Content Management session could not be cleared. Retry sign-in.");
+    } catch (error) {
+      setSharedError(error instanceof Error ? error.message : "Office sign-in could not be verified. Please retry.");
     } finally {
       setSharedBusy(false);
     }
