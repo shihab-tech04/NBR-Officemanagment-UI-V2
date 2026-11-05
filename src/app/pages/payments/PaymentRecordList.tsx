@@ -9,7 +9,7 @@ import { AppliedFilterChips } from '../../components/filters/AppliedFilterChips'
 import { Pagination } from '../../components/shared/Pagination';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { useUIState } from '../../hooks/useUI';
-import { handleExportDisabled } from '../../utils/exportDisabled';
+import { downloadPaymentTableCsv, paymentFilterMatches } from './paymentRecordExport';
 import type { ColDef, FilterDef, MobileCardMapping, TableRow } from '../modulePageUtils';
 
 /** Parse the controlled Payment snapshot's human-readable dates, never sort them lexicographically. */
@@ -50,7 +50,7 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
     const search = query.trim().toLocaleLowerCase();
     const filteredRows = rows.filter(row => {
       if (search && !Object.values(row).some(val => String(val ?? '').toLocaleLowerCase().includes(search))) return false;
-      return Object.entries(applied).every(([key,value]) => !value || value === 'All' || String(row[key] ?? '') === value);
+      return Object.entries(applied).every(([key,value]) => paymentFilterMatches(row,key,value));
     });
     if (!sort) return filteredRows;
     const desc = sort.startsWith('-');
@@ -125,7 +125,7 @@ export function PaymentRecordList({ title, rows, columns, filters = [], mobileMa
         {filters.length > 0 && <button type="button" className={`table-card__toolbar-btn${showFilters?' table-card__toolbar-btn--active':''}`} onClick={toggle} aria-expanded={showFilters}>
           <Filter size={13} aria-hidden="true"/>{t('filters')}
         </button>}
-        <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--download" onClick={()=>handleExportDisabled(tc('actions.exportDisabled'))}><Download size={13} aria-hidden="true"/>{tc('actions.export')}</button>
+        <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--download" disabled={filtered.length===0} onClick={()=>downloadPaymentTableCsv(kind,columns,filtered)}><Download size={13} aria-hidden="true"/>{tc('actions.export')}</button>
         <button type="button" className="table-card__toolbar-btn table-card__toolbar-btn--print" onClick={()=>window.print()}><Printer size={13} aria-hidden="true"/>{tc('actions.print')}</button>
       </div>
       {isDesktop && showFilters && filters.length > 0 && <div className="table-card__filter-panel"><FilterPanel filters={filters} values={draftFilters} onChange={change} onApply={apply} onReset={reset}/></div>}
