@@ -27,7 +27,7 @@ import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
 import { useSettingsActions } from "../../hooks/useSettings";
-import { handleExportDisabled } from "../../utils/exportDisabled";
+import { downloadAuditCsv } from "./auditCsvExport";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
@@ -2424,7 +2424,8 @@ export function AuditCandidatesPage({
           <button
             type="button"
             className="table-card__toolbar-btn table-card__toolbar-btn--download"
-            onClick={() => handleExportDisabled(tc("actions.exportDisabled"))}
+            onClick={() => downloadAuditCsv(tableTitle, activeCols, filtered)}
+            disabled={!filtered.length || sharedDataLoading || !!sharedDataError}
           >
             <Download size={13} aria-hidden="true" /> {tc("actions.export")}
           </button>
