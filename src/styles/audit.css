@@ -215,14 +215,18 @@
 
 .audit-key-indicator__top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
 }
 
 .audit-key-indicator__top > p {
+  flex: 1 1 8.75rem;
   margin: 0;
   min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--color-text-secondary);
   font-size: var(--fs-caption);
   line-height: var(--lh-caption);
@@ -231,7 +235,9 @@
 
 .audit-key-indicator__signals {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 3px;
