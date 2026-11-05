@@ -4,6 +4,8 @@ import { createSharedAuditBatch, isSharedAuditMode, listSharedAuditCandidates } 
 
 export interface AuditCandidateRecord extends TableRow {
   candidate_id: string;
+  /** SQL optimistic-concurrency revision; never populated by browser-only records. */
+  version?: number;
   batch_id: string;
   taxpayer_name: string;
   tin: string;

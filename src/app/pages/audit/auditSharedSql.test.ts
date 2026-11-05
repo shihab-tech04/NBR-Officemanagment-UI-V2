@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateInputs, mapSqlAuditCandidate } from "./auditSharedSql";
+import { candidateInputs, mapSqlAuditCandidate, validateSharedAuditStatus } from "./auditSharedSql";
 
 const source = {
   return_id: "RET-TEST-01", tin: "123456789012", taxpayer_name: "Synthetic Test",
@@ -25,6 +25,7 @@ describe("Office Audit authenticated SQL record contract", () => {
     expect(row.assessment_year).toBe("2025-26");
     expect(row.signals).toBe("R-C1, R-E2");
     expect(row.audit_status).toBe("Not Started");
+    expect(row.version).toBe(1);
   });
 
   it("refuses unknown source kinds and absent source identity", () => {
@@ -37,6 +38,15 @@ describe("Office Audit authenticated SQL record contract", () => {
     })).toThrow("not been certified");
     expect(() => mapSqlAuditCandidate({...value, return_id:""}))
       .toThrow("Missing canonical candidate identity");
+  });
+
+  it("validates status version, note length, and refuses uncertified final closure", () => {
+    expect(validateSharedAuditStatus(1, "Assigned", "  Review pending evidence  ")).toBe("Review pending evidence");
+    expect(() => validateSharedAuditStatus(0, "Assigned", "Qualified reason")).toThrow();
+    expect(() => validateSharedAuditStatus(1, "Closed", "Qualified reason")).toThrow();
+    expect(() => validateSharedAuditStatus(1, "Assigned", "too short")).toThrow();
+    expect(() => validateSharedAuditStatus(1, "Unknown", "Qualified reason")).toThrow();
+    expect(() => validateSharedAuditStatus(1, "Assigned", "x".repeat(501))).toThrow();
   });
 
   it("rejects cross-year, cross-zone, duplicate, missing-identity and empty batches", () => {

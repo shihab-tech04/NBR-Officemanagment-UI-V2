@@ -22,6 +22,7 @@ import { ALL_TAXPAYER_ROWS } from "./auditData";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { getAuditCandidates, saveAuditCandidates } from "./auditCandidateStore";
+import { isSharedAuditMode } from "./auditSharedSql";
 import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../data/taxJurisdictions";
 
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -691,6 +692,9 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     confirmInFlight.current = true;
     setConfirmBusy(true);
     try {
+      if (isSharedAuditMode()) {
+        throw new Error("A verified taxpayer return source is required before creating an Audit batch");
+      }
       const saved = await saveAuditCandidates(finalRows, {
         assessmentYear,
         track: t(TRACKS.find((item) => item.id === track)?.titleKey ?? "initiate.tracks.risk.title"),

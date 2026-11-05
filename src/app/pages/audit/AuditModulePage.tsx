@@ -35,6 +35,7 @@ import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
+import { isSharedAuditMode } from "./auditSharedSql";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
@@ -1304,6 +1305,7 @@ export function AuditModulePage() {
   const { t } = useTranslation("audit");
   const { assessmentYear } = useSettings();
   const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
+  const availablePopulation = isSharedAuditMode() ? [] : ALL_TAXPAYER_ROWS;
 
   const opts = (values: string[]) => values;
 
@@ -1334,14 +1336,14 @@ export function AuditModulePage() {
       fc("reason_code", t("columns.reason")),
     ],
     filters: [
-      { key:"circle", label:t("filters.circle"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"circle")) },
-      { key:"assessment_year", label:t("filters.assessmentYear"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"assessment_year")) },
-      { key:"data_quality", label:t("filters.dataQuality"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"data_quality")) },
-      { key:"coverage_tier", label:t("filters.coverageTier"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"coverage_tier")) },
-      { key:"risk_level", label:t("filters.riskLevel"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"risk_level")) },
-      { key:"audit_state", label:t("filters.auditState"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"audit_state")) },
-      { key:"control_flags", label:t("columns.controlFlags"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"control_flags")) },
-      { key:"return_version", label:t("columns.returnVersion"), type:"select", options:opts(uniqueValues(ALL_TAXPAYER_ROWS,"return_version")) },
+      { key:"circle", label:t("filters.circle"), type:"select", options:opts(uniqueValues(availablePopulation,"circle")) },
+      { key:"assessment_year", label:t("filters.assessmentYear"), type:"select", options:opts(uniqueValues(availablePopulation,"assessment_year")) },
+      { key:"data_quality", label:t("filters.dataQuality"), type:"select", options:opts(uniqueValues(availablePopulation,"data_quality")) },
+      { key:"coverage_tier", label:t("filters.coverageTier"), type:"select", options:opts(uniqueValues(availablePopulation,"coverage_tier")) },
+      { key:"risk_level", label:t("filters.riskLevel"), type:"select", options:opts(uniqueValues(availablePopulation,"risk_level")) },
+      { key:"audit_state", label:t("filters.auditState"), type:"select", options:opts(uniqueValues(availablePopulation,"audit_state")) },
+      { key:"control_flags", label:t("columns.controlFlags"), type:"select", options:opts(uniqueValues(availablePopulation,"control_flags")) },
+      { key:"return_version", label:t("columns.returnVersion"), type:"select", options:opts(uniqueValues(availablePopulation,"return_version")) },
     ],
     clickableKeys:["circle","assessment_year","data_quality","coverage_tier","signals","risk_level","control_flags","audit_state","return_version"],
     mobileCardMapping:{ primary:"taxpayer_name", identifier:"tin", meta:["circle","coverage_tier","risk_level","control_flags"], status:"audit_state" },
@@ -1436,7 +1438,7 @@ export function AuditModulePage() {
   const rulesConfig: AuditTableConfig = {
     title:t("pages.rules.title"),
     description:t("pages.rules.description"),
-    rows:RULE_ROWS,
+    rows:isSharedAuditMode() ? [] : RULE_ROWS,
     columns:[
       fc("rule_id",t("columns.ruleId"),{mono:true}),fc("version",t("columns.version"),{mono:true}),
       fc("rule_family",t("columns.ruleFamily")), {type:"col",col:{key:"dry_run_status",label:t("columns.dryRun"),badge:true}},

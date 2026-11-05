@@ -5,12 +5,27 @@ import {
 } from "./auditData";
 import type { AuditCandidateRecord } from "./auditCandidateStore";
 import { getLocalAuditStatusEvents } from "./auditCandidateStore";
+import { isSharedAuditMode } from "./auditSharedSql";
 
 /** Every Audit workload count and destination must describe the selected AY. */
 export function getAuditYearScope(
   assessmentYear: string,
   allCandidates: AuditCandidateRecord[],
 ) {
+  // Without certified SQL-backed source records, never show local sample returns,
+  // officer reviews or events in a connected Audit environment.
+  if (isSharedAuditMode()) {
+    return {
+      population: [] as TableRow[],
+      // Preserve authorized SQL candidates that the caller already loaded;
+      // never replace them with the browser's local population.
+      candidates: allCandidates.filter((row) => row.assessment_year === assessmentYear),
+      riskCases: [] as TableRow[],
+      controlRows: [] as TableRow[],
+      secondReviewRows: [] as TableRow[],
+      trailRows: [] as TableRow[],
+    };
+  }
   const matchesYear = (row: TableRow) =>
     String(row.assessment_year ?? "") === assessmentYear;
   const population = ALL_TAXPAYER_ROWS.filter(matchesYear);
@@ -91,7 +106,7 @@ export function getAuditYearScope(
 /** Only announce years actually present in the loaded Audit sources. */
 export function getAvailableAuditYears(candidates: AuditCandidateRecord[]): string[] {
   return Array.from(new Set([
-    ...ALL_TAXPAYER_ROWS.map((row) => String(row.assessment_year ?? "")),
+    ...(isSharedAuditMode() ? [] : ALL_TAXPAYER_ROWS.map((row) => String(row.assessment_year ?? ""))),
     ...candidates.map((row) => String(row.assessment_year ?? "")),
   ].filter(Boolean))).sort().reverse();
 }
