@@ -26,16 +26,27 @@ try {
     await expect(page.getByRole('tab', { name: 'Banner' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Site Logo' })).toBeVisible();
     await expect(page.getByText(/Sign out of Office and use your approved administrator credentials/i)).toHaveCount(0);
-    // Ordinary Office preview login must never grant SQL publishing privileges.
-    await expect(page.getByRole('button', { name: 'Edit banner' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Add banner' })).toHaveCount(0);
+    // Preview editing is available in the regular Office workspace. SQL
+    // publishing stays disabled until an administrator is verified.
+    await expect(page.getByRole('button', { name: 'Edit banner' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add banner' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit banner' }).click();
+    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    await expect(page.getByText(/unpublished preview/i)).toBeVisible();
     await page.screenshot({ path: 'test-results/live-cms-' + device + '.png', fullPage: false });
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('tab', { name: 'Site Logo' }).click();
     await expect(page.getByRole('region', { name: 'Site Logo' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Edit logo' })).toHaveCount(0);
+    await expect(page.getByAltText('Korbritto TaxPay logo preview')).toBeVisible();
+    await expect(page.getByText(/Current Korbritto brand/)).toBeVisible();
+    const source = await page.getByAltText('Korbritto TaxPay logo preview').getAttribute('src');
+    if (!source || source.includes('amar-kor')) throw new Error('Live Office rendered an obsolete logo');
+    await expect(page.getByRole('button', { name: 'Edit logo' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit logo' }).click();
+    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
     await page.close();
   }
-  console.log('PASS: live CMS shows published SQL banners and logo without secondary login; preview cannot publish');
+  console.log('PASS: live CMS banner/logo edit previews available; current Korbritto fallback; unauthorized SQL publishing disabled');
 } finally {
   await browser.close();
 }
