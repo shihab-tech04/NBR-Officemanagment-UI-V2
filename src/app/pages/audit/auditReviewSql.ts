@@ -169,3 +169,35 @@ export async function submitSharedAuditReview(
   if(!confirmed || confirmed.audit_status!==status || confirmed.version!==expected+1)
     throw new Error("Review was saved but refresh did not confirm the new version");
 }
+
+/** Read SQL's append-only event log through officer membership and candidate RLS. */
+export async function listSharedAuditEventRows(year:string):Promise<TableRow[]> {
+  assertSharedMode();
+  await checkAuditSqlAccess();
+  const db=getAuditSqlClient();
+  const { data,error }=await db.from("office_audit_events")
+    .select("id,candidate_id,actor_id,changed_at,event_type,previous_status,new_status,review_note,office_audit_candidates!inner(return_id,assessment_year)")
+    .eq("office_audit_candidates.assessment_year",year)
+    .order("changed_at",{ascending:false}).limit(2000);
+  if(error) throw new Error("Authorized Audit event history could not be loaded");
+  return (data??[]).map(event=>{
+    const source=event.office_audit_candidates as unknown as {return_id:string;assessment_year:string}|null;
+    return {
+      id:String(event.id),
+      event_id:String(event.id),
+      timestamp_utc:String(event.changed_at),
+      return_id:source?.return_id??"—",
+      assessment_year:source?.assessment_year??year,
+      actor_id:String(event.actor_id),
+      actor_role:"—",
+      action:String(event.event_type),
+      return_version:"—",
+      human_record:String(event.review_note??"—"),
+      data_state:String(event.new_status??event.previous_status??"—"),
+      assessment:"—",
+      access_record:"—",
+      classification_version:"—",
+      rule_config_version:"—",
+    } as TableRow;
+  });
+}
