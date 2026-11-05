@@ -17,7 +17,7 @@ import { AppTextArea } from '../../components/forms/AppTextArea';
 import { AppSelectField } from '../../components/forms/AppSelectField';
 import type { ColDef, TableRow, FilterDef, MobileCardMapping, KpiDef } from '../modulePageUtils';
 import {
-  referenceAudit, referenceCorrections, referenceIntelligence,
+  referenceAudit, referenceCorrections,
   referenceOffline, referencePayments, referenceTaxpayers,
 } from './paymentReference';
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
@@ -27,6 +27,7 @@ import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPre
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
+import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -460,27 +461,30 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     {toolbar(t('offlineEvents'),()=>openDraft('offline-events'))}
     {table(keys.offline,offlineRows,'offlineEvents',offlineFilters,offlineMapping)}
   </>;
+  const analyticsSnapshot=storyLoading||storyError?null:officePaymentAnalytics(storyPayments,scopeYear);
   const analytics=()=> <>
     {toolbar(t('analytics'))}
-    <p className="table-page__desc">{t('analyticsScope')}</p>
+    <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'শুধু নথিভুক্ত পেমেন্ট কার্যক্রমের পরিসংখ্যান। ট্রেজারি নিষ্পত্তি বা কর ক্রেডিটের প্রমাণ নয়।':'Based on recorded payment activity only; not evidence of Treasury settlement or tax credit.'}</p>
+    <div className="payment-module__year-control">{yearSelect}</div>
+    {storyLoading&&<p className="table-page__desc" role="status">{i18n.resolvedLanguage==='bn'?'পেমেন্ট তথ্য লোড হচ্ছে…':'Loading recorded payment activity…'}</p>}
+    {storyError&&<p className="table-page__desc" role="alert">{storyError}</p>}
     {showKpis([
-      kpi(t('paymentVolume'),displayNumber(referenceIntelligence.volume),BarChart3),
-      kpi(t('successful'),displayNumber(referenceIntelligence.successful),CheckCircle2,'success'),
-      kpi(t('failed'),displayNumber(referenceIntelligence.failed),AlertTriangle,'error'),
-      kpi(t('pending'),displayNumber(referenceIntelligence.pending),Clock3,'warning'),
-      kpi(t('abandoned'),referenceIntelligence.abandonment,Users,'warning'),
-      kpi(t('wrongSection'),displayNumber(referenceIntelligence.wrongSection),ShieldAlert,'warning'),
-      kpi(t('wrongYear'),displayNumber(referenceIntelligence.wrongYear),ShieldAlert,'warning'),
-      kpi(t('correctionRequests'),displayNumber(referenceIntelligence.corrections),CreditCard),
-      kpi(t('invalidated'),displayNumber(referenceIntelligence.invalidatedCredits),AlertTriangle,'error'),
+      kpi(i18n.resolvedLanguage==='bn'?'পেমেন্ট রেকর্ড':'Payment records',analyticsSnapshot?displayNumber(analyticsSnapshot.total):'—',BarChart3),
+      kpi(i18n.resolvedLanguage==='bn'?'নথিভুক্ত পেমেন্ট':'Saved records',analyticsSnapshot?displayNumber(analyticsSnapshot.saved):'—',CheckCircle2),
+      kpi(i18n.resolvedLanguage==='bn'?'ব্যর্থ রেকর্ড':'Failed records',analyticsSnapshot?displayNumber(analyticsSnapshot.failed):'—',AlertTriangle),
+      kpi(i18n.resolvedLanguage==='bn'?'প্রক্রিয়াধীন রেকর্ড':'Pending records',analyticsSnapshot?displayNumber(analyticsSnapshot.pending):'—',Clock3),
+      kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',analyticsSnapshot?displayNumber(analyticsSnapshot.services.length):'—',CreditCard),
+      kpi(i18n.resolvedLanguage==='bn'?'নথিভুক্ত পরিমাণ':'Recorded amount',analyticsSnapshot?.amountMinor!==null&&analyticsSnapshot?displayMoney(analyticsSnapshot.amountMinor/100):'—',Wallet),
     ])}
     <div className="payment-module__tab-scroll"><TabBar active={analyticsTab} onChange={setAnalyticsTab} tabs={[{id:'insights',label:t('insights')},{id:'monitoring',label:t('monitoring')}]} /></div>
     {analyticsTab==='insights' ? <div className="payment-module__summary-grid">
-      <section className="card payment-module__card"><h2>{t('channelPerformance')}</h2>
-        {([['Internet Banking',98.1],['bKash',97.6],['Nagad',97.2],['Rocket',96.4],['Visa / Mastercard',91.3]] as const).map(([name,value],index)=><div className="payment-module__metric" key={name}><label htmlFor={`pay-channel-${index}`}>{name}</label><progress id={`pay-channel-${index}`} value={value} max="100"/><p>{value}%</p></div>)}
+      <section className="card payment-module__card"><h2>{i18n.resolvedLanguage==='bn'?'পেমেন্ট পদ্ধতি':'Payment methods'}</h2>
+        {analyticsSnapshot?.methods.map(([name,count],index)=><div className="payment-module__metric" key={name}><label htmlFor={`pay-channel-${index}`}>{name}</label><progress id={`pay-channel-${index}`} value={count} max={analyticsSnapshot.total||1}/><p>{displayNumber(count)}</p></div>)}
+        {analyticsSnapshot&&analyticsSnapshot.methods.length===0&&<p className="table-page__desc">{t('noRecords')}</p>}
       </section>
-      <section className="card payment-module__card"><h2>{t('funnel')}</h2>
-        {([[t('identify'),100],[t('taxPosition'),94],[t('selected'),78],[t('review'),71],[t('channelChosen'),66]] as const).map(([name,value],i)=><div className="payment-module__metric" key={i}><label htmlFor={`pay-funnel-${i}`}>{name}</label><progress id={`pay-funnel-${i}`} value={value} max="100"/><p>{value}%</p></div>)}
+      <section className="card payment-module__card"><h2>{i18n.resolvedLanguage==='bn'?'সেবা অনুযায়ী রেকর্ড':'Records by service'}</h2>
+        {analyticsSnapshot?.services.map(([name,count],index)=><div className="payment-module__metric" key={name}><label htmlFor={`pay-service-${index}`}>{name}</label><progress id={`pay-service-${index}`} value={count} max={analyticsSnapshot.total||1}/><p>{displayNumber(count)}</p></div>)}
+        {analyticsSnapshot&&analyticsSnapshot.services.length===0&&<p className="table-page__desc">{t('noRecords')}</p>}
       </section>
     </div> : <section className="card payment-module__card payment-module__empty"><h2>{t('monitoring')}</h2><p>{t('noRecords')}</p></section>}
   </>;
