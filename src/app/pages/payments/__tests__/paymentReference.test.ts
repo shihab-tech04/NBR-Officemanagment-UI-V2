@@ -7,9 +7,9 @@ import enPayment from '../../../locales/en/payment.json';
 import bnPayment from '../../../locales/bn/payment.json';
 
 describe('Payment Officer Workspace integration — controlled fixture boundaries', () => {
-  it('provides eight second-level destinations without disrupting Demand & Payment', () => {
+  it('provides seven officer destinations without exposing private beneficiary address books', () => {
     const nav = NAVIGATION.find(n=>n.id==='payments');
-    expect(nav?.children.map(c=>c.id)).toEqual(['overview','transactions','taxpayer-360','beneficiaries','corrections','incidents','offline-events','analytics']);
+    expect(nav?.children.map(c=>c.id)).toEqual(['overview','transactions','taxpayer-360','corrections','incidents','offline-events','analytics']);
     expect(NAVIGATION.find(n=>n.id==='case-financial')?.children.some(n=>n.id==='demand-payment')).toBe(true);
   });
   it('has matching EN and BN localization keys', () => {
