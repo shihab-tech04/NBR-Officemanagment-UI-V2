@@ -86,7 +86,7 @@ function circleScopeValue(zone: string, circle: string): string {
 // NBR press release dated 4 March 2026 reported more than 4 million
 // 2025–26 e-returns. This is used only as a national-scale prototype floor;
 // scoped counts are modeled from representative rows; the UI presents clean whole numbers.
-const NBR_REPORTED_ERETURN_MIN_2025_26 = 4_000_000;
+
 
 function clampCount(value: number) {
   return Math.max(0, Math.round(value));
@@ -304,30 +304,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     String(row.audit_state ?? "Not Started") === "Not Started"
   ), [readinessRows]);
 
-  const modeledPopulationCount = useMemo(() => {
-    const zoneEstimate = NBR_REPORTED_ERETURN_MIN_2025_26 / Math.max(1, TAX_ZONES.length);
-
-    if (scopeMode === "selected" && circles.length > 0) {
-      const selectedOptions = circleOptions.filter((option) => circles.includes(option.value));
-      const selectedByZone = new Map<string, number>();
-      selectedOptions.forEach((option) => {
-        selectedByZone.set(option.zone, (selectedByZone.get(option.zone) ?? 0) + 1);
-      });
-
-      return Array.from(selectedByZone.entries()).reduce((total, [selectedZone, selectedCount]) => {
-        const verifiedTotal = Math.max(1, getVerifiedCirclesForZone(selectedZone).length);
-        return total + zoneEstimate * (selectedCount / verifiedTotal);
-      }, 0);
-    }
-
-    if (zone === ALL_ZONES_VALUE) return NBR_REPORTED_ERETURN_MIN_2025_26;
-    return zoneEstimate;
-  }, [zone, scopeMode, circles, circleOptions]);
-
-  const modelFromRepresentative = (sampleCount: number) => {
-    const denominator = Math.max(1, populationRows.length);
-    return modeledPopulationCount * (sampleCount / denominator);
-  };
+  const modeledPopulationCount = populationRows.length;
+  const modelFromRepresentative = (recordCount: number) => recordCount;
 
   const modeledReadinessCount = modelFromRepresentative(readinessRows.length);
   const modeledAlreadyInAuditCount = modelFromRepresentative(alreadyInAuditRows.length);
@@ -698,10 +676,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     return `Manual selection · ${zoneLabel} · ${scope} · ${funnelBasis}`;
   }, [zone, scopeMode, selectedCircleLabels, track, riskLevels, signals, funnelBasis, t]);
 
-  const modeledMatchedCount = modelFromRepresentative(matchedRows.length);
-  const modeledFinalCount = matchedRows.length > 0
-    ? modeledMatchedCount * (finalRows.length / matchedRows.length)
-    : 0;
+  const modeledMatchedCount = matchedRows.length;
+  const modeledFinalCount = finalRows.length;
 
   const confirmCandidates = async () => {
     if (!finalRows.length) return;
