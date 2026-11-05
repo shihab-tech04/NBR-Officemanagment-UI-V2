@@ -16,7 +16,7 @@ function liveLogoUrl(cms: SupabaseClient, path: string | null) {
   return path ? cms.storage.from('taxpay-branding').getPublicUrl(path).data.publicUrl : fallbackLogo;
 }
 
-export function SiteLogoPanel({ cms }: { cms: SupabaseClient | null }) {
+export function SiteLogoPanel({ cms, canEdit = true }: { cms: SupabaseClient | null; canEdit?: boolean }) {
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<LogoFile | null>(null);
@@ -84,7 +84,7 @@ export function SiteLogoPanel({ cms }: { cms: SupabaseClient | null }) {
       <div><h2>Site Logo</h2><p>Preview the logo in the public header, footer, and taxpayer navigation.</p></div>
       <div className="cms-editor__header-actions">
         <button type="button" aria-label="Refresh site logo" title="Refresh" onClick={() => void refresh().catch(error => setMessage((error as Error).message))}><RefreshCcw size={17}/></button>
-        {record && !editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit logo</button>}
+        {record && canEdit && !editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit logo</button>}
       </div>
     </div>
     {!cms ? <p>Content service configuration is unavailable.</p> : <>
