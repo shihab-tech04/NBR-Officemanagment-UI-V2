@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getTaxPayCmsClient } from '../../services/taxpayCmsClient';
+import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
@@ -287,12 +287,25 @@ export function ContentManagementPage() {
           persisted.sort_order !== desiredPosition - 1) {
         throw new Error('SQL read-back did not match the published banner. Refresh to verify.');
       }
+      // Verify what an anonymous TaxPay visitor can read, not just Office RLS.
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public TaxPay read-back is not configured.');
+      const { data: publicRows, error: publicError } = await publicCms.from('taxpay_site_banners')
+        .select('*').eq('published', true).order('sort_order', { ascending: true });
+      if (publicError) throw new Error('Public TaxPay read-back failed: ' + publicError.message);
+      const publicRow = (publicRows || []).find(row => row.id === draft.id) || null;
+      if (draft.published
+        ? !matchesPayload(publicRow as Banner | null) || publicRow?.version !== persisted.version ||
+          publicRow?.sort_order !== persisted.sort_order
+        : publicRow !== null) {
+        throw new Error('Public TaxPay visibility does not match the committed SQL banner.');
+      }
       setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
       const oldPaths = [draft.desktop_image_path, draft.mobile_image_path].filter(
         (path): path is string => !!path && ![desktopPath, mobilePath].includes(path),
       );
       await cleanupUnusedImages(oldPaths);
-      setMessage(previous => previous || 'Saved to SQL. The public TaxPay banner will refresh automatically.');
+      setMessage(previous => previous || 'Saved to SQL and verified in the public TaxPay banner feed.');
     } catch (error) {
       if (!committed && uploads.length) await cms.storage.from('taxpay-banners').remove(uploads);
       setMessage(committed
@@ -313,9 +326,17 @@ export function ContentManagementPage() {
       removed = true;
       const paths = [draft.desktop_image_path, draft.mobile_image_path].filter((path): path is string => !!path);
       setNewDraft(null); setEditing(false);
-      await refresh();
+      const remaining = await refresh();
+      if (remaining.some(row => row.id === draft.id)) {
+        throw new Error('Deleted banner remains visible in Office SQL read-back.');
+      }
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public TaxPay read-back is not configured.');
+      const { data: publicRow, error: publicError } = await publicCms.from('taxpay_site_banners')
+        .select('id').eq('published', true).eq('id', draft.id).maybeSingle();
+      if (publicError || publicRow) throw new Error('Public TaxPay still shows the removed banner.');
       await cleanupUnusedImages(paths);
-      setMessage('Banner deleted from SQL and public TaxPay.');
+      setMessage('Banner deletion verified in Office SQL and public TaxPay.');
     } catch (error) {
       setMessage((removed
         ? 'Banner deleted from SQL, but refresh or image cleanup failed: '
