@@ -1,5 +1,4 @@
 import type {TaxpayerActivitySnapshot} from './officeTaxpayerActivity';
-import {officeMoney} from './officeTransactionDetails';
 import type {TableRow} from '../modulePageUtils';
 
 export function OfficeTaxpayer360Activity({snapshot,language,formatCount,formatDate,onOpen}:{
