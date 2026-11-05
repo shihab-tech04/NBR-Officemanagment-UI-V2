@@ -14,7 +14,7 @@ describe('Office Payments Analytics: source-backed metrics',()=>{
     expect(report.failed).toBe(1);
     expect(report.pending).toBe(0);
     expect(report.services).toEqual([['Other Tax Payment',1],['Travel Tax',1]]);
-    expect(report.methods).toEqual([['Not recorded',1],['bKash',1]]);
+    expect(Object.fromEntries(report.methods)).toEqual({'Not recorded':1,bKash:1});
   });
   it('does not misrepresent failed or invalid amounts as fully recorded totals',()=>{
     expect(officePaymentAnalytics([base,failed]).amountMinor).toBeNull();
