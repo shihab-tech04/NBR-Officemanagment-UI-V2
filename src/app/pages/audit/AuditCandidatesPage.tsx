@@ -34,12 +34,13 @@ import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
   loadAuditCandidates,
-  changeLocalAuditCandidateStatus,
+  changeAuditCandidateStatus,
   getNextLocalAuditStatuses,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { isSharedAuditMode } from "./auditSharedSql";
+import { isAuditDemoMode } from "./auditDemoSql";
 import { getAvailableAuditYears } from "./auditYearScope";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
@@ -1086,9 +1087,9 @@ export function AuditCandidatesPage({
   );
   const availableAuditYears = getAvailableAuditYears(storedRows);
   const [sharedDataError, setSharedDataError] = useState("");
-  const [sharedDataLoading, setSharedDataLoading] = useState(isSharedAuditMode());
+  const [sharedDataLoading, setSharedDataLoading] = useState(isSharedAuditMode() || isAuditDemoMode());
   const refreshCandidates = async () => {
-    if (!isSharedAuditMode()) {
+    if (!isSharedAuditMode() && !isAuditDemoMode()) {
       setStoredRows(getAuditCandidates());
       return;
     }
@@ -1107,7 +1108,7 @@ export function AuditCandidatesPage({
     }
   };
   useEffect(() => {
-    if (!isSharedAuditMode()) return;
+    if (!isSharedAuditMode() && !isAuditDemoMode()) return;
     void refreshCandidates();
   }, [assessmentYear]);
 
@@ -1469,7 +1470,7 @@ export function AuditCandidatesPage({
       "Evidence Pending": "প্রমাণের অপেক্ষায়", "Ready for Review": "পর্যালোচনার জন্য প্রস্তুত",
       "Second Review": "দ্বিতীয় পর্যালোচনা", "Closed": "সম্পন্ন",
     };
-    const saveAuditLocalStatus = () => {
+    const saveAuditLocalStatus = async () => {
       if (auditStatusBusy) return;
       setAuditStatusError("");
       if (!nextAuditStatus || auditStatusNote.trim().length < 10) {
@@ -1478,11 +1479,13 @@ export function AuditCandidatesPage({
       }
       setAuditStatusBusy(true);
       try {
-        changeLocalAuditCandidateStatus(selectedCandidate.candidate_id, nextAuditStatus, auditStatusNote);
-        setStoredRows(getAuditCandidates());
+        await changeAuditCandidateStatus(selectedCandidate.candidate_id, nextAuditStatus, auditStatusNote);
+        setStoredRows(await loadAuditCandidates());
         setNextAuditStatus("");
         setAuditStatusNote("");
-        toast.success(isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device.");
+        toast.success(isAuditDemoMode()
+          ? (isBnAudit ? "অডিট অবস্থা শেয়ার করা ডেমো ডাটাবেসে সংরক্ষিত হয়েছে।" : "Audit status saved to the shared demo database.")
+          : (isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device."));
       } catch (error) {
         setAuditStatusError(isBnAudit ? "অবস্থা সংরক্ষণ করা যায়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।" : error instanceof Error ? error.message : "Audit status could not be saved.");
       } finally {
@@ -1751,7 +1754,9 @@ export function AuditCandidatesPage({
                 label={isBnAudit ? "কারণ বা পর্যালোচনা নোট" : "Reason or review note"}
                 value={auditStatusNote}
                 onChange={(value) => { setAuditStatusNote(value); setAuditStatusError(""); }}
-                helper={isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device."}
+                helper={isAuditDemoMode()
+                  ? (isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও ইতিহাস সবার ডেমো ওয়ার্কস্পেসে সংরক্ষিত হবে।" : "10–500 characters. Status and history will be saved to the shared dummy-data workspace.")
+                  : (isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device.")}
                 rows={2}
                 required
               />
@@ -2332,15 +2337,15 @@ export function AuditCandidatesPage({
         language={i18n.resolvedLanguage}
         onSelectYear={setAssessmentYear}
       />
-      {isSharedAuditMode() && (sharedDataLoading || sharedDataError) && (
+      {(isSharedAuditMode() || isAuditDemoMode()) && (sharedDataLoading || sharedDataError) && (
         <div role={sharedDataError ? "alert" : "status"} className="form-helper">
           {sharedDataError
             ? (i18n.resolvedLanguage?.startsWith("bn")
                 ? "অডিট রেকর্ড লোড করা যায়নি: "
                 : "Audit records could not be loaded: ") + sharedDataError
             : (i18n.resolvedLanguage?.startsWith("bn")
-                ? "অনুমোদিত অডিট রেকর্ড লোড হচ্ছে"
-                : "Loading authorized Audit records")}
+                ? "ডেমো অডিট রেকর্ড লোড হচ্ছে"
+                : "Loading shared Audit records")}
         </div>
       )}
       <MobileSearchFilter
