@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Download,
@@ -39,7 +39,7 @@ import {
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
-import { isSharedAuditMode } from "./auditSharedSql";
+import { changeSharedAuditStatus, isSharedAuditMode } from "./auditSharedSql";
 import { getAvailableAuditYears } from "./auditYearScope";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
@@ -1165,6 +1165,7 @@ export function AuditCandidatesPage({
   const [auditStatusNote, setAuditStatusNote] = useState("");
   const [auditStatusError, setAuditStatusError] = useState("");
   const [auditStatusBusy, setAuditStatusBusy] = useState(false);
+  const statusSubmitInFlight = useRef(false);
   const [statusEditorOpen, setStatusEditorOpen] = useState(false);
 
   useEffect(() => {
@@ -1472,31 +1473,56 @@ export function AuditCandidatesPage({
   };
 
   if (selectedCandidate && selectedBatch) {
-    const auditStatusOptions = getNextLocalAuditStatuses(selectedCandidate.audit_status);
+    const auditStatusOptions = getNextLocalAuditStatuses(selectedCandidate.audit_status)
+      // Formal independent-officer closure is not approved or certified.
+      .filter((status) => !isSharedAuditMode() || status !== "Closed");
+    const canEditAuditStatus = !isSharedAuditMode() ||
+      (!sharedDataLoading && !sharedDataError &&
+       Number.isInteger(selectedCandidate.version) && Number(selectedCandidate.version) > 0);
     const isBnAudit = i18n.resolvedLanguage?.startsWith("bn");
     const localStatusLabels: Record<string, string> = {
       "Not Started": "শুরু হয়নি", "Assigned": "অর্পিত", "Verifying": "যাচাই চলছে",
       "Evidence Pending": "প্রমাণের অপেক্ষায়", "Ready for Review": "পর্যালোচনার জন্য প্রস্তুত",
       "Second Review": "দ্বিতীয় পর্যালোচনা", "Closed": "সম্পন্ন",
     };
-    const saveAuditLocalStatus = () => {
-      if (auditStatusBusy) return;
+    const saveAuditLocalStatus = async () => {
+      if (auditStatusBusy || statusSubmitInFlight.current) return;
       setAuditStatusError("");
-      if (!nextAuditStatus || auditStatusNote.trim().length < 10) {
+      if (!nextAuditStatus || !auditStatusOptions.includes(nextAuditStatus) ||
+          auditStatusNote.trim().length < 10 || auditStatusNote.trim().length > 500) {
         setAuditStatusError(isBnAudit ? "পরবর্তী অবস্থা এবং অন্তত ১০ অক্ষরের কারণ লিখুন।" : "Choose a next status and provide a reason of at least 10 characters.");
         return;
       }
+      statusSubmitInFlight.current = true;
       setAuditStatusBusy(true);
       try {
-        changeLocalAuditCandidateStatus(selectedCandidate.candidate_id, nextAuditStatus, auditStatusNote);
-        setStoredRows(getAuditCandidates());
+        if (isSharedAuditMode()) {
+          if (!canEditAuditStatus || !selectedCandidate.version) {
+            throw new Error("Authorized SQL officer session and candidate version are required");
+          }
+          await changeSharedAuditStatus(
+            selectedCandidate.candidate_id, selectedCandidate.version, nextAuditStatus, auditStatusNote,
+          );
+          const records = await loadAuditCandidates();
+          const saved = records.find((row) => row.candidate_id === selectedCandidate.candidate_id);
+          if (!saved || saved.audit_status !== nextAuditStatus ||
+              saved.version !== selectedCandidate.version + 1) {
+            throw new Error("Saved Audit record was not confirmed after refresh");
+          }
+          setStoredRows(records);
+          toast.success(isBnAudit ? "অডিট অবস্থা ও কারণ সংরক্ষিত হয়েছে।" : "Audit status and reason saved in Office SQL.");
+        } else {
+          changeLocalAuditCandidateStatus(selectedCandidate.candidate_id, nextAuditStatus, auditStatusNote);
+          setStoredRows(getAuditCandidates());
+          toast.success(isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device.");
+        }
         setNextAuditStatus("");
         setAuditStatusNote("");
         setStatusEditorOpen(false);
-        toast.success(isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device.");
       } catch (error) {
         setAuditStatusError(isBnAudit ? "অবস্থা সংরক্ষণ করা যায়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।" : error instanceof Error ? error.message : "Audit status could not be saved.");
       } finally {
+        statusSubmitInFlight.current = false;
         setAuditStatusBusy(false);
       }
     };
@@ -1710,7 +1736,7 @@ export function AuditCandidatesPage({
               <div className="audit-candidate-detail__status-card">
                 <p className="audit-candidate-detail__status-caption">
                   <span>{t("candidates.columns.auditStatus")}</span>
-                  {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
+                  {canEditAuditStatus && auditStatusOptions.length > 0 && (
                     <button
                       type="button"
                       className="audit-status-edit"
@@ -2181,7 +2207,7 @@ export function AuditCandidatesPage({
         )}
 
         <ResponsiveOverlay
-          open={statusEditorOpen && !isSharedAuditMode() && auditStatusOptions.length > 0}
+          open={statusEditorOpen && canEditAuditStatus && auditStatusOptions.length > 0}
           onClose={() => setStatusEditorOpen(false)}
           title={isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
           closeLabel={tc("accessibility.closeDrawer")}
@@ -2207,7 +2233,9 @@ export function AuditCandidatesPage({
                 label={isBnAudit ? "কারণ বা পর্যালোচনা নোট" : "Reason or review note"}
                 value={auditStatusNote}
                 onChange={(value) => { setAuditStatusNote(value); setAuditStatusError(""); }}
-                helper={isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device."}
+                helper={isSharedAuditMode()
+                  ? (isBnAudit ? "১০–৫০০ অক্ষর। অবস্থা ও কারণ অফিসের অডিট রেকর্ডে সংরক্ষিত হবে।" : "10–500 characters. Status and reason will be saved in the Office Audit record.")
+                  : (isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device.")}
                 rows={2}
                 required
               />
@@ -2218,7 +2246,7 @@ export function AuditCandidatesPage({
                 </SecondaryButton>
                 <PrimaryButton size="sm" loading={auditStatusBusy}
                   disabled={!nextAuditStatus || auditStatusNote.trim().length < 10 || auditStatusNote.trim().length > 500}
-                  onClick={saveAuditLocalStatus}>
+                  onClick={() => { void saveAuditLocalStatus(); }}>
                   {isBnAudit ? "অবস্থা সংরক্ষণ করুন" : "Save status"}
                 </PrimaryButton>
               </div>
