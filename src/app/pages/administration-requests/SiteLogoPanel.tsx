@@ -66,7 +66,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
   async function save() {
     if (busy || !selected || !cms || !record) return;
     if (!canPublish) {
-      setMessage('Logo was not published. Sign in through Office with verified Content Management administrator credentials to save to TaxPay.');
+      setMessage('Logo was not published. Use your existing Office sign-in with a valid account password and publishing permission.');
       return;
     }
     if (!isSupportedImageType(selected.file)) {
@@ -143,7 +143,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         <div className="cms-logo__placement"><h3>Taxpayer sidebar</h3><div className="cms-logo__slot cms-logo__slot--sidebar"><img src={displayUrl} alt="Taxpayer sidebar logo preview" /></div><p>164 × 58 px slot</p></div>
       </div>
       {editing && <>
-        {!canPublish && <p role="status" className="cms-editor__note">You can prepare a logo preview, but publishing to TaxPay SQL requires administrator access through the existing Office login.</p>}
+        {!canPublish && <p role="status" className="cms-editor__note">You can preview the logo, but publishing requires an Office sign-in with a valid account password and publishing permission.</p>}
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
             <input type="file" accept={IMAGE_FILE_ACCEPT} disabled={busy} onChange={event => {
