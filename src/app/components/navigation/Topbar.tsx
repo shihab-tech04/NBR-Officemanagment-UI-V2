@@ -18,6 +18,7 @@ import { NotificationDropdown } from "../dropdowns/NotificationDropdown";
 import { UserProfileDropdown } from "../dropdowns/UserProfileDropdown";
 import { useHelp } from "../../context/HelpContext";
 import { formatLocalizedNumber } from "../../utils/localeFormatting";
+import { isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 
 interface TopbarProps {
   onMenuToggle: () => void;
@@ -32,6 +33,10 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
 
   const { assessmentYear } = useSettings();
   const currentUser = useCurrentUser();
+  const openWorkspace = !isSharedAuditMode();
+  const displayName = openWorkspace ? (i18n.resolvedLanguage?.startsWith("bn") ? "অফিস ওয়ার্কস্পেস" : "Office Workspace") : currentUser.name;
+  const displayRole = openWorkspace ? (i18n.resolvedLanguage?.startsWith("bn") ? "উন্মুক্ত কর্মক্ষেত্র" : "Open workspace") : currentUser.designation;
+  const displayInitials = openWorkspace ? "OW" : currentUser.shortName;
   const { notifications, unreadCount, markRead, markAllRead } = useNotificationsState();
   const { isDesktop } = useUIState();
 
@@ -166,18 +171,18 @@ export function Topbar({ onMenuToggle, onSignOut }: TopbarProps) {
           <button
             onClick={() => setProfileDropdownOpen((o) => !o)}
             className="topbar__profile-button"
-            aria-label={translate("accessibility.userProfileOf", {
-              name: currentUser.name,
-              role: currentUser.designation,
+            aria-label={openWorkspace ? displayName : translate("accessibility.userProfileOf", {
+              name: displayName,
+              role: displayRole,
             })}
             aria-expanded={profileDropdownOpen}
           >
             <div className="topbar__profile-avatar" aria-hidden="true">
-              <span>{currentUser.shortName}</span>
+              <span>{displayInitials}</span>
             </div>
             <div className="topbar__profile-info">
-              <p className="topbar__profile-name">{currentUser.name}</p>
-              <p className="topbar__profile-role">{currentUser.designation}</p>
+              <p className="topbar__profile-name">{displayName}</p>
+              <p className="topbar__profile-role">{displayRole}</p>
             </div>
             <ChevronDown size={11} className="topbar__profile-chevron" aria-hidden="true" />
           </button>
