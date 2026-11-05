@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { verifyPublicImage } from './verifyPublicImage';
+import { SConfirmModal } from '../../components/modals/SConfirmModal';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, isSupportedImageType } from './imageCrop';
@@ -25,6 +27,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [restoreRequested, setRestoreRequested] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
@@ -55,6 +58,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     setSelected(null);
     setCropSource(null);
     setEditing(false);
+    setRestoreRequested(false);
     setMessage('');
   }
 
@@ -77,15 +81,20 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     setBusy(true);
     setMessage('');
     let committed = false;
+    let uploadedPath: string | null = null;
     try {
       const ext = selected.file.type === 'image/png' ? 'png' : 'jpg';
       // Matches the existing administrator-only Storage INSERT policy.
-      const uploadedPath = `logos/${crypto.randomUUID()}.${ext}`;
+      uploadedPath = `logos/${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await cms.storage.from('taxpay-branding').upload(
         uploadedPath, selected.file,
         { upsert: false, cacheControl: '3600', contentType: selected.file.type },
       );
       if (uploadError) throw uploadError;
+      // A successful Storage INSERT does not prove anonymous image delivery.
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public logo verification is not configured.');
+      await verifyPublicImage(publicCms, 'taxpay-branding', uploadedPath);
 
       const { data: saved, error: writeError } = await cms.from('taxpay_site_logo')
         .update({ image_path: uploadedPath, image_width: selected.width, image_height: selected.height })
@@ -106,8 +115,6 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         throw new Error('Logo was saved to SQL but read-back verification failed. Refresh to verify.');
       }
       // Verify with the same anonymous visibility as the public TaxPay logo.
-      const publicCms = getTaxPayCmsPublicClient();
-      if (!publicCms) throw new Error('Public TaxPay logo read-back is not configured.');
       const { data: publicLogo, error: publicError } = await publicCms.from('taxpay_site_logo')
         .select('image_path,image_width,image_height,version').eq('id', 'primary').single();
       if (publicError || !publicLogo || publicLogo.image_path !== uploadedPath ||
@@ -118,9 +125,65 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       setRecord(confirmed as SiteLogoRecord);
       setSelected(null);
       setEditing(false);
-      setMessage('Logo saved to SQL and verified in the public TaxPay logo feed.');
+      const priorPath = record.image_path;
+      if (priorPath && priorPath !== uploadedPath) {
+        const { error: removeError } = await cms.storage.from('taxpay-branding').remove([priorPath]);
+        setMessage(removeError
+          ? 'Logo published and verified; previous image cleanup is incomplete.'
+          : 'Logo saved to SQL, verified in public TaxPay and previous image replaced.');
+      } else {
+        setMessage('Logo saved to SQL and verified in the public TaxPay logo feed.');
+      }
     } catch (error) {
-      setMessage((committed ? 'Logo saved, verification incomplete: ' : 'Logo not published: ') +
+      if (!committed && uploadedPath) {
+        const { error: cleanupError } = await cms.storage.from('taxpay-branding').remove([uploadedPath]);
+        if (cleanupError) setMessage('Logo not published; uploaded image cleanup could not complete: ' + (error as Error).message);
+      }
+      if (committed) void refresh().catch(() => {});
+      setMessage(current => current || (committed ? 'Logo saved to SQL; public verification incomplete: ' : 'Logo not published: ') +
+        (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restoreOriginal() {
+    if (!cms || !record?.image_path || !canPublish || busy) return;
+    setRestoreRequested(false);
+    setBusy(true);
+    setMessage('');
+    let committed = false;
+    try {
+      const oldPath = record.image_path;
+      const { data: saved, error: writeError } = await cms.from('taxpay_site_logo')
+        .update({ image_path: null, image_width: null, image_height: null })
+        .eq('id', 'primary').eq('version', record.version)
+        .select('id,image_path,image_width,image_height,version,updated_at').maybeSingle();
+      if (writeError) throw writeError;
+      if (!saved || saved.image_path !== null || saved.version !== record.version + 1)
+        throw new Error('Logo changed in another session. Refresh before restoring.');
+      committed = true;
+      const { data: confirmed, error: readError } = await cms.from('taxpay_site_logo')
+        .select('id,image_path,image_width,image_height,version,updated_at')
+        .eq('id', 'primary').single();
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public logo verification is not configured.');
+      const { data: publicLogo, error: publicError } = await publicCms.from('taxpay_site_logo')
+        .select('image_path,image_width,image_height,version').eq('id', 'primary').single();
+      if (readError || !confirmed || confirmed.image_path !== null ||
+          confirmed.version !== saved.version || publicError || !publicLogo ||
+          publicLogo.image_path !== null || publicLogo.version !== saved.version)
+        throw new Error('Public restore read-back is incomplete.');
+      setRecord(confirmed as SiteLogoRecord);
+      setSelected(null);
+      setEditing(false);
+      const { error: cleanupError } = await cms.storage.from('taxpay-branding').remove([oldPath]);
+      setMessage(cleanupError
+        ? 'Original Korbritto logo restored and verified; old image cleanup incomplete.'
+        : 'Original Korbritto logo restored and verified on public TaxPay.');
+    } catch (error) {
+      if (committed) void refresh().catch(() => {});
+      setMessage((committed ? 'Logo restored in SQL; public verification incomplete: ' : 'Logo not restored: ') +
         (error as Error).message);
     } finally {
       setBusy(false);
@@ -163,18 +226,23 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
               choose(file);
             }} />
           </label>
-          <p>PNG, JPG or JPEG only · Crop to 2150 × 440 px · Max 5 MB. PNG preserves transparency. The current blue design remains until you save.</p>
+          <p>PNG, JPG or JPEG only · Crop to 1469 × 496 px · Max 5 MB. PNG preserves transparency. The current blue design remains until you save.</p>
         </div>
         <div className="cms-actions"><div className="cms-actions__main">
           <button type="button" className="cms-primary" disabled={busy || !selected || !canPublish} onClick={() => void save()}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button>
+          {record?.image_path && <button type="button" disabled={busy || !canPublish} onClick={() => setRestoreRequested(true)}>Restore original logo</button>}
           <button type="button" disabled={busy} onClick={cancel}>Cancel</button>
         </div></div>
       </>}
     </>}
     {message && <p className="cms-message" role="status">{message}</p>}
-    {cropSource && <ImageCropDialog file={cropSource} title="site logo" outputWidth={2150} outputHeight={440}
+    {restoreRequested && <SConfirmModal title="Restore original Korbritto logo"
+      message="Restore the approved Korbritto logo across TaxPay? The current uploaded logo will be replaced."
+      confirmLabel="Restore original logo" onClose={() => setRestoreRequested(false)}
+      onConfirm={() => void restoreOriginal()} />}
+    {cropSource && <ImageCropDialog file={cropSource} title="site logo" outputWidth={1469} outputHeight={496}
       onCancel={() => setCropSource(null)} onApply={file => {
-        setSelected({ file, width: 2150, height: 440 });
+        setSelected({ file, width: 1469, height: 496 });
         setCropSource(null);
       }} />}
   </section>;
