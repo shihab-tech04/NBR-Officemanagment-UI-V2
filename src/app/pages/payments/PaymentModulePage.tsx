@@ -26,7 +26,7 @@ import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice 
 import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
-import { summarizeMirroredDemoPayments } from './story1SqlSummary';
+import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -145,14 +145,15 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   // This fictional-payment feed has no officer login or verification dependency.
   useEffect(()=>{
     let mounted=true;
-    const refresh=async()=>{
+    const refresh=createSingleFlight(async()=>{
       try {
         const [payments,notices]=await Promise.all([getStoryPayments(),getStoryNotices()]);
         if(mounted){const visibleIds=new Set(payments.map(item=>item.id));setStoryPayments(payments);setStoryNotices(notices.filter(notice=>visibleIds.has(notice.paymentId)));setStoryError('');setStoryLoading(false);}
       }catch(e){if(mounted){setStoryError(e instanceof Error?e.message:'Payment connection failed');setStoryLoading(false);}}
-    };
+    });
     void refresh();
-    const timer=window.setInterval(()=>void refresh(),5000);
+    // A full payment read spans multiple SQL pages; never overlap refreshes.
+    const timer=window.setInterval(()=>void refresh(),30000);
     return()=>{mounted=false;window.clearInterval(timer);};
   },[]);
   const [liveError,setLiveError] = useState('');
@@ -258,7 +259,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   };
   const keys=paymentColumns(t);
   const storyRows=storyPayments.map(toStoryPaymentRow);
-  const storySummary=summarizeMirroredDemoPayments(storyPayments,storyNotices,scopeYear);
+  const storySummary=availableOfficeOverviewSummary(storyPayments,storyNotices,scopeYear,storyLoading,storyError);
   // The actual Transactions page must never mix in reference snapshots,
   // scenario fixtures, authenticated preview ledgers or QA API records.
   // Payment Overview and Transactions always show TaxPay-submitted SQL demo rows,
@@ -373,21 +374,21 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <div className="payment-module__year-control">{yearSelect}</div>
     {storyLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত পেমেন্ট রেকর্ড লোড হচ্ছে…':'Loading connected payment records…'}</p>}
     {storyError&&<p role="alert" className="table-page__desc">{storyError}</p>}
-    {storySummary.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টের পরিমাণ যাচাই করা যায়নি।':'Could not verify the payment amounts.'}</p>}
+    {storySummary?.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টের পরিমাণ যাচাই করা যায়নি।':'Could not verify the payment amounts.'}</p>}
     {showKpis([
-      kpi(i18n.resolvedLanguage==='bn'?'পেমেন্ট রেকর্ড':'Payment records',displayNumber(storySummary.count),CreditCard),
-      kpi(i18n.resolvedLanguage==='bn'?'মোট নথিভুক্ত পরিমাণ':'Total recorded amount',storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
-      kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',displayNumber(storySummary.services),BarChart3),
-      kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',displayNumber(storySummary.notificationCount),Users),
-      kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ রেকর্ড':'Latest record',storySummary.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
+      kpi(i18n.resolvedLanguage==='bn'?'পেমেন্ট রেকর্ড':'Payment records',storySummary?displayNumber(storySummary.count):'—',CreditCard),
+      kpi(i18n.resolvedLanguage==='bn'?'মোট নথিভুক্ত পরিমাণ':'Total recorded amount',!storySummary||storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
+      kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',storySummary?displayNumber(storySummary.services):'—',BarChart3),
+      kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',storySummary?displayNumber(storySummary.notificationCount):'—',Users),
+      kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ রেকর্ড':'Latest record',storySummary?.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
     ])}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
         <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ পেমেন্ট রেকর্ড দেখুন। কর্মকর্তার অনুমোদন এখনো চালু নেই।':'View payment records under Payments > Transactions. Officer approvals are not available yet.'}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
-        {storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
-        {!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সাম্প্রতিক পেমেন্ট বিজ্ঞপ্তি নেই।':'No recent payment notices.'}</p>}
+        {storySummary&&storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
+        {storySummary&&!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সাম্প্রতিক পেমেন্ট বিজ্ঞপ্তি নেই।':'No recent payment notices.'}</p>}
       </section>
     </div>
   </>;
