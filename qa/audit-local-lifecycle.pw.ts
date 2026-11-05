@@ -23,7 +23,9 @@ test("Audit prototype opens directly while private CMS still uses Office entry",
 test("Audit draft status, case queue and trail survive a reload without fake login", async ({ page }) => {
   await page.goto("/audit/audit-candidates?batch=AUD-2026-RISK-01&candidate=AC-2026-RISK-01-01");
   await expect(page.locator(".audit-candidate-detail__header")).toBeVisible({ timeout: 18000 });
-  await expect(page.getByRole("heading", { name: "Update audit progress" })).toBeVisible();
+  await expect(page.locator(".audit-selection-evidence")).toBeVisible();
+  await expect(page.locator(".audit-progress-disclosure")).not.toHaveAttribute("open");
+  await page.locator(".audit-progress-disclosure > summary").click();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
   await page.getByRole("textbox", { name: /Reason or review note/ }).fill("Assigned for review of the synthetic candidate data");
