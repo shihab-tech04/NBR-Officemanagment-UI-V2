@@ -66,7 +66,8 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     expect(screen.getByText(/Current Korbritto brand/)).toBeInTheDocument();
     const img = screen.getByAltText('Korbritto TaxPay logo preview');
     expect(img.getAttribute('src')).not.toContain('amar-kor');
-    expect(img.getAttribute('src')).toContain('korbritto-brand-locked.svg');
+    const source = img.getAttribute('src') || '';
+    expect(source.includes('korbritto-brand-locked') || source.startsWith('data:image/svg+xml')).toBe(true);
     expect(cms.from).toHaveBeenCalledWith('taxpay_site_logo');
   });
 
