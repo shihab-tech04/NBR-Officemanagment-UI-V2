@@ -150,6 +150,10 @@ export function ContentManagementPage() {
   }, [authState, editing]);
 
   useEffect(() => {
+    // A delayed SQL read, role refresh or reconnect can replace the rows
+    // while the user is editing. Never silently close the editor or discard
+    // an unsaved draft unless the selected record actually changes.
+    if (editing && draft?.id === selectedId) return;
     const index = banners.findIndex(row => row.id === selectedId);
     if (newDraft && newDraft.id === selectedId) {
       setDraft(newDraft);
@@ -163,7 +167,7 @@ export function ContentManagementPage() {
     setDesktopFile(null);
     setMobileFile(null);
     setCropTask(null);
-  }, [banners, selectedId, newDraft]);
+  }, [banners, selectedId, newDraft, editing, draft?.id]);
 
   function addBanner() {
     const id = `banner_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
