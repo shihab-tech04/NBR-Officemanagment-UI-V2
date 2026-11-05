@@ -266,4 +266,42 @@ end $$;
 revoke execute on function public.office_audit_second_review(uuid,integer,text,text) from public,anon;
 grant execute on function public.office_audit_second_review(uuid,integer,text,text) to authenticated;
 
+-- DCT submits one verified signal/evidence reference and the linked Finding
+-- in the same transaction. No unlinked Findings and no local-browser fallback.
+create or replace function public.office_audit_submit_finding(
+  p_candidate_id uuid,p_signal_code text,p_evidence_ref text,
+  p_verification_note text,p_finding_summary text
+) returns table(evidence_id uuid,finding_id uuid)
+language plpgsql security invoker set search_path=pg_catalog,public as $
+declare v_case public.office_audit_candidates%rowtype;
+  v_evidence uuid; v_finding uuid;
+begin
+  if auth.uid() is null or p_candidate_id is null then
+    raise exception 'Verified DCT and candidate required' using errcode='28000';
+  end if;
+  select * into v_case from public.office_audit_candidates c
+    where c.id=p_candidate_id for update;
+  if not found or v_case.audit_status not in ('Verifying','Evidence Pending')
+    or not (p_signal_code=any(v_case.signals)) then
+    raise exception 'Candidate is not ready for evidence-linked Finding' using errcode='42501';
+  end if;
+  if not exists (select 1 from public.office_audit_memberships m
+    where m.user_id=auth.uid() and m.active and m.office_role='circle_user'
+    and m.zone=v_case.zone and m.circle=v_case.circle) then
+    raise exception 'DCT must belong to the candidate Circle' using errcode='42501';
+  end if;
+  insert into public.office_audit_case_evidence
+    (candidate_id,signal_code,evidence_ref,verification_note,submitted_by)
+  values(p_candidate_id,p_signal_code,p_evidence_ref,p_verification_note,auth.uid())
+  returning id into v_evidence;
+  insert into public.office_audit_findings
+    (candidate_id,evidence_id,signal_code,finding_summary,submitted_by)
+  values(p_candidate_id,v_evidence,p_signal_code,p_finding_summary,auth.uid())
+  returning id into v_finding;
+  return query select v_evidence,v_finding;
+end $;
+revoke execute on function public.office_audit_submit_finding(uuid,text,text,text,text) from public,anon;
+grant execute on function public.office_audit_submit_finding(uuid,text,text,text,text) to authenticated;
+
+
 commit;
