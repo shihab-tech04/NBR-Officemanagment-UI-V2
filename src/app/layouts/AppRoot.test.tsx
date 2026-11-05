@@ -20,6 +20,7 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
   }),
 }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
+vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname }) }));
 vi.mock("../hooks/useAppearance", () => ({ useAppearance: () => undefined }));
 vi.mock("../context/HelpContext", () => ({
   HelpProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -37,6 +38,7 @@ vi.mock("../pages/auth/LoginPage", () => ({
 describe("Office UI entry and shared officer Auth lifecycle", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
     vi.clearAllMocks();
     shared.enabled = false;
     shared.checkAccess.mockResolvedValue({ userId: "verified-test-officer" });
@@ -44,6 +46,34 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     shared.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     });
+  });
+
+  it("opens only synthetic Audit routes without a presentation-only login", () => {
+    window.history.replaceState(null, "", "/audit/audit-candidates");
+    render(<AppRoot />);
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enter Office (admin)" })).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull();
+    expect(shared.checkAccess).not.toHaveBeenCalled();
+  });
+
+  it("keeps CMS and payment routes behind the existing Office entry", () => {
+    window.history.replaceState(null, "", "/administration/content-management");
+    const cms = render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    cms.unmount();
+    window.history.replaceState(null, "", "/payments/transactions");
+    render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+  });
+
+  it("does not bypass shared SQL membership requirements on an Audit route", () => {
+    window.history.replaceState(null, "", "/audit/audit-candidates");
+    shared.enabled = true;
+    render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
   });
 
   it("preserves demo-only admin entry and logout without Supabase access", async () => {

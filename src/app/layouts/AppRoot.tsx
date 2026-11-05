@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../store/store";
 import { setIsDesktop } from "../store/uiSlice";
@@ -30,6 +31,9 @@ function clearEntry() {
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
   const sharedMode = isSharedAuditMode();
+  const { pathname } = useLocation();
+  // Only the synthetic Audit UI is open; all CMS/payment/admin routes retain Office entry.
+  const openAuditPreview = !sharedMode && (pathname === "/audit" || pathname.startsWith("/audit/"));
   const [signedOut, setSignedOut] = useState(
     () => sharedMode || storedEntry() !== "admin",
   );
@@ -134,7 +138,7 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
-      : signedOut
+      : signedOut && !openAuditPreview
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
         : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}

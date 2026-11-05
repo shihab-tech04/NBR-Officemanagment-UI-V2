@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Tooltip } from "@mui/material";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
@@ -17,6 +18,8 @@ import { StatusBadge } from "../../components/badges/StatusBadge";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { AppTextArea } from "../../components/forms/AppTextArea";
 import { FilterPanel } from "../../components/filters/FilterPanel";
 import { MobileFilterOverlay } from "../../components/filters/MobileFilterOverlay";
 import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips";
@@ -31,6 +34,8 @@ import { ALL_TAXPAYER_ROWS } from "./auditData";
 import {
   getAuditCandidates,
   loadAuditCandidates,
+  changeLocalAuditCandidateStatus,
+  getNextLocalAuditStatuses,
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
@@ -1148,6 +1153,17 @@ export function AuditCandidatesPage({
   const [customComparisonView, setCustomComparisonView] = useState<"graph" | "table">("graph");
   const [comparisonView, setComparisonView] = useState<"focus" | "full">("focus");
 
+  const [nextAuditStatus, setNextAuditStatus] = useState("");
+  const [auditStatusNote, setAuditStatusNote] = useState("");
+  const [auditStatusError, setAuditStatusError] = useState("");
+  const [auditStatusBusy, setAuditStatusBusy] = useState(false);
+
+  useEffect(() => {
+    setNextAuditStatus("");
+    setAuditStatusNote("");
+    setAuditStatusError("");
+  }, [selectedCandidateId]);
+
   useEffect(() => {
     if (routeCandidateId) {
       const candidate = rows.find((item) => item.candidate_id === routeCandidateId);
@@ -1446,6 +1462,33 @@ export function AuditCandidatesPage({
   };
 
   if (selectedCandidate && selectedBatch) {
+    const auditStatusOptions = getNextLocalAuditStatuses(selectedCandidate.audit_status);
+    const isBnAudit = i18n.resolvedLanguage?.startsWith("bn");
+    const localStatusLabels: Record<string, string> = {
+      "Not Started": "শুরু হয়নি", "Assigned": "অর্পিত", "Verifying": "যাচাই চলছে",
+      "Evidence Pending": "প্রমাণের অপেক্ষায়", "Ready for Review": "পর্যালোচনার জন্য প্রস্তুত",
+      "Second Review": "দ্বিতীয় পর্যালোচনা", "Closed": "সম্পন্ন",
+    };
+    const saveAuditLocalStatus = () => {
+      if (auditStatusBusy) return;
+      setAuditStatusError("");
+      if (!nextAuditStatus || auditStatusNote.trim().length < 10) {
+        setAuditStatusError(isBnAudit ? "পরবর্তী অবস্থা এবং অন্তত ১০ অক্ষরের কারণ লিখুন।" : "Choose a next status and provide a reason of at least 10 characters.");
+        return;
+      }
+      setAuditStatusBusy(true);
+      try {
+        changeLocalAuditCandidateStatus(selectedCandidate.candidate_id, nextAuditStatus, auditStatusNote);
+        setStoredRows(getAuditCandidates());
+        setNextAuditStatus("");
+        setAuditStatusNote("");
+        toast.success(isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device.");
+      } catch (error) {
+        setAuditStatusError(isBnAudit ? "অবস্থা সংরক্ষণ করা যায়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।" : error instanceof Error ? error.message : "Audit status could not be saved.");
+      } finally {
+        setAuditStatusBusy(false);
+      }
+    };
     const selectionReason = getCandidateReason(selectedCandidate, t);
     const quickSummaryOpen = quickSummaryCandidateId === selectedCandidate.candidate_id;
     const selectionCircles = Array.from(
@@ -1681,6 +1724,51 @@ export function AuditCandidatesPage({
             ))}
           </div>
         </div>
+
+        {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
+          <section className="audit-detail-card" aria-labelledby="local-audit-progress-title">
+            <div className="audit-detail-card__header">
+              <h2 id="local-audit-progress-title">
+                {isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
+              </h2>
+            </div>
+            <div className="form-stack">
+              <AppSelectField
+                id="audit-next-status"
+                label={isBnAudit ? "পরবর্তী অবস্থা" : "Next status"}
+                value={nextAuditStatus}
+                onChange={(value) => { setNextAuditStatus(value); setAuditStatusError(""); }}
+                options={[
+                  { value: "", label: isBnAudit ? "অবস্থা নির্বাচন করুন" : "Select status" },
+                  ...auditStatusOptions.map((status) => ({
+                    value: status, label: isBnAudit ? localStatusLabels[status] ?? status : status,
+                  })),
+                ]}
+                required
+              />
+              <AppTextArea
+                id="audit-status-reason"
+                label={isBnAudit ? "কারণ বা পর্যালোচনা নোট" : "Reason or review note"}
+                value={auditStatusNote}
+                onChange={(value) => { setAuditStatusNote(value); setAuditStatusError(""); }}
+                helper={isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device."}
+                rows={2}
+                required
+              />
+              {auditStatusError && <p role="alert" className="form-error">{auditStatusError}</p>}
+              <div className="form-section__toolbar-actions">
+                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); }}>
+                  {isBnAudit ? "বাতিল" : "Cancel"}
+                </SecondaryButton>
+                <PrimaryButton size="sm" loading={auditStatusBusy}
+                  disabled={!nextAuditStatus || auditStatusNote.trim().length < 10 || auditStatusNote.trim().length > 500}
+                  onClick={saveAuditLocalStatus}>
+                  {isBnAudit ? "অবস্থা সংরক্ষণ করুন" : "Save status"}
+                </PrimaryButton>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="audit-note-strip" aria-labelledby="audit-note-title">
           <div className="audit-note-strip__title">

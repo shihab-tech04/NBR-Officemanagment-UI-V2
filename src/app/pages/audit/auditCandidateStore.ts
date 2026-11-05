@@ -250,6 +250,108 @@ export async function saveAuditCandidates(
   return addAuditCandidates(rows, meta);
 }
 
+const LOCAL_EVENT_KEY = "nbr-audit-local-status-events-v1";
+
+const AUDIT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  "Not Started": ["Assigned"],
+  "Assigned": ["Verifying"],
+  "Verifying": ["Evidence Pending", "Ready for Review"],
+  "Evidence Pending": ["Verifying", "Ready for Review"],
+  "Ready for Review": ["Verifying", "Second Review"],
+  "Second Review": ["Ready for Review", "Closed"],
+  "Closed": [],
+};
+
+export function getNextLocalAuditStatuses(status: string): string[] {
+  return [...(AUDIT_STATUS_TRANSITIONS[status] ?? [])];
+}
+
+export function getLocalAuditStatusEvents(assessmentYear?: string): TableRow[] {
+  if (!canUseStorage() || isSharedAuditMode()) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_EVENT_KEY);
+    if (!raw) return [];
+    const rows = JSON.parse(raw) as TableRow[];
+    if (!Array.isArray(rows)) return [];
+    return rows.filter((row) =>
+      row && typeof row === "object" &&
+      (!assessmentYear || String(row.assessment_year ?? "") === assessmentYear));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Public-office candidate reviews are device-local drafts, not hosted decisions.
+ * Require a traceable note, write status and event together and verify readback.
+ * The protected SQL path is never replaced with this local fallback.
+ */
+export function changeLocalAuditCandidateStatus(
+  candidateId: string, nextStatus: string, note: string,
+): AuditCandidateRecord {
+  if (isSharedAuditMode()) throw new Error("Device-local Audit status is unavailable for shared SQL records");
+  if (!canUseStorage()) throw new Error("This browser does not support persistent Audit status changes");
+  const details = note.trim().replace(/\s+/g, " ");
+  if (details.length < 10 || details.length > 500) {
+    throw new Error("Record a reason between 10 and 500 characters");
+  }
+  const current = getAuditCandidates();
+  const index = current.findIndex((item) => item.candidate_id === candidateId);
+  if (index < 0) throw new Error("Candidate not found. Reload and try again");
+  const old = current[index];
+  if (!getNextLocalAuditStatuses(old.audit_status).includes(nextStatus)) {
+    throw new Error("Invalid Audit status transition. Reload the candidate");
+  }
+  const at = new Date().toISOString();
+  const updated: AuditCandidateRecord = {
+    ...old, audit_status: nextStatus, local_status_updated_at: at,
+  };
+  const changed = [...current];
+  changed[index] = updated;
+  const event: TableRow = {
+    id: `LOCAL-${at}-${candidateId}`,
+    event_id: `LOCAL-${Date.now()}`,
+    timestamp_utc: at.replace("T", " ").slice(0, 19) + " UTC",
+    assessment_year: old.assessment_year,
+    return_id: old.return_id,
+    return_version: "—",
+    actor_id: "local-workspace",
+    actor_role: "Local workspace",
+    action: `Candidate status: ${old.audit_status} → ${nextStatus}`,
+    data_state: "Saved on this device",
+    assessment: nextStatus,
+    human_record: details,
+    access_record: "—",
+    classification_version: "—",
+    rule_config_version: "—",
+  };
+  const previousCandidates = window.localStorage.getItem(CANDIDATE_KEY);
+  const previousEvents = window.localStorage.getItem(LOCAL_EVENT_KEY);
+  try {
+    const events = getLocalAuditStatusEvents();
+    window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(changed));
+    window.localStorage.setItem(LOCAL_EVENT_KEY, JSON.stringify([...events, event]));
+    const check = JSON.parse(window.localStorage.getItem(CANDIDATE_KEY) ?? "[]") as AuditCandidateRecord[];
+    const restoredEvents = getLocalAuditStatusEvents();
+    if (check.find((item) => item.candidate_id === candidateId)?.audit_status !== nextStatus ||
+        !restoredEvents.some((item) => item.id === event.id)) {
+      throw new Error("Audit change did not persist");
+    }
+    return updated;
+  } catch {
+    // Prevent a status write without its explanatory event, or vice versa.
+    try {
+      if (previousCandidates === null) window.localStorage.removeItem(CANDIDATE_KEY);
+      else window.localStorage.setItem(CANDIDATE_KEY, previousCandidates);
+      if (previousEvents === null) window.localStorage.removeItem(LOCAL_EVENT_KEY);
+      else window.localStorage.setItem(LOCAL_EVENT_KEY, previousEvents);
+    } catch {
+      // A storage failure may also prevent rollback. Never claim success.
+    }
+    throw new Error("Audit status could not be saved and verified on this device");
+  }
+}
+
 export function addAuditCandidates(
   rows: TableRow[],
   meta: {
