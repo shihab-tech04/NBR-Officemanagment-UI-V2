@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SiteLogoPanel } from './SiteLogoPanel';
+import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+
+vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
 
 vi.mock('./ImageCropDialog', () => ({
   ImageCropDialog: ({ onApply }: { onApply: (file: File) => void }) =>
@@ -11,7 +14,7 @@ vi.mock('./ImageCropDialog', () => ({
     </button>,
 }));
 
-function logoCms(writeMode: 'ok' | 'reject' | 'conflict' = 'ok') {
+function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok') {
   let row = {
     id: 'primary' as const, image_path: null as string | null,
     image_width: null as number | null, image_height: null as number | null,
@@ -47,6 +50,13 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' = 'ok') {
     from, channel: vi.fn(() => channel), removeChannel: vi.fn().mockResolvedValue('ok'),
     storage,
   } as unknown as SupabaseClient;
+  const stalePublicClient = {
+    from: vi.fn(() => ({ select: () => ({ eq: () => ({ single: async () => ({
+      data: { id: 'primary', image_path: null, version: 9, image_width: null, image_height: null },
+      error: null,
+    }) }) }) })),
+  } as unknown as SupabaseClient;
+  vi.mocked(getTaxPayCmsPublicClient).mockReturnValue(writeMode === 'publicStale' ? stalePublicClient : client);
   return { client, upload, update, from };
 }
 
@@ -99,9 +109,19 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
       image_width: 2150, image_height: 440,
       image_path: expect.stringMatching(/^logos\//),
     })));
-    expect(await screen.findByText(/Logo published to TaxPay SQL/)).toBeInTheDocument();
+    expect(await screen.findByText(/Logo saved to SQL and verified in the public TaxPay logo feed/)).toBeInTheDocument();
     expect(screen.getByAltText('Korbritto TaxPay logo preview').getAttribute('src')).toMatch(/^https:\/\/images\.test\/logos\//);
     expect(screen.getByRole('button', { name: 'Edit logo' })).toBeInTheDocument();
+  });
+
+  it('does not claim public publishing when only Office sees the updated logo', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms('publicStale');
+    render(<SiteLogoPanel cms={cms.client} canPublish />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    expect(await screen.findByText(/Public TaxPay logo does not match the committed SQL version/)).toBeInTheDocument();
+    expect(screen.queryByText(/verified in the public TaxPay logo feed/)).not.toBeInTheDocument();
   });
 
   it('does not claim a SQL publish on a rejected write', async () => {

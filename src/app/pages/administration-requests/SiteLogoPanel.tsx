@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, isSupportedImageType } from './imageCrop';
@@ -104,10 +105,20 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         setRecord(saved as SiteLogoRecord);
         throw new Error('Logo was saved to SQL but read-back verification failed. Refresh to verify.');
       }
+      // Verify with the same anonymous visibility as the public TaxPay logo.
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public TaxPay logo read-back is not configured.');
+      const { data: publicLogo, error: publicError } = await publicCms.from('taxpay_site_logo')
+        .select('image_path,image_width,image_height,version').eq('id', 'primary').single();
+      if (publicError || !publicLogo || publicLogo.image_path !== uploadedPath ||
+          publicLogo.image_width !== selected.width || publicLogo.image_height !== selected.height ||
+          publicLogo.version !== confirmed.version) {
+        throw new Error('Public TaxPay logo does not match the committed SQL version.');
+      }
       setRecord(confirmed as SiteLogoRecord);
       setSelected(null);
       setEditing(false);
-      setMessage('Logo published to TaxPay SQL. The public and Office logo views will refresh automatically.');
+      setMessage('Logo saved to SQL and verified in the public TaxPay logo feed.');
     } catch (error) {
       setMessage((committed ? 'Logo saved, verification incomplete: ' : 'Logo not published: ') +
         (error as Error).message);
