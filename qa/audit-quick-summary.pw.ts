@@ -43,6 +43,11 @@ for (const viewport of cases) {
     await expect(drawer.getByRole('button', {name:/R-C1: .*fund/i})).toBeVisible();
     await expect(drawer.getByRole('button', {name:/R-E2: .*asset/i})).toBeVisible();
     await expect(drawer.getByText(/Verify fund-flow reconciliation/i)).toBeVisible();
+    // Restore the actual source/use figures, 1y/3y comparisons and a clear
+    // route to the previously approved full decision and evidence drawer.
+    await expect(drawer.locator('.audit-summary-drawer__changes')).toHaveCount(3);
+    await expect(drawer.locator('.audit-summary-drawer__formula')).toContainText('Source of fund');
+    await expect(drawer.getByText('View decision path and evidence')).toHaveCount(2);
     for (const paragraph of await drawer.locator('.audit-summary-drawer__copy').all()) {
       const geometry = await paragraph.evaluate(el => ({
         fits: el.scrollWidth <= el.clientWidth + 2,
