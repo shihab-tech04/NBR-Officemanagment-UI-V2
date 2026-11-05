@@ -101,7 +101,8 @@ export function assessAuditPopulation(rows: TableRow[]): TableRow[] {
     return {...row,signals:hits.length?hits.map(h=>h.id).join(" + "):"—",
       risk_level:riskLevel, mismatch_amount:hits.some(h=>h.id==="R-C1")?Math.abs(gap):0,
       signal_details:hits,
-      reason_code:hits.length?hits.map(h=>h.id+": "+h.measured.toLocaleString("en-BD")+" / "+h.threshold.toLocaleString("en-BD")).join("; "):
+      reason_code:Number(String(row.id).replace(/^P/,""))<=36?String(row.reason_code??""):
+        hits.length?hits.map(h=>h.id+": "+h.measured.toLocaleString("en-BD")+" / "+h.threshold.toLocaleString("en-BD")).join("; "):
         String(row.reason_code??"No audit signals matched")};
   });
 }
