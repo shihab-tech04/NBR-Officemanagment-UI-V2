@@ -130,6 +130,14 @@ function getCandidateReason(
   const source = getSourceTaxpayer(candidate);
 
   if (basis.startsWith("risk-based")) {
+    // New financial profiles have a generic source description. Show actual
+    // calculated signal reasons while preserving earlier profile-specific text.
+    if (source?.reason_code === "Return values and linked records screened against the selected rules") {
+      const matched = signalIds(candidate.signals);
+      if (matched.length > 0) {
+        return matched.map((id) => `${id}: ${t(SIGNAL_LABEL_KEYS[id] ?? id)}`).join(" · ");
+      }
+    }
     return String(
       source?.reason_code ??
         candidate.selection_basis ??
@@ -1725,51 +1733,6 @@ export function AuditCandidatesPage({
           </div>
         </div>
 
-        {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
-          <section className="audit-detail-card" aria-labelledby="local-audit-progress-title">
-            <div className="audit-detail-card__header">
-              <h2 id="local-audit-progress-title">
-                {isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
-              </h2>
-            </div>
-            <div className="form-stack">
-              <AppSelectField
-                id="audit-next-status"
-                label={isBnAudit ? "পরবর্তী অবস্থা" : "Next status"}
-                value={nextAuditStatus}
-                onChange={(value) => { setNextAuditStatus(value); setAuditStatusError(""); }}
-                options={[
-                  { value: "", label: isBnAudit ? "অবস্থা নির্বাচন করুন" : "Select status" },
-                  ...auditStatusOptions.map((status) => ({
-                    value: status, label: isBnAudit ? localStatusLabels[status] ?? status : status,
-                  })),
-                ]}
-                required
-              />
-              <AppTextArea
-                id="audit-status-reason"
-                label={isBnAudit ? "কারণ বা পর্যালোচনা নোট" : "Reason or review note"}
-                value={auditStatusNote}
-                onChange={(value) => { setAuditStatusNote(value); setAuditStatusError(""); }}
-                helper={isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device."}
-                rows={2}
-                required
-              />
-              {auditStatusError && <p role="alert" className="form-error">{auditStatusError}</p>}
-              <div className="form-section__toolbar-actions">
-                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); }}>
-                  {isBnAudit ? "বাতিল" : "Cancel"}
-                </SecondaryButton>
-                <PrimaryButton size="sm" loading={auditStatusBusy}
-                  disabled={!nextAuditStatus || auditStatusNote.trim().length < 10 || auditStatusNote.trim().length > 500}
-                  onClick={saveAuditLocalStatus}>
-                  {isBnAudit ? "অবস্থা সংরক্ষণ করুন" : "Save status"}
-                </PrimaryButton>
-              </div>
-            </div>
-          </section>
-        )}
-
         <section className="audit-note-strip" aria-labelledby="audit-note-title">
           <div className="audit-note-strip__title">
             <ShieldAlert size={15} aria-hidden="true" />
@@ -2196,6 +2159,52 @@ export function AuditCandidatesPage({
               </table>
             </div>
         </section>
+        )}
+
+        {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
+          <details className="audit-detail-card audit-progress-disclosure" aria-labelledby="local-audit-progress-title">
+            <summary className="audit-detail-card__header">
+              <h2 id="local-audit-progress-title">
+                {isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
+              </h2>
+              <StatusBadge value={selectedCandidate.audit_status} />
+            </summary>
+            <div className="form-stack">
+              <AppSelectField
+                id="audit-next-status"
+                label={isBnAudit ? "পরবর্তী অবস্থা" : "Next status"}
+                value={nextAuditStatus}
+                onChange={(value) => { setNextAuditStatus(value); setAuditStatusError(""); }}
+                options={[
+                  { value: "", label: isBnAudit ? "অবস্থা নির্বাচন করুন" : "Select status" },
+                  ...auditStatusOptions.map((status) => ({
+                    value: status, label: isBnAudit ? localStatusLabels[status] ?? status : status,
+                  })),
+                ]}
+                required
+              />
+              <AppTextArea
+                id="audit-status-reason"
+                label={isBnAudit ? "কারণ বা পর্যালোচনা নোট" : "Reason or review note"}
+                value={auditStatusNote}
+                onChange={(value) => { setAuditStatusNote(value); setAuditStatusError(""); }}
+                helper={isBnAudit ? "১০–৫০০ অক্ষর। পরিবর্তন ও নোট এই ডিভাইসে সংরক্ষিত হবে।" : "10–500 characters. Changes and review history are saved on this device."}
+                rows={2}
+                required
+              />
+              {auditStatusError && <p role="alert" className="form-error">{auditStatusError}</p>}
+              <div className="form-section__toolbar-actions">
+                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); }}>
+                  {isBnAudit ? "বাতিল" : "Cancel"}
+                </SecondaryButton>
+                <PrimaryButton size="sm" loading={auditStatusBusy}
+                  disabled={!nextAuditStatus || auditStatusNote.trim().length < 10 || auditStatusNote.trim().length > 500}
+                  onClick={saveAuditLocalStatus}>
+                  {isBnAudit ? "অবস্থা সংরক্ষণ করুন" : "Save status"}
+                </PrimaryButton>
+              </div>
+            </div>
+          </details>
         )}
         <ResponsiveOverlay
           open={quickSummaryOpen}
