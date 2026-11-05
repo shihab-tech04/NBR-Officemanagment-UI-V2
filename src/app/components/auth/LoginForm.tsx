@@ -7,6 +7,8 @@ import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
+import { getTaxPayCmsClient } from "../../services/taxpayCmsClient";
+import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -57,10 +59,33 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
-    // Prototype sign-in is NOT an SQL identity and cannot authorize shared Audit.
-    void password;
-    onOfficeEnter?.();
-    navigate("/dashboard/dashboard-main");
+    // Office keeps its existing presentation-only entry. When valid SQL
+    // credentials are supplied here, they also establish the CMS session;
+    // no second login is requested on the Content Management page.
+    // Never carry a prior administrator's publishing token into this entry.
+    setSharedBusy(true);
+    try {
+      const cms = getTaxPayCmsClient();
+      if (cms) {
+        const { error: signOutError } = await cms.auth.signOut({ scope: "local" });
+        if (signOutError) throw new Error("Could not reset the previous publishing session.");
+        if (password) {
+          const { error } = await cms.auth.signInWithPassword({
+            email: PRIMARY_ADMIN_EMAIL, password,
+          });
+          // An Office preview password is not automatically an SQL credential.
+          // The CMS continues to deny writes unless its RLS verifier succeeds.
+          if (error) setSharedError("Office access is available, but TaxPay publishing credentials were not verified.");
+        }
+      }
+      setPassword("");
+      onOfficeEnter?.();
+      navigate("/dashboard/dashboard-main");
+    } catch {
+      setSharedError("The previous Content Management session could not be cleared. Retry sign-in.");
+    } finally {
+      setSharedBusy(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
