@@ -30,6 +30,7 @@ import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
+import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -200,7 +201,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     return()=>{active=false;window.clearInterval(interval);};
   },[selectedTin]);
   useEffect(()=>{
-    if(current!=='corrections')return;
+    if(current!=='corrections' && !(current==='taxpayer-360' && !!taxpayerTin && taxpayerTab==='correctionsTab'))return;
     let active=true;
     const refresh=async()=>{
       try{
@@ -214,7 +215,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     void refresh();
     const timer=window.setInterval(()=>void refresh(),15000);
     return()=>{active=false;window.clearInterval(timer);};
-  },[current,correctionRefreshKey]);
+  },[current,correctionRefreshKey,taxpayerTin,taxpayerTab]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const isTransactionDetails = details?.title === t('transactions');
@@ -333,6 +334,10 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
+  const taxpayerCorrectionIds=new Set(officeCorrectionQueue.enabled && !storyLoading && !storyError
+    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear)
+        .map(item=>item.inquiry.requestId):[]);
+  const taxpayerCorrectionRows=officeCorrectionRows.filter(row=>taxpayerCorrectionIds.has(String(row.__correctionInquiryId)));
   // Never interleave illustrative cases with an operational correction queue.
   const corrRows=[...localRecords.corrections,...officeCorrectionRows];
   const incidentRows=localRecords.incidents;
@@ -451,7 +456,20 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
-    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <section className="card payment-module__card"><h2>{t('correctionsTab')}</h2><p className="table-page__desc">{t('correctionsNotVerified')}</p></section> :
+    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <>
+      {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
+      {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}
+      {!officeCorrectionLoading&&!officeCorrectionError&&!officeCorrectionQueue.enabled&&<p className="table-page__desc" role="status">{t('officeCorrectionQueueUnavailable')}</p>}
+      {officeCorrectionQueue.enabled&&!storyLoading&&!storyError&&<>
+        <p className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')
+          ?'শুধু এই করদাতার নির্ভরযোগ্যভাবে সংযুক্ত পেমেন্টের সংশোধন আবেদন দেখানো হচ্ছে।'
+          :'Showing correction inquiries matched to this taxpayer through a reconciled payment reference only.'}</p>
+        {taxpayerCorrectionRows.length
+          ? table(keys.correction,taxpayerCorrectionRows,'corrections',[],correctionMapping)
+          : <p className="table-page__desc" role="status">{i18n.resolvedLanguage?.startsWith('bn')?'এই করদাতার জন্য সংযুক্ত সংশোধন আবেদন পাওয়া যায়নি।':'No correction inquiries were linked to this taxpayer.'}</p>}
+      </>}
+      {(storyLoading||storyError)&&<p className="table-page__desc" role={storyError?'alert':'status'}>{storyError||t('loadingTaxpayers')}</p>}
+    </> :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
       taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
