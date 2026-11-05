@@ -26,6 +26,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
   query.order = vi.fn(() => query);
+  query.eq = vi.fn(() => query);
   query.then = (onFulfilled: (value: unknown) => unknown) =>
     Promise.resolve({ data: banners, error: null }).then(onFulfilled);
   const rpc = vi.fn(async (name: string, args?: unknown) => {
@@ -204,7 +205,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Publicly verified headline');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByText(/verified in the public TaxPay banner feed/)).toBeInTheDocument();
+    expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
     expect(publicClient.from).toHaveBeenCalledWith('taxpay_site_banners');
     expect(deps.createClient).toHaveBeenCalledWith('https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({ persistSession: false, autoRefreshToken: false }) }));
@@ -221,7 +222,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Unseen on public');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText(/Public TaxPay visibility does not match the committed SQL banner/)).toBeInTheDocument();
-    expect(screen.queryByText(/verified in the public TaxPay banner feed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
   });
 
   it('explains that service text is announced while fixed Taxpayer copy stays unchanged', async () => {
