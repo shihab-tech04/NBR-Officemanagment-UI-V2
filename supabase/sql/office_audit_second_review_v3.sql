@@ -98,6 +98,40 @@ create policy office_audit_second_review_submit on public.office_audit_second_re
       and m.zone=c.zone and m.circle=c.circle)
   );
 
+
+-- Deny direct table writes, even where RLS permits the underlying officer
+-- jurisdiction. Workflow RPCs set a transaction-scoped marker only after
+-- checking linked source records, signal, role and state.
+create or replace function office_audit_private.audit_workflow_insert_guard()
+returns trigger language plpgsql security invoker
+set search_path=pg_catalog,public,office_audit_private as $
+declare v_expected text;
+begin
+  v_expected := case tg_table_name
+    when 'office_audit_evidence' then 'office_audit.insert_evidence'
+    when 'office_audit_findings' then 'office_audit.submit_finding'
+    when 'office_audit_second_reviews' then 'office_audit.insert_review'
+    else '' end;
+  if v_expected='' or current_setting(v_expected,true) is distinct from 'authorized' then
+    raise exception 'Use the authorized Audit workflow' using errcode='42501';
+  end if;
+  if tg_table_name='office_audit_findings' and not exists(
+    select 1 from public.office_audit_evidence e where e.id=new.evidence_id
+      and e.candidate_id=new.candidate_id and e.signal_code=new.signal_code
+      and e.verification_status='Verified'
+  ) then
+    raise exception 'Finding must reference verified same-case signal evidence' using errcode='42501';
+  end if;
+  return new;
+end $;
+create trigger office_audit_insert_evidence_guard before insert on public.office_audit_evidence
+for each row execute function office_audit_private.audit_workflow_insert_guard();
+create trigger office_audit_insert_finding_guard before insert on public.office_audit_findings
+for each row execute function office_audit_private.audit_workflow_insert_guard();
+create trigger office_audit_insert_review_guard before insert on public.office_audit_second_reviews
+for each row execute function office_audit_private.audit_workflow_insert_guard();
+revoke all on function office_audit_private.audit_workflow_insert_guard() from public,anon,authenticated;
+
 revoke all on public.office_audit_evidence,public.office_audit_findings,
   public.office_audit_second_reviews from public,anon;
 grant select,insert on public.office_audit_evidence to authenticated;
@@ -121,6 +155,7 @@ begin
     or v_candidate.audit_status not in ('Verifying','Evidence Pending') then
     raise exception 'Case, signal or DCT authority unavailable' using errcode='42501';
   end if;
+  perform set_config('office_audit.insert_evidence','authorized',true);
   insert into public.office_audit_evidence(candidate_id,signal_code,evidence_ref,submitted_by)
     values(p_candidate_id,p_signal,btrim(p_reference),auth.uid()) returning id into v_id;
   return v_id;
@@ -184,6 +219,7 @@ begin
       and e.signal_code=p_signal and e.verification_status='Verified') then
     raise exception 'Verified linked signal, evidence and DCT authority required' using errcode='42501';
   end if;
+  perform set_config('office_audit.submit_finding','authorized',true);
   insert into public.office_audit_findings(
     candidate_id,evidence_id,signal_code,finding_summary,submitted_by)
     values(p_candidate_id,p_evidence_id,p_signal,btrim(p_finding),auth.uid())
@@ -275,6 +311,7 @@ begin
   update public.office_audit_candidates c set audit_status=v_target
     where c.id=p_candidate_id and c.version=p_expected_version;
   if not found then raise exception 'Case conflict' using errcode='40001'; end if;
+  perform set_config('office_audit.insert_review','authorized',true);
   insert into public.office_audit_second_reviews(candidate_id,finding_id,reviewer_id,
     action,review_note,previous_version,next_version)
     values(p_candidate_id,v_finding.id,auth.uid(),p_action,btrim(p_note),
