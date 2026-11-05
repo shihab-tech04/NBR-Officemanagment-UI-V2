@@ -28,6 +28,7 @@ import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { officePaymentAnalytics } from './officePaymentAnalytics';
+import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -219,7 +220,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   // The 360 payment drawer receives the same canonical SQL parent as Transactions.
   // Its display is independently scoped to the selected TIN and year below.
   const selectedStoryPayment = isTransactionDetails &&
-    (current === 'transactions' || current === 'taxpayer-360')
+    (current === 'transactions' || current === 'taxpayer-360' || current === 'overview')
     ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
     : null;
   const selectedCorrectionId=typeof details?.record.__correctionInquiryId==='string'
@@ -383,6 +384,13 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',storySummary?displayNumber(storySummary.notificationCount):'—',Users),
       kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ রেকর্ড':'Latest record',storySummary?.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
     ])}
+    {storySummary&&<OfficePaymentDashboardInsights
+      payments={storyPayments} year={scopeYear}
+      language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
+      formatCount={displayNumber} formatDate={displayEventDate}
+      onOpenPayment={row=>view(row,t('transactions'))}
+      onViewTransactions={()=>goto('transactions')}
+      onSelectYear={setScopeYear}/>}
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
         <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ পেমেন্ট রেকর্ড দেখুন। কর্মকর্তার অনুমোদন এখনো চালু নেই।':'View payment records under Payments > Transactions. Officer approvals are not available yet.'}</p>
