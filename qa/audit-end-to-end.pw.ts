@@ -70,9 +70,22 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   ));
   expect(evidenceBeforeProgress).toBe(true);
   await page.getByRole("button", {name:"Quick summary"}).click();
-  await expect(page.getByRole("dialog", {name:"Quick summary"})).toContainText("R-A1");
-  await expect(page.getByRole("dialog", {name:"Quick summary"})).not.toContainText("Return values and linked records screened against the selected rules");
-  await page.getByRole("dialog", {name:"Quick summary"}).getByRole("button", {name:"Close"}).click();
+  const quickSummary = page.getByRole("dialog", { name: "Quick summary" });
+  await expect(quickSummary).toContainText("R-A1");
+  await expect(quickSummary).not.toContainText("Return values and linked records screened against the selected rules");
+  // A calculated single signal must not repeat its full title in both the
+  // selection-reason card and the signal card.
+  await expect(quickSummary.getByRole("heading", { name: "Why this taxpayer is selected for audit" })).toHaveCount(0);
+  await expect(quickSummary.getByText("View decision path and evidence")).toBeVisible();
+  await expect(quickSummary.locator(".audit-summary-drawer__changes").first()).toContainText("1-year change");
+  await quickSummary.getByRole("button", { name: /R-A1: .*asset/i }).click();
+  const decision = page.getByRole("dialog", { name: /R-A1/i });
+  await expect(decision.locator(".audit-signal-flow")).toBeVisible();
+  await expect(decision).toContainText("What it means");
+  await decision.locator(".responsive-overlay__header").getByRole("button", { name: "Back", exact: true }).click();
+  await expect(quickSummary).toBeVisible();
+  await expect(quickSummary.locator(".responsive-overlay__header").getByRole("button", {name:"Back",exact:true})).toHaveCount(0);
+  await quickSummary.getByRole("button", { name: "Close" }).click();
   await progress.locator("summary").click();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
