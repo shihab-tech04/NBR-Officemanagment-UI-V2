@@ -53,6 +53,22 @@ describe("Office Audit device-local candidate lifecycle", () => {
     expect(getNextLocalAuditStatuses("Closed")).toEqual([]);
   });
 
+  it("keeps Risk Cases and Second Review synchronized after a status change", () => {
+    const candidate = getAuditCandidates().find((row) => row.return_id === "RET-2026-10502");
+    expect(candidate?.audit_status).toBe("Ready for Review");
+    changeLocalAuditCandidateStatus(candidate!.candidate_id, "Verifying", "Review requested additional evidence");
+    let scope = getAuditYearScope(candidate!.assessment_year, getAuditCandidates());
+    expect(scope.riskCases.find((row) => row.return_id === candidate!.return_id)?.case_status)
+      .toBe("Verifying");
+    expect(scope.secondReviewRows.some((row) => row.return_id === candidate!.return_id))
+      .toBe(false);
+    changeLocalAuditCandidateStatus(candidate!.candidate_id, "Ready for Review", "New evidence is ready for review");
+    scope = getAuditYearScope(candidate!.assessment_year, getAuditCandidates());
+    expect(scope.secondReviewRows.find((row) => row.return_id === candidate!.return_id)?.review_status)
+      .toBe("Ready for Review");
+    expect(getLocalAuditStatusEvents()).toHaveLength(2);
+  });
+
   it("does not overwrite another assessment year or unrelated candidate", () => {
     const original = getAuditCandidates();
     const candidate = original.find((row) => row.audit_status === "Not Started")!;
