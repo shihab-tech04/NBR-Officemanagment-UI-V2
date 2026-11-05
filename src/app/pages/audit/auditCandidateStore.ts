@@ -205,7 +205,12 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
       ...customLegacy.filter((item) => !seededIds.has(item.candidate_id)),
       ...seeded,
     ];
-    window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(merged));
+    try {
+      window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(merged));
+    } catch {
+      // Read-only prototype access is possible even when storage is denied.
+      // The explicit batch write path reports persistence failure instead.
+    }
     return merged;
   }
 
@@ -261,13 +266,24 @@ export function addAuditCandidates(
   },
 ): AuditCandidateRecord[] {
   if (isSharedAuditMode()) throw new Error("Local Audit candidate writes are disabled in shared mode");
+  // Prototype writes must not report success if there is no durable local store.
+  if (!canUseStorage()) throw new Error("Audit storage is unavailable; no candidates were saved");
+  if (!rows.length) throw new Error("Select at least one candidate");
+  if (!meta.assessmentYear.trim() || !meta.zone.trim())
+    throw new Error("Assessment year and Zone are required");
+  const keys = rows.map((row) => `${meta.assessmentYear}|${String(row.return_id ?? "").trim()}`);
+  if (keys.some((key) => key.endsWith("|")) || new Set(keys).size !== keys.length)
+    throw new Error("Every candidate must have a unique return identity");
   const existing = getAuditCandidates();
+  const existingKeys = new Set(existing.map((item) => `${item.assessment_year}|${item.return_id}`));
+  if (keys.some((key) => existingKeys.has(key)))
+    throw new Error("One or more returns are already selected for this assessment year");
   const selectedOn = new Date().toISOString().slice(0, 10);
-  const batchToken = Date.now().toString();
-  const batchId = `AUD-${meta.assessmentYear.replace(/[^0-9]/g, "")}-${batchToken.slice(-6)}`;
+  const batchToken = crypto.randomUUID();
+  const batchId = `AUD-${meta.assessmentYear.replace(/[^0-9]/g, "")}-${batchToken}`;
 
   const additions = rows.map((row, index): AuditCandidateRecord => ({
-      candidate_id: `AC-${meta.assessmentYear.replace(/[^0-9]/g, "").slice(0, 4)}-${batchToken.slice(-6)}-${String(index + 1).padStart(3, "0")}`,
+      candidate_id: `AC-${meta.assessmentYear.replace(/[^0-9]/g, "").slice(0, 4)}-${batchToken}-${String(index + 1).padStart(3, "0")}`,
       batch_id: batchId,
       taxpayer_name: String(row.taxpayer_name ?? "—"),
       tin: String(row.tin ?? "—"),
@@ -294,6 +310,16 @@ export function addAuditCandidates(
     }));
 
   const next = [...additions, ...existing];
-  if (canUseStorage()) window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(next));
+  try {
+    window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(next));
+    const saved = window.localStorage.getItem(CANDIDATE_KEY);
+    const persisted = saved ? JSON.parse(saved) as AuditCandidateRecord[] : null;
+    const savedIds = new Set(Array.isArray(persisted) ? persisted.map((item) => item.candidate_id) : []);
+    if (!additions.every((item) => savedIds.has(item.candidate_id))) {
+      throw new Error("Audit candidate read-back did not match the submitted batch");
+    }
+  } catch {
+    throw new Error("Could not persist Audit candidates; please retry the operation");
+  }
   return next;
 }
