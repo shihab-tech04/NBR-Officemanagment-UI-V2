@@ -24,8 +24,12 @@ test("Audit draft status, case queue and trail survive a reload without fake log
   await page.goto("/audit/audit-candidates?batch=AUD-2026-RISK-01&candidate=AC-2026-RISK-01-01");
   await expect(page.locator(".audit-candidate-detail__header")).toBeVisible({ timeout: 18000 });
   await expect(page.locator(".audit-selection-evidence")).toBeVisible();
-  await expect(page.locator(".audit-progress-disclosure")).not.toHaveAttribute("open");
-  await page.locator(".audit-progress-disclosure > summary").click();
+  await expect(page.locator(".audit-progress-disclosure")).toHaveCount(0);
+  await page.getByRole("button", { name: "Update audit progress" }).click();
+  await expect(page.getByRole("dialog", { name: "Update audit progress" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Update audit progress" })).not.toBeVisible();
+  await page.getByRole("button", { name: "Update audit progress" }).click();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
   await page.getByRole("textbox", { name: /Reason or review note/ }).fill("Assigned for review of the synthetic candidate data");
@@ -33,7 +37,7 @@ test("Audit draft status, case queue and trail survive a reload without fake log
   await expect(page.getByText("Audit status saved on this device.")).toBeVisible();
   await page.reload();
   await expect(page.locator(".audit-candidate-detail__header")).toBeVisible({ timeout: 18000 });
-  await expect(page.getByRole("heading", { name: "Update audit progress" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Update audit progress" })).toHaveCount(1);
   await page.goto("/audit/risk-cases");
   await expect(page.locator(".table-page")).toContainText("RET-2026-10482");
   await expect(page.locator(".table-page")).toContainText("Assigned");

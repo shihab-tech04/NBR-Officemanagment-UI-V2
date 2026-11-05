@@ -1166,11 +1166,13 @@ export function AuditCandidatesPage({
   const [auditStatusNote, setAuditStatusNote] = useState("");
   const [auditStatusError, setAuditStatusError] = useState("");
   const [auditStatusBusy, setAuditStatusBusy] = useState(false);
+  const [statusEditorOpen, setStatusEditorOpen] = useState(false);
 
   useEffect(() => {
     setNextAuditStatus("");
     setAuditStatusNote("");
     setAuditStatusError("");
+    setStatusEditorOpen(false);
   }, [selectedCandidateId]);
 
   useEffect(() => {
@@ -1491,6 +1493,7 @@ export function AuditCandidatesPage({
         setStoredRows(getAuditCandidates());
         setNextAuditStatus("");
         setAuditStatusNote("");
+        setStatusEditorOpen(false);
         toast.success(isBnAudit ? "এই ডিভাইসে অডিট অবস্থা সংরক্ষিত হয়েছে।" : "Audit status saved on this device.");
       } catch (error) {
         setAuditStatusError(isBnAudit ? "অবস্থা সংরক্ষণ করা যায়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।" : error instanceof Error ? error.message : "Audit status could not be saved.");
@@ -1708,7 +1711,19 @@ export function AuditCandidatesPage({
                 </button>
               </div>
               <div className="audit-candidate-detail__status-card">
-                <p>{t("candidates.columns.auditStatus")}</p>
+                <p className="audit-candidate-detail__status-caption">
+                  <span>{t("candidates.columns.auditStatus")}</span>
+                  {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
+                    <button
+                      type="button"
+                      className="audit-status-edit"
+                      aria-label={isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
+                      onClick={() => setStatusEditorOpen(true)}
+                    >
+                      {isBnAudit ? "সম্পাদনা" : "Edit"}
+                    </button>
+                  )}
+                </p>
                 <button
                   type="button"
                   className="audit-concept-inline"
@@ -2168,14 +2183,14 @@ export function AuditCandidatesPage({
         </section>
         )}
 
-        {!isSharedAuditMode() && auditStatusOptions.length > 0 && (
-          <details className="audit-detail-card audit-progress-disclosure" aria-labelledby="local-audit-progress-title">
-            <summary className="audit-detail-card__header">
-              <h2 id="local-audit-progress-title">
-                {isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
-              </h2>
-              <StatusBadge value={selectedCandidate.audit_status} />
-            </summary>
+        <ResponsiveOverlay
+          open={statusEditorOpen && !isSharedAuditMode() && auditStatusOptions.length > 0}
+          onClose={() => setStatusEditorOpen(false)}
+          title={isBnAudit ? "অডিটের অগ্রগতি হালনাগাদ" : "Update audit progress"}
+          closeLabel={tc("accessibility.closeDrawer")}
+          desktopWidth="560px"
+          className="audit-progress-overlay"
+        >
             <div className="form-stack">
               <AppSelectField
                 id="audit-next-status"
@@ -2201,7 +2216,7 @@ export function AuditCandidatesPage({
               />
               {auditStatusError && <p role="alert" className="form-error">{auditStatusError}</p>}
               <div className="form-section__toolbar-actions">
-                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); }}>
+                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); setStatusEditorOpen(false); }}>
                   {isBnAudit ? "বাতিল" : "Cancel"}
                 </SecondaryButton>
                 <PrimaryButton size="sm" loading={auditStatusBusy}
@@ -2211,8 +2226,7 @@ export function AuditCandidatesPage({
                 </PrimaryButton>
               </div>
             </div>
-          </details>
-        )}
+        </ResponsiveOverlay>
         <ResponsiveOverlay
           open={quickSummaryOpen}
           onClose={() => setQuickSummaryCandidateId(null)}

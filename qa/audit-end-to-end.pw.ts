@@ -61,14 +61,12 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(page.locator(".audit-candidate-detail__header")).toContainText("Anika Engineering");
 
   const selection = page.locator(".audit-selection-evidence");
-  const progress = page.locator(".audit-progress-disclosure");
   await expect(selection).toContainText("R-A1");
-  await expect(progress).not.toHaveAttribute("open");
-  const evidenceBeforeProgress = await page.evaluate(() => Boolean(
-    document.querySelector(".audit-selection-evidence")?.compareDocumentPosition(
-      document.querySelector(".audit-progress-disclosure")!) & Node.DOCUMENT_POSITION_FOLLOWING
-  ));
-  expect(evidenceBeforeProgress).toBe(true);
+  // The approved profile reading order ends at the comparison; progress is
+  // available from the existing status card, not an inserted profile section.
+  await expect(page.locator(".audit-progress-disclosure")).toHaveCount(0);
+  await expect(page.locator(".audit-candidate-detail__status-card")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Update audit progress" })).toBeVisible();
   await page.getByRole("button", {name:"Quick summary"}).click();
   const quickSummary = page.getByRole("dialog", { name: "Quick summary" });
   await expect(quickSummary).toContainText("R-A1");
@@ -86,7 +84,8 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(quickSummary).toBeVisible();
   await expect(quickSummary.locator(".responsive-overlay__header").getByRole("button", {name:"Back",exact:true})).toHaveCount(0);
   await quickSummary.getByRole("button", { name: "Close" }).click();
-  await progress.locator("summary").click();
+  await page.getByRole("button", { name: "Update audit progress" }).click();
+  await expect(page.getByRole("dialog", { name: "Update audit progress" })).toBeVisible();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
   await page.getByRole("textbox", { name: /Reason or review note/ })
