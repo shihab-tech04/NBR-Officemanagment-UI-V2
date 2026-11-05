@@ -5336,18 +5336,26 @@
   .audit-explainer-drawer .audit-story__progress-grid { grid-template-columns: minmax(0,1fr); }
 }
 
-/* Keep Audit progress accessible without displacing the approved profile story. */
-.audit-progress-disclosure > summary {
-  cursor: pointer;
-  list-style: none;
+/* Status editing belongs to the existing profile status control, not a new profile card. */
+.audit-candidate-detail__status-caption {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
-.audit-progress-disclosure > summary::-webkit-details-marker { display: none; }
-.audit-progress-disclosure > summary::after {
-  content: "▾";
-  color: var(--color-text-secondary);
-  margin-inline-start: auto;
-  transition: transform 0.15s ease;
+.audit-candidate-detail__status-caption .audit-status-edit {
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 0 var(--space-1);
 }
-.audit-progress-disclosure[open] > summary::after { transform: rotate(180deg); }
-.audit-progress-disclosure > .form-stack { padding: var(--space-4) var(--space-5); }
+.audit-candidate-detail__status-caption .audit-status-edit:hover,
+.audit-candidate-detail__status-caption .audit-status-edit:focus-visible {
+  text-decoration: underline;
+  outline-offset: 2px;
+}
