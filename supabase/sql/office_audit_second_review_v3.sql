@@ -104,7 +104,7 @@ create policy office_audit_second_review_submit on public.office_audit_second_re
 -- checking linked source records, signal, role and state.
 create or replace function office_audit_private.audit_workflow_insert_guard()
 returns trigger language plpgsql security invoker
-set search_path=pg_catalog,public,office_audit_private as $
+set search_path=pg_catalog,public,office_audit_private as $audit$
 declare v_expected text;
 begin
   v_expected := case tg_table_name
@@ -123,7 +123,7 @@ begin
     raise exception 'Finding must reference verified same-case signal evidence' using errcode='42501';
   end if;
   return new;
-end $;
+end $audit$;
 create trigger office_audit_insert_evidence_guard before insert on public.office_audit_evidence
 for each row execute function office_audit_private.audit_workflow_insert_guard();
 create trigger office_audit_insert_finding_guard before insert on public.office_audit_findings
@@ -323,7 +323,7 @@ end $$;
 -- Record evidence and Finding actions in the existing append-only Audit Trail.
 create or replace function office_audit_private.log_case_material_event()
 returns trigger language plpgsql security definer
-set search_path=pg_catalog,public,office_audit_private as $
+set search_path=pg_catalog,public,office_audit_private as $audit$
 declare v_kind text; v_event text; v_note text;
 begin
   if auth.uid() is null then raise exception 'Verified officer required' using errcode='28000'; end if;
@@ -345,7 +345,7 @@ begin
     candidate_id,actor_id,event_type,previous_status,new_status,source_kind,review_note
   ) values(new.candidate_id,auth.uid(),v_event,null,null,v_kind,v_note);
   return new;
-end $;
+end $audit$;
 create trigger office_audit_evidence_event after insert or update
   on public.office_audit_evidence for each row
   execute function office_audit_private.log_case_material_event();
