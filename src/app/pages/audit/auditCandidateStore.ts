@@ -1,6 +1,7 @@
 import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import { createSharedAuditBatch, isSharedAuditMode, listSharedAuditCandidates } from "./auditSharedSql";
+import { getAuditDemoCandidates, getAuditDemoEvents, isAuditDemoMode, loadAuditDemoCandidates, saveAuditDemoBatch, updateAuditDemoStatus } from "./auditDemoSql";
 
 export interface AuditCandidateRecord extends TableRow {
   candidate_id: string;
@@ -177,6 +178,7 @@ function normalizeCandidate(item: AuditCandidateRecord): AuditCandidateRecord {
 export function getAuditCandidates(): AuditCandidateRecord[] {
   // The shared service is asynchronous; never pass local synthetic records off as SQL.
   if (isSharedAuditMode()) return [];
+  if (isAuditDemoMode()) return getAuditDemoCandidates();
   const seeded = seedCandidates();
   if (!canUseStorage()) return seeded;
 
@@ -238,6 +240,10 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
 
 export async function loadAuditCandidates(assessmentYear?:string):Promise<AuditCandidateRecord[]> {
   if (isSharedAuditMode()) return listSharedAuditCandidates(assessmentYear);
+  if (isAuditDemoMode()) {
+    const data = await loadAuditDemoCandidates();
+    return data.filter((candidate) => !assessmentYear || candidate.assessment_year === assessmentYear);
+  }
   return getAuditCandidates().filter(candidate => !assessmentYear || candidate.assessment_year === assessmentYear);
 }
 
@@ -246,6 +252,7 @@ export async function saveAuditCandidates(
   meta: Parameters<typeof addAuditCandidates>[1],
 ): Promise<AuditCandidateRecord[]> {
   if (isSharedAuditMode()) return createSharedAuditBatch(rows, meta);
+  if (isAuditDemoMode()) return saveAuditDemoBatch(rows, meta);
   // A separate prototype mode is intentionally local-only and is never shared SQL.
   return addAuditCandidates(rows, meta);
 }
@@ -267,6 +274,7 @@ export function getNextLocalAuditStatuses(status: string): string[] {
 }
 
 export function getLocalAuditStatusEvents(assessmentYear?: string): TableRow[] {
+  if (isAuditDemoMode()) return getAuditDemoEvents(assessmentYear);
   if (!canUseStorage() || isSharedAuditMode()) return [];
   try {
     const raw = window.localStorage.getItem(LOCAL_EVENT_KEY);
@@ -350,6 +358,14 @@ export function changeLocalAuditCandidateStatus(
     }
     throw new Error("Audit status could not be saved and verified on this device");
   }
+}
+
+/** Shared dummy-data mode writes through the SQL source; old local mode remains isolated. */
+export async function changeAuditCandidateStatus(
+  candidateId: string, nextStatus: string, note: string,
+): Promise<AuditCandidateRecord> {
+  if (isAuditDemoMode()) return updateAuditDemoStatus(candidateId, nextStatus, note);
+  return changeLocalAuditCandidateStatus(candidateId, nextStatus, note);
 }
 
 export function addAuditCandidates(
