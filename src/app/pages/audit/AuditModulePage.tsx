@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,6 +7,11 @@ import {
 } from "lucide-react";
 import { StatCard } from "../../components/cards/StatCard";
 import { StatusBadge } from "../../components/badges/StatusBadge";
+import { toast } from "sonner";
+import { AppTextArea } from "../../components/forms/AppTextArea";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
+import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
 import { DashSection } from "../../components/dashboard/DashSection";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
@@ -36,6 +41,7 @@ import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
 import { isSharedAuditMode } from "./auditSharedSql";
+import { listSharedAuditReviewRows, submitSharedAuditReview, type AuditReviewDecision } from "./auditReviewSql";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
@@ -59,6 +65,9 @@ type AuditTableConfig = {
   };
   readOnly?: boolean;
   yearScoped?: boolean;
+  dataLoading?: boolean;
+  dataError?: string;
+  onReviewCase?: (row:TableRow, decision:AuditReviewDecision, note:string)=>Promise<void>;
 };
 
 function flattenColumns(cols: ColDef[]) {
@@ -106,6 +115,11 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [drawer, setDrawer] = useState<TableRow | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<{row:TableRow;decision:AuditReviewDecision}|null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewSubmitting = useRef(false);
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
@@ -147,7 +161,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   const pageRows = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
   const drawerCols = flattenColumns(config.drawerColumns ?? config.columns);
   const hasActiveFilters = Object.values(appliedFilters).some(Boolean);
-  const emptySelectedYear = !!config.yearScoped && config.rows.length === 0;
+  const emptySelectedYear = !!config.yearScoped && config.rows.length === 0 && !config.dataLoading && !config.dataError;
   const emptyYearMessage = emptySelectedYear
     ? (i18n.resolvedLanguage?.startsWith("bn")
       ? `মূল্যায়ন বছর ${assessmentYear}-এ কোনো অডিট রেকর্ড লোড করা নেই।`
@@ -177,6 +191,27 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
     setAppliedFilters({});
     setPage(1);
   };
+  const bn = i18n.resolvedLanguage?.startsWith("bn");
+  const selectReview = (row:TableRow,decision:AuditReviewDecision) => {
+    setDrawer(null);
+    setReviewTarget({row,decision});
+    setReviewNote(String(row.primary_signal??"")+" : ");
+    setReviewError("");
+  };
+  const saveReview = async () => {
+    if (!reviewTarget || !config.onReviewCase || reviewSubmitting.current || reviewBusy) return;
+    reviewSubmitting.current=true;
+    setReviewBusy(true);
+    setReviewError("");
+    try {
+      await config.onReviewCase(reviewTarget.row,reviewTarget.decision,reviewNote);
+      setReviewTarget(null);
+      setReviewNote("");
+      toast.success(bn ? "পর্যালোচনার সিদ্ধান্ত ও ইতিহাস সংরক্ষিত হয়েছে।" : "Review decision and audit history saved.");
+    } catch(error) {
+      setReviewError(error instanceof Error ? error.message : "Review could not be confirmed");
+    } finally { reviewSubmitting.current=false; setReviewBusy(false); }
+  };
 
   return (
     <div className="table-page">
@@ -188,6 +223,8 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         {config.readOnly && <StatusBadge value="Read only" />}
       </div>
 
+      {config.dataError && <p role="alert" className="table-page__desc">{config.dataError}</p>}
+      {config.dataLoading && <p role="status" className="table-page__desc">{bn ? "রেকর্ড লোড হচ্ছে…" : "Loading authorized review records…"}</p>}
       {emptySelectedYear && (
         <AuditYearAvailabilityNotice
           selectedYear={assessmentYear}
@@ -297,7 +334,38 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         columns={drawerCols}
         rowData={drawer}
         showActions={false}
+        extraFooterActions={config.onReviewCase && drawer?.can_review ? (
+          <>
+            <SecondaryButton size="sm" disabled={reviewBusy} onClick={() => selectReview(drawer,"request_rework")}>
+              {bn ? "সংশোধনের জন্য ফেরত" : "Request rework"}
+            </SecondaryButton>
+            <PrimaryButton size="sm" disabled={reviewBusy || drawer.review_status !== "Second Review"}
+              onClick={() => selectReview(drawer,"sign_off")}>
+              {bn ? "অনুমোদন" : "Sign off"}
+            </PrimaryButton>
+          </>
+        ) : undefined}
       />
+
+      {config.onReviewCase && <ResponsiveOverlay
+        open={!!reviewTarget}
+        onClose={() => { if (!reviewBusy) setReviewTarget(null); }}
+        closeLabel={bn ? "বন্ধ করুন" : "Close"}
+        title={reviewTarget?.decision === "sign_off" ? (bn ? "দ্বিতীয় পর্যালোচনা অনুমোদন" : "Sign off second review") : (bn ? "পুনঃযাচাইয়ের অনুরোধ" : "Request rework")}
+        footer={<>
+          <SecondaryButton size="sm" disabled={reviewBusy} onClick={() => setReviewTarget(null)}>{bn ? "বাতিল" : "Cancel"}</SecondaryButton>
+          <PrimaryButton size="sm" loading={reviewBusy} disabled={reviewNote.trim().length < 30 || reviewNote.length > 500}
+            onClick={() => { void saveReview(); }}>{bn ? "সিদ্ধান্ত সংরক্ষণ" : "Save decision"}</PrimaryButton>
+        </>}
+      >
+        <div className="form-stack">
+          <p>{bn ? "নির্দিষ্ট সংকেত, প্রমাণ ও সিদ্ধান্তের কারণ লিখুন।" : "State the signal, supporting evidence and specific reason. This decision is recorded in Office SQL."}</p>
+          <AppTextArea id="audit-second-review-note" label={bn ? "পর্যালোচনার নির্দিষ্ট কারণ" : "Specific review reason"}
+            required value={reviewNote} onChange={setReviewNote} rows={4}
+            helper={bn ? "৩০–৫০০ অক্ষর; সংশ্লিষ্ট ঝুঁকি সংকেত উল্লেখ করতে হবে।" : "30–500 characters; identify the relevant signal code."}/>
+          {reviewError && <p role="alert" className="table-page__desc">{reviewError}</p>}
+        </div>
+      </ResponsiveOverlay>}
 
       <AuditExplainerDrawer explanation={explanation} onClose={() => setExplanation(null)} />
 
@@ -1305,6 +1373,22 @@ export function AuditModulePage() {
   const { t } = useTranslation("audit");
   const { assessmentYear } = useSettings();
   const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
+  const [sharedReviewRows, setSharedReviewRows] = useState<TableRow[]>([]);
+  const [sharedReviewError, setSharedReviewError] = useState("");
+  const [sharedReviewLoading, setSharedReviewLoading] = useState(false);
+  useEffect(() => {
+    if (!isSharedAuditMode() || subNav !== "second-review") return;
+    let cancelled=false;
+    setSharedReviewRows([]);
+    setSharedReviewError("");
+    setSharedReviewLoading(true);
+    void listSharedAuditReviewRows(assessmentYear).then(({rows})=>{
+      if(!cancelled) setSharedReviewRows(rows);
+    }).catch(error=>{
+      if(!cancelled) { setSharedReviewRows([]); setSharedReviewError(error instanceof Error?error.message:"Authorized review SQL source unavailable"); }
+    }).finally(()=>{if(!cancelled)setSharedReviewLoading(false);});
+    return ()=>{cancelled=true;};
+  },[subNav,assessmentYear]);
   const availablePopulation = isSharedAuditMode() ? [] : ALL_TAXPAYER_ROWS;
 
   const opts = (values: string[]) => values;
@@ -1410,10 +1494,17 @@ export function AuditModulePage() {
   };
 
   const reviewConfig: AuditTableConfig = {
-    yearScoped: true,
+    yearScoped: !isSharedAuditMode(),
+    dataLoading: isSharedAuditMode()?sharedReviewLoading:false,
+    dataError: isSharedAuditMode()?sharedReviewError:undefined,
+    onReviewCase: isSharedAuditMode()?async(row,decision,note)=>{
+      await submitSharedAuditReview(row,decision,note);
+      const {rows}=await listSharedAuditReviewRows(assessmentYear);
+      setSharedReviewRows(rows);
+    }:undefined,
     title:t("pages.secondReview.title"),
     description:t("pages.secondReview.description"),
-    rows:scope.secondReviewRows,
+    rows:isSharedAuditMode()?sharedReviewRows:scope.secondReviewRows,
     columns:[
       fc("case_id",t("columns.caseId"),{mono:true}),fc("return_id",t("columns.returnId"),{mono:true}),
       fc("circle",t("columns.circle")),fc("risk_level",t("columns.riskLevel")),fc("primary_signal",t("columns.primarySignal")),
@@ -1427,7 +1518,7 @@ export function AuditModulePage() {
       {type:"col",col:{key:"review_status",label:t("columns.status"),badge:true}},fc("permitted_actions",t("columns.permittedActions")),
     ],
     filters:[
-      { key:"circle", label:t("filters.circle"), type:"select", options:opts(uniqueValues(SECOND_REVIEW_ROWS,"circle")) },
+      { key:"circle", label:t("filters.circle"), type:"select", options:opts(uniqueValues(isSharedAuditMode()?sharedReviewRows:SECOND_REVIEW_ROWS,"circle")) },
       { key:"risk_level", label:t("filters.riskLevel"), type:"select", options:opts(["High","Very High"]) },
       { key:"review_status", label:t("filters.status"), type:"select", options:opts(["Ready for Review","Second Review","Rework Requested"]) },
     ],
