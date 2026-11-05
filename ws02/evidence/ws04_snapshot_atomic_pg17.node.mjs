@@ -108,6 +108,13 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(idem)},${q('d'.repeat(64))},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
   assert.ok(wrongRequest.includes('f'), 'WS02_WRONG_REQUEST_HASH_ACCEPTED_' + status);
+  // Invalid receipt digest must fail before any audit insert or slot finalization.
+  const invalidReceipt = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_atomically(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q(requestHash)},${q('short-receipt')},${q(traceHash)},
+ ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
+  assert.ok(invalidReceipt.includes('f'), 'WS02_MALFORMED_RECEIPT_HASH_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
   // Both denied commits must leave the reservation intact and no receipt behind.
