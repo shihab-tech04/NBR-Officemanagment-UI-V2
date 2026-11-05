@@ -24,6 +24,20 @@ test('Audit and Payments open directly without an officer password prompt', asyn
   await expect(page.getByRole('heading', { name: 'Officer review inbox' })).toHaveCount(0);
 });
 
+test('Content Management retains its single publishing entry without gating public Audit', async ({ page }) => {
+  await page.goto('/audit/audit-overview');
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await page.goto('/administration/content-management');
+  await expect(page.locator('#login-user-id')).toBeVisible();
+  await expect(page.locator('#login-password')).toBeVisible();
+  await page.locator('#login-user-id').fill('admin');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await page.goto('/administration/content-management');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+});
+
 test('Office mobile navigation works without any presentation-only sign-in', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/register-stock/register-4');
