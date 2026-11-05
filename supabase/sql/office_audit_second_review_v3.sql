@@ -169,6 +169,13 @@ begin
    (old.audit_status='Evidence Pending' and new.audit_status in ('Verifying','Ready for Review')) or
    (old.audit_status='Ready for Review' and new.audit_status in ('Verifying','Second Review')) or
    (old.audit_status='Second Review' and new.audit_status='Ready for Review');
+ if coalesce(v_permitted,false) and not exists(
+   select 1 from public.office_audit_memberships m
+   where m.user_id=auth.uid() and m.active and m.office_role='circle_user'
+     and m.zone=new.zone and m.circle=new.circle
+ ) then
+   raise exception 'Only the assigned DCT may advance evidence verification' using errcode='42501';
+ end if;
  if not coalesce(v_permitted,false) then
    select exists(select 1 from public.office_audit_memberships m
      where m.user_id=auth.uid() and m.active and m.office_role='range_user'
