@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../store/store";
 import { setIsDesktop } from "../store/uiSlice";
@@ -23,13 +24,18 @@ function clearEntry() {
 }
 
 /**
- * The Office prototype has a presentation-only login. In opt-in shared mode,
- * that marker cannot restore access: Supabase Auth and active Audit membership
- * must be reverified on reload. Signing out must also end the Auth session.
+ * Open Office pages have no fake login or officer-authentication prerequisite.
+ * The existing Content Management publishing route also retains the Office
+ * entry used to establish its publishing session; never regress that contract.
+ * Protected SQL and CMS writes remain server-authorized and RLS gated.
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
   const sharedMode = isSharedAuditMode();
+  const location = useLocation();
+  // Content publishing still establishes a real CMS session through the
+  // existing single Office entry; public Audit pages never need that entry.
+  const publishingEntry = location.pathname.startsWith("/administration/content-management");
   const [signedOut, setSignedOut] = useState(
     () => sharedMode || storedEntry() !== "admin",
   );
@@ -134,7 +140,7 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
-      : signedOut
+      : (sharedMode || publishingEntry) && signedOut
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
         : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}

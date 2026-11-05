@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useUIState } from "../../hooks/useUI";
+import { isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 
 interface UserProfileDropdownProps {
   onClose: () => void;
@@ -13,8 +14,10 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
   const currentUser = useCurrentUser();
   const { t: translate } = useTranslation("user");
   const { t: translateActions } = useTranslation("actions");
-  const { t: translateCommon } = useTranslation("common");
+  const { t: translateCommon, i18n } = useTranslation("common");
   const { isDesktop } = useUIState();
+  const isPublicWorkspace = !isSharedAuditMode();
+  const isBnWorkspace = i18n.resolvedLanguage?.startsWith("bn");
 
   const menuItems = [
     { id: "view-profile", label: translate("profile.viewProfile"), icon: User },
@@ -52,18 +55,18 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
         )}
         <div className="account-dropdown__header-content">
           <div className="account-dropdown__avatar" aria-hidden="true">
-            <span className="account-dropdown__avatar-text">{currentUser.shortName}</span>
+            <span className="account-dropdown__avatar-text">{isPublicWorkspace ? "OW" : currentUser.shortName}</span>
           </div>
           <div className="account-dropdown__info">
-            <h3 className="account-dropdown__name">{currentUser.name}</h3>
-            <p className="account-dropdown__role">{currentUser.designation}</p>
-            <p className="account-dropdown__email">{currentUser.email}</p>
+            <h3 className="account-dropdown__name">{isPublicWorkspace ? (isBnWorkspace ? "অফিস ওয়ার্কস্পেস" : "Office Workspace") : currentUser.name}</h3>
+            <p className="account-dropdown__role">{isPublicWorkspace ? (isBnWorkspace ? "উন্মুক্ত কর্মক্ষেত্র" : "Open workspace") : currentUser.designation}</p>
+            {!isPublicWorkspace && <p className="account-dropdown__email">{currentUser.email}</p>}
           </div>
         </div>
       </div>
 
       {/* Account Summary */}
-      <div className="account-dropdown__summary">
+      {!isPublicWorkspace && <div className="account-dropdown__summary">
         <div className="account-dropdown__summary-grid">
           <div>
             <span className="account-dropdown__summary-item-label">{translate("profile.employeeId")}</span>
@@ -82,10 +85,10 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
             <p className="account-dropdown__summary-item-value">{translate("profile.today")}, 9:42 AM</p>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Main Content — Scrollable */}
-      <div className="account-dropdown__content">
+      {!isPublicWorkspace && <div className="account-dropdown__content">
         {/* Quick Actions */}
         <div className="account-dropdown__menu-section">
           {menuItems.map((item) => {
@@ -99,16 +102,16 @@ export function UserProfileDropdown({ onClose: _onClose, onSignOut }: UserProfil
           })}
         </div>
 
-      </div>
+      </div>}
 
-      {/* Original profile footer — Sign Out */}
+      {/* Preserve session cleanup for CMS publishing permissions. */}
       <div className="account-dropdown__footer">
         <button
           onClick={() => { _onClose(); onSignOut(); }}
           className="account-dropdown__signout-button"
         >
           <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
-          <span>{translateActions("signOut")}</span>
+          <span>{isPublicWorkspace ? (isBnWorkspace ? "প্রকাশনা সেশন বিচ্ছিন্ন করুন" : "Disconnect publishing session") : translateActions("signOut")}</span>
         </button>
       </div>
 

@@ -1,94 +1,76 @@
 import { test, expect } from '@playwright/test';
 
-test('Office opens after admin demo entry without an officer authentication flow', async ({page}) => {
-  await page.setViewportSize({width:1440,height:900});
+test('Office opens directly without presentation-only credentials and survives reload', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
+  await expect(page).toHaveURL(/\/dashboard\/dashboard-main$/);
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await expect(page.locator('#login-password')).toHaveCount(0);
+  await expect(page.locator('.topbar__profile-name')).toHaveText('Office Workspace');
+  await expect(page.locator('.topbar__profile-role')).toHaveText('Open workspace');
+  await page.reload();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+});
+
+test('Audit and Payments open directly without an officer password prompt', async ({ page }) => {
+  await page.goto('/audit/audit-candidates');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await page.goto('/payments/transactions');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-password')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Officer review inbox' })).toHaveCount(0);
+});
+
+test('Content Management retains its single publishing entry without gating public Audit', async ({ page }) => {
+  await page.goto('/audit/audit-overview');
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await page.goto('/administration/content-management');
   await expect(page.locator('#login-user-id')).toBeVisible();
   await expect(page.locator('#login-password')).toBeVisible();
   await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
-  await expect(page).toHaveURL(/\/dashboard\/dashboard-main$/);
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.locator('#login-officer-email')).toHaveCount(0);
-  await expect(page.locator('#login-password')).toHaveCount(0);
-  await expect(page.getByRole('heading',{name:'Welcome back'})).toHaveCount(0);
-  await page.reload();
+  await page.goto('/administration/content-management');
   await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
 });
 
-
-test('demo entry requires admin while accepting any password or blank', async ({page}) => {
-  await page.goto('/');
-  await page.locator('#login-user-id').fill('user1');
-  await page.locator('#login-password').fill('anything');
-  await page.getByRole('button',{name:'Sign in'}).click();
-  await expect(page.locator('#login-user-id')).toBeVisible();
-  await expect(page.locator('#login-user-id')).toHaveAttribute('aria-invalid','true');
-  await page.locator('#login-user-id').fill('admin');
-  await page.locator('#login-password').fill('');
-  await page.getByRole('button',{name:'Sign in'}).click();
-  await expect(page.locator('.app-shell')).toBeVisible();
-});
-
-test('protected TaxPay officer connection is absent from the open Office UI', async ({page}) => {
-  const protectedRequests:string[]=[];
-  page.on('request',request=>{
-    if(request.url().includes('eyqhoavnitkrajvyqvxn.supabase.co'))protectedRequests.push(request.url());
-  });
-  await page.goto('/payments/transactions');
-  await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
-  await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Officer review inbox'})).toHaveCount(0);
-  expect(protectedRequests).toEqual([]);
-});
-
-test('Office mobile navigation works without login state', async ({page}) => {
-  await page.setViewportSize({width:390,height:844});
+test('Office mobile navigation works without any presentation-only sign-in', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/register-stock/register-4');
-  await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.locator('#login-officer-email')).toHaveCount(0);
-  await page.getByRole('button',{name:/navigation/i}).first().click();
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await page.getByRole('button', { name: /navigation/i }).first().click();
   await expect(page.locator('.app-sidebar-shell--mobile.app-sidebar-shell--open')).toBeVisible();
 });
 
-test('profile Sign Out confirms, clears the UI session, and returns to the Office entry screen', async ({page}) => {
-  await page.setViewportSize({width:1440,height:900});
+test('profile Sign Out still allows CMS session cleanup without locking the public Office UI', async ({ page }) => {
   await page.goto('/dashboard/dashboard-main');
-  await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
   await page.locator('.topbar__profile-button').click();
-  await expect(page.locator('.account-dropdown')).toBeVisible();
+  await expect(page.locator('.account-dropdown__name')).toHaveText('Office Workspace');
+  await expect(page.locator('.account-dropdown__email')).toHaveCount(0);
+  await expect(page.locator('.account-dropdown__summary')).toHaveCount(0);
+  await expect(page.locator('.account-dropdown__signout-button')).toContainText('Disconnect publishing session');
   await page.locator('.account-dropdown__signout-button').click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('dialog').getByRole('button',{name:'Cancel'}).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
   await expect(page.locator('.app-shell')).toBeVisible();
 
   await page.locator('.topbar__profile-button').click();
   await page.locator('.account-dropdown__signout-button').click();
-  await page.getByRole('dialog').getByRole('button',{name:'Sign Out'}).click();
-  await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
-  await expect(page.locator('#login-user-id')).toBeVisible();
-  await expect(page.locator('#login-officer-email')).toHaveCount(0);
-  await expect(page.locator('.app-shell')).toHaveCount(0);
-
-  await page.reload();
-  await expect(page.locator('#login-user-id')).toBeVisible();
-  await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign Out' }).click();
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard\/dashboard-main$/);
+  await expect(page.locator('#login-user-id')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.app-shell')).toBeVisible();
 });
 
-test('mobile profile keeps Sign Out accessible', async ({page}) => {
-  await page.setViewportSize({width:390,height:844});
+test('mobile profile retains session disconnect control for protected CMS operations', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/dashboard/dashboard-main');
-  await page.locator('#login-user-id').fill('admin');
-  await page.getByRole('button',{name:'Sign in'}).click();
   await page.locator('.mobile-topbar__profile-button').click();
   await expect(page.locator('.account-dropdown__signout-button')).toBeVisible();
-  await page.locator('.account-dropdown__signout-button').click();
-  await expect(page.getByRole('dialog')).toBeVisible();
 });
