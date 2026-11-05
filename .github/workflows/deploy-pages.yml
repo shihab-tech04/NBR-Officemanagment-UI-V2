@@ -135,3 +135,28 @@ jobs:
                   print(f'Waiting for live Pages propagation ({attempt+1}/12): {e}')
                   time.sleep(10)
           PYLIVE
+
+      - name: Check out Office source for actual live CMS browser acceptance
+        uses: actions/checkout@v4
+      - name: Set up Node.js for live CMS browser acceptance
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install live browser acceptance dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund @playwright/test
+          npx playwright install --with-deps chromium
+      - name: Verify published TaxPay CMS content in desktop and mobile Chromium
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node scripts/verify-live-cms.mjs
+      - name: Preserve actual deployed CMS screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-cms-desktop-mobile
+          path: test-results/live-cms-*.png
+          if-no-files-found: ignore
+          retention-days: 14
