@@ -1376,7 +1376,7 @@ function AuditOverviewPage({loadedCandidates,sourceError,sourceLoading}:{
 
 export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
-  const { t } = useTranslation("audit");
+  const { t, i18n } = useTranslation("audit");
   const { assessmentYear } = useSettings();
   const { candidates:sourceCandidates, loading:sourceLoading, error:sourceError } =
     useLoadedAuditCandidates(assessmentYear);
@@ -1418,7 +1418,9 @@ export function AuditModulePage() {
   const taxpayerConfig: AuditTableConfig = {
     yearScoped: !isSharedAuditMode(),
     dataError: isSharedAuditMode()
-      ? "The authoritative full taxpayer-return source is not connected to Office Audit SQL."
+      ? (i18n.resolvedLanguage?.startsWith("bn")
+          ? "অফিস অডিট SQL-এর সঙ্গে যাচাইকৃত পূর্ণ করদাতা রিটার্নের উৎস সংযুক্ত নয়।"
+          : "The authoritative full taxpayer-return source is not connected to Office Audit SQL.")
       : undefined,
     title: t("pages.allTaxpayers.title"),
     description: t("pages.allTaxpayers.description"),
