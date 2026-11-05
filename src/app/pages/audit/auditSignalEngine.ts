@@ -94,7 +94,7 @@ export function auditRiskLevel(ids: AuditSignalId[], facts: TaxReturnFacts): str
 /** Build a complete, arithmetically internally consistent financial record.
  * The scenario specifies INPUT characteristics; matching signals are always computed.
  */
-export function makeAuditProfile(scenarios: readonly string[], sequence: number): TaxReturnFacts {
+export function makeAuditProfile(scenarios: readonly string[], sequence: number, gapAmount?: number): TaxReturnFacts {
   const f: TaxReturnFacts = {
     income: 800_000, payableTax: 50_000, tds: 40_000,
     tdsApplicableRate: 0.1, declaredTdsIncome: 400_000, businessIncome: 400_000,
@@ -129,11 +129,13 @@ export function makeAuditProfile(scenarios: readonly string[], sequence: number)
     }
   }
   // Keep the funds-flow identity balanced unless a funds-gap case is intended.
-  const intentionalGap = scenarios.includes('R-C1') ? 800_000 : 0;
+  const intentionalGap = scenarios.includes('R-C1') ? (gapAmount ?? 800_000) : 0;
   f.openingWealth = f.assets - f.income - f.otherReceipts + f.expenditure + f.liabilitiesChange - intentionalGap;
   if (!scenarios.includes('R-C3')) f.priorClosingWealth = f.openingWealth;
   else f.priorClosingWealth=f.openingWealth - 400_000;
   f.incomeHistory[2]=scenarios.includes('R-D2') ? 900_000 : f.income;
+  f.taxHistory[2] = f.payableTax;
+  if (f.income === 0) { f.tds = 0; f.declaredTdsIncome = 0; f.businessIncome = 0; }
   return f;
 }
 
@@ -181,8 +183,8 @@ export function buildAuditTaxpayerPopulation<T extends Record<string, unknown>>(
   const previous = baseline.map((row, index) => {
     // Existing expected scenarios determine which financial facts are prepared;
     // the original prefilled signal labels never enter the screening algorithm.
-    const profile = String(row.signals ?? '').match(/R-[A-E]\d/g) ?? [];
-    return screenTaxpayer(row, makeAuditProfile(profile, index + 1));
+    const profile: string[] = [...(String(row.signals ?? '').match(/R-[A-E]\d/g) ?? [])];
+    return screenTaxpayer(row, makeAuditProfile(profile, index + 1, profile.includes('R-C1') ? Number(row.mismatch_amount) : undefined));
   });
   const additions = PROFILE_NAMES.map((taxpayer_name, index) => {
     const serial = index + 1;
