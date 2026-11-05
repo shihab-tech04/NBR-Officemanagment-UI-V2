@@ -52,7 +52,7 @@ const RISK_LEVELS = ["Low","Medium","High","Very High"] as const;
 const ALL_ZONES_VALUE = "__ALL_ZONES__";
 const CIRCLE_SCOPE_SEPARATOR = "|||";
 const SCREENING_RUN_STORAGE_KEY = "nbr-audit-screening-run-v1";
-const SCREENING_READY_AFTER_MS = 2 * 60 * 60 * 1000;
+const SCREENING_READY_AFTER_MS = 0;
 
 type ScreeningRunSnapshot = {
   assessmentYear: string;
