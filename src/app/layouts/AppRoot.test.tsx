@@ -19,6 +19,7 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
     },
   }),
 }));
+vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname }) }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
 vi.mock("../hooks/useAppearance", () => ({ useAppearance: () => undefined }));
 vi.mock("../context/HelpContext", () => ({
@@ -37,6 +38,7 @@ vi.mock("../pages/auth/LoginPage", () => ({
 describe("Office UI entry and shared officer Auth lifecycle", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
     vi.clearAllMocks();
     shared.enabled = false;
     shared.checkAccess.mockResolvedValue({ userId: "verified-test-officer" });
@@ -56,6 +58,17 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     await waitFor(() => expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull());
     expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
     expect(shared.signOut).not.toHaveBeenCalled();
+  });
+
+  it("preserves the existing single CMS publishing entry without gating Audit", async () => {
+    window.history.replaceState(null, "", "/administration/content-management");
+    const user = userEvent.setup();
+    render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Enter Office (admin)" }));
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
   });
 
   it("does not restore a prototype admin marker in shared mode", async () => {
