@@ -67,3 +67,36 @@ test("Bengali candidate labels, source explanations and reconciliation stay visi
   await expect(details).toHaveAttribute("open","");
   await expect(details).toContainText("৳");
 });
+
+for (const width of [1366, 1024, 768, 390, 360]) {
+  for (const language of ["English", "Bengali"] as const) {
+    test(`${language} negative indicator tags never collide with financial labels at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 865 });
+      await page.goto(profile);
+      const indicator = page.locator(".audit-key-indicator--negative").first();
+      await expect(indicator).toBeVisible({ timeout: 18000 });
+      await expect(indicator.locator(".audit-key-indicator__negative-tag")).toBeVisible();
+
+      // Glyph rectangles catch overflowing text that a flex item's bounding box
+      // would miss (the original regression overlaid "Negative balance" on its label).
+      const geometry = await indicator.evaluate((card) => {
+        const label = card.querySelector(".audit-key-indicator__top > p")!;
+        const tags = Array.from(card.querySelectorAll(".audit-key-indicator__signals > *"));
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const textRects = Array.from(range.getClientRects());
+        const badgeRects = tags.map((tag) => tag.getBoundingClientRect());
+        const overlaps = textRects.filter((a) => badgeRects.some((b) => (
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+        ))).length;
+        const cardBounds = card.getBoundingClientRect();
+        const escaped = [...textRects, ...badgeRects].filter((rect) => (
+          rect.left < cardBounds.left - 2 || rect.right > cardBounds.right + 2
+        )).length;
+        return { overlaps, escaped };
+      });
+      expect(geometry).toEqual({ overlaps: 0, escaped: 0 });
+    });
+  }
+}
