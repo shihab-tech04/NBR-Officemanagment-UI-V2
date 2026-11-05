@@ -41,6 +41,6 @@ test("Empty assessment year gives accurate guidance and a working year switch",a
   await expect(page.locator(".table-card__toolbar-btn--download")).toBeDisabled();
   await expect(page.locator(".card-table__empty")).toHaveText("No Audit records are loaded for AY 2024-25.");
   await notice.getByRole("button",{name:"View AY 2025-26 records"}).click();
-  await expect(page.locator(".table-card__count")).not.toContainText("0 records");
+  await expect(page.locator(".table-card__count")).toHaveText(/^[1-9][0-9]* records$/);
   await expect(page.locator(".table-card__toolbar-btn--download")).toBeEnabled();
 });
