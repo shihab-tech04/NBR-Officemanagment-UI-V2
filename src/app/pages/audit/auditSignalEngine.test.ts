@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ALL_TAXPAYER_ROWS } from './auditData';
 import { AUDIT_SIGNAL_IDS, evaluateAuditSignals, makeAuditProfile } from './auditSignalEngine';
-const codes = (value: unknown) => String(value ?? '').match(/R-[A-E]\\d/g) ?? [];
+const codes = (value: unknown) => String(value ?? '').match(/R-[A-E]\d/g) ?? [];
 describe('Financial Audit screening', () => {
  it('keeps 70 unique taxpayer returns, including original 36', () => {
    expect(ALL_TAXPAYER_ROWS).toHaveLength(70);
