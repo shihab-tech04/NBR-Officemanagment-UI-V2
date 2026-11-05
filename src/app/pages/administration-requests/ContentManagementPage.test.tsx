@@ -18,7 +18,7 @@ function row() {
   };
 }
 
-function makeClient(authorized: boolean) {
+function makeClient(authorized: boolean, hasSession = authorized) {
   const banners = [row()];
   const query: Record<string, unknown> = {};
   query.order = vi.fn(() => query);
@@ -31,7 +31,7 @@ function makeClient(authorized: boolean) {
   });
   const client = {
     auth: {
-      getSession: vi.fn(async () => ({ data: { session: authorized ? { user: { id: 'verified-user' } } : null }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: hasSession ? { user: { id: 'verified-user' } } : null }, error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       signInWithPassword: vi.fn(),
       signInWithOtp: vi.fn(),
@@ -58,24 +58,39 @@ describe('verified TaxPay banner CMS', () => {
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
-  it('never exposes publishing controls without a verified Supabase administrator session', async () => {
+  it('renders the published SQL banner list for Office preview without a second login', async () => {
     const { client } = makeClient(false);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
-    await screen.findByRole('alert');
+    expect(await screen.findByRole('button', { name: /Tax payments, without the confusion/ })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Banner list' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Site Logo' })).toBeInTheDocument();
+    expect(screen.getByText(/Viewing published TaxPay content/)).toBeInTheDocument();
     expect(deps.createClient).toHaveBeenCalledWith(
       'https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({
         persistSession: true, storageKey: 'nbr-office-taxpay-cms-session',
       }) }),
     );
+    expect(client.from).toHaveBeenCalledWith('taxpay_site_banners');
+    expect(screen.queryByText(/Sign out of Office and use/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign in securely' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Email sign-in link \/ code/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Administrator email')).not.toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Sign out of Office');
+    expect(screen.queryByRole('button', { name: 'Add banner' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+  });
+
+  it('shows published data but does not expose write controls to a non-admin SQL session', async () => {
+    const { client, rpc } = makeClient(false, true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    render(<ContentManagementPage />);
+    await screen.findByRole('button', { name: /Tax payments, without the confusion/ });
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin'));
+    expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add banner' })).not.toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
   it('locks canonical Intro category, publishing and deletion controls', async () => {
