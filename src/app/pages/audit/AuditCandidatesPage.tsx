@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  ChevronRight,
   Download,
   Filter,
   Info,
@@ -1628,8 +1627,6 @@ export function AuditCandidatesPage({
       selectionReason === currentSignals
         .map((signal) => `${signal}: ${t(SIGNAL_LABEL_KEYS[signal] ?? signal)}`)
         .join(" · ");
-    const explainSignalInSummary = (signal: string) =>
-      resolveAuditExplanation("signals", signal, profileExplanationRow, language);
     const fundSource = lookupMetric("sourceOfFund")?.values[2];
     const fundOutflowValue = lookupMetric("fundOutflow")?.values[2];
     const reportedDifference = lookupMetric("difference")?.values[2];
@@ -2274,18 +2271,7 @@ export function AuditCandidatesPage({
                           setSummaryOriginCandidateId(selectedCandidate.candidate_id);
                         }}>
                         <strong>{signal}</strong>
-                        <span className="audit-summary-drawer__signal-body">
-                          <span className="audit-summary-drawer__signal-label">{t(SIGNAL_LABEL_KEYS[signal] ?? signal)}</span>
-                          {explainSignalInSummary(signal)?.definition && (
-                            <span className="audit-summary-drawer__signal-context">
-                              {explainSignalInSummary(signal)?.definition}
-                            </span>
-                          )}
-                          <span className="audit-summary-drawer__signal-action">
-                            {language.startsWith("bn") ? "সিদ্ধান্তের ধাপ ও প্রমাণ দেখুন" : "View decision path and evidence"}
-                          </span>
-                        </span>
-                        <ChevronRight size={16} className="audit-summary-drawer__signal-chevron" aria-hidden="true" />
+                        <span>{t(SIGNAL_LABEL_KEYS[signal] ?? signal)}</span>
                       </button>
                     </Tooltip>
                   ))}
@@ -2303,21 +2289,10 @@ export function AuditCandidatesPage({
                       <span className="drawer-field__label">{metric.label}</span>
                       <div className="drawer-field__value">
                         <strong>{formatMoney(metric.values[2], language)}</strong>
-                        {metric.values.length === 3 && metric.values.every(Number.isFinite) && (
-                          <div className="audit-summary-drawer__changes">
-                            <span>{t("candidates.detail.change1y")}: {formatFinancialChange(metric.values[2], metric.values[1], language)}</span>
-                            <span>{t("candidates.detail.change3y")}: {formatFinancialChange(metric.values[2], metric.values[0], language)}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-                {currentSignals.includes("R-C1") && reconciliation?.verifiedWithinModel && (
-                  <p className="audit-summary-drawer__formula">
-                    {t("candidates.detail.metrics.sourceOfFund")} − {t("candidates.detail.metrics.fundOutflow")} = {t("candidates.detail.metrics.difference")}
-                  </p>
-                )}
               </section>
             )}
             <section className="detail-section">

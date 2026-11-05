@@ -4472,49 +4472,6 @@
   overflow-wrap: anywhere;
   line-height: var(--lh-body-md);
 }
-.audit-summary-drawer__signal .audit-summary-drawer__signal-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.audit-summary-drawer__signal-label {
-  font-weight: 600;
-}
-.audit-summary-drawer__signal-context {
-  color: var(--color-text-secondary);
-  font-size: var(--fs-body-sm);
-  line-height: var(--lh-body-md);
-}
-.audit-summary-drawer__signal-action {
-  color: var(--color-primary);
-  font-size: var(--fs-caption);
-  font-weight: 600;
-}
-.audit-summary-drawer__signal-chevron {
-  flex: 0 0 auto;
-  align-self: center;
-  color: var(--color-primary);
-}
-.audit-summary-drawer__changes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-top: var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--fs-caption);
-  line-height: var(--lh-body-md);
-  font-variant-numeric: tabular-nums;
-}
-.audit-summary-drawer__formula {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-3);
-  color: var(--color-text-secondary);
-  font-size: var(--fs-caption);
-  overflow-wrap: anywhere;
-}
-
 .audit-summary-drawer__signal:hover,
 .audit-summary-drawer__signal:focus-visible {
   border-color: var(--color-primary);
