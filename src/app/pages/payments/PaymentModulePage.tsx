@@ -29,6 +29,8 @@ import {OfficeTaxJourney} from './OfficeTaxJourney';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
+import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
+import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -303,6 +305,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     .filter((row):row is NonNullable<typeof row>=>row!==null);
   const journeySourceById=new Map(storyPayments.map(payment=>[payment.id,payment.createdAt]));
   const taxpayerJourneyEntries=taxPayments.map(record=>({record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''}));
+  const taxpayerActivity=storyLoading||storyError?null:
+    summarizeTaxpayerRecordedActivity(storyPayments,storyNotices,selectedTin,scopeYear);
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const correctionStateLabel=(state:string)=>t(`officeCorrectionState.${state}`,{defaultValue:state.replace(/_/g,' ')});
@@ -428,11 +432,15 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <div className="payment-module__year-control">{yearSelect}</div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
-      kpi(t('payments'),displayNumber(taxPayments.length),CreditCard),
-      kpi(t('received'),'—',Landmark,'neutral'),
-      kpi(t('eligible'),'—',CheckCircle2,'neutral'),
-      kpi(t('blocked'),'—',ShieldAlert,'neutral'),
+      kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংযুক্ত পেমেন্ট':'Linked payments',taxpayerActivity?displayNumber(taxpayerActivity.linkedRecords):'—',CreditCard),
+      kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংরক্ষিত পেমেন্টের পরিমাণ':'Saved record amount',taxpayerActivity?.recordedSavedAmountMinor!==null&&taxpayerActivity?displayMoney(taxpayerActivity.recordedSavedAmountMinor/100):'—',Wallet,'neutral'),
+      kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংযুক্ত করবর্ষ':'Assessment years',taxpayerActivity?displayNumber(taxpayerActivity.assessmentYears.length):'—',BarChart3),
+      kpi(i18n.resolvedLanguage?.startsWith('bn')?'পেমেন্ট বিজ্ঞপ্তি':'Payment notices',taxpayerActivity?displayNumber(taxpayerActivity.notices.length):'—',Users),
     ])}
+    {taxpayerActivity&&<OfficeTaxpayer360Activity snapshot={taxpayerActivity}
+      language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
+      formatCount={displayNumber} formatDate={displayEventDate}
+      onOpen={row=>view(row,t('transactions'))}/>}
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
     {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
@@ -441,12 +449,13 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
-      taxpayerTab==='notices' ? <section className="card payment-module__card payment-module__empty"><h2>{t('notices')}</h2>
-        {beneficiaryNotices.length?<ul>{beneficiaryNotices.map(n=><li key={n.id}>
-          <p><strong>{n.messageCode}</strong> · {n.transactionId}</p>
-          <p><time dateTime={n.createdAt}>{n.createdAt}</time> · {t('notices')}</p>
-        </li>)}</ul>:<p>{t('noSampleNotices')}</p>}
-      </section> :
+      taxpayerTab==='notices' ? taxpayerActivity
+        ? <OfficeTaxpayer360Notices snapshot={taxpayerActivity}
+            language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
+            formatDate={displayEventDate} onOpen={row=>view(row,t('transactions'))}/>
+        : <section className="card payment-module__card"><h2>{t('notices')}</h2>
+            <p className="table-page__desc" role="status">{storyLoading?t('loadingTaxpayers'):storyError||t('noSampleNotices')}</p>
+          </section> :
       <section className="card payment-module__card payment-module__empty"><h2>{t('returns')}</h2><p>{t('noSampleReturns')}</p></section>}
   </>;
   const corrections=()=> <>
