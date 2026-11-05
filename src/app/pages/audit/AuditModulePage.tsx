@@ -19,7 +19,7 @@ import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
 import { useSettings, useSettingsActions } from "../../hooks/useSettings";
-import { handleExportDisabled } from "../../utils/exportDisabled";
+import { downloadAuditCsv } from "./auditCsvExport";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
 import {
@@ -57,6 +57,7 @@ type AuditTableConfig = {
     date?: string;
   };
   readOnly?: boolean;
+  yearScoped?: boolean;
 };
 
 function flattenColumns(cols: ColDef[]) {
@@ -77,6 +78,7 @@ function buildLoadedReconciliation(candidates: TableRow[], cases: TableRow[]): T
   const caseKeys = new Set(cases.map((row) =>
     [String(row.assessment_year ?? ""), String(row.return_id ?? "")].join("|")));
   const highRisk = candidates.filter((row) => ["High", "Very High"].includes(String(row.risk_level ?? "")));
+  if (candidates.length === 0) return [];
   const circles = Array.from(new Set(highRisk.map((row) => String(row.circle ?? "").trim()).filter(Boolean))).sort();
   const groups = [{ label: "Loaded selection", rows: highRisk }, ...circles.map((circle) => ({
     label: circle, rows: highRisk.filter((row) => String(row.circle) === circle),
@@ -98,6 +100,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   const { isDesktop } = useUIState();
   const { t, i18n } = useTranslation("audit");
   const { t: translateCommon } = useTranslation("common");
+  const { assessmentYear, setAssessmentYear } = useSettingsActions();
   const location = useLocation();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
@@ -143,6 +146,12 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   const pageRows = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
   const drawerCols = flattenColumns(config.drawerColumns ?? config.columns);
   const hasActiveFilters = Object.values(appliedFilters).some(Boolean);
+  const emptySelectedYear = !!config.yearScoped && config.rows.length === 0;
+  const emptyYearMessage = emptySelectedYear
+    ? (i18n.resolvedLanguage?.startsWith("bn")
+      ? `মূল্যায়ন বছর ${assessmentYear}-এ কোনো অডিট রেকর্ড লোড করা নেই।`
+      : `No Audit records are loaded for AY ${assessmentYear}.`)
+    : undefined;
 
   const handleCellExplain = (key: string, value: string, row: TableRow) => {
     const resolved = resolveAuditExplanation(key, value, row, i18n.resolvedLanguage);
@@ -178,6 +187,14 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         {config.readOnly && <StatusBadge value="Read only" />}
       </div>
 
+      {emptySelectedYear && (
+        <AuditYearAvailabilityNotice
+          selectedYear={assessmentYear}
+          availableYears={getAvailableAuditYears(getAuditCandidates())}
+          language={i18n.resolvedLanguage}
+          onSelectYear={setAssessmentYear}
+        />
+      )}
       <MobileSearchFilter
         searchValue={q}
         onSearchChange={handleSearchChange}
@@ -218,7 +235,8 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
           <button
             type="button"
             className="table-card__toolbar-btn table-card__toolbar-btn--download"
-            onClick={() => handleExportDisabled(translateCommon("actions.exportDisabled"))}
+            onClick={() => downloadAuditCsv(config.title, config.columns, filtered)}
+            disabled={filtered.length === 0}
           >
             <Download size={13} aria-hidden="true" /> {translateCommon("actions.export")}
           </button>
@@ -252,6 +270,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         <ResponsiveTable
           cols={config.columns}
           rows={pageRows}
+          emptyMessage={emptyYearMessage}
           onRowClick={(row) => setDrawer(row)}
           noCard
           clickableKeys={config.clickableKeys}
@@ -1289,6 +1308,7 @@ export function AuditModulePage() {
   const opts = (values: string[]) => values;
 
   const taxpayerConfig: AuditTableConfig = {
+    yearScoped: true,
     title: t("pages.allTaxpayers.title"),
     description: t("pages.allTaxpayers.description"),
     rows: scope.population,
@@ -1328,6 +1348,7 @@ export function AuditModulePage() {
   };
 
   const riskConfig: AuditTableConfig = {
+    yearScoped: true,
     title: t("pages.riskCases.title"),
     description: t("pages.riskCases.description"),
     rows: scope.riskCases,
@@ -1362,6 +1383,7 @@ export function AuditModulePage() {
   };
 
   const controlConfig: AuditTableConfig = {
+    yearScoped: true,
     title:t("pages.control.title"),
     description:t("pages.control.description"),
     rows:scope.controlRows,
@@ -1386,6 +1408,7 @@ export function AuditModulePage() {
   };
 
   const reviewConfig: AuditTableConfig = {
+    yearScoped: true,
     title:t("pages.secondReview.title"),
     description:t("pages.secondReview.description"),
     rows:scope.secondReviewRows,
@@ -1437,6 +1460,7 @@ export function AuditModulePage() {
   };
 
   const reconciliationConfig: AuditTableConfig = {
+    yearScoped: true,
     title:t("pages.reconciliation.title"),
     description:t("pages.reconciliation.description"),
     rows:buildLoadedReconciliation(scope.candidates, scope.riskCases),
@@ -1462,6 +1486,7 @@ export function AuditModulePage() {
   };
 
   const trailConfig: AuditTableConfig = {
+    yearScoped: true,
     title:t("pages.trail.title"),
     description:t("pages.trail.description"),
     rows:scope.trailRows,

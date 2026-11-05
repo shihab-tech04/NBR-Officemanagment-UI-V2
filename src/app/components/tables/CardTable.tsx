@@ -17,6 +17,7 @@ interface CardTableProps {
   onCellClick?: (key: string, value: string, row: TableRow) => void;
   "aria-label"?: string;
   inlineRow?: ReactNode;
+  emptyMessage?: string;
   /** Optional header sorting; no effect on existing unsorted registers. */
   sortKey?: string;
   sortDirection?: "ascending" | "descending";
@@ -48,7 +49,7 @@ function cellTextClass(col: FlatCol): string {
   return "card-table__cell-text card-table__cell-text--normal";
 }
 
-export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, inlineRow, "aria-label": ariaLabel }: CardTableProps) {
+export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCard, clickableKeys, onCellClick, sortKey, sortDirection, onSortColumn, inlineRow, emptyMessage, "aria-label": ariaLabel }: CardTableProps) {
   const { t: translateTables, i18n } = useTranslation("tables");
   const { t: translateActions } = useTranslation("actions");
   const { t: translateCommon } = useTranslation("common");
@@ -145,7 +146,7 @@ export function CardTable({ cols, rows, actions, onRowClick, onActionClick, noCa
             {rows.length === 0 && !inlineRow ? (
               <tr>
                 <td colSpan={flat.length + ((actions || inlineRow) ? 1 : 0)} className="card-table__empty">
-                  {translateEmptyStates("noRecordsDescription")}
+                  {emptyMessage ?? translateEmptyStates("noRecordsDescription")}
                 </td>
               </tr>
             ) : (
