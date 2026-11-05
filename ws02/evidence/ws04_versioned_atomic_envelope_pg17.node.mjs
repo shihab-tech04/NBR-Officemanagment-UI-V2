@@ -135,6 +135,14 @@ SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
   assert.ok(wrongActor.includes('f'), 'WS02_WRONG_ACTOR_ACCEPTED_' + status);
+  // A valid actor must not finalize a different taxpayer record, even in
+  // the same assessment year with an otherwise valid canonical trace.
+  const wrongRecord = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
+ ${q(actor)},'50000000-0000-4000-8000-000000000099','2026-27',
+ ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
+ ${q(status)},${q(JSON.stringify(snapshot))}::jsonb,${q(bytes)},'NBR_W5_CANONICAL_UTF8_V1');`);
+  assert.deepEqual(wrongRecord, ['f'], 'WS02_WRONG_TAXPAYER_RECORD_ACCEPTED_' + status);
   const crossYear = pg(`SET ROLE ws02_owner_engine;
 SELECT ws02_owner.nbr_commit_evaluation_versioned_candidate(
  ${q(actor)},${q(record)},'2027-28',
