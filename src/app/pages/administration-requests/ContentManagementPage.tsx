@@ -5,6 +5,7 @@ import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
+import { verifyPublicImage } from './verifyPublicImage';
 import { useImagePreview } from './useImagePreview';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 
@@ -241,11 +242,17 @@ export function ContentManagementPage() {
     setBusy(true); setMessage('');
     const uploads: string[] = [];
     let committed = false;
+    let publicVerified = false;
+    let committedRow: Banner | null = null;
     try {
       let desktopPath = draft.desktop_image_path;
       let mobilePath = draft.mobile_image_path;
       if (desktopFile) { desktopPath = await uploadImage(desktopFile, draft.id); uploads.push(desktopPath); }
       if (mobileFile) { mobilePath = await uploadImage(mobileFile, draft.id); uploads.push(mobilePath); }
+      // Validate freshly uploaded public images BEFORE a banner record references them.
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public TaxPay verification is not configured.');
+      for (const path of uploads) await verifyPublicImage(publicCms, 'taxpay-banners', path);
       const isNew = newDraft?.id === draft.id;
       const payload = {
         id: draft.id,
@@ -273,6 +280,7 @@ export function ContentManagementPage() {
       // A successful RPC can have committed even if the follow-up read fails.
       // Never delete uploaded assets or retry an already committed write.
       committed = true;
+      committedRow = saved as Banner | null;
       const matchesPayload = (value: Banner | null): value is Banner =>
         !!value && Object.entries(payload).every(([key, expected]) =>
           value[key as keyof Banner] === expected);
@@ -288,8 +296,6 @@ export function ContentManagementPage() {
         throw new Error('SQL read-back did not match the published banner. Refresh to verify.');
       }
       // Verify what an anonymous TaxPay visitor can read, not just Office RLS.
-      const publicCms = getTaxPayCmsPublicClient();
-      if (!publicCms) throw new Error('Public TaxPay read-back is not configured.');
       const { data: publicRows, error: publicError } = await publicCms.from('taxpay_site_banners')
         .select('*').eq('published', true).order('sort_order', { ascending: true });
       if (publicError) throw new Error('Public TaxPay read-back failed: ' + publicError.message);
@@ -300,17 +306,37 @@ export function ContentManagementPage() {
         : publicRow !== null) {
         throw new Error('Public TaxPay visibility does not match the committed SQL banner.');
       }
+      if (draft.published) {
+        // SQL path equality is not evidence that the public asset can load.
+        for (const path of new Set([desktopPath, mobilePath].filter((value): value is string => !!value))) {
+          await verifyPublicImage(publicCms, 'taxpay-banners', path);
+        }
+      }
+      publicVerified = true;
       setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
       const oldPaths = [draft.desktop_image_path, draft.mobile_image_path].filter(
         (path): path is string => !!path && ![desktopPath, mobilePath].includes(path),
       );
       await cleanupUnusedImages(oldPaths);
-      setMessage(previous => previous || 'Saved to SQL and verified in the public TaxPay banner feed.');
+      setMessage(previous => previous || 'Saved to SQL; public TaxPay text and images verified.');
     } catch (error) {
-      if (!committed && uploads.length) await cms.storage.from('taxpay-banners').remove(uploads);
+      let cleanupFailed = false;
+      if (!committed && uploads.length) {
+        const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(uploads);
+        cleanupFailed = !!cleanupError;
+      }
+      // A committed version must replace the stale editor version before retry.
+      if (committedRow?.id) {
+        setDraft(committedRow);
+        setSelectedId(committedRow.id);
+        setDesiredPosition(committedRow.sort_order + 1);
+        setNewDraft(null);
+      }
       setMessage(committed
-        ? 'Saved to SQL, but refresh or image cleanup failed: ' + (error as Error).message + '. Refresh to verify.'
-        : 'Save not completed: ' + (error as Error).message + '. Refresh the banner before retrying.');
+        ? (publicVerified ? 'Published and public read-back verified; image cleanup incomplete: ' :
+          'Saved in SQL, public verification incomplete: ') + (error as Error).message
+        : (cleanupFailed ? 'Save failed; uploaded asset cleanup incomplete: ' : 'Save not completed: ') +
+          (error as Error).message);
     } finally { setBusy(false); }
   }
 
@@ -403,7 +429,11 @@ export function ContentManagementPage() {
               </div>;
             })}
           </div>
-          <p className="cms-editor__note">{draft.service_code ? 'Service headings and descriptions are announced when artwork changes. The visible heading, description and payment actions remain fixed; only the Travel Tax action label controls the second fixed button.' : 'The main banner controls the fixed heading, description and primary payment button on the taxpayer homepage.'}</p>
+          <p className="cms-editor__note">{draft.service_code
+            ? 'Taxpayer displays this service artwork while the visible left heading and payment actions remain fixed. This service heading and description are announced for accessibility. Only the Travel Tax action label changes the second visible button.'
+            : draft.id === 'intro'
+              ? 'This banner controls the Taxpayer homepage’s fixed left heading, description and primary payment button. The right illustration changes as other banners rotate.'
+              : 'Only the original Main banner controls Taxpayer’s visible left copy. This additional uncategorized record rotates its illustration but does not replace the original Main heading.'}</p>
           <div className="cms-fields">{fields.map(field => <div className="cms-field" key={field.key}><label htmlFor={`cms-${field.key}`}>{field.label}</label>
             {editing ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
               <input id={`cms-${field.key}`} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />) :
