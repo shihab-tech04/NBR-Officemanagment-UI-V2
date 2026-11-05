@@ -71,7 +71,7 @@ describe('public Office re-entry after Sign Out', () => {
     expect(screen.queryByRole('textbox', { name: /officer email/i })).not.toBeInTheDocument();
   });
 
-  it('rejects non-admin identifiers and ignores arbitrary passwords', async () => {
+  it('rejects non-admin identifiers and does not treat an arbitrary password as a valid Office session', async () => {
     const user = userEvent.setup();
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -79,7 +79,9 @@ describe('public Office re-entry after Sign Out', () => {
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'anything');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('alert')).toHaveTextContent('service is unavailable');
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
   it('accepts blank password for admin and rejects another name even with a password', async () => {
