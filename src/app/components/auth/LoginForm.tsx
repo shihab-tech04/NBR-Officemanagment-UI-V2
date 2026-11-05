@@ -66,6 +66,9 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     setSharedBusy(true);
     try {
       const cms = getTaxPayCmsClient();
+      if (!cms && password) {
+        throw new Error("Office content service is unavailable. Publishing sign-in could not be verified.");
+      }
       if (cms) {
         const { error: signOutError } = await cms.auth.signOut({ scope: "local" });
         if (signOutError) throw new Error("Could not reset the previous publishing session.");
