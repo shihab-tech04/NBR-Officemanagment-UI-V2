@@ -23,7 +23,7 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
-import { useSettings } from "../../hooks/useSettings";
+import { useSettingsActions } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
@@ -35,6 +35,8 @@ import {
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { isSharedAuditMode } from "./auditSharedSql";
+import { getAvailableAuditYears } from "./auditYearScope";
+import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { InitiateAuditModal } from "./InitiateAuditPage";
 import { ResponsiveOverlay } from "../../components/shared/ResponsiveOverlay";
@@ -1069,7 +1071,7 @@ export function AuditCandidatesPage({
   initialInitiateOpen = false,
 }: AuditCandidatesPageProps) {
   const { isDesktop } = useUIState();
-  const { assessmentYear } = useSettings();
+  const { assessmentYear, setAssessmentYear } = useSettingsActions();
   const { t, i18n } = useTranslation("audit");
   const { t: tc } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1077,6 +1079,7 @@ export function AuditCandidatesPage({
   const [storedRows, setStoredRows] = useState<AuditCandidateRecord[]>(() =>
     getAuditCandidates(),
   );
+  const availableAuditYears = getAvailableAuditYears(storedRows);
   const [sharedDataError, setSharedDataError] = useState("");
   const [sharedDataLoading, setSharedDataLoading] = useState(isSharedAuditMode());
   const refreshCandidates = async () => {
@@ -2235,12 +2238,18 @@ export function AuditCandidatesPage({
         )}
       </div>
 
+      <AuditYearAvailabilityNotice
+        selectedYear={assessmentYear}
+        availableYears={availableAuditYears}
+        language={i18n.resolvedLanguage}
+        onSelectYear={setAssessmentYear}
+      />
       {isSharedAuditMode() && (sharedDataLoading || sharedDataError) && (
         <div role={sharedDataError ? "alert" : "status"} className="form-helper">
           {sharedDataError
             ? (i18n.resolvedLanguage?.startsWith("bn")
-                ? "অফিসার অ্যাক্সেস বা অডিট ডাটাবেস যাচাই করা যায়নি: "
-                : "Officer access or Audit SQL could not be verified: ") + sharedDataError
+                ? "অডিট রেকর্ড লোড করা যায়নি: "
+                : "Audit records could not be loaded: ") + sharedDataError
             : (i18n.resolvedLanguage?.startsWith("bn")
                 ? "অনুমোদিত অডিট রেকর্ড লোড হচ্ছে"
                 : "Loading authorized Audit records")}

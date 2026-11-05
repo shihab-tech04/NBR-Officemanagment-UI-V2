@@ -18,7 +18,7 @@ import { AppliedFilterChips } from "../../components/filters/AppliedFilterChips"
 import { MobileSearchFilter } from "../../components/shared/MobileSearchFilter";
 import { Pagination } from "../../components/shared/Pagination";
 import { useUIState } from "../../hooks/useUI";
-import { useSettings } from "../../hooks/useSettings";
+import { useSettings, useSettingsActions } from "../../hooks/useSettings";
 import { handleExportDisabled } from "../../utils/exportDisabled";
 import type { ColDef, FilterDef, TableRow } from "../modulePageUtils";
 import { fc } from "../modulePageUtils";
@@ -34,6 +34,8 @@ import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge
 import { AuditCandidatesPage } from "./AuditCandidatesPage";
 import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
+import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
+import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
 
@@ -301,7 +303,7 @@ function AuditOverviewPage() {
   const { t, i18n } = useTranslation("audit");
   const { t: translateTables } = useTranslation("tables");
   const navigate = useNavigate();
-  const { assessmentYear } = useSettings();
+  const { assessmentYear, setAssessmentYear } = useSettingsActions();
 
   type ExploreMetric = "risk_level" | "signals" | "coverage_tier" | "data_quality" | "circle" | "audit_state" | "control_flags" | "assessment_year" | "return_version";
   type WorkloadMetric = "candidates" | "active" | "evidence" | "controls" | "secondReview" | "closed";
@@ -322,11 +324,11 @@ function AuditOverviewPage() {
   const [circleQuery, setCircleQuery] = useState("");
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
 
-  // The presentation Audit dashboard uses local, year-scoped prototype records only.
-  const candidates = getAuditCandidates().filter(candidate => candidate.assessment_year === assessmentYear);
-  const population = ALL_TAXPAYER_ROWS.filter(
-    row => String(row.assessment_year ?? "") === assessmentYear
-  );
+  // All headline numbers and drilldowns describe the exact selected AY.
+  const allCandidates = getAuditCandidates();
+  const { candidates, population, riskCases, controlRows, secondReviewRows, trailRows } =
+    getAuditYearScope(assessmentYear, allCandidates);
+  const availableYears = getAvailableAuditYears(allCandidates);
 
   // Live dashboard controls are derived from the exact locally loaded records.
   // Published NBR national numbers are historical context, never scaling factors.
@@ -351,27 +353,27 @@ function AuditOverviewPage() {
     }).format(rounded);
   };
 
-  const activeCases = RISK_CASE_ROWS.filter((row) => String(row.case_status ?? "") !== "Closed");
-  const closedCases = RISK_CASE_ROWS.filter((row) => String(row.case_status ?? "") === "Closed");
-  const pendingEvidence = RISK_CASE_ROWS.filter((row) =>
+  const activeCases = riskCases.filter((row) => String(row.case_status ?? "") !== "Closed");
+  const closedCases = riskCases.filter((row) => String(row.case_status ?? "") === "Closed");
+  const pendingEvidence = riskCases.filter((row) =>
     ["Pending", "Partial", "Not requested", "Evidence Pending"].includes(String(row.evidence_status ?? ""))
   );
-  const openControls = CONTROL_ROWS.filter((row) => String(row.control_status ?? "") !== "Resolved");
-  const verificationCases = RISK_CASE_ROWS.filter((row) =>
+  const openControls = controlRows.filter((row) => String(row.control_status ?? "") !== "Resolved");
+  const verificationCases = riskCases.filter((row) =>
     ["Assigned", "Verifying", "Evidence Pending"].includes(String(row.case_status ?? ""))
   );
-  const auditReviewCases = RISK_CASE_ROWS.filter((row) =>
+  const auditReviewCases = riskCases.filter((row) =>
     ["Ready for Review", "Second Review", "Rework Requested"].includes(String(row.case_status ?? ""))
   );
 
   const countActiveCases = activeCases.length;
   const countPendingEvidence = pendingEvidence.length;
   const countOpenControls = openControls.length;
-  const countSecondReview = SECOND_REVIEW_ROWS.length;
+  const countSecondReview = secondReviewRows.length;
   const countVerificationCases = verificationCases.length;
   const countAuditReviewCases = auditReviewCases.length;
   const countClosedCases = closedCases.length;
-  const linkedReconciliation = buildLoadedReconciliation(candidates, RISK_CASE_ROWS);
+  const linkedReconciliation = buildLoadedReconciliation(candidates, riskCases);
   const reconciliationSummary = linkedReconciliation[0];
   const countHighRiskReturns = Number(reconciliationSummary?.high_risk_returns ?? 0);
   const countReconciliationMatched = Number(reconciliationSummary?.matching_cases ?? 0);
@@ -641,8 +643,8 @@ function AuditOverviewPage() {
   const workloadCircles = Array.from(new Set([
     ...population.map((row) => String(row.circle ?? "").trim()),
     ...candidates.map((row) => String(row.circle ?? "").trim()),
-    ...RISK_CASE_ROWS.map((row) => String(row.circle ?? "").trim()),
-    ...CONTROL_ROWS.map((row) => String(row.circle ?? "").trim()),
+    ...riskCases.map((row) => String(row.circle ?? "").trim()),
+    ...controlRows.map((row) => String(row.circle ?? "").trim()),
   ].filter((circle) => circle && circle !== "—"))).sort((a, b) => a.localeCompare(b));
   const countCircleRows = (rows: TableRow[], circle: string) =>
     rows.filter((row) => String(row.circle ?? "").trim() === circle).length;
@@ -651,7 +653,7 @@ function AuditOverviewPage() {
     active: countCircleRows(activeCases, circle),
     evidence: countCircleRows(pendingEvidence, circle),
     controls: countCircleRows(openControls, circle),
-    secondReview: countCircleRows(SECOND_REVIEW_ROWS, circle),
+    secondReview: countCircleRows(secondReviewRows, circle),
     closed: countCircleRows(closedCases, circle),
   }));
 
@@ -678,8 +680,8 @@ function AuditOverviewPage() {
 
   const sourceRowsForWorkloadMetric = () => {
     if (workloadMetric === "controls") return openControls;
-    if (workloadMetric === "secondReview") return SECOND_REVIEW_ROWS;
-    if (workloadMetric === "active" || workloadMetric === "closed" || workloadMetric === "evidence") return RISK_CASE_ROWS;
+    if (workloadMetric === "secondReview") return secondReviewRows;
+    if (workloadMetric === "active" || workloadMetric === "closed" || workloadMetric === "evidence") return riskCases;
     return candidates;
   };
 
@@ -699,8 +701,8 @@ function AuditOverviewPage() {
   const shadowRules = activeRuleRows.filter((row) => String(row.mode ?? "") === "Shadow").length;
   const draftRules = activeRuleRows.filter((row) => String(row.mode ?? "") === "Draft").length;
   const pendingGovernance = activeRuleRows.filter((row) => String(row.governance_status ?? "").startsWith("Awaiting")).length;
-  const sensitiveAccessEvents = AUDIT_TRAIL_ROWS.filter((row) => String(row.action ?? "").toLowerCase().includes("sensitive")).length;
-  const recentEvents = [...AUDIT_TRAIL_ROWS].reverse().slice(0, 3);
+  const sensitiveAccessEvents = trailRows.filter((row) => String(row.action ?? "").toLowerCase().includes("sensitive")).length;
+  const recentEvents = [...trailRows].reverse().slice(0, 3);
 
   const operations = [
     { step: "01", title: t("overview.operations.screening"), value: LOADED_CANDIDATE_COUNT, detail: t("overview.operations.screeningDetail"), route: "/audit/audit-candidates" },
@@ -730,6 +732,12 @@ function AuditOverviewPage() {
         </div>
       </div>
 
+      <AuditYearAvailabilityNotice
+        selectedYear={assessmentYear}
+        availableYears={availableYears}
+        language={i18n.resolvedLanguage}
+        onSelectYear={setAssessmentYear}
+      />
       <div className="dashboard-kpi-section audit-overview__kpis">
         <div className="dashboard-kpi-grid">
           <StatCard icon={Workflow} value={formatDashboardNumber(LOADED_CANDIDATE_COUNT)} label={t("overview.auditCandidates")} tone="primary" onClick={() => navigate("/audit/audit-candidates")} />
@@ -1244,7 +1252,7 @@ function AuditOverviewPage() {
             <div className="audit-overview__assurance">
               <button type="button" onClick={() => navigate("/audit/all-taxpayers?filterKey=data_quality&filterValue=Complete")}><span>{t("overview.dataQuality")}</span><strong title={`${formatDashboardNumber(completeQuality)}/${formatDashboardNumber(LOADED_RETURN_COUNT)}`}>{formatDashboardNumber(completeQuality)}/{formatDashboardNumber(LOADED_RETURN_COUNT)}</strong><small>{t("overview.qualityComplete", { rate: formatDashboardNumber(completeQualityRate) })}</small></button>
               <button type="button" onClick={() => navigate("/audit/rules-governance")}><span>{t("overview.ruleGovernance")}</span><strong>{formatDashboardNumber(liveRules)} {t("overview.live")}</strong><small>{t("overview.ruleMix", { staged: formatDashboardNumber(stagedRules), shadow: formatDashboardNumber(shadowRules), draft: formatDashboardNumber(draftRules), pending: formatDashboardNumber(pendingGovernance) })}</small></button>
-              <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{formatDashboardNumber(AUDIT_TRAIL_ROWS.length)}</strong><small>{t("overview.auditTrailSummary", { sensitive: formatDashboardNumber(sensitiveAccessEvents) })}</small></button>
+              <button type="button" onClick={() => navigate("/audit/audit-trail")}><span>{t("overview.auditTrailHealth")}</span><strong>{formatDashboardNumber(trailRows.length)}</strong><small>{t("overview.auditTrailSummary", { sensitive: formatDashboardNumber(sensitiveAccessEvents) })}</small></button>
             </div>
           </DashSection>
         </div>
@@ -1275,13 +1283,15 @@ function AuditOverviewPage() {
 export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
   const { t } = useTranslation("audit");
+  const { assessmentYear } = useSettings();
+  const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
 
   const opts = (values: string[]) => values;
 
   const taxpayerConfig: AuditTableConfig = {
     title: t("pages.allTaxpayers.title"),
     description: t("pages.allTaxpayers.description"),
-    rows: ALL_TAXPAYER_ROWS,
+    rows: scope.population,
     columns: [
       fc("taxpayer_name", t("columns.taxpayer")),
       fc("tin", t("columns.tin"), { mono:true }),
@@ -1320,7 +1330,7 @@ export function AuditModulePage() {
   const riskConfig: AuditTableConfig = {
     title: t("pages.riskCases.title"),
     description: t("pages.riskCases.description"),
-    rows: RISK_CASE_ROWS,
+    rows: scope.riskCases,
     columns: [
       fc("case_id", t("columns.caseId"), { mono:true }),
       fc("return_id", t("columns.returnId"), { mono:true }),
@@ -1354,7 +1364,7 @@ export function AuditModulePage() {
   const controlConfig: AuditTableConfig = {
     title:t("pages.control.title"),
     description:t("pages.control.description"),
-    rows:CONTROL_ROWS,
+    rows:scope.controlRows,
     columns:[
       fc("return_id",t("columns.returnId"),{mono:true}), fc("tin",t("columns.tin"),{mono:true}),
       fc("circle",t("columns.circle")), fc("flag_id",t("columns.flagId"),{mono:true}), fc("coverage_tier",t("columns.coverageTier")),
@@ -1378,7 +1388,7 @@ export function AuditModulePage() {
   const reviewConfig: AuditTableConfig = {
     title:t("pages.secondReview.title"),
     description:t("pages.secondReview.description"),
-    rows:SECOND_REVIEW_ROWS,
+    rows:scope.secondReviewRows,
     columns:[
       fc("case_id",t("columns.caseId"),{mono:true}),fc("return_id",t("columns.returnId"),{mono:true}),
       fc("circle",t("columns.circle")),fc("risk_level",t("columns.riskLevel")),fc("primary_signal",t("columns.primarySignal")),
@@ -1429,7 +1439,7 @@ export function AuditModulePage() {
   const reconciliationConfig: AuditTableConfig = {
     title:t("pages.reconciliation.title"),
     description:t("pages.reconciliation.description"),
-    rows:buildLoadedReconciliation(getAuditCandidates(), RISK_CASE_ROWS),
+    rows:buildLoadedReconciliation(scope.candidates, scope.riskCases),
     columns:[
       fc("reconciliation_date",t("columns.date")),fc("scope",t("columns.scope")),
       fc("high_risk_returns",t("columns.highRiskReturns"),{mono:true}),fc("matching_cases",t("columns.matchingCases"),{mono:true}),
@@ -1454,7 +1464,7 @@ export function AuditModulePage() {
   const trailConfig: AuditTableConfig = {
     title:t("pages.trail.title"),
     description:t("pages.trail.description"),
-    rows:AUDIT_TRAIL_ROWS,
+    rows:scope.trailRows,
     columns:[
       fc("timestamp_utc",t("columns.timestampUtc")),fc("event_id",t("columns.eventId"),{mono:true}),
       fc("return_id",t("columns.returnId"),{mono:true}),fc("actor_role",t("columns.actorRole")),
