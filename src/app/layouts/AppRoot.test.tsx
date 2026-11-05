@@ -46,17 +46,15 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     });
   });
 
-  it("preserves demo-only admin entry and logout without Supabase access", async () => {
+  it("opens the public Office workspace without login and keeps it open after local session cleanup", async () => {
     const user = userEvent.setup();
     render(<AppRoot />);
-    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
-    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Enter Office (admin)" }));
     expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
-    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enter Office (admin)" })).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull());
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
     expect(shared.signOut).not.toHaveBeenCalled();
   });
 
