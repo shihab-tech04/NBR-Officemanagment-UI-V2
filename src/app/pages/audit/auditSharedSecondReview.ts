@@ -35,7 +35,9 @@ export async function listSharedSecondReviews(year: string): Promise<{
   const ids = candidates.map((row) => row.candidate_id);
   const { data: findings, error: findingError } = await db.from("office_audit_findings")
     .select("id,candidate_id,evidence_id,signal_code,finding_summary,submitted_by")
-    .in("candidate_id", ids);
+    .in("candidate_id", ids)
+    .order("submitted_at", { ascending: false })
+    .order("id", { ascending: false });
   if (findingError) throw new Error("Unable to read authorized Audit Findings: " + findingError.message);
   const evidenceIds = (findings ?? []).map((f) => f.evidence_id);
   let evidence: Array<{ id: string; candidate_id: string; signal_code: string; evidence_ref: string; verification_note: string | null; verification_status: string }> = [];
