@@ -21,8 +21,7 @@ import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
-import { saveAuditCandidates } from "./auditCandidateStore";
-import { TAX_ZONES } from "../../data/taxZones";
+import { getAuditCandidates, saveAuditCandidates } from "./auditCandidateStore";
 import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../data/taxJurisdictions";
 
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
@@ -296,13 +295,18 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     coverageTiers.includes(String(row.coverage_tier))
   ), [populationRows, dataQuality, coverageTiers]);
 
-  const alreadyInAuditRows = useMemo(() => readinessRows.filter((row) =>
-    String(row.audit_state ?? "Not Started") !== "Not Started"
-  ), [readinessRows]);
+  const selectedReturnKeys = useMemo(() => new Set(
+    getAuditCandidates().map(item => item.assessment_year + "|" + item.return_id)
+  ), [assessmentYear]);
+  const isAlreadySelected = (row: TableRow) =>
+    String(row.audit_state ?? "Not Started") !== "Not Started" ||
+    selectedReturnKeys.has(String(row.assessment_year) + "|" + String(row.return_id));
 
-  const selectableRows = useMemo(() => readinessRows.filter((row) =>
-    String(row.audit_state ?? "Not Started") === "Not Started"
-  ), [readinessRows]);
+  const alreadyInAuditRows = useMemo(() => readinessRows.filter(isAlreadySelected),
+    [readinessRows, selectedReturnKeys]);
+
+  const selectableRows = useMemo(() => readinessRows.filter((row) => !isAlreadySelected(row)),
+    [readinessRows, selectedReturnKeys]);
 
   const modeledPopulationCount = populationRows.length;
   const modelFromRepresentative = (recordCount: number) => recordCount;
@@ -332,13 +336,13 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   }), [readinessRows, track, riskLevels, signals, manualReturnIds]);
 
   const matchedRows = useMemo(
-    () => criteriaMatchedRows.filter((row) => String(row.audit_state ?? "Not Started") === "Not Started"),
-    [criteriaMatchedRows],
+    () => criteriaMatchedRows.filter((row) => !isAlreadySelected(row)),
+    [criteriaMatchedRows, selectedReturnKeys],
   );
 
   const matchedAlreadyInAuditRows = useMemo(
-    () => criteriaMatchedRows.filter((row) => String(row.audit_state ?? "Not Started") !== "Not Started"),
-    [criteriaMatchedRows],
+    () => criteriaMatchedRows.filter(isAlreadySelected),
+    [criteriaMatchedRows, selectedReturnKeys],
   );
 
   const previewRows = criteriaMatchedRows;
