@@ -17,6 +17,7 @@ import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { StatusBadge } from "../../components/badges/StatusBadge";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
+import { AppTextField } from "../../components/forms/AppTextField";
 import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { PrimaryButton } from "../../components/buttons/PrimaryButton";
 import { AppTextArea } from "../../components/forms/AppTextArea";
@@ -39,7 +40,8 @@ import {
   type AuditCandidateRecord,
 } from "./auditCandidateStore";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
-import { changeSharedAuditStatus, isSharedAuditMode } from "./auditSharedSql";
+import { changeSharedAuditStatus, checkAuditSqlAccess, isSharedAuditMode } from "./auditSharedSql";
+import { submitSharedAuditFinding } from "./auditReviewSql";
 import { getAvailableAuditYears } from "./auditYearScope";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
@@ -1166,6 +1168,23 @@ export function AuditCandidatesPage({
   const [auditStatusError, setAuditStatusError] = useState("");
   const [auditStatusBusy, setAuditStatusBusy] = useState(false);
   const statusSubmitInFlight = useRef(false);
+  const evidenceSubmitInFlight = useRef(false);
+  const [officerScope, setOfficerScope] = useState<{role:string;zone:string|null;circle:string|null}|null>(null);
+  const [findingOpen,setFindingOpen]=useState(false);
+  const [findingSignal,setFindingSignal]=useState("");
+  const [evidenceRef,setEvidenceRef]=useState("");
+  const [verificationNote,setVerificationNote]=useState("");
+  const [findingSummary,setFindingSummary]=useState("");
+  const [findingBusy,setFindingBusy]=useState(false);
+  const [findingError,setFindingError]=useState("");
+  useEffect(()=>{
+    if(!isSharedAuditMode())return;
+    let cancelled=false;
+    void checkAuditSqlAccess().then(v=>{
+      if(!cancelled)setOfficerScope(v);
+    }).catch(()=>{if(!cancelled)setOfficerScope(null);});
+    return ()=>{cancelled=true;};
+  },[assessmentYear]);
   const [statusEditorOpen, setStatusEditorOpen] = useState(false);
 
   useEffect(() => {
@@ -1173,6 +1192,12 @@ export function AuditCandidatesPage({
     setAuditStatusNote("");
     setAuditStatusError("");
     setStatusEditorOpen(false);
+    setFindingOpen(false);
+    setFindingSignal("");
+    setEvidenceRef("");
+    setVerificationNote("");
+    setFindingSummary("");
+    setFindingError("");
   }, [selectedCandidateId]);
 
   useEffect(() => {
@@ -1476,6 +1501,30 @@ export function AuditCandidatesPage({
     const auditStatusOptions = getNextLocalAuditStatuses(selectedCandidate.audit_status)
       // Formal independent-officer closure is not approved or certified.
       .filter((status) => !isSharedAuditMode() || status !== "Closed");
+    const canSubmitSharedFinding =
+      isSharedAuditMode() && officerScope?.role === "circle_user" &&
+      officerScope.zone === selectedCandidate.zone &&
+      officerScope.circle === selectedCandidate.circle &&
+      ["Verifying","Evidence Pending"].includes(selectedCandidate.audit_status);
+    const saveSharedFinding = async () => {
+      if (!canSubmitSharedFinding || findingBusy || evidenceSubmitInFlight.current) return;
+      evidenceSubmitInFlight.current=true;
+      setFindingBusy(true);
+      setFindingError("");
+      try {
+        await submitSharedAuditFinding(
+          selectedCandidate,findingSignal,evidenceRef,verificationNote,findingSummary,
+        );
+        setFindingOpen(false);
+        setFindingSignal("");
+        setEvidenceRef("");
+        setVerificationNote("");
+        setFindingSummary("");
+        toast.success(isBnAudit ? "প্রমাণ ও অনুসন্ধান ফলাফল অফিসে সংরক্ষিত হয়েছে।" : "Evidence-linked Finding saved in Office SQL.");
+      } catch(error) {
+        setFindingError(error instanceof Error?error.message:"Evidence-linked Finding was not confirmed");
+      } finally { evidenceSubmitInFlight.current=false; setFindingBusy(false); }
+    };
     const canEditAuditStatus = !isSharedAuditMode() ||
       (!sharedDataLoading && !sharedDataError &&
        Number.isInteger(selectedCandidate.version) && Number(selectedCandidate.version) > 0);
@@ -1782,6 +1831,11 @@ export function AuditCandidatesPage({
           <div className="audit-note-strip__title">
             <ShieldAlert size={15} aria-hidden="true" />
             <strong id="audit-note-title">{t("candidates.detail.auditNote.title")}</strong>
+            {canSubmitSharedFinding && (
+              <SecondaryButton size="sm" disabled={findingBusy} onClick={() => setFindingOpen(true)}>
+                {isBnAudit ? "প্রমাণ ও অনুসন্ধান" : "Record evidence & Finding"}
+              </SecondaryButton>
+            )}
           </div>
 
           <div className="audit-note-strip__grid">
@@ -2205,6 +2259,47 @@ export function AuditCandidatesPage({
             </div>
         </section>
         )}
+
+        <ResponsiveOverlay
+          open={findingOpen && canSubmitSharedFinding}
+          onClose={() => { if(!findingBusy)setFindingOpen(false); }}
+          title={isBnAudit ? "সংকেতের প্রমাণ ও অনুসন্ধান ফলাফল" : "Signal evidence & Finding"}
+          desktopWidth="560px"
+          closeLabel={tc("accessibility.closeDrawer")}
+          footer={<>
+            <SecondaryButton size="sm" disabled={findingBusy} onClick={() => setFindingOpen(false)}>
+              {isBnAudit ? "বাতিল" : "Cancel"}
+            </SecondaryButton>
+            <PrimaryButton size="sm" loading={findingBusy}
+              disabled={!findingSignal || evidenceRef.trim().length < 8 ||
+                verificationNote.trim().length < 20 || findingSummary.trim().length < 40}
+              onClick={() => { void saveSharedFinding(); }}>
+              {isBnAudit ? "প্রমাণ ও ফলাফল সংরক্ষণ" : "Save evidence & Finding"}
+            </PrimaryButton>
+          </>}
+        >
+          <div className="form-stack">
+            <AppSelectField id="audit-finding-signal"
+              label={isBnAudit ? "যাচাইকৃত ঝুঁকি সংকেত" : "Verified risk signal"}
+              value={findingSignal} onChange={setFindingSignal}
+              options={[
+                {value:"",label:isBnAudit ? "সংকেত নির্বাচন করুন" : "Select signal"},
+                ...currentSignals.map(signal=>({value:signal,label:signal+" — "+t(SIGNAL_LABEL_KEYS[signal]??signal)})),
+              ]} required/>
+            <AppTextField id="audit-finding-evidence-ref"
+              label={isBnAudit ? "প্রমাণ নথির রেফারেন্স" : "Evidence document reference"}
+              value={evidenceRef} onChange={setEvidenceRef} maxLength={240} required/>
+            <AppTextArea id="audit-finding-verification"
+              label={isBnAudit ? "প্রমাণ যাচাইয়ের বিবরণ" : "Evidence verification notes"}
+              value={verificationNote} onChange={setVerificationNote} rows={3}
+              helper={isBnAudit ? "কোন উৎস যাচাই করা হয়েছে, উল্লেখ করুন।" : "Identify the actual source checked; 20–1000 characters."} required/>
+            <AppTextArea id="audit-finding-summary"
+              label={isBnAudit ? "অনুসন্ধান ফলাফল" : "DCT Finding"}
+              value={findingSummary} onChange={setFindingSummary} rows={4}
+              helper={isBnAudit ? "যাচাইকৃত সংকেত ও প্রমাণের ভিত্তিতে নির্দিষ্ট ফলাফল লিখুন।" : "Describe the verified signal and linked evidence; 40–2000 characters."} required/>
+            {findingError && <p role="alert" className="form-error">{findingError}</p>}
+          </div>
+        </ResponsiveOverlay>
 
         <ResponsiveOverlay
           open={statusEditorOpen && canEditAuditStatus && auditStatusOptions.length > 0}
