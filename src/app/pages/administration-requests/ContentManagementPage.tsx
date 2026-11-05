@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getTaxPayCmsClient } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { useImagePreview } from './useImagePreview';
-import { PRIMARY_ADMIN_EMAIL } from '../../utils/primaryAdminIdentity';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 
 type Banner = {
@@ -22,10 +21,7 @@ type TextKey = 'heading_en' | 'heading_bn' | 'description_en' | 'description_bn'
   'mobile_heading_en' | 'mobile_heading_bn' | 'mobile_description_en' | 'mobile_description_bn' |
   'action_en' | 'action_bn';
 
-const backendUrl = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_URL;
-const backendKey = import.meta.env.VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY;
-const cms: SupabaseClient | null = backendUrl && backendKey
-  ? createClient(backendUrl, backendKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'nbr-office-taxpay-cms-session' } }) : null;
+const cms = getTaxPayCmsClient();
 
 const fields: { key: TextKey; label: string; max?: number }[] = [
   { key: 'heading_en', label: 'Desktop heading · English' },
@@ -86,10 +82,6 @@ export function ContentManagementPage() {
   const [message, setMessage] = useState('');
   const [authState, setAuthState] = useState<'checking' | 'signed-out' | 'denied' | 'authorized'>('checking');
   const [authUid, setAuthUid] = useState<string | null>(null);
-  const [authPassword, setAuthPassword] = useState('');
-  const [authCode, setAuthCode] = useState('');
-  const [authPending, setAuthPending] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
   const [deleteRequested, setDeleteRequested] = useState(false);
 
   const refreshSession = useCallback(async () => {
@@ -115,45 +107,6 @@ export function ContentManagementPage() {
     }) ?? { data: { subscription: null } };
     return () => { active = false; subscription?.unsubscribe(); };
   }, [refreshSession]);
-
-  async function signInWithPassword() {
-    if (!cms || !authPassword || authPending) return;
-    setAuthPending(true); setMessage('');
-    try {
-      const { error } = await cms.auth.signInWithPassword({ email: PRIMARY_ADMIN_EMAIL, password: authPassword });
-      if (error) throw error;
-      setAuthPassword('');
-      await refreshSession();
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setAuthPending(false); }
-  }
-
-  async function sendSignInCode() {
-    if (!cms || authPending) return;
-    setAuthPending(true); setMessage('');
-    try {
-      const { error } = await cms.auth.signInWithOtp({
-        email: PRIMARY_ADMIN_EMAIL,
-        options: { shouldCreateUser: false, emailRedirectTo: window.location.href.split('#')[0] },
-      });
-      if (error) throw error;
-      setCodeSent(true);
-      setMessage('Check the verified administrator email for your sign-in link or code.');
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setAuthPending(false); }
-  }
-
-  async function verifySignInCode() {
-    if (!cms || !authCode.trim() || authPending) return;
-    setAuthPending(true); setMessage('');
-    try {
-      const { error } = await cms.auth.verifyOtp({ email: PRIMARY_ADMIN_EMAIL, token: authCode.trim(), type: 'email' });
-      if (error) throw error;
-      setAuthCode('');
-      await refreshSession();
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setAuthPending(false); }
-  }
 
   const refresh = async () => {
     if (!cms) { setBanners([]); setSelectedId(null); return; }
@@ -350,23 +303,18 @@ export function ContentManagementPage() {
   const publishedCount = banners.filter(row => row.published).length;
 
   if (authState !== 'authorized') return <main className="cms-page">
-    <header className="cms-page__heading"><div><h1>Content Management</h1><p>Verified administrator access is required to publish to TaxPay.</p></div></header>
-    <section className="cms-panel cms-editor" aria-label="Secure banner CMS sign-in">
-      {authState === 'checking' ? <p role="status">Checking administrator session…</p> :
-        authState === 'denied' ? <p role="alert">This account has no verified CMS administrator permission.</p> : null}
-      <p>Sign in using the approved administrator email. Office preview login alone cannot publish public content.</p>
-      <label className="cms-login"><span>Administrator email</span><input value={PRIMARY_ADMIN_EMAIL} readOnly /></label>
-      <div className="cms-actions">
-        <div className="cms-actions__main">
-          <label className="cms-login"><span>Password</span><input type="password" autoComplete="current-password" value={authPassword} onChange={event => setAuthPassword(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void signInWithPassword(); }} /></label>
-          <button type="button" className="cms-primary" disabled={authPending || !authPassword} onClick={() => void signInWithPassword()}>Sign in securely</button>
-          <button type="button" disabled={authPending} onClick={() => void sendSignInCode()}>Email sign-in link / code</button>
-        </div>
-      </div>
-      {codeSent && <div className="cms-actions"><label className="cms-login"><span>One-time email code</span><input autoComplete="one-time-code" value={authCode} onChange={event => setAuthCode(event.target.value)} /></label><button type="button" className="cms-primary" disabled={authPending || !authCode.trim()} onClick={() => void verifySignInCode()}>Verify code</button></div>}
-      {authState === 'denied' && <button type="button" onClick={() => { void cms?.auth.signOut(); setAuthState('signed-out'); }}>Sign out</button>}
+    <header className="cms-page__heading">
+      <div><h1>Content Management</h1><p>Manage TaxPay banners and published content.</p></div>
+    </header>
+    <section className="cms-panel cms-editor" aria-label="Content publishing permissions">
+      {authState === 'checking' ? <p role="status">Checking content publishing permissions…</p> :
+        <p role="alert">{!cms
+          ? 'Content publishing is unavailable because its approved service is not configured.'
+          : authState === 'denied'
+            ? 'Your current Office session does not have verified Content Management publishing permission.'
+            : 'Your Office session does not have Content Management publishing access. Sign out of Office and use your approved administrator credentials at the existing Office sign-in.'}</p>}
+      {message && <p className="cms-message" role="status">{message}</p>}
     </section>
-    {message && <p className="cms-message" role="status">{message}</p>}
   </main>;
 
   return <main className="cms-page">
@@ -377,7 +325,6 @@ export function ContentManagementPage() {
           if (editing && !window.confirm('Discard unsaved banner changes and refresh?')) return;
           void refresh().catch(err => setMessage((err as Error).message));
         }}>Refresh</button>
-        <button type="button" onClick={() => { void cms?.auth.signOut().then(() => { setAuthUid(null); setAuthState('signed-out'); }); }}>Sign out</button>
       </div>
     </header>
     <div className="tab-bar" role="tablist" aria-label="Content type">
