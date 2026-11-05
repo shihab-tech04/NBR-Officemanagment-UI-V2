@@ -17,7 +17,9 @@ export function getAuditYearScope(
   if (isSharedAuditMode()) {
     return {
       population: [] as TableRow[],
-      candidates: [] as AuditCandidateRecord[],
+      // Preserve authorized SQL candidates that the caller already loaded;
+      // never replace them with the browser's local population.
+      candidates: allCandidates.filter((row) => row.assessment_year === assessmentYear),
       riskCases: [] as TableRow[],
       controlRows: [] as TableRow[],
       secondReviewRows: [] as TableRow[],
