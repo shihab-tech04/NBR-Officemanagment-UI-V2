@@ -87,7 +87,8 @@ export function mapSqlAuditCandidate(row: SqlCandidate): AuditCandidateRecord {
   }
   return {
     id: row.id,
-    candidate_id: row.id, batch_id: row.office_audit_batches.external_batch_id,
+    candidate_id: row.id, version: row.version,
+    batch_id: row.office_audit_batches.external_batch_id,
     taxpayer_name: row.taxpayer_name, tin: row.tin, return_id: row.return_id,
     assessment_year: row.assessment_year, zone: row.zone, circle: row.circle,
     coverage_tier: row.coverage_tier, signals: row.signals.join(", "),
@@ -169,18 +170,51 @@ export async function createSharedAuditBatch(
   return persisted;
 }
 
-export async function changeSharedAuditStatus(
-  candidateId: string, expectedVersion: number, nextStatus: string,
-): Promise<void> {
-  if (!allowedStatuses.has(nextStatus) || !Number.isInteger(expectedVersion) ||
-      expectedVersion < 1) throw new Error("Invalid Audit status or version");
-  const { db } = await officer();
-  const { data, error } = await db.from("office_audit_candidates")
-    .update({ audit_status: nextStatus }).eq("id", candidateId)
-    .eq("version", expectedVersion).select("id,version,audit_status").maybeSingle();
-  if (error || !data || data.audit_status !== nextStatus ||
-      data.version !== expectedVersion + 1) {
-    throw new Error("Audit status conflict or unauthorized change; reload the source");
+/** Validate a requested Audit status before contacting SQL. */
+export function validateSharedAuditStatus(
+  expectedVersion: number, nextStatus: string, note: string,
+): string {
+  const reason = note.trim().replace(/\s+/g, " ");
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1 ||
+      !allowedStatuses.has(nextStatus) ||
+      nextStatus === "Closed" ||
+      reason.length < 10 || reason.length > 500) {
+    throw new Error("Choose an authorized next status and a reason of 10–500 characters");
   }
-  // SQL trigger creates append-only evidence; never write event rows from browser.
+  return reason;
+}
+
+/** A successful mutation requires SQL version and append-only event read-back. */
+export async function changeSharedAuditStatus(
+  candidateId: string, expectedVersion: number, nextStatus: string, note: string,
+): Promise<void> {
+  if (!candidateId) throw new Error("Audit candidate identity is required");
+  const reason = validateSharedAuditStatus(expectedVersion, nextStatus, note);
+  const { db } = await officer();
+  // SECURITY INVOKER SQL RPC retains the existing officer membership and RLS checks.
+  // The trigger records the reason atomically with the versioned status transition.
+  const { data, error } = await db.rpc("office_audit_change_status", {
+    p_candidate_id: candidateId,
+    p_expected_version: expectedVersion,
+    p_next_status: nextStatus,
+    p_note: reason,
+  });
+  const result = Array.isArray(data) ? data[0] : null;
+  if (error || !result || result.candidate_id !== candidateId ||
+      result.audit_status !== nextStatus ||
+      result.version !== expectedVersion + 1) {
+    throw new Error("Audit status was not confirmed by SQL; reload and try again");
+  }
+  const { data: events, error: eventError } = await db
+    .from("office_audit_events")
+    .select("candidate_id,new_status,review_note")
+    .eq("candidate_id", candidateId)
+    .order("id", { ascending: false })
+    .limit(1);
+  if (eventError || !events?.length ||
+      events[0].candidate_id !== candidateId ||
+      events[0].new_status !== nextStatus ||
+      events[0].review_note !== reason) {
+    throw new Error("Audit status saved but its event read-back is unverified; reload the record");
+  }
 }
