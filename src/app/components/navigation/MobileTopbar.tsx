@@ -13,6 +13,7 @@ import { ASSESSMENT_YEARS } from "../../data/navigation";
 import { NotificationDropdown } from "../dropdowns/NotificationDropdown";
 import { UserProfileDropdown } from "../dropdowns/UserProfileDropdown";
 import { AppSelectField } from "../forms/AppSelectField";
+import { isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 
 interface MobileTopbarProps {
   onMenuToggle: () => void;
@@ -27,6 +28,10 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
 
   const { assessmentYear } = useSettings();
   const currentUser = useCurrentUser();
+  const openWorkspace = !isSharedAuditMode();
+  const displayName = openWorkspace ? (i18n.resolvedLanguage?.startsWith("bn") ? "অফিস ওয়ার্কস্পেস" : "Office Workspace") : currentUser.name;
+  const displayRole = openWorkspace ? (i18n.resolvedLanguage?.startsWith("bn") ? "উন্মুক্ত কর্মক্ষেত্র" : "Open workspace") : currentUser.designation;
+  const displayInitials = openWorkspace ? "OW" : currentUser.shortName;
   const { notifications, unreadCount, markRead, markAllRead } = useNotificationsState();
 
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
@@ -117,14 +122,14 @@ export function MobileTopbar({ onMenuToggle, onSignOut }: MobileTopbarProps) {
         <button
           onClick={() => setProfileDropdownOpen((o) => !o)}
           className="mobile-topbar__profile-button"
-          aria-label={translate("accessibility.userProfileOf", {
-            name: currentUser.name,
-            role: currentUser.designation,
+          aria-label={openWorkspace ? displayName : translate("accessibility.userProfileOf", {
+            name: displayName,
+            role: displayRole,
           })}
           aria-expanded={profileDropdownOpen}
         >
           <div className="mobile-topbar__profile-avatar">
-            <span>{currentUser.shortName}</span>
+            <span>{displayInitials}</span>
           </div>
         </button>
         {profileDropdownOpen && (
