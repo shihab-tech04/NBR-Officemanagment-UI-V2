@@ -164,7 +164,7 @@ test('dashboard signal explanation uses filtered population, not one taxpayer co
   await expect(flow.locator('.audit-decision-map__diamond')).toHaveCount(0);
   await expect(flow).toContainText('Not reported');
   await expect(flow.locator('.audit-signal-flow__preview')).toHaveCount(0);
-  await expect(flow).toContainText('36');
+  await expect(flow).toContainText('64');
   await expect(flow).toContainText('Each return needs its own records and decision');
   await expect(flow).not.toContainText('Assessment year:');
   await expect(flow).not.toContainText('Data quality: Complete');

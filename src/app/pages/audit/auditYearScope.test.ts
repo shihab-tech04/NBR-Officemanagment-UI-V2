@@ -2,10 +2,28 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
+import { ALL_TAXPAYER_ROWS } from "./auditData";
+import { AUDIT_SIGNAL_IDS, evaluateAuditReturn, type ReturnInputs } from "./auditReturnScreening";
 
 describe("Office Audit AY consistency and stale-cache recovery", () => {
   beforeEach(() => window.localStorage.clear());
   afterEach(() => window.localStorage.clear());
+
+  it("calculates 15 signals across 64 profiles and leaves 10 or more unaffected", () => {
+    expect(ALL_TAXPAYER_ROWS).toHaveLength(64);
+    const seen = new Set<string>();
+    let unaffected = 0;
+    for (const row of ALL_TAXPAYER_ROWS) {
+      const result = evaluateAuditReturn(row.audit_input as ReturnInputs,
+        String(row.coverage_tier), String(row.data_quality));
+      expect(String(row.signals), String(row.id)).toBe(result.hits.map(h => h.id).join(" + ") || "—");
+      expect(row.risk_level, String(row.id)).toBe(result.riskLevel);
+      result.hits.forEach(hit => seen.add(hit.id));
+      if (row.data_quality === "Complete" && result.hits.length === 0) unaffected += 1;
+    }
+    expect(AUDIT_SIGNAL_IDS.every(id => seen.has(id))).toBe(true);
+    expect(unaffected).toBeGreaterThanOrEqual(10);
+  });
 
   it("shows no values from another AY in the empty 2024-25 scope", () => {
     const scope = getAuditYearScope("2024-25", getAuditCandidates());

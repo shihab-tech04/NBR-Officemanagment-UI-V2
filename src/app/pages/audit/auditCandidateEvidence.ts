@@ -1,10 +1,12 @@
 import type { TableRow } from "../modulePageUtils";
 import { getAuditCandidates, type AuditCandidateRecord } from "./auditCandidateStore";
+import { ALL_TAXPAYER_ROWS } from "./auditData";
+import type { ReturnInputs } from "./auditReturnScreening";
 
 type EvidenceCandidate = Pick<
   AuditCandidateRecord,
   "candidate_id" | "tin" | "return_id" | "taxpayer_name" | "assessment_year" | "signals"
->;
+> & { audit_input?: ReturnInputs };
 
 export type CandidateEvidenceTrend = {
   key: string;
@@ -67,7 +69,9 @@ function candidateFromRow(row: TableRow): EvidenceCandidate {
       && candidate.assessment_year === year,
   );
 
-  if (stored) return stored;
+  const source = ALL_TAXPAYER_ROWS.find((taxpayer) =>
+    taxpayer.return_id === returnId && taxpayer.assessment_year === year);
+  if (stored) return { ...stored, audit_input: source?.audit_input as ReturnInputs | undefined };
 
   return {
     candidate_id: String(row.id ?? returnId),
@@ -76,6 +80,7 @@ function candidateFromRow(row: TableRow): EvidenceCandidate {
     taxpayer_name: String(row.taxpayer_name ?? "—"),
     assessment_year: String(row.assessment_year ?? "2025-26"),
     signals: String(row.signals ?? "—"),
+    audit_input: source?.audit_input as ReturnInputs | undefined,
   };
 }
 
@@ -110,6 +115,23 @@ export function reconcileGeneratedFundFlow(
 }
 
 function buildEvidenceMetrics(candidate: EvidenceCandidate): EvidenceMetric[] {
+  if (candidate.audit_input) {
+    const v = candidate.audit_input;
+    const history = v.history.slice(-2);
+    if (history.length < 2) return [];
+    const years = [...history, { income:v.income, tax:v.taxPayable,
+      wealth:v.wealth, gap:(v.funds ?? 0)-(v.outflow ?? 0) }];
+    return [
+      { key:"totalIncome",labelKey:"candidates.detail.metrics.totalIncome",
+        values:years.map(y=>y.income), relatedSignals:["R-A1","R-A2","R-A3","R-B2","R-D1","R-D2","R-E1"] },
+      { key:"taxPayable",labelKey:"candidates.detail.metrics.taxPayable",
+        values:years.map(y=>y.tax), relatedSignals:["R-A2","R-D1"] },
+      { key:"netWealth",labelKey:"candidates.detail.metrics.netWealth",
+        values:years.map(y=>y.wealth), relatedSignals:["R-A1","R-B1","R-B2","R-E2","R-C3"] },
+      { key:"difference",labelKey:"candidates.detail.metrics.difference",
+        values:years.map(y=>y.gap), relatedSignals:["R-C1","R-C2"] },
+    ];
+  }
   const seed = candidateSeed(candidate);
   const signals = signalIds(candidate.signals);
 
