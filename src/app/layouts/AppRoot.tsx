@@ -23,9 +23,9 @@ function clearEntry() {
 }
 
 /**
- * The Office prototype has a presentation-only login. In opt-in shared mode,
- * that marker cannot restore access: Supabase Auth and active Audit membership
- * must be reverified on reload. Signing out must also end the Auth session.
+ * Open Office pages have no fake login or officer-authentication prerequisite.
+ * Only an explicitly enabled protected Audit SQL environment retains the
+ * server-verified sign-in/membership boundary. Protected CMS writes remain RLS gated.
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
@@ -134,7 +134,7 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
-      : signedOut
+      : sharedMode && signedOut
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
         : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
