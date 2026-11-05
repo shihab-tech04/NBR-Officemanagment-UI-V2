@@ -115,6 +115,16 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(idem)},${q(requestHash)},${q('short-receipt')},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(snapshot))}::jsonb);`);
   assert.ok(invalidReceipt.includes('f'), 'WS02_MALFORMED_RECEIPT_HASH_ACCEPTED_' + status);
+  // An otherwise valid request must reject auditTrace result-state substitution.
+  // This must not create a receipt or consume the reservation.
+  const mismatchedStatus = status === 'CALCULATED' ? 'NEEDS_FACTS' : 'CALCULATED';
+  const tamperedStatusTrace = { ...snapshot, result_status: mismatchedStatus };
+  const wrongTraceStatus = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_atomically(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
+ ${q(status)},${q(JSON.stringify(tamperedStatusTrace))}::jsonb);`);
+  assert.ok(wrongTraceStatus.includes('f'), 'WS02_AUDIT_RESULT_STATUS_MISMATCH_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
   // Both denied commits must leave the reservation intact and no receipt behind.
