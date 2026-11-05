@@ -17,6 +17,7 @@ interface ResponsiveTableProps {
   "aria-label"?: string;
   inlineRow?: ReactNode;
   inlineMobileRow?: ReactNode;
+  emptyMessage?: string;
   sortKey?: string;
   sortDirection?: "ascending" | "descending";
   onSortColumn?: (key: string) => void;
@@ -35,6 +36,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
   "aria-label": ariaLabel,
   inlineRow,
   inlineMobileRow,
+  emptyMessage,
   sortKey,
   sortDirection,
   onSortColumn,
@@ -75,6 +77,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         sortDirection={sortDirection}
         onSortColumn={onSortColumn}
         inlineRow={inlineRow}
+        emptyMessage={emptyMessage}
       />
 
       {/* Mobile card view */}
@@ -86,7 +89,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         {inlineMobileRow}
         {rows.length === 0 && !inlineMobileRow ? (
           <p className="mobile-table-card-list__empty" role="status">
-            {translateCommon("common.noRecordsFound")}
+            {emptyMessage ?? translateCommon("common.noRecordsFound")}
           </p>
         ) : (
           rows.map((row, index) => (
