@@ -17,7 +17,7 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(page.locator(".audit-candidates-page")).toBeVisible();
   await page.getByRole("button", { name: "Initiate Audit" }).click();
 
-  const modal = page.getByRole("dialog", { name: "Initiate Audit" });
+  const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
   await expect(modal).toBeVisible();
   const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
 
