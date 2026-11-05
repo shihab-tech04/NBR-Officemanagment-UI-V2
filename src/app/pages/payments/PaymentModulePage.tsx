@@ -17,8 +17,7 @@ import { AppTextArea } from '../../components/forms/AppTextArea';
 import { AppSelectField } from '../../components/forms/AppSelectField';
 import type { ColDef, TableRow, FilterDef, MobileCardMapping, KpiDef } from '../modulePageUtils';
 import {
-  referenceAudit, referenceCorrections,
-  referenceOffline, referencePayments, referenceTaxpayers,
+  referenceAudit, referencePayments, referenceTaxpayers,
 } from './paymentReference';
 import { demoTransactions, demoUserIds, transactionTotalMinor } from './paymentScenarioModel';
 import { loadSimulationHistory,loadSimulationNotices,type SimulationTransaction,type SimulationNotice } from './simulatedPaymentsApi';
@@ -334,15 +333,23 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
-  const corrRows=[...localRecords.corrections,...referenceCorrections.map(x=>({...x,ay:x.before.startsWith('AY ')?x.before.slice(3):'',amount:money(x.amount)})),...officeCorrectionRows];
+  // Never interleave illustrative cases with an operational correction queue.
+  const corrRows=[...localRecords.corrections,...officeCorrectionRows];
   const incidentRows=localRecords.incidents;
-  const offlineRows=[...localRecords['offline-events'],...referenceOffline.map(e=>({...e,event:t(`event_${e.event}`),amount:money(e.amount)}))];
-  const yearOptions=['All',...Array.from(new Set(referencePayments.map(p=>p.ay).concat(referenceOffline.map(e=>e.ay))))];
+  // No verified SQL-backed offline-event reader is connected; show only unsent drafts.
+  const offlineRows=[...localRecords['offline-events']];
+  const yearOptions=['All',...Array.from(new Set([
+    ...storyRows.flatMap(row=>String(row.assessment_year??'').split(',').map(y=>y.trim().replace('–','-'))),
+    ...localRecords.corrections.map(row=>String(row.ay??'')),
+    ...localRecords['offline-events'].map(row=>String(row.ay??''))
+  ].filter(y=>y&&y!=='—'))).sort().reverse()];
   const yearFilters:FilterDef[]=[{key:'assessment_year',label:t('ay'),type:'select',options:yearOptions}];
   const eventYearFilter:FilterDef={key:'ay',label:t('ay'),type:'select',options:yearOptions};
   const optionKeys={ 'All':'paymentStatuses.all','Failed':'paymentStatuses.failed','Awaiting bank payment':'paymentStatuses.awaiting','Received by Government':'paymentStatuses.received','Not yet credited':'paymentStatuses.notCredited','Eligible — credited':'paymentStatuses.credited','Blocked — under review':'paymentStatuses.blockedCredit','Blocked':'paymentStatuses.blocked','Decided':'paymentStatuses.decided','Draft':'paymentStatuses.draft','Pending':'paymentStatuses.pending','With Reviewer':'paymentStatuses.withReviewer' };
   const payFilters:FilterDef[]=[...yearFilters,{key:'financial_receipt_status',label:t('colReceipt'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.financial_receipt_status)))],optionKeys},{key:'ledger_status',label:t('colCredit'),type:'select',options:['All',...Array.from(new Set(scopedPayments.map(p=>p.ledger_status)))],optionKeys}];
-  const queueFilters:FilterDef[]=[eventYearFilter,{key:'status',label:t('status'),type:'select',options:['All','Blocked','Decided','Draft'],optionKeys},{key:'stage',label:t('colStage'),type:'select',options:['All','With Reviewer','Decided (illustrative)','Draft']}];
+  const queueFilters:FilterDef[]=[eventYearFilter,
+    {key:'status',label:t('status'),type:'select',options:['All',...new Set(corrRows.map(row=>String(row.status??'')).filter(Boolean))],optionKeys},
+    {key:'stage',label:t('colStage'),type:'select',options:['All',...new Set(corrRows.map(row=>String(row.stage??'')).filter(Boolean))]}];
   const offlineFilters:FilterDef[]=[eventYearFilter,{key:'status',label:t('status'),type:'select',options:['All','Pending','Draft'],optionKeys},{key:'event',label:t('eventType'),type:'select',options:['All',...Array.from(new Set(offlineRows.map(e=>String(e.event))))]}];
   const incidentFilters:FilterDef[]=[eventYearFilter,{key:'type',label:t('incidentType'),type:'select',options:['All',...Array.from(new Set(incidentRows.map(e=>String(e.type))))]}];
   const saveDraft=()=>{
@@ -468,14 +475,23 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       {t('officeCorrectionRole')}: {t(`officeCorrectionRoleNames.${officeCorrectionQueue.role}`,{defaultValue:officeCorrectionQueue.role})}
       {' · '}{officeCorrectionQueue.items.length} {t('officeCorrectionItems')}
     </p>}
+    <p className="table-page__desc" role="note">{i18n.resolvedLanguage?.startsWith('bn')
+      ?'এখানে শুধু সংযুক্ত সংশোধন আবেদন ও এই সেশনে তৈরি খসড়া দেখানো হচ্ছে। খসড়া SQL বা করদাতা পোর্টালে জমা হয়নি।'
+      :'Only connected correction inquiries and drafts from this session are listed. Drafts are not submitted to SQL or the taxpayer portal.'}</p>
     {table(keys.correction,corrRows,'corrections',queueFilters,correctionMapping)}
   </>;
   const incidents=()=> <>
     {toolbar(t('incidents'),()=>openDraft('incidents'))}
+    <p className="table-page__desc" role="note">{i18n.resolvedLanguage?.startsWith('bn')
+      ?'এই উন্মুক্ত সংস্করণে সংযুক্ত ইনসিডেন্ট রেজিস্টার নেই। এখানে শুধু এই সেশনের খসড়া দেখা যায়।'
+      :'No connected incident register is available in this open workspace. Only drafts from this session appear here.'}</p>
     {table(keys.incident,incidentRows,'incidents',incidentFilters,incidentMapping)}
   </>;
   const offline=()=> <>
     {toolbar(t('offlineEvents'),()=>openDraft('offline-events'))}
+    <p className="table-page__desc" role="note">{i18n.resolvedLanguage?.startsWith('bn')
+      ?'কোনো সংযুক্ত অফলাইন আর্থিক ঘটনা রেজিস্টার নেই। এখানে শুধু এই সেশনের জমা না দেওয়া খসড়া দেখানো হচ্ছে।'
+      :'No connected offline financial-event register is available. Only unsubmitted drafts from this session are listed.'}</p>
     {table(keys.offline,offlineRows,'offlineEvents',offlineFilters,offlineMapping)}
   </>;
   const analyticsSnapshot=storyLoading||storyError?null:officePaymentAnalytics(storyPayments,scopeYear);
