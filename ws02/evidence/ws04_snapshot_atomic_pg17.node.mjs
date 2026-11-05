@@ -125,6 +125,14 @@ SELECT ws02_owner.nbr_commit_evaluation_atomically(
  ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
  ${q(status)},${q(JSON.stringify(tamperedStatusTrace))}::jsonb);`);
   assert.ok(wrongTraceStatus.includes('f'), 'WS02_AUDIT_RESULT_STATUS_MISMATCH_ACCEPTED_' + status);
+  // Audit actor substitution must fail even when the RPC actor and ownership match.
+  const tamperedActorTrace = { ...snapshot, actor_user_id: '60000000-0000-4000-8000-000000000099' };
+  const wrongTraceActor = pg(`SET ROLE ws02_owner_engine;
+SELECT ws02_owner.nbr_commit_evaluation_atomically(
+ ${q(actor)},${q(record)},'2026-27',
+ ${q(idem)},${q(requestHash)},${q(receiptHash)},${q(traceHash)},
+ ${q(status)},${q(JSON.stringify(tamperedActorTrace))}::jsonb);`);
+  assert.ok(wrongTraceActor.includes('f'), 'WS02_AUDIT_ACTOR_MISMATCH_ACCEPTED_' + status);
   const before = pg(`SELECT count(*) FROM ws02_owner.evaluation_logs WHERE idem_key=${q(idem)};`);
   assert.deepEqual(before, ['0'], 'NEGATIVE_COMMIT_LEFT_AUDIT_' + status);
   // Both denied commits must leave the reservation intact and no receipt behind.
