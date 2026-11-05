@@ -108,13 +108,14 @@ export function ContentManagementPage() {
     return () => { active = false; subscription?.unsubscribe(); };
   }, [refreshSession]);
 
-  const refresh = async () => {
-    if (!cms) { setBanners([]); setSelectedId(null); return; }
+  const refresh = async (): Promise<Banner[]> => {
+    if (!cms) { setBanners([]); setSelectedId(null); return []; }
     const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
     if (error) throw error;
     const next = (data || []) as Banner[];
     setBanners(next);
     setSelectedId(id => id && next.some(row => row.id === id) ? id : next[0]?.id || null);
+    return next;
   };
 
   useEffect(() => {
@@ -246,31 +247,47 @@ export function ContentManagementPage() {
       if (desktopFile) { desktopPath = await uploadImage(desktopFile, draft.id); uploads.push(desktopPath); }
       if (mobileFile) { mobilePath = await uploadImage(mobileFile, draft.id); uploads.push(mobilePath); }
       const isNew = newDraft?.id === draft.id;
-      const { error } = await cms.rpc('taxpay_save_banner', {
-        p_banner: {
-          id: draft.id,
-          service_code: draft.service_code,
-          heading_en: draft.heading_en,
-          heading_bn: draft.heading_bn,
-          description_en: draft.description_en,
-          description_bn: draft.description_bn,
-          mobile_heading_en: draft.mobile_heading_en,
-          mobile_heading_bn: draft.mobile_heading_bn,
-          mobile_description_en: draft.mobile_description_en,
-          mobile_description_bn: draft.mobile_description_bn,
-          action_en: draft.action_en,
-          action_bn: draft.action_bn,
-          desktop_image_path: desktopPath,
-          mobile_image_path: mobilePath,
-          published: draft.published,
-        },
+      const payload = {
+        id: draft.id,
+        service_code: draft.service_code,
+        heading_en: draft.heading_en,
+        heading_bn: draft.heading_bn,
+        description_en: draft.description_en,
+        description_bn: draft.description_bn,
+        mobile_heading_en: draft.mobile_heading_en,
+        mobile_heading_bn: draft.mobile_heading_bn,
+        mobile_description_en: draft.mobile_description_en,
+        mobile_description_bn: draft.mobile_description_bn,
+        action_en: draft.action_en,
+        action_bn: draft.action_bn,
+        desktop_image_path: desktopPath,
+        mobile_image_path: mobilePath,
+        published: draft.published,
+      };
+      const { data: saved, error } = await cms.rpc('taxpay_save_banner', {
+        p_banner: payload,
         p_expected_version: isNew ? null : draft.version,
         p_position: desiredPosition,
       });
       if (error) throw error;
+      // A successful RPC can have committed even if the follow-up read fails.
+      // Never delete uploaded assets or retry an already committed write.
       committed = true;
+      const matchesPayload = (value: Banner | null): value is Banner =>
+        !!value && Object.entries(payload).every(([key, expected]) =>
+          value[key as keyof Banner] === expected);
+      const result = saved as Banner | null;
+      if (!matchesPayload(result) || (!isNew && result.version <= draft.version)) {
+        throw new Error('SQL returned an unexpected banner. Refresh to verify before editing again.');
+      }
+      // Independently read the committed row back through the same RLS-bound
+      // client. Do not claim a public publish from a successful RPC alone.
+      const persisted = (await refresh()).find(row => row.id === draft.id) || null;
+      if (!matchesPayload(persisted) || persisted.version !== result.version ||
+          persisted.sort_order !== desiredPosition - 1) {
+        throw new Error('SQL read-back did not match the published banner. Refresh to verify.');
+      }
       setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
-      await refresh();
       const oldPaths = [draft.desktop_image_path, draft.mobile_image_path].filter(
         (path): path is string => !!path && ![desktopPath, mobilePath].includes(path),
       );
