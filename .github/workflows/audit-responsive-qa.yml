@@ -5,6 +5,9 @@ on:
     paths:
       - 'src/styles/audit.css'
       - 'src/app/pages/audit/**'
+      - 'src/app/layouts/AppRoot.tsx'
+      - 'src/app/layouts/AppRoot.test.tsx'
+      - 'qa/audit-local-lifecycle.pw.ts'
       - 'src/app/locales/en/audit.json'
       - 'src/app/locales/bn/audit.json'
       - 'qa/audit-responsive.pw.ts'
@@ -32,11 +35,11 @@ jobs:
       - run: npm install --no-save --no-audit --no-fund @playwright/test
       - run: npx playwright install --with-deps chromium
       - name: Run evidence-bound Quick summary unit tests
-        run: npm test -- src/app/pages/audit/auditQuickSummary.test.ts src/app/pages/audit/auditFinancialPresentation.test.ts src/app/pages/audit/auditFinancialReconciliation.test.ts src/app/pages/audit/auditSignalSource.test.ts src/app/pages/audit/auditSignalPresentation.test.ts src/app/pages/audit/auditYearScope.test.ts src/app/pages/audit/auditCandidateStore.prototype.test.ts src/app/pages/audit/auditBatchPersistence.test.ts src/app/pages/audit/auditLocalWorkflow.test.ts
+        run: npm test -- src/app/pages/audit/auditQuickSummary.test.ts src/app/pages/audit/auditFinancialPresentation.test.ts src/app/pages/audit/auditFinancialReconciliation.test.ts src/app/pages/audit/auditSignalSource.test.ts src/app/pages/audit/auditSignalPresentation.test.ts src/app/pages/audit/auditYearScope.test.ts src/app/pages/audit/auditCandidateStore.prototype.test.ts src/app/pages/audit/auditBatchPersistence.test.ts src/app/pages/audit/auditLocalWorkflow.test.ts src/app/layouts/AppRoot.test.tsx
       - name: Build Audit dashboard
         run: npm run build
       - name: Check Audit Overview at eight widths and five parameter modes
-        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts qa/audit-source-truth.pw.ts qa/audit-quick-summary.pw.ts qa/audit-profile-ux.pw.ts qa/audit-signal-flow.pw.ts qa/audit-full-module-ui.pw.ts
+        run: npx playwright test --config playwright.config.ts qa/audit-responsive.pw.ts qa/audit-source-truth.pw.ts qa/audit-quick-summary.pw.ts qa/audit-profile-ux.pw.ts qa/audit-signal-flow.pw.ts qa/audit-full-module-ui.pw.ts qa/audit-local-lifecycle.pw.ts
       - name: Preserve screenshots and trace
         if: always()
         uses: actions/upload-artifact@v4
