@@ -128,6 +128,24 @@ describe('public Office re-entry after Sign Out', () => {
     expect(cmsAuth.signIn).not.toHaveBeenCalled();
   });
 
+  it('does not turn an invalid CMS password into SQL publishing authority', async () => {
+    const user = userEvent.setup();
+    cmsAuth.signOut.mockResolvedValue({ error: null });
+    cmsAuth.signIn.mockResolvedValue({ error: new Error('invalid credentials') });
+    cmsAuth.getClient.mockReturnValue({ auth: {
+      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
+    } });
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByLabelText('Password'), 'incorrect-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
+    expect(cmsAuth.signIn).toHaveBeenCalledOnce();
+    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+    // Office prototype entry remains separate from Supabase RLS authorization.
+    // A rejected SQL sign-in has no token that the CMS can use to publish.
+  });
+
   it('fails closed when previous CMS publishing credentials cannot be cleared', async () => {
     const user = userEvent.setup();
     cmsAuth.signOut.mockResolvedValue({ error: new Error('logout failed') });
