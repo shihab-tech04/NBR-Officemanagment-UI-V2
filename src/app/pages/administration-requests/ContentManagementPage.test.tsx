@@ -18,8 +18,8 @@ function row() {
   };
 }
 
-function makeClient(authorized: boolean, hasSession = authorized) {
-  const banners = [row()];
+function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean } = {}) {
+  const banners: Record<string, unknown>[] = [row()];
   let sessionActive = hasSession;
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
@@ -28,7 +28,13 @@ function makeClient(authorized: boolean, hasSession = authorized) {
     Promise.resolve({ data: banners, error: null }).then(onFulfilled);
   const rpc = vi.fn(async (name: string, args?: unknown) => {
     if (name === 'taxpay_is_verified_portal_admin') return { data: authorized, error: null };
-    if (name === 'taxpay_save_banner') return { data: row(), error: null };
+    if (name === 'taxpay_save_banner') {
+      if (options.rejectWrite) return { data: null, error: new Error('SQL rejected banner write') };
+      const changes = (args as { p_banner: Record<string, unknown> }).p_banner;
+      const saved = { ...banners[0], ...changes, version: Number(banners[0].version) + 1 };
+      if (!options.staleReadback) banners[0] = saved;
+      return { data: saved, error: null };
+    }
     throw new Error('Unexpected RPC: ' + name);
   });
   const client = {
@@ -141,6 +147,38 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.getByRole('switch', { name: 'Publish banner' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Remove banner' })).not.toBeInTheDocument();
     expect(screen.getByText('Main banner (fixed)')).toBeInTheDocument();
+  });
+
+
+  it('does not claim successful publishing when SQL rejects a write', async () => {
+    const { client, rpc } = makeClient(true, true, { rejectWrite: true });
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Rejected edit');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner', expect.anything()));
+    expect(await screen.findByText(/Save not completed: SQL rejected banner write/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(screen.queryByText(/Saved to SQL\./)).not.toBeInTheDocument();
+  });
+
+  it('does not claim successful publishing when the returned SQL row is not persisted', async () => {
+    const { client } = makeClient(true, true, { staleReadback: true });
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Stale read-back edit');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/SQL read-back did not match the published banner/)).toBeInTheDocument();
+    expect(screen.queryByText(/Saved to SQL\./)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
   });
 
   it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
