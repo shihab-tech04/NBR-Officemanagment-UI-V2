@@ -60,6 +60,20 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await page.goto(candidateUrl);
   await expect(page.locator(".audit-candidate-detail__header")).toContainText("Anika Engineering");
 
+  const selection = page.locator(".audit-selection-evidence");
+  const progress = page.locator(".audit-progress-disclosure");
+  await expect(selection).toContainText("R-A1");
+  await expect(progress).not.toHaveAttribute("open");
+  const evidenceBeforeProgress = await page.evaluate(() => Boolean(
+    document.querySelector(".audit-selection-evidence")?.compareDocumentPosition(
+      document.querySelector(".audit-progress-disclosure")!) & Node.DOCUMENT_POSITION_FOLLOWING
+  ));
+  expect(evidenceBeforeProgress).toBe(true);
+  await page.getByRole("button", {name:"Quick summary"}).click();
+  await expect(page.getByRole("dialog", {name:"Quick summary"})).toContainText("R-A1");
+  await expect(page.getByRole("dialog", {name:"Quick summary"})).not.toContainText("Return values and linked records screened against the selected rules");
+  await page.getByRole("dialog", {name:"Quick summary"}).getByRole("button", {name:"Close"}).click();
+  await progress.locator("summary").click();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
   await page.getByRole("textbox", { name: /Reason or review note/ })
