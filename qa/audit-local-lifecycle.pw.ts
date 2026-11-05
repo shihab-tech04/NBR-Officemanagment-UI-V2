@@ -27,6 +27,9 @@ test("Audit draft status, case queue and trail survive a reload without fake log
   await expect(page.locator(".audit-progress-disclosure")).toHaveCount(0);
   await page.getByRole("button", { name: "Update audit progress" }).click();
   await expect(page.getByRole("dialog", { name: "Update audit progress" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Update audit progress" })).not.toBeVisible();
+  await page.getByRole("button", { name: "Update audit progress" }).click();
   await page.getByRole("combobox", { name: /Next status/ }).click();
   await page.getByRole("option", { name: "Assigned" }).click();
   await page.getByRole("textbox", { name: /Reason or review note/ }).fill("Assigned for review of the synthetic candidate data");

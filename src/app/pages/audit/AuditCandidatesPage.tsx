@@ -2216,7 +2216,7 @@ export function AuditCandidatesPage({
               />
               {auditStatusError && <p role="alert" className="form-error">{auditStatusError}</p>}
               <div className="form-section__toolbar-actions">
-                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); }}>
+                <SecondaryButton size="sm" onClick={() => { setNextAuditStatus(""); setAuditStatusNote(""); setAuditStatusError(""); setStatusEditorOpen(false); }}>
                   {isBnAudit ? "বাতিল" : "Cancel"}
                 </SecondaryButton>
                 <PrimaryButton size="sm" loading={auditStatusBusy}
