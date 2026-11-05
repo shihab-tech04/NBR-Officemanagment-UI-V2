@@ -320,6 +320,41 @@ begin
   return query select p_candidate_id,p_expected_version+1,v_target;
 end $$;
 
+-- Record evidence and Finding actions in the existing append-only Audit Trail.
+create or replace function office_audit_private.log_case_material_event()
+returns trigger language plpgsql security definer
+set search_path=pg_catalog,public,office_audit_private as $
+declare v_kind text; v_event text; v_note text;
+begin
+  if auth.uid() is null then raise exception 'Verified officer required' using errcode='28000'; end if;
+  if tg_table_name='office_audit_evidence' then
+    if tg_op='UPDATE' and old.verification_status is not distinct from new.verification_status
+      then return new; end if;
+    v_event:=case when tg_op='INSERT' then 'evidence_recorded' else 'evidence_verified' end;
+    v_note:=case when tg_op='INSERT' then 'Evidence reference registered for '||new.signal_code
+      else left(coalesce(new.verification_note,'Evidence verified'),500) end;
+  else
+    v_event:='finding_submitted';
+    v_note:=left(new.signal_code||': '||new.finding_summary,500);
+  end if;
+  select b.source_kind into v_kind from public.office_audit_candidates c
+    join public.office_audit_batches b on b.id=c.batch_id
+    where c.id=new.candidate_id;
+  if v_kind is null then raise exception 'Audit source batch is missing' using errcode='23503'; end if;
+  insert into public.office_audit_events(
+    candidate_id,actor_id,event_type,previous_status,new_status,source_kind,review_note
+  ) values(new.candidate_id,auth.uid(),v_event,null,null,v_kind,v_note);
+  return new;
+end $;
+create trigger office_audit_evidence_event after insert or update
+  on public.office_audit_evidence for each row
+  execute function office_audit_private.log_case_material_event();
+create trigger office_audit_finding_event after insert
+  on public.office_audit_findings for each row
+  execute function office_audit_private.log_case_material_event();
+revoke all on function office_audit_private.log_case_material_event()
+  from public,anon,authenticated;
+
 revoke all on function public.office_audit_record_evidence(uuid,text,text),
 public.office_audit_verify_evidence(uuid,text),
 public.office_audit_submit_finding(uuid,uuid,text,text),
