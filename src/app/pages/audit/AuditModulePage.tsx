@@ -41,7 +41,9 @@ import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
 import { isSharedAuditMode } from "./auditSharedSql";
-import { listSharedAuditReviewRows, submitSharedAuditReview, type AuditReviewDecision } from "./auditReviewSql";
+import { listSharedAuditReviewRows, listSharedAuditEventRows, submitSharedAuditReview, type AuditReviewDecision } from "./auditReviewSql";
+import { useLoadedAuditCandidates } from "./useLoadedAuditCandidates";
+import type { AuditCandidateRecord } from "./auditCandidateStore";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
@@ -387,7 +389,9 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   );
 }
 
-function AuditOverviewPage() {
+function AuditOverviewPage({loadedCandidates,sourceError,sourceLoading}:{
+  loadedCandidates:AuditCandidateRecord[];sourceError:string;sourceLoading:boolean;
+}) {
   const { t, i18n } = useTranslation("audit");
   const { t: translateTables } = useTranslation("tables");
   const navigate = useNavigate();
@@ -413,7 +417,7 @@ function AuditOverviewPage() {
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
 
   // All headline numbers and drilldowns describe the exact selected AY.
-  const allCandidates = getAuditCandidates();
+  const allCandidates = loadedCandidates;
   const { candidates, population, riskCases, controlRows, secondReviewRows, trailRows } =
     getAuditYearScope(assessmentYear, allCandidates);
   const availableYears = getAvailableAuditYears(allCandidates);
@@ -813,6 +817,8 @@ function AuditOverviewPage() {
 
   return (
     <div className="dashboard-page audit-overview-dashboard audit-overview-v5">
+      {sourceLoading && <p role="status">{i18n.resolvedLanguage?.startsWith("bn") ? "অডিটের অনুমোদিত রেকর্ড লোড হচ্ছে…" : "Loading authorized Audit records…"}</p>}
+      {sourceError && <p role="alert">{sourceError}</p>}
       <div className="audit-overview__page-header">
         <div>
           <h1 className="dashboard-page__title">{t("pages.overview.title")}</h1>
@@ -1372,7 +1378,23 @@ export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
   const { t } = useTranslation("audit");
   const { assessmentYear } = useSettings();
-  const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
+  const { candidates:sourceCandidates, loading:sourceLoading, error:sourceError } =
+    useLoadedAuditCandidates(assessmentYear);
+  const [sharedTrailRows,setSharedTrailRows]=useState<TableRow[]>([]);
+  const [sharedTrailError,setSharedTrailError]=useState("");
+  const [sharedTrailLoading,setSharedTrailLoading]=useState(false);
+  const scope = getAuditYearScope(assessmentYear,sourceCandidates,sharedTrailRows);
+  useEffect(()=>{
+    if(!isSharedAuditMode() || subNav!=="audit-trail")return;
+    let cancelled=false;
+    setSharedTrailRows([]);setSharedTrailError("");setSharedTrailLoading(true);
+    void listSharedAuditEventRows(assessmentYear).then(rows=>{
+      if(!cancelled)setSharedTrailRows(rows);
+    }).catch(error=>{
+      if(!cancelled){setSharedTrailRows([]);setSharedTrailError(error instanceof Error?error.message:"Audit event source unavailable");}
+    }).finally(()=>{if(!cancelled)setSharedTrailLoading(false);});
+    return ()=>{cancelled=true;};
+  },[assessmentYear,subNav]);
   const [sharedReviewRows, setSharedReviewRows] = useState<TableRow[]>([]);
   const [sharedReviewError, setSharedReviewError] = useState("");
   const [sharedReviewLoading, setSharedReviewLoading] = useState(false);
@@ -1394,7 +1416,10 @@ export function AuditModulePage() {
   const opts = (values: string[]) => values;
 
   const taxpayerConfig: AuditTableConfig = {
-    yearScoped: true,
+    yearScoped: !isSharedAuditMode(),
+    dataError: isSharedAuditMode()
+      ? "The authoritative full taxpayer-return source is not connected to Office Audit SQL."
+      : undefined,
     title: t("pages.allTaxpayers.title"),
     description: t("pages.allTaxpayers.description"),
     rows: scope.population,
@@ -1435,6 +1460,8 @@ export function AuditModulePage() {
 
   const riskConfig: AuditTableConfig = {
     yearScoped: true,
+    dataError: isSharedAuditMode()?sourceError:undefined,
+    dataLoading: isSharedAuditMode()?sourceLoading:false,
     title: t("pages.riskCases.title"),
     description: t("pages.riskCases.description"),
     rows: scope.riskCases,
@@ -1579,7 +1606,9 @@ export function AuditModulePage() {
   };
 
   const trailConfig: AuditTableConfig = {
-    yearScoped: true,
+    yearScoped: !isSharedAuditMode(),
+    dataError: isSharedAuditMode()?sharedTrailError:undefined,
+    dataLoading: isSharedAuditMode()?sharedTrailLoading:false,
     title:t("pages.trail.title"),
     description:t("pages.trail.description"),
     rows:scope.trailRows,
@@ -1605,7 +1634,8 @@ export function AuditModulePage() {
   };
 
   switch (subNav) {
-    case "audit-overview": return <AuditOverviewPage />;
+    case "audit-overview": return <AuditOverviewPage loadedCandidates={sourceCandidates}
+      sourceError={sourceError} sourceLoading={sourceLoading} />;
     case "initiate-audit": return <AuditCandidatesPage initialInitiateOpen />;
     case "audit-candidates": return <AuditCandidatesPage />;
     case "all-taxpayers": return <AuditTablePage config={taxpayerConfig} />;
