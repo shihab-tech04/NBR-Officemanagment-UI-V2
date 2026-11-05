@@ -118,12 +118,14 @@ export function ContentManagementPage() {
   };
 
   useEffect(() => {
-    if (authState === 'authorized') void refresh().catch(err => setMessage((err as Error).message));
-    else { setBanners([]); setSelectedId(null); }
+    // The public SQL policy permits reading published banners without
+    // administrator credentials. Never blank the entire CMS for Office users.
+    // RLS still restricts unpublished records and all writes to verified admins.
+    void refresh().catch(err => setMessage((err as Error).message));
   }, [authState]);
 
   useEffect(() => {
-    if (!cms || authState !== 'authorized') return;
+    if (!cms) return;
     const sync = () => {
       // Preserve in-progress edits. Versioned SQL saves reject stale drafts.
       if (editing) return;
@@ -302,21 +304,6 @@ export function ContentManagementPage() {
   const isNewBanner = !!draft && newDraft?.id === draft.id;
   const publishedCount = banners.filter(row => row.published).length;
 
-  if (authState !== 'authorized') return <main className="cms-page">
-    <header className="cms-page__heading">
-      <div><h1>Content Management</h1><p>Manage TaxPay banners and published content.</p></div>
-    </header>
-    <section className="cms-panel cms-editor" aria-label="Content publishing permissions">
-      {authState === 'checking' ? <p role="status">Checking content publishing permissions…</p> :
-        <p role="alert">{!cms
-          ? 'Content publishing is unavailable because its approved service is not configured.'
-          : authState === 'denied'
-            ? 'Your current Office session does not have verified Content Management publishing permission.'
-            : 'Your Office session does not have Content Management publishing access. Sign out of Office and use your approved administrator credentials at the existing Office sign-in.'}</p>}
-      {message && <p className="cms-message" role="status">{message}</p>}
-    </section>
-  </main>;
-
   return <main className="cms-page">
     <header className="cms-page__heading">
       <div><h1>Content Management</h1><p>Manage published TaxPay banner images, order and bilingual content through verified SQL.</p></div>
@@ -327,13 +314,15 @@ export function ContentManagementPage() {
         }}>Refresh</button>
       </div>
     </header>
+    {authState === 'checking' && !banners.length && <p role="status">Loading TaxPay content…</p>}
+    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">Viewing published TaxPay content. Publishing requires a verified administrator session.</p>}
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
     </div>
-    {tab === 'logo' ? <SiteLogoPanel cms={cms} /> : <div className="cms-layout">
+    {tab === 'logo' ? <SiteLogoPanel cms={cms} canEdit={authState === 'authorized'} /> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
-          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={() => { if (!editing || window.confirm('Discard unsaved banner changes?')) addBanner(); }}><Plus size={16}/> Add banner</button></div>
+          <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2>{authState === 'authorized' && <button type="button" className="cms-add-button" onClick={() => { if (!editing || window.confirm('Discard unsaved banner changes?')) addBanner(); }}><Plus size={16}/> Add banner</button>}</div>
           {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { if (editing && row.id !== selectedId && !window.confirm('Discard unsaved banner changes?')) return; setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
             <span><strong>{row.heading_en}</strong><small>{row.service_code ? 'Service Banner' : 'Main Banner'} · Serial {index + 1}</small></span>
             <span className={`cms-status${row.published ? ' is-published' : ''}`}>{row.published ? 'Published' : 'Unpublished'}</span>
@@ -341,7 +330,7 @@ export function ContentManagementPage() {
           {isNewBanner && <div className="cms-banner-item is-selected"><span><strong>New banner</strong><small>Unsaved · Serial {desiredPosition}</small></span><span className="cms-status">Draft</span></div>}
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
-          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && authState === 'authorized' && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing && draft.id !== 'intro' ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{draft.id === 'intro' ? 'Main banner (fixed)' : (bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner')}</strong>}</div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Published order in TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
