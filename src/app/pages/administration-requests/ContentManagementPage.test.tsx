@@ -66,7 +66,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(await screen.findByRole('button', { name: /Tax payments, without the confusion/ })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Banner list' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Site Logo' })).toBeInTheDocument();
-    expect(screen.getByText(/Viewing published TaxPay content/)).toBeInTheDocument();
+    expect(screen.getByText(/You can edit and preview content here/)).toBeInTheDocument();
     expect(deps.createClient).toHaveBeenCalledWith(
       'https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({
@@ -76,8 +76,14 @@ describe('verified TaxPay banner CMS', () => {
     expect(client.from).toHaveBeenCalledWith('taxpay_site_banners');
     expect(screen.queryByText(/Sign out of Office and use/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign in securely' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add banner' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add banner' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit banner' })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Preview without publishing');
+    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    expect(screen.getByText(/unpublished preview/i)).toBeInTheDocument();
     expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
@@ -88,8 +94,11 @@ describe('verified TaxPay banner CMS', () => {
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: /Tax payments, without the confusion/ });
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin'));
-    expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add banner' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit banner' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add banner' })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Edit banner' }));
+    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
