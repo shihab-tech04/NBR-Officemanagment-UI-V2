@@ -1,11 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { verifyPublicImage } from './verifyPublicImage';
 
 vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
+vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 
 vi.mock('./ImageCropDialog', () => ({
   ImageCropDialog: ({ onApply }: { onApply: (file: File) => void }) =>
@@ -21,6 +23,7 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok')
     version: 9, updated_at: '2026-10-29T00:00:00Z',
   };
   const upload = vi.fn(async () => ({ error: null }));
+  const remove = vi.fn(async () => ({ error: null }));
   const update = vi.fn((fields: { image_path: string; image_width: number; image_height: number }) => {
     const chain = {
       eq: vi.fn().mockReturnThis(),
@@ -44,7 +47,7 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok')
   const channel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
   const storage = { from: vi.fn(() => ({
     getPublicUrl: (path: string) => ({ data: { publicUrl: 'https://images.test/' + path } }),
-    upload,
+    upload, remove,
   })) };
   const client = {
     from, channel: vi.fn(() => channel), removeChannel: vi.fn().mockResolvedValue('ok'),
@@ -57,7 +60,7 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok')
     }) }) }) })),
   } as unknown as SupabaseClient;
   vi.mocked(getTaxPayCmsPublicClient).mockReturnValue(writeMode === 'publicStale' ? stalePublicClient : client);
-  return { client, upload, update, from };
+  return { client, upload, update, from, remove };
 }
 
 async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
@@ -68,6 +71,7 @@ async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Site Logo SQL editor and Korbritto parity', () => {
+  beforeEach(() => vi.mocked(verifyPublicImage).mockResolvedValue(undefined));
   it('uses the exact current Korbritto fallback when SQL has no uploaded logo', async () => {
     const cms = logoCms();
     render(<SiteLogoPanel cms={cms.client} />);
@@ -79,6 +83,18 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     const source = img.getAttribute('src') || '';
     expect(source.includes('korbritto-brand-locked') || source.startsWith('data:image/svg+xml')).toBe(true);
     expect(cms.from).toHaveBeenCalledWith('taxpay_site_logo');
+  });
+
+  it('falls back to the approved brand if the active preview image fails', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms();
+    render(<SiteLogoPanel cms={cms.client} canPublish />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    await screen.findByText(/verified in the public TaxPay logo feed/);
+    const logo = screen.getByAltText('Korbritto TaxPay logo preview');
+    fireEvent.error(logo);
+    await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
@@ -106,12 +122,42 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
       expect.objectContaining({ contentType: 'image/png', upsert: false }),
     );
     await waitFor(() => expect(cms.update).toHaveBeenCalledWith(expect.objectContaining({
-      image_width: 2150, image_height: 440,
+      image_width: 1469, image_height: 496,
       image_path: expect.stringMatching(/^logos\//),
     })));
     expect(await screen.findByText(/Logo saved to SQL and verified in the public TaxPay logo feed/)).toBeInTheDocument();
     expect(screen.getByAltText('Korbritto TaxPay logo preview').getAttribute('src')).toMatch(/^https:\/\/images\.test\/logos\//);
     expect(screen.getByRole('button', { name: 'Edit logo' })).toBeInTheDocument();
+  });
+
+  it('restores the original logo with a version-checked SQL write and anonymous read-back', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms();
+    render(<SiteLogoPanel cms={cms.client} canPublish />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    await screen.findByText(/verified in the public TaxPay logo feed/);
+    await user.click(screen.getByRole('button', { name: 'Edit logo' }));
+    await user.click(screen.getByRole('button', { name: 'Restore original logo' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore original logo' }));
+    expect(await screen.findByText(/Original Korbritto logo restored and verified/)).toBeInTheDocument();
+    expect(cms.update).toHaveBeenCalledWith({
+      image_path: null, image_width: null, image_height: null,
+    });
+    expect(cms.remove).toHaveBeenCalledOnce();
+    expect(screen.getByText(/Current Korbritto brand/)).toBeVisible();
+  });
+
+  it('does not change SQL when the uploaded logo cannot be delivered to public visitors', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms();
+    vi.mocked(verifyPublicImage).mockRejectedValueOnce(new Error('Public image cannot be decoded.'));
+    render(<SiteLogoPanel cms={cms.client} canPublish />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    expect(await screen.findByText(/Logo not published: Public image cannot be decoded/)).toBeInTheDocument();
+    expect(cms.update).not.toHaveBeenCalled();
+    expect(cms.remove).toHaveBeenCalledOnce();
   });
 
   it('does not claim public publishing when only Office sees the updated logo', async () => {
