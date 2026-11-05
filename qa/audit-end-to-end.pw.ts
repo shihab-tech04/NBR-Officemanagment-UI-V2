@@ -25,11 +25,10 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await next(); // Full population
   await next(); // Existing data-readiness defaults
 
-  const criterion = modal.locator(".app-selection-row").filter({
-    has: modal.locator(".app-selection-row__code", { hasText: "R-A1" }),
-  }).first();
+  const criterion = modal.getByRole("checkbox", { name: "Zero income + declared asset" });
   await expect(criterion).toBeVisible();
-  await criterion.locator("label").click();
+  await criterion.check();
+  await expect(criterion).toBeChecked();
   await next(); // Criteria -> screening
   await modal.getByRole("button", { name: "Start screening" }).click();
   await modal.getByRole("button", { name: "Continue to Candidate preview" }).click();
