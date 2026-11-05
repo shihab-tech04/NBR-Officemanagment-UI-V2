@@ -23,7 +23,7 @@ create table if not exists public.office_audit_evidence (
 
 create table if not exists public.office_audit_findings (
   id uuid primary key default gen_random_uuid(),
-  candidate_id uuid not null unique references public.office_audit_candidates(id),
+  candidate_id uuid not null references public.office_audit_candidates(id),
   evidence_id uuid not null references public.office_audit_evidence(id),
   signal_code text not null check(signal_code ~ '^R-[A-E][1-9]$'),
   finding_summary text not null check(length(btrim(finding_summary)) between 20 and 2000),
@@ -298,7 +298,8 @@ begin
       and m.zone=v_case.zone and m.circle=v_case.circle) then
     raise exception 'Authorized Range Officer review and current version required' using errcode='42501';
   end if;
-  select * into v_finding from public.office_audit_findings where candidate_id=p_candidate_id;
+  select * into v_finding from public.office_audit_findings where candidate_id=p_candidate_id
+    order by submitted_at desc, id desc limit 1;
   if not found or v_finding.submitted_by=auth.uid() or
      not exists(select 1 from public.office_audit_evidence e
       where e.id=v_finding.evidence_id and e.candidate_id=p_candidate_id
