@@ -286,7 +286,7 @@ export function changeLocalAuditCandidateStatus(
 ): AuditCandidateRecord {
   if (isSharedAuditMode()) throw new Error("Device-local Audit status is unavailable for shared SQL records");
   if (!canUseStorage()) throw new Error("This browser does not support persistent Audit status changes");
-  const details = note.trim().replace(/\\s+/g, " ");
+  const details = note.trim().replace(/\s+/g, " ");
   if (details.length < 10 || details.length > 500) {
     throw new Error("Record a reason between 10 and 500 characters");
   }
