@@ -18,7 +18,7 @@ function row() {
   };
 }
 
-function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean } = {}) {
+function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean; stalePublicReadback?: boolean } = {}) {
   const banners: Record<string, unknown>[] = [row()];
   let sessionActive = hasSession;
   let onAuthChange: (() => void) | null = null;
@@ -58,7 +58,17 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
       remove: vi.fn(async () => ({ error: null })),
     })) },
   };
-  return { client, rpc, setSession(isActive: boolean) {
+  const publicQuery: Record<string, unknown> = {};
+  publicQuery.eq = vi.fn(() => publicQuery);
+  publicQuery.order = vi.fn(() => publicQuery);
+  publicQuery.then = (onFulfilled: (value: unknown) => unknown) => Promise.resolve({
+    data: options.stalePublicReadback ? [row()] : banners.filter(banner => banner.published),
+    error: null,
+  }).then(onFulfilled);
+  const publicClient = {
+    from: vi.fn(() => ({ select: vi.fn(() => publicQuery) })),
+  };
+  return { client, publicClient, rpc, setSession(isActive: boolean) {
     sessionActive = isActive;
     onAuthChange?.();
   } };
@@ -179,6 +189,36 @@ describe('verified TaxPay banner CMS', () => {
     expect(await screen.findByText(/SQL read-back did not match the published banner/)).toBeInTheDocument();
     expect(screen.queryByText(/Saved to SQL\./)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  });
+
+  it('verifies an actual anonymous read-back rather than trusting the Office admin session', async () => {
+    const { client, publicClient } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Publicly verified headline');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/verified in the public TaxPay banner feed/)).toBeInTheDocument();
+    expect(publicClient.from).toHaveBeenCalledWith('taxpay_site_banners');
+    expect(deps.createClient).toHaveBeenCalledWith('https://cms.test.supabase.co', 'sb_publishable_test',
+      expect.objectContaining({ auth: expect.objectContaining({ persistSession: false, autoRefreshToken: false }) }));
+  });
+
+  it('reports incomplete verification when Office sees a write but the anonymous TaxPay feed is stale', async () => {
+    const { client, publicClient } = makeClient(true, true, { stalePublicReadback: true });
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Unseen on public');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Public TaxPay visibility does not match the committed SQL banner/)).toBeInTheDocument();
+    expect(screen.queryByText(/verified in the public TaxPay banner feed/)).not.toBeInTheDocument();
   });
 
   it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
