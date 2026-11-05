@@ -71,7 +71,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
       }
       if (cms) {
         const { error: signOutError } = await cms.auth.signOut({ scope: "local" });
-        if (signOutError) throw new Error("Could not reset the previous publishing session.");
+        if (signOutError) throw new Error("The previous Content Management session could not be cleared. Retry sign-in.");
         if (password) {
           // The existing Office form is the only sign-in for the TaxPay editor.
           // An invalid password must not silently downgrade to a preview after
