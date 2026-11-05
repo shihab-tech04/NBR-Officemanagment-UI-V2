@@ -212,7 +212,20 @@ export function getAuditCandidates(): AuditCandidateRecord[] {
   try {
     const parsed = JSON.parse(raw) as AuditCandidateRecord[];
     if (!Array.isArray(parsed)) return seeded;
-    return parsed.map(normalizeCandidate);
+    // An older empty/incomplete local cache must not hide source fixture batches.
+    // Preserve custom candidates and any modified records by candidate ID.
+    const normalized = parsed.map(normalizeCandidate);
+    const existingIds = new Set(normalized.map((item) => item.candidate_id));
+    const missing = seeded.filter((item) => !existingIds.has(item.candidate_id));
+    const merged = [...normalized, ...missing];
+    if (missing.length) {
+      try {
+        window.localStorage.setItem(CANDIDATE_KEY, JSON.stringify(merged));
+      } catch {
+        // Render the recovered records even if the browser storage is full.
+      }
+    }
+    return merged;
   } catch {
     return seeded;
   }
