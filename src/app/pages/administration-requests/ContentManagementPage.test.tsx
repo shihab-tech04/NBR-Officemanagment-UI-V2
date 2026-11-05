@@ -243,6 +243,6 @@ describe('verified TaxPay banner CMS', () => {
         p_banner: expect.objectContaining({ heading_en: 'Updated fixed headline', id: 'intro' }),
       }),
     ));
-    expect(screen.getByText(/Saved to SQL/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
   });
 });
