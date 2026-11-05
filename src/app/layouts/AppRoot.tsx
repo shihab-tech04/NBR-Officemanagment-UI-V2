@@ -8,6 +8,7 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
+import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -98,6 +99,18 @@ export function AppRoot() {
         setSignOutError("Officer sign-out could not be verified. Please retry.");
         return;
       }
+    }
+    try {
+      // Revoke the CMS session whenever Office signs out. A later preview
+      // login must never inherit the previous administrator's SQL authority.
+      const cms = getTaxPayCmsClient();
+      if (cms) {
+        const { error } = await cms.auth.signOut({ scope: "local" });
+        if (error) throw error;
+      }
+    } catch {
+      setSignOutError("Content Management sign-out could not be verified. Please retry.");
+      return;
     }
     clearEntry();
     setSignedOut(true);

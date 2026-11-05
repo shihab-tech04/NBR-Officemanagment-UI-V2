@@ -21,7 +21,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Verify protected CMS and production crop contracts
-        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx
+        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx src/app/components/auth/LoginForm.test.tsx
       - name: Compile exact approved Office design
         run: npm run build
         env:

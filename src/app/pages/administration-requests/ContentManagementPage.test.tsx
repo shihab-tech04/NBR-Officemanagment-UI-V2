@@ -63,14 +63,17 @@ describe('verified TaxPay banner CMS', () => {
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
-    await screen.findByText(/Verified administrator access is required/);
+    await screen.findByRole('alert');
     expect(deps.createClient).toHaveBeenCalledWith(
       'https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({
         persistSession: true, storageKey: 'nbr-office-taxpay-cms-session',
       }) }),
     );
-    expect(screen.getByRole('button', { name: 'Sign in securely' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Sign in securely' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Email sign-in link \/ code/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Administrator email')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Sign out of Office');
     expect(screen.queryByRole('button', { name: 'Edit banner' })).not.toBeInTheDocument();
     expect(client.from).not.toHaveBeenCalled();
   });
