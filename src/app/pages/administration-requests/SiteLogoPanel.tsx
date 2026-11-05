@@ -19,6 +19,12 @@ function liveLogoUrl(cms: SupabaseClient, path: string | null) {
   return path ? cms.storage.from('taxpay-branding').getPublicUrl(path).data.publicUrl : fallbackLogo;
 }
 
+function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  return <img src={failed ? fallbackLogo : src} alt={alt} onError={() => setFailed(true)} />;
+}
+
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(false);
@@ -207,14 +213,14 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     {!cms ? <p>Content service configuration is unavailable.</p> : <>
       <div className="cms-logo__canvas">
         <h3>{editing && selected ? 'New logo preview (not yet published)' : 'Current TaxPay logo'}</h3>
-        <div className="cms-logo__image"><img src={displayUrl} alt="Korbritto TaxPay logo preview" /></div>
+        <div className="cms-logo__image"><LogoPreviewImage src={displayUrl} alt="Korbritto TaxPay logo preview" /></div>
         <p>Source image: {dimensions}</p>
         {!record?.image_path && <p>Showing the current Korbritto brand used by TaxPay when SQL has no uploaded logo.</p>}
       </div>
       <div className="cms-logo__placement-grid">
-        <div className="cms-logo__placement"><h3>Desktop header</h3><div className="cms-logo__slot cms-logo__slot--desktop"><img src={displayUrl} alt="Desktop header logo preview" /></div><p>154 × 52 px slot</p></div>
-        <div className="cms-logo__placement"><h3>Mobile header</h3><div className="cms-logo__slot cms-logo__slot--mobile"><img src={displayUrl} alt="Mobile header logo preview" /></div><p>122 × 42 px slot</p></div>
-        <div className="cms-logo__placement"><h3>Taxpayer sidebar</h3><div className="cms-logo__slot cms-logo__slot--sidebar"><img src={displayUrl} alt="Taxpayer sidebar logo preview" /></div><p>164 × 58 px slot</p></div>
+        <div className="cms-logo__placement"><h3>Desktop header</h3><div className="cms-logo__slot cms-logo__slot--desktop"><LogoPreviewImage src={displayUrl} alt="Desktop header logo preview" /></div><p>154 × 52 px slot</p></div>
+        <div className="cms-logo__placement"><h3>Mobile header</h3><div className="cms-logo__slot cms-logo__slot--mobile"><LogoPreviewImage src={displayUrl} alt="Mobile header logo preview" /></div><p>122 × 42 px slot</p></div>
+        <div className="cms-logo__placement"><h3>Taxpayer sidebar</h3><div className="cms-logo__slot cms-logo__slot--sidebar"><LogoPreviewImage src={displayUrl} alt="Taxpayer sidebar logo preview" /></div><p>164 × 58 px slot</p></div>
       </div>
       {editing && <>
         {!canPublish && <p role="status" className="cms-editor__note">You can preview the logo, but publishing requires an Office sign-in with a valid account password and publishing permission.</p>}
