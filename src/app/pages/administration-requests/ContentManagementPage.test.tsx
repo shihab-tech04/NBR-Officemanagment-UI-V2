@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifyPublicImage } from './verifyPublicImage';
 
 const deps = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: deps.createClient }));
 
 function row() {
@@ -76,6 +78,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
 
 describe('verified TaxPay banner CMS', () => {
   beforeEach(() => {
+    vi.mocked(verifyPublicImage).mockResolvedValue(undefined);
     vi.resetModules();
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_URL', 'https://cms.test.supabase.co');
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
@@ -219,6 +222,15 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText(/Public TaxPay visibility does not match the committed SQL banner/)).toBeInTheDocument();
     expect(screen.queryByText(/verified in the public TaxPay banner feed/)).not.toBeInTheDocument();
+  });
+
+  it('explains that service text is announced while fixed Taxpayer copy stays unchanged', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    render(<ContentManagementPage />);
+    await screen.findByRole('button', { name: 'Edit banner' });
+    expect(screen.getByText(/controls the Taxpayer homepage’s fixed left heading/)).toBeInTheDocument();
   });
 
   it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
