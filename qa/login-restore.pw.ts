@@ -7,6 +7,8 @@ test('Office opens directly without presentation-only credentials and survives r
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('#login-user-id')).toHaveCount(0);
   await expect(page.locator('#login-password')).toHaveCount(0);
+  await expect(page.locator('.topbar__profile-name')).toHaveText('Office Workspace');
+  await expect(page.locator('.topbar__profile-role')).toHaveText('Open workspace');
   await page.reload();
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('#login-user-id')).toHaveCount(0);
@@ -34,6 +36,10 @@ test('Office mobile navigation works without any presentation-only sign-in', asy
 test('profile Sign Out still allows CMS session cleanup without locking the public Office UI', async ({ page }) => {
   await page.goto('/dashboard/dashboard-main');
   await page.locator('.topbar__profile-button').click();
+  await expect(page.locator('.account-dropdown__name')).toHaveText('Office Workspace');
+  await expect(page.locator('.account-dropdown__email')).toHaveCount(0);
+  await expect(page.locator('.account-dropdown__summary')).toHaveCount(0);
+  await expect(page.locator('.account-dropdown__signout-button')).toContainText('Disconnect publishing session');
   await page.locator('.account-dropdown__signout-button').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
