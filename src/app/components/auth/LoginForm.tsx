@@ -85,7 +85,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
             await cms.auth.signOut({ scope: "local" });
             throw new Error("This Office account does not have permission to publish TaxPay content.");
           }
-          throw new Error("Enter your authorized Office password to publish TaxPay content.");
+          throw new Error(translate("login.publisherPasswordRequired"));
         }
       }
       setPassword("");
