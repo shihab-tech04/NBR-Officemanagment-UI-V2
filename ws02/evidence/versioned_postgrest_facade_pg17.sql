@@ -94,6 +94,16 @@ BEGIN
  EXECUTE 'RESET ROLE';
  IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
  THEN RAISE EXCEPTION 'ENGINE_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
+ -- EXECUTE denial is insufficient if a runtime role can grant schema USAGE.
+ -- PostgreSQL may report an unauthorized GRANT as a warning, so assert effective ACL.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT USAGE ON SCHEMA ws02_versioned_api TO ws02_owner_auth';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_schema_privilege('ws02_owner_auth','ws02_versioned_api','USAGE')
+ THEN RAISE EXCEPTION 'ENGINE_SCHEMA_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_auth';
