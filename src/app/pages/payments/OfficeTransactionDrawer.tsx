@@ -5,7 +5,7 @@ import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDra
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
-import { getOfficePaymentItems, officeMoney, type OfficeReceiptInfo } from './officeTransactionDetails';
+import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
@@ -26,10 +26,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   // In Taxpayer 360 the projected amount must equal only this beneficiary's
   // reconciled SQL allocations; never export the full parent payment total.
   const scopedMinor = items.reduce((total,item)=>total+item.amountMinor,0);
-  const displayedAmount = String(row?.amount??'').replace(/[৳,\s]/g,'').trim();
-  const amountParts = /^(\d+)(?:\.(\d{1,2}))?$/.exec(displayedAmount);
-  const sourceAmountMinor = amountParts
-    ? Number(amountParts[1])*100 + Number((amountParts[2]??'').padEnd(2,'0')) : NaN;
+  const sourceAmountMinor = parseOfficeMoneyMinor(row?.amount);
   const itemTotalCorrect = !scopeTin || (items.length>0 && Number.isSafeInteger(scopedMinor) &&
     Number.isSafeInteger(sourceAmountMinor) && scopedMinor===sourceAmountMinor);
   const receiptItems = itemTotalCorrect ? items : [];
