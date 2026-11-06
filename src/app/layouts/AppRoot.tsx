@@ -95,7 +95,11 @@ export function AppRoot() {
   }, [sharedMode]);
 
   useEffect(() => {
-    if (!cmsRoute) return;
+    if (!cmsRoute) {
+      // Recheck on the next CMS entry rather than trusting an old UI flag.
+      setCmsAccess("checking");
+      return;
+    }
     let cancelled = false;
     setCmsAccess("checking");
     void hasVerifiedCmsPublisherSession()
