@@ -71,6 +71,16 @@ BEGIN
  END;
  IF to_regprocedure('ws02_versioned_api.ws02_shadow_endpoint_probe()') IS NOT NULL
  THEN RAISE EXCEPTION 'ENGINE_SHADOW_ENDPOINT_PROBE_LEFT_OBJECT'; END IF;
+ -- The runtime engine must not be able to change the facade into SECURITY DEFINER.
+ -- EXECUTE on a function does not confer ownership or ALTER FUNCTION rights.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'ALTER FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) SECURITY DEFINER';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_ALTERED_FACADE_SECURITY';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=fn) IS DISTINCT FROM false
+ THEN RAISE EXCEPTION 'ENGINE_ALTER_PROBE_CHANGED_FACADE_SECURITY'; END IF;
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_auth';
