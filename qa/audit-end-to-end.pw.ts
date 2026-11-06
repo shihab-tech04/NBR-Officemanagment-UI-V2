@@ -47,6 +47,25 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await next(); // Preview -> selection funnel
   await next(); // All matched -> final review
   await expect(modal).toContainText("Anika Engineering");
+
+  // Circle compilation is independent contextual evidence; it must not
+  // replace the selected taxpayer list or disable final confirmation.
+  const circle = modal.getByTestId("audit-circle-review");
+  await expect(circle).toBeVisible();
+  await expect(circle).toContainText("1,057");
+  await expect(circle).toContainText("13,501,536");
+  await expect(circle).toContainText("4,984,983");
+  await expect(circle).toContainText("36.9%");
+  const circleTable = circle.getByRole("table", { name: "Circle filing and TIN overview" });
+  await expect(circleTable).toContainText("Circle-331 (Company)");
+  await expect(circleTable).toContainText("Provisional 4/10");
+  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("Circle-331");
+  await expect(circle).toContainText("1 of 1 Circles match");
+  await expect(circleTable).toContainText("809,661,593");
+  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("no such circle");
+  await expect(circle).toContainText("No Circles match this search.");
+  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("");
+  await expect(modal).toContainText("Anika Engineering");
   const confirmation = modal.getByRole("button", { name: "Confirm candidates" });
   await expect(confirmation).toBeEnabled();
   await confirmation.click();
