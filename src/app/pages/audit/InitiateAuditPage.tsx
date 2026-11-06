@@ -1434,14 +1434,16 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                   </div>
                   {matchedRows.length === 0 && (
                     <p className="form-helper" role="status">
-                      {matchedAlreadyInAuditRows.length > 0
-                        ? t("initiate.previewDecision.noNewCandidates", {
-                            count:matchedAlreadyInAuditRows.length,
-                            available:selectableRows.length,
-                          })
-                        : t("initiate.previewDecision.noCandidatesMeetCriteria", {
-                            available:selectableRows.length,
-                          })}
+                      {selectableRows.length === 0
+                        ? t("initiate.previewDecision.noRemainingCandidates")
+                        : matchedAlreadyInAuditRows.length > 0
+                          ? t("initiate.previewDecision.noNewCandidates", {
+                              count:matchedAlreadyInAuditRows.length,
+                              available:selectableRows.length,
+                            })
+                          : t("initiate.previewDecision.noCandidatesMeetCriteria", {
+                              available:selectableRows.length,
+                            })}
                     </p>
                   )}
                 </div>
