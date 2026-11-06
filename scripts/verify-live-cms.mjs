@@ -15,23 +15,30 @@ try {
     ['mobile', { width: 390, height: 844 }, true],
   ]) {
     const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile });
-    await page.goto(base + 'administration/content-management', {
-      waitUntil: 'domcontentloaded', timeout: 45_000,
-    });
+    // Existing Office prototype entry and solved journeys remain unchanged.
+    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     const login = page.getByRole('textbox', { name: 'User ID' });
     await expect(login).toBeVisible({ timeout: 30_000 });
     await login.fill('admin');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(login).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered'))).toBe('admin');
 
-    // The old live test called passwordless "admin" a successful Office
-    // sign-in, even though it had no SQL/Storage publishing credentials.
-    // This regression test must fail if the preview-only identity enters.
+    // TaxPay CMS is the only route that requires the verified publisher.
+    // Preview-only Office entry must not be confused with SQL write access.
+    await page.goto(base + 'administration/content-management', {
+      waitUntil: 'domcontentloaded', timeout: 45_000,
+    });
+    await expect(login).toBeVisible({ timeout: 30_000 });
+    await login.fill('admin');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText(
       'Enter your authorized Office password', { timeout: 30_000 },
     );
     await expect(login).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Content Management' })).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: 'Confirm TaxPay publishing' })).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered'))).toBe('admin');
 
     if (publisherPassword) {
       // A real publisher credential is supplied only by an authorized Actions
@@ -63,7 +70,7 @@ try {
     await page.screenshot({ path: 'test-results/live-cms-' + device + '.png', fullPage: false });
     await page.close();
   }
-  console.log('PASS: Office rejects password-free CMS publishing identity on desktop and mobile');
+  console.log('PASS: Office preview remains available, TaxPay CMS requires verified publisher without another Publish modal');
 } finally {
   await browser.close();
 }
