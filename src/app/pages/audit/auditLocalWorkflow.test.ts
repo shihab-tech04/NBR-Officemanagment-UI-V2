@@ -7,6 +7,7 @@ import {
   getNextLocalAuditStatuses,
 } from "./auditCandidateStore";
 import { getAuditYearScope } from "./auditYearScope";
+import { recordLocalAuditEvidence, verifyLocalAuditEvidence, submitLocalAuditFinding } from "./auditLocalCaseWorkflow";
 
 describe("Office Audit device-local candidate lifecycle", () => {
   beforeEach(() => window.localStorage.clear());
@@ -62,11 +63,19 @@ describe("Office Audit device-local candidate lifecycle", () => {
       .toBe("Verifying");
     expect(scope.secondReviewRows.some((row) => row.return_id === candidate!.return_id))
       .toBe(false);
-    changeLocalAuditCandidateStatus(candidate!.candidate_id, "Ready for Review", "New evidence is ready for review");
+    for (const signal of String(candidate!.signals).match(/R-[A-E]\d/g) ?? []) {
+      const caseState = recordLocalAuditEvidence(candidate!.candidate_id, signal,
+        "DOC-REF-" + signal, "Reviewed the linked financial source documents");
+      const entry = caseState.evidence[caseState.evidence.length - 1];
+      verifyLocalAuditEvidence(candidate!.candidate_id, entry.id,
+        "Checked source values for the named signal");
+    }
+    submitLocalAuditFinding(candidate!.candidate_id,
+      "The named signals and attached source records were verified and are ready for independent review");
     scope = getAuditYearScope(candidate!.assessment_year, getAuditCandidates());
     expect(scope.secondReviewRows.find((row) => row.return_id === candidate!.return_id)?.review_status)
       .toBe("Ready for Review");
-    expect(getLocalAuditStatusEvents()).toHaveLength(2);
+    expect(getLocalAuditStatusEvents()).toHaveLength(1);
   });
 
   it("does not overwrite another assessment year or unrelated candidate", () => {
