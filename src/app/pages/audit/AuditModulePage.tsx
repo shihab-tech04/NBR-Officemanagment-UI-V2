@@ -47,6 +47,7 @@ import {
 } from "./auditSharedSecondReview";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { AuditLocalCaseActions } from "./AuditLocalCaseActions";
+import { AuditLocalControlActions } from "./AuditLocalControlActions";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
 
@@ -1589,6 +1590,7 @@ export function AuditModulePage() {
     ],
     clickableKeys:["circle","flag_id","coverage_tier","control_status"],
     mobileCardMapping:{primary:"flag_id",identifier:"return_id",meta:["circle","coverage_tier","queue"],status:"control_status"},
+    extraFooterActions: isSharedAuditMode() ? undefined : (row) => <AuditLocalControlActions row={row} />,
   };
 
   const reviewConfig: AuditTableConfig = {
