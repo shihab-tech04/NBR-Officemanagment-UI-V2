@@ -17,7 +17,7 @@ on:
       - 'qa/audit-profile-ux.pw.ts'
       - 'qa/audit-signal-flow.pw.ts'
       - 'qa/audit-full-module-ui.pw.ts'
-      - 'qa/audit-exports.pw.ts'
+      - 'qa/audit-exports.pw.ts qa/audit-local-case-journey.pw.ts'
       - 'src/app/pages/audit/auditSignalSource.test.ts'
       - 'src/app/pages/audit/auditQuickSummary.test.ts'
       - '.github/workflows/audit-responsive-qa.yml'
