@@ -155,3 +155,52 @@ test("population selection uses all 70 taxpayers without population or readiness
   // no invisible readiness filter excludes incomplete or invalid profiles.
   await expect(modal).toContainText("Representative preview · 70 records");
 });
+
+test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
+  await page.goto("/audit/audit-candidates");
+  await page.getByRole("button", { name: "Initiate Audit" }).click();
+  const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
+  const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await next(); // Selection setup -> Risk criteria
+  // Selecting all R-A1–R-E3 signals matches already-audited profiles in this
+  // baseline; there must be no hidden automatic reselection or duplicate batch.
+  await modal.getByRole("button", { name: "Select all", exact: true }).last().click();
+  await next(); // Risk criteria -> Screening run
+  await modal.getByRole("button", { name: "Start screening" }).click();
+  await modal.getByRole("button", { name: "Continue to Candidate preview" }).click();
+  await expect(modal.locator(".audit-preview-eligibility-summary"))
+    .toContainText("0 available for this audit");
+  await expect(modal).toContainText(/matching taxpayers are already in audit/);
+  await expect(modal.getByRole("button", { name: "Change risk criteria" })).toBeEnabled();
+
+  const recover = modal.getByRole("button", { name: /Review [1-9][0-9]* available taxpayers/ });
+  await expect(recover).toBeEnabled();
+  await recover.click(); // Explicit change to Population selection, not a silent override
+
+  const stepper = modal.locator(".app-stepper");
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(4);
+  await expect(stepper.getByRole("button", { name: "Candidate preview" }))
+    .toHaveAttribute("aria-current", "step");
+  await expect(modal.locator(".audit-preview-eligibility-summary"))
+    .toContainText("14 available for this audit");
+  await expect(modal.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+
+  await next(); // Population preview -> Funnel
+  await next(); // Funnel -> Final list
+  await expect(modal.getByRole("button", { name: "Confirm candidates" })).toBeEnabled();
+  await modal.getByRole("button", { name: "Confirm candidates" }).click();
+  await expect(modal).toHaveCount(0);
+
+  const state = await page.evaluate(() => {
+    const rows = JSON.parse(localStorage.getItem("nbr-audit-candidates-v3") || "[]") as
+      { return_id: string; assessment_year: string; batch_id: string }[];
+    const identities = rows.map((item) => item.assessment_year + "|" + item.return_id);
+    return {
+      duplicateCount: identities.length - new Set(identities).size,
+      newlyCreated: rows.filter((item) => item.batch_id.startsWith("AUD-202526-")).length,
+    };
+  });
+  expect(state.duplicateCount).toBe(0);
+  expect(state.newlyCreated).toBe(14);
+});
