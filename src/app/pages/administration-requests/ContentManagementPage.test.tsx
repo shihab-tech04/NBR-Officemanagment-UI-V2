@@ -6,6 +6,14 @@ import { verifyPublicImage } from './verifyPublicImage';
 const deps = vi.hoisted(() => ({ createClient: vi.fn() }));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: deps.createClient }));
+// Isolate the page's upload/readback contract from the separately tested
+// canvas crop implementation; live Chromium exercises the real crop dialog.
+vi.mock('./ImageCropDialog', () => ({
+  ImageCropDialog: ({ onApply }: { onApply: (file: File) => void }) =>
+    <button type="button" onClick={() => onApply(new File([new Uint8Array(128)], 'cms-cropped.png', { type: 'image/png' }))}>
+      Apply crop
+    </button>,
+}));
 
 function row() {
   return {
@@ -22,6 +30,7 @@ function row() {
 
 function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean; stalePublicReadback?: boolean } = {}) {
   const banners: Record<string, unknown>[] = [row()];
+  const upload = vi.fn(async () => ({ error: null }));
   let sessionActive = hasSession;
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
@@ -58,6 +67,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
     storage: { from: vi.fn(() => ({
       getPublicUrl: (path: string) => ({ data: { publicUrl: 'https://storage.test/' + path } }),
+      upload,
       remove: vi.fn(async () => ({ error: null })),
     })) },
   };
@@ -71,7 +81,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   const publicClient = {
     from: vi.fn(() => ({ select: vi.fn(() => publicQuery) })),
   };
-  return { client, publicClient, rpc, setSession(isActive: boolean) {
+  return { client, publicClient, rpc, upload, setSession(isActive: boolean) {
     sessionActive = isActive;
     onAuthChange?.();
   } };
@@ -157,6 +167,37 @@ describe('verified TaxPay banner CMS', () => {
     ));
     expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
     expect(getPendingCmsPublish()).toBeNull();
+  });
+
+  it('uploads both cropped banner image slots and verifies their SQL and public paths', async () => {
+    const { client, publicClient, rpc, upload } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    for (const device of ['desktop', 'mobile']) {
+      const input = container.querySelector(`.cms-upload--${device} input[type="file"]`) as HTMLInputElement | null;
+      expect(input).not.toBeNull();
+      await user.upload(input!, new File([new Uint8Array(256)], `${device}.png`, { type: 'image/png' }));
+      await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+      expect(container.querySelector(`.cms-upload--${device}`)).toHaveTextContent('Cropped image ready');
+    }
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+    const paths = upload.mock.calls.map(args => args[0] as string);
+    expect(paths).toHaveLength(2);
+    for (const path of paths) expect(path).toMatch(/^banners\/intro\/[0-9a-f-]+\.png$/);
+    expect(paths[0]).not.toBe(paths[1]);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
+      expect.objectContaining({ p_expected_version: 8, p_banner: expect.objectContaining({
+        desktop_image_path: paths[0], mobile_image_path: paths[1], published: true,
+      }) }),
+    ));
+    expect(await screen.findByText(/Saved to SQL; public TaxPay text and images verified/)).toBeInTheDocument();
+    for (const path of paths) {
+      expect(vi.mocked(verifyPublicImage)).toHaveBeenCalledWith(publicClient, 'taxpay-banners', path);
+    }
   });
 
   it('shows published data but does not expose write controls to a non-admin SQL session', async () => {
