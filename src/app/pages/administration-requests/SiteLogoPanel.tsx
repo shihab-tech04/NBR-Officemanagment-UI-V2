@@ -46,7 +46,8 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     // Do not discard a pending publish before SQL has supplied the current
     // version needed for its optimistic-lock update.
     if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
-    const shouldPublish = resumePublish.current;
+    // The editor is not remounted when Office verifies publisher credentials.
+    const shouldPublish = resumePublish.current || getPendingCmsPublish()?.publishAfterSignIn === true;
     resumePublish.current = false; // At most once, including Strict Mode remounts.
     clearPendingCmsPublish();
     if (shouldPublish && selected) void save();
