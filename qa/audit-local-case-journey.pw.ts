@@ -90,3 +90,16 @@ test("control flag review writes one linked taxpayer decision and Audit Trail en
   await expect(page.locator(".table-card")).toContainText("Control ");
   await expect(page.locator(".table-card")).toContainText(returnId);
 });
+
+test("fresh direct Audit Candidates route selects its populated year without changing an explicit saved year", async ({ context }) => {
+  // The beforeEach initializer belongs to the default page. A new page has no
+  // stored assessment-year preference, reproducing a genuinely fresh browser.
+  const fresh = await context.newPage();
+  await fresh.goto("/audit/audit-candidates");
+  await expect.poll(async () => fresh.evaluate(() => {
+    const settings = localStorage.getItem("gov_ui_settings");
+    return settings ? JSON.parse(settings).assessmentYear : null;
+  }), { timeout: 18000 }).toBe("2025-26");
+  await expect(fresh.locator(".table-card")).toContainText("AUD-2026-RISK-01");
+  await fresh.close();
+});
