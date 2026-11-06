@@ -23,6 +23,21 @@ export function officeMoney(minor: number, language = 'en'): string {
   }).format(minor / 100);
 }
 
+/** Strictly parse the amount actually rendered in an Office payment row.
+ * Bengali digits are valid in the BN interface. Never infer an amount from
+ * invalid grouping, an unlabelled number, or a value outside safe integer paisa.
+ */
+export function parseOfficeMoneyMinor(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().replace(/[০-৯]/g, digit =>
+    String(digit.charCodeAt(0) - 0x09e6));
+  const match = /^৳\s*((?:[0-9]{1,3}(?:,[0-9]{3})+)|(?:[0-9]+))(?:\.([0-9]{1,2}))?$/.exec(normalized);
+  if (!match) return null;
+  const whole = Number(match[1].replace(/,/g, ''));
+  const minor = whole * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+  return Number.isSafeInteger(minor) && minor >= 0 ? minor : null;
+}
+
 /** Present only allocations that reconcile to the source transaction.
  * Do not guess a taxpayer, tax head, or amount from an incomplete record. */
 export type OfficePaymentScope={taxpayerTin:string;assessmentYear?:string};
