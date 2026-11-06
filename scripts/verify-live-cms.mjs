@@ -47,11 +47,22 @@ try {
     // The original bug only occurred AFTER cropping: the primary Publish
     // remained disabled in the actual live Office session. Exercise that
     // exact journey without performing any unauthorized production SQL write.
-    // Real 160×100 PNG: the cropper correctly rejects smaller image dimensions.
-    const fixture = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAAsUlEQVR42u3RAQ0AMAjAsHMBCEMU2rFBSCdhjax+utu3ALAAC7AAC7AACzBgARZgARZgARZgwAIswAIswAIswAIMWIAFWIAFWIAFGLAAC7AAC7AACzBgARZgARZgAQYswAIswAIswAIMWIAFWIAFWIAFGLAAC7AAC7AAC7AAAxZgARZgARZgAQYswAIswAIswAIswIAFWIAFWIAFWIABC7AAC7AAC7AAAxZgAda+Bjz5AZ65BwlQAAAAAElFTkSuQmCC',
-      'base64',
-    );
+    // Generate a valid PNG with Chromium itself. The previous embedded sample
+    // decoded inconsistently and left Apply crop disabled; that tested an invalid
+    // fixture rather than the real CMS publish journey.
+    const pngBase64 = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Unable to create PNG crop fixture');
+      ctx.fillStyle = '#2C5EAD';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(30, 30, 580, 180);
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    const fixture = Buffer.from(pngBase64, 'base64');
     await page.getByLabel('Upload / replace logo').setInputFiles({
       name: 'public-preview-check.png', mimeType: 'image/png', buffer: fixture,
     });
