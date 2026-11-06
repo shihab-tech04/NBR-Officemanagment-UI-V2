@@ -163,7 +163,7 @@ test("exhausted risk preview recovers to remaining taxpayers without duplicating
   // have been selected in earlier Audit batches. Preserve existing seeded rows,
   // then add only the previous selections missing from the local registry.
   const previouslySelected = ALL_TAXPAYER_ROWS
-    .filter((row) => /R-[A-E]\\d/.test(String(row.signals)))
+    .filter((row) => /R-[A-E]\d/.test(String(row.signals)))
     .map((row) => ({
       return_id: String(row.return_id),
       assessment_year: String(row.assessment_year),
