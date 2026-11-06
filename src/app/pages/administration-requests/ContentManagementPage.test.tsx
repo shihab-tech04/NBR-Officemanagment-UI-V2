@@ -89,6 +89,9 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
 
 describe('verified TaxPay banner CMS', () => {
   beforeEach(() => {
+    // Reset queued constructor responses as well as call counts: a failed
+    // render must not leak a public viewer mock into the next CMS test.
+    deps.createClient.mockReset();
     vi.mocked(verifyPublicImage).mockResolvedValue(undefined);
     vi.resetModules();
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_URL', 'https://cms.test.supabase.co');
