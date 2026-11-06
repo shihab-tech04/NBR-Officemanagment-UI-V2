@@ -66,6 +66,18 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(circle).toContainText("No Circles match this search.");
   await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("");
   await expect(modal).toContainText("Anika Engineering");
+
+  // Capture the actual addition in both viewports, using existing approved
+  // modal + shared table/mobile-card patterns; this does not change selection.
+  await circle.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/audit-circle-final-review-desktop.png" });
+  const previousViewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(circle.locator(".mobile-table-card-list")).toBeVisible();
+  await expect(circle.locator(".mobile-table-card-list")).toContainText("Circle-331");
+  await page.screenshot({ path: "test-results/audit-circle-final-review-mobile.png" });
+  if (previousViewport) await page.setViewportSize(previousViewport);
+
   const confirmation = modal.getByRole("button", { name: "Confirm candidates" });
   await expect(confirmation).toBeEnabled();
   await confirmation.click();
