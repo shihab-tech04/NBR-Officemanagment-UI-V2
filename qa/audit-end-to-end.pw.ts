@@ -143,7 +143,8 @@ test("population selection uses all 70 taxpayers without population or readiness
   await page.getByRole("button", { name: "Initiate Audit" }).click();
   const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
   const stepper = modal.locator(".app-stepper");
-  await modal.getByRole("radio", { name: /Population \/ Circle-based Audit/ }).check();
+  await modal.locator(".app-choice-card").filter({ hasText: "Population / Circle-based Audit" }).click();
+  await expect(modal.getByRole("radio", { name: /Population \/ Circle-based Audit/ })).toBeChecked();
   await expect(stepper.locator(".app-stepper__item")).toHaveCount(4);
   await expect(stepper).not.toContainText("Data readiness");
   await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
