@@ -238,7 +238,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
             Sign in to publish
           </button>
           {selected && ' Your cropped logo will remain ready in this tab after sign-in.'}
-        </p>
+        </p>}
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
             <input type="file" accept={IMAGE_FILE_ACCEPT} disabled={busy} onChange={event => {
