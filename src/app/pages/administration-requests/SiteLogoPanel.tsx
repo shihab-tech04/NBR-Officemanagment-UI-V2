@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { getTaxPayCmsPublicClient, restorePreviouslyVerifiedCmsSession } from '../../services/taxpayCmsClient';
 import { verifyPublicImage } from './verifyPublicImage';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
@@ -84,8 +84,12 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       // duplicate sign-in modal. Server-side Storage and SQL policies remain
       // authoritative even if this local role label is stale.
       if (!canPublish) {
-        const { data: { session }, error: sessionError } = await cms.auth.getSession();
+        let { data: { session }, error: sessionError } = await cms.auth.getSession();
         if (sessionError) throw sessionError;
+        if (!session && await restorePreviouslyVerifiedCmsSession()) {
+          ({ data: { session }, error: sessionError } = await cms.auth.getSession());
+          if (sessionError) throw sessionError;
+        }
         if (!session) {
           setMessage('Not published: this Office session has no active TaxPay publishing access. Your cropped logo is preserved.');
           return;
