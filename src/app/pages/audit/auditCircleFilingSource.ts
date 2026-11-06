@@ -2169,7 +2169,7 @@ export const CIRCLE_FILING_RECORDS: readonly CircleFilingRecord[] = SOURCE_ROWS.
 
 /** The Audit wizard's short AY label is normalized without changing global settings. */
 export function circleFilingYear(assessmentYear: string): string {
-  const match = /^(\\d{4})-(\\d{2}|\\d{4})$/.exec(assessmentYear.trim());
+  const match = /^(\d{4})-(\d{2}|\d{4})$/.exec(assessmentYear.trim());
   if (!match) return assessmentYear;
   return match[1] + "-" + (match[2].length === 2 ? match[1].slice(0,2) + match[2] : match[2]);
 }
