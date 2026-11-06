@@ -63,20 +63,27 @@ try {
     }
     await page.screenshot({ path: 'test-results/live-cms-banner-' + device + '.png', fullPage: false });
     await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
+    // The previous implementation called global Office sign-out on Publish.
+    // The authorization form must now be modal and the existing Office
+    // workspace/session must remain intact while the crop is pending.
+    await expect(page.getByRole('dialog', { name: 'Confirm TaxPay publishing' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered'))).toBe('admin');
+    await expect(page.getByRole('heading', { name: 'Content Management', exact: true })).toBeAttached();
     // A preview-only Office entry must not write assets to SQL. An empty
     // password must fail closed, while the crops remain in tab memory.
     await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('password to publish');
 
-    // A full navigation intentionally clears the test-only pending files.
-    // Re-enter the normal preview workspace before checking the logo journey.
-    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'User ID' })).toHaveCount(0, { timeout: 30_000 });
-    await page.goto(base + 'administration/content-management', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    // Cancel publishing credentials without logging out or losing the crops.
+    await page.getByRole('dialog', { name: 'Confirm TaxPay publishing' })
+      .getByRole('button', { name: 'Close modal' }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirm TaxPay publishing' })).toHaveCount(0);
+    await expect(page.locator('.cms-upload--desktop')).toContainText('Cropped image ready');
+    await expect(page.locator('.cms-upload--mobile')).toContainText('Cropped image ready');
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered'))).toBe('admin');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('tab', { name: 'Site Logo' }).click();
     await expect(page.getByRole('region', { name: 'Site Logo' })).toBeVisible();
     await expect(page.getByAltText('Korbritto TaxPay logo preview')).toBeVisible();
@@ -113,12 +120,15 @@ try {
     await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirm TaxPay publishing' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered'))).toBe('admin');
+    await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeAttached();
     // Do not supply administrator credentials or write production content in
     // a smoke test. Authorized Office users complete the same flow privately.
     await page.close();
   }
-  console.log('PASS: live CMS preview crop enables primary Publish; preview-only click opens existing Office sign-in without SQL writes');
+  console.log('PASS: live CMS Publish opens existing verified sign-in as modal without Office sign-out or unauthorized SQL writes');
 } finally {
   await browser.close();
 }

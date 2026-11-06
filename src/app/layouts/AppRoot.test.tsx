@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from "../services/cmsPublishReturn";
 import userEvent from "@testing-library/user-event";
 import { AppRoot } from "./AppRoot";
 
@@ -7,6 +8,7 @@ const shared = vi.hoisted(() => ({
   enabled: false,
   checkAccess: vi.fn(),
   signOut: vi.fn(),
+  cmsSignOut: vi.fn(),
   onAuthStateChange: vi.fn(),
 }));
 vi.mock("../pages/audit/auditSharedSql", () => ({
@@ -18,6 +20,19 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
       onAuthStateChange: (...args: unknown[]) => shared.onAuthStateChange(...args),
     },
   }),
+}));
+vi.mock("../services/taxpayCmsClient", () => ({
+  getTaxPayCmsClient: () => ({ auth: { signOut: (...args: unknown[]) => shared.cmsSignOut(...args) } }),
+}));
+vi.mock("../components/modals/AppModal", () => ({
+  AppModal: ({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) =>
+    open ? <section role="dialog" aria-label="Confirm TaxPay publishing">
+      <button type="button" onClick={onClose}>Cancel publishing</button>{children}
+    </section> : null,
+}));
+vi.mock("../components/auth/LoginForm", () => ({
+  LoginForm: ({ onOfficeEnter }: { onOfficeEnter?: () => void }) =>
+    <button type="button" onClick={onOfficeEnter}>Confirm verified CMS sign-in</button>,
 }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
 vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname }) }));
@@ -40,7 +55,9 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     window.sessionStorage.clear();
     window.history.replaceState(null, "", "/");
     vi.clearAllMocks();
+    clearPendingCmsPublish();
     shared.enabled = false;
+    shared.cmsSignOut.mockResolvedValue({ error: null });
     shared.checkAccess.mockResolvedValue({ userId: "verified-test-officer" });
     shared.signOut.mockResolvedValue({ error: null });
     shared.onAuthStateChange.mockReturnValue({
@@ -87,6 +104,43 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     await user.click(screen.getByRole("button", { name: "Sign out" }));
     expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull();
+    expect(shared.signOut).not.toHaveBeenCalled();
+  });
+
+
+  it("does not sign out or clear the Office entry when Publish needs CMS credentials", async () => {
+    const user = userEvent.setup();
+    render(<AppRoot />);
+    await user.click(screen.getByRole("button", { name: "Enter Office (admin)" }));
+    act(() => {
+      requestCmsPublishingSignIn({ kind: "logo", selected: null, publishAfterSignIn: true });
+    });
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Confirm TaxPay publishing" })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
+    expect(shared.cmsSignOut).not.toHaveBeenCalled();
+    expect(shared.signOut).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancel publishing" }));
+    expect(screen.queryByRole("dialog", { name: "Confirm TaxPay publishing" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(getPendingCmsPublish()).toBeNull();
+  });
+
+  it("keeps pending CMS content for exactly one verified resume without Office logout", async () => {
+    const user = userEvent.setup();
+    render(<AppRoot />);
+    await user.click(screen.getByRole("button", { name: "Enter Office (admin)" }));
+    act(() => {
+      requestCmsPublishingSignIn({ kind: "banner", selectedId: "intro", draft: { id: "intro" },
+        newDraft: null, desiredPosition: 1, desktopFile: null, mobileFile: null,
+        publishAfterSignIn: true });
+    });
+    await user.click(screen.getByRole("button", { name: "Confirm verified CMS sign-in" }));
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(getPendingCmsPublish()?.kind).toBe("banner");
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
+    expect(shared.cmsSignOut).not.toHaveBeenCalled();
     expect(shared.signOut).not.toHaveBeenCalled();
   });
 
