@@ -47,6 +47,55 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await next(); // Preview -> selection funnel
   await next(); // All matched -> final review
   await expect(modal).toContainText("Anika Engineering");
+
+  // Circle compilation is independent contextual evidence; it must not
+  // replace the selected taxpayer list or disable final confirmation.
+  const circle = modal.getByTestId("audit-circle-review");
+  await expect(circle).toBeVisible();
+  await expect(circle).toContainText("1,057");
+  await expect(circle).toContainText("13,501,536");
+  await expect(circle).toContainText("4,984,983");
+  await expect(circle).toContainText("36.9%");
+  const circleTable = circle.getByRole("table", { name: "Circle filing and TIN overview" });
+  await expect(circleTable).toContainText("Circle-331 (Company)");
+  await expect(circleTable).toContainText("Provisional 4/10");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("Circle-331");
+  await expect(circle).toContainText("1 of 1,057 Circles match");
+  await expect(circleTable).toContainText("809,661,593");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("no such circle");
+  await expect(circle).toContainText("No Circles match this search.");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("");
+  await expect(modal).toContainText("Anika Engineering");
+
+  // Capture the actual addition in both viewports, using existing approved
+  // modal + shared table/mobile-card patterns; this does not change selection.
+  await circle.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/audit-circle-final-review-desktop.png" });
+  const previousViewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(circle.locator(".mobile-table-card-list")).toBeVisible();
+  await expect(circle.locator(".mobile-table-card-list")).toContainText("Circle-331");
+  const firstCircleCard = circle.locator(".mobile-table-card").first();
+  await expect(firstCircleCard).toContainText("Provisional 4/10");
+  await expect(firstCircleCard).toContainText("809,661,593");
+  const mobileFooterFits = await firstCircleCard.evaluate(card => {
+    const cardBox = card.getBoundingClientRect();
+    const footer = card.querySelector(".mobile-table-card__footer");
+    if (!footer) return false;
+    const pieces = [
+      footer.querySelector(".mobile-table-card__status"),
+      footer.querySelector(".mobile-table-card__date"),
+    ].filter(Boolean);
+    return pieces.every(piece => {
+      const box = piece!.getBoundingClientRect();
+      return box.left >= cardBox.left - 1 && box.right <= cardBox.right + 1
+        && piece!.scrollWidth <= piece!.clientWidth + 1;
+    });
+  });
+  expect(mobileFooterFits).toBe(true);
+  await page.screenshot({ path: "test-results/audit-circle-final-review-mobile.png" });
+  if (previousViewport) await page.setViewportSize(previousViewport);
+
   const confirmation = modal.getByRole("button", { name: "Confirm candidates" });
   await expect(confirmation).toBeEnabled();
   await confirmation.click();
@@ -159,6 +208,12 @@ test("population selection uses all 70 taxpayers without population or readiness
 
 test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
   await page.goto("/audit/audit-candidates");
+  // Wait for the existing candidate registry to hydrate and restore seed batches
+  // before adding the saved-state scenario. Otherwise a later seed reconciliation
+  // would duplicate test-injected identities by candidate ID.
+  await expect(page.locator(".table-card")).toContainText("AUD-2026-RISK-01");
+  await expect.poll(async () => page.evaluate(() =>
+    JSON.parse(localStorage.getItem("nbr-audit-candidates-v3") || "[]").length)).toBeGreaterThan(0);
   // Reproduce the owner's saved browser state: all 55 signal-positive returns
   // have been selected in earlier Audit batches. Preserve existing seeded rows,
   // then add only the previous selections missing from the local registry.

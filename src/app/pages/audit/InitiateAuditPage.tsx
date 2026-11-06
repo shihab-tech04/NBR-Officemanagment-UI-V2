@@ -20,6 +20,7 @@ import { AppModal } from "../../components/modals/AppModal";
 import type { TableRow } from "../modulePageUtils";
 import { ALL_TAXPAYER_ROWS } from "./auditData";
 import { AuditExplainerDrawer } from "./AuditExplainerDrawer";
+import { AuditCircleFilingReview } from "./AuditCircleFilingReview";
 import { resolveAuditExplanation, type AuditExplanation } from "./auditKnowledge";
 import { getAuditCandidates, saveAuditCandidates } from "./auditCandidateStore";
 import { isSharedAuditMode } from "./auditSharedSql";
@@ -1737,6 +1738,13 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
               <dd className="form-summary-list__value">{funnelBasis}</dd>
             </div>
           </dl>
+        </CollapsibleFormSection>
+
+        <CollapsibleFormSection
+          title={t("initiate.circleReview.title")}
+          icon={Database}
+        >
+          <AuditCircleFilingReview assessmentYear={assessmentYear} />
         </CollapsibleFormSection>
 
         <CollapsibleFormSection
