@@ -16,7 +16,8 @@ const pct = (returns: number, tins: number) =>
   tins > 0 ? ((returns / tins) * 100).toFixed(1) + "%" : "—";
 
 export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingReviewProps) {
-  const { t } = useTranslation("audit");
+  const { t, i18n } = useTranslation("audit");
+  const localFmt = (value: number) => new Intl.NumberFormat(i18n.resolvedLanguage?.startsWith("bn") ? "bn-BD" : "en-US", { maximumFractionDigits: 2 }).format(value);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
@@ -77,17 +78,17 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
       id: row.year + "|" + row.zone + "|" + row.circle,
       zone: row.zone,
       circle: row.circle,
-      tin_count: fmt(row.tinCount),
-      returns: fmt(row.reportedReturns),
+      tin_count: localFmt(row.tinCount),
+      returns: localFmt(row.reportedReturns),
       filing_proxy: (row.incompleteChannels ? t("initiate.circleReview.partial") + " · " : "")
         + pct(row.reportedReturns, row.tinCount),
-      paid: "৳ " + fmt(row.reportedPayment),
+      paid: "৳ " + localFmt(row.reportedPayment),
       review: (row.incompleteChannels ? t("initiate.circleReview.incomplete") + " · " : "")
         + (statusLabels[row.review] || row.review)
         + (row.sourceFlag ? " · " + row.sourceFlag.split(";").map(flag => flagLabels[flag.trim()] || flag.trim()).join(" · ") : ""),
-      score: row.provisionalScore === null
+      score: localFmt(row.provisionalScore) === null
         ? t("initiate.circleReview.unavailable")
-        : t("initiate.circleReview.provisionalScore", { score: row.provisionalScore }),
+        : t("initiate.circleReview.provisionalScore", { score: localFmt(row.provisionalScore) }),
     }));
 
   const col = (key: string, label: string, align?: "left" | "right"): ColDef => ({
@@ -122,9 +123,9 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
           </p>
           <dl className="audit-circle-review__metrics" aria-label={t("initiate.circleReview.metricsLabel")}>
             {[
-              [t("initiate.circleReview.circles"), fmt(yearRows.length)],
-              [t("initiate.circleReview.tinCount"), fmt(totals.tins)],
-              [t("initiate.circleReview.returns"), fmt(totals.returns)],
+              [t("initiate.circleReview.circles"), localFmt(yearRows.length)],
+              [t("initiate.circleReview.tinCount"), localFmt(totals.tins)],
+              [t("initiate.circleReview.returns"), localFmt(totals.returns)],
               [t("initiate.circleReview.filingProxy"), pct(totals.returns, totals.tins)],
             ].map(([label, value]) => (
               <div className="audit-circle-review__metric" key={label}>
@@ -133,7 +134,7 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
             ))}
           </dl>
           <p className="audit-circle-review__payment">
-            {t("initiate.circleReview.totalPaid")}: <strong>৳ {fmt(totals.payment)}</strong>
+            {t("initiate.circleReview.totalPaid")}: <strong>৳ {localFmt(totals.payment)}</strong>
           </p>
           <div className="audit-circle-review__toolbar">
             <AppSearchField
@@ -144,7 +145,7 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
               size="compact"
             />
             <span className="audit-circle-review__count">
-              {t("initiate.circleReview.matching", { filtered: filteredRows.length, total: yearRows.length })}
+              {t("initiate.circleReview.matching", { filtered: localFmt(filteredRows.length), total: localFmt(yearRows.length) })}
             </span>
           </div>
           <div className="audit-circle-review__table">
