@@ -42,6 +42,7 @@ vi.mock('react-i18next', () => ({
       'login.title': 'Welcome back',
       'login.subtitle': 'Sign in to access your office workspace.',
       'login.publisherSubtitle': 'Enter authorized Office password to publish.',
+      'login.publisherPasswordRequired': 'Enter your authorized Office password to publish TaxPay content.',
       'login.userManual': 'Help & User Guide',
       'login.userId': 'User ID',
       'login.userIdPlaceholder': 'Enter your User ID',
