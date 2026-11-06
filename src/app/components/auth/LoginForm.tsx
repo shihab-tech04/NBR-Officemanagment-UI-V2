@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Globe } from "lucide-react";
 import svgPaths from "../../../imports/CompanyAdminLogin/svg-mhvw7bsa5p";
 import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
@@ -19,6 +19,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const { t: translate } = useTranslation("auth");
   const { openHelp } = useHelp();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +27,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const [sharedError, setSharedError] = useState("");
   const [sharedBusy, setSharedBusy] = useState(false);
   const sharedMode = isSharedAuditMode();
+  const cmsEntry = !sharedMode && pathname.startsWith("/administration/content-management");
   const handleSignIn = async () => {
     if (sharedBusy) return;
     if (sharedMode) {
@@ -59,14 +61,16 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
-    // The same existing Office sign-in establishes the SQL publisher session.
-    // A password-free "admin" marker never grants public TaxPay write access.
-    // Existing verified sessions may be reused without asking for a password.
+    // The existing Office prototype remains password-optional everywhere
+    // except its public-facing TaxPay publishing workspace. If a password
+    // is provided, the same original sign-in verifies the publisher session.
     setSharedBusy(true);
     try {
       const cms = getTaxPayCmsClient();
-      if (!cms) throw new Error("Office content service is unavailable. Sign-in cannot be verified.");
-      if (password) {
+      if (!cms && (password || cmsEntry)) {
+        throw new Error("Office content service is unavailable. Publishing access cannot be verified.");
+      }
+      if (cms && password) {
         const { data, error } = await cms.auth.signInWithPassword({
           email: PRIMARY_ADMIN_EMAIL, password,
         });
@@ -74,19 +78,19 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           throw new Error("Office sign-in failed. Check your password and try again.");
         }
       }
-      const mayPublish = await hasVerifiedCmsPublisherSession();
-      if (!mayPublish) {
-        // Do not turn a password-free UI entry into publishing authorization,
-        // and do not silently downgrade invalid publisher credentials.
-        if (password) {
-          await cms.auth.signOut({ scope: "local" });
-          throw new Error("This Office account does not have permission to publish TaxPay content.");
+      if (password || cmsEntry) {
+        const mayPublish = await hasVerifiedCmsPublisherSession();
+        if (!mayPublish) {
+          if (password && cms) {
+            await cms.auth.signOut({ scope: "local" });
+            throw new Error("This Office account does not have permission to publish TaxPay content.");
+          }
+          throw new Error("Enter your authorized Office password to publish TaxPay content.");
         }
-        throw new Error("Enter your authorized Office password to sign in.");
       }
       setPassword("");
       onOfficeEnter?.();
-      navigate("/dashboard/dashboard-main");
+      navigate(cmsEntry ? "/administration/content-management" : "/dashboard/dashboard-main");
     } catch (error) {
       setSharedError(error instanceof Error ? error.message : "Office sign-in could not be verified. Please retry.");
     } finally {
@@ -120,7 +124,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
               <h1 className="modal-form-header__title text-[30px] mb-1">
                 {translate("login.title")}
               </h1>
-              <p className="modal-form-header__subtitle">{translate("login.subtitle")}</p>
+              <p className="modal-form-header__subtitle">{translate(cmsEntry ? "login.publisherSubtitle" : "login.subtitle")}</p>
             </div>
             <button type="button" className="login-form-manual-btn" onClick={openHelp}>
               <svg width="10" height="12" viewBox="0 0 10 12" fill="none">
@@ -148,7 +152,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
               id="login-password"
               type="password"
               label={translate("login.password")}
-              placeholder={sharedMode ? "Password" : translate("login.passwordPlaceholder")}
+              placeholder={sharedMode ? "Password" : translate(cmsEntry ? "login.passwordPlaceholder" : "login.passwordOptionalPlaceholder")}
               value={password}
               onChange={value => { setPassword(value); setSharedError(""); }}
               autoComplete="current-password"
