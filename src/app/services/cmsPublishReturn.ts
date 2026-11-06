@@ -4,9 +4,10 @@
  * credentials, or publishing authority in browser storage.
  */
 export type PendingCmsPublish =
-  | { kind: 'logo'; selected: { file: File; width: number; height: number } | null }
+  | { kind: 'logo'; selected: { file: File; width: number; height: number } | null; publishAfterSignIn?: boolean }
   | {
       kind: 'banner';
+      publishAfterSignIn?: boolean;
       selectedId: string | null;
       draft: unknown;
       newDraft: unknown;
