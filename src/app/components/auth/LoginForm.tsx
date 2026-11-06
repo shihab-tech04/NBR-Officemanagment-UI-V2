@@ -7,7 +7,7 @@ import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
-import { getTaxPayCmsClient } from "../../services/taxpayCmsClient";
+import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../../services/taxpayCmsClient";
 import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
 
 interface LoginFormProps {
@@ -59,40 +59,30 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
-    // Office entry and CMS publishing share the same existing sign-in.
-    // Never discard a verified publisher session just because this Office
-    // entry used the approved optional-password preview path.
+    // The same existing Office sign-in establishes the SQL publisher session.
+    // A password-free "admin" marker never grants public TaxPay write access.
+    // Existing verified sessions may be reused without asking for a password.
     setSharedBusy(true);
     try {
       const cms = getTaxPayCmsClient();
-      if (!cms && password) {
-        throw new Error("Office content service is unavailable. Publishing sign-in could not be verified.");
+      if (!cms) throw new Error("Office content service is unavailable. Sign-in cannot be verified.");
+      if (password) {
+        const { data, error } = await cms.auth.signInWithPassword({
+          email: PRIMARY_ADMIN_EMAIL, password,
+        });
+        if (error || !data?.session?.user?.id) {
+          throw new Error("Office sign-in failed. Check your password and try again.");
+        }
       }
-      if (cms && password) {
-          // The existing Office form is the only sign-in for the TaxPay editor.
-          // An invalid password must not silently downgrade to a preview after
-          // the user supplied credentials expecting to publish.
-          const { data, error } = await cms.auth.signInWithPassword({
-            email: PRIMARY_ADMIN_EMAIL, password,
-          });
-          if (error || !data?.session?.user?.id) {
-            throw new Error("Office sign-in failed. Check your password and try again.");
-          }
-          // Verify the identity against Supabase Auth, then check the existing
-          // SQL permission once at Office entry. Never trust a local admin
-          // marker or front-end role to authorize database writes.
-          const { data: verified, error: verifyError } = await cms.auth.getUser();
-          if (verifyError || !verified?.user || verified.user.is_anonymous ||
-              verified.user.id !== data.session.user.id) {
-            await cms.auth.signOut({ scope: "local" });
-            throw new Error("Office session could not be verified. Please sign in again.");
-          }
-          const { data: mayPublish, error: permissionError } =
-            await cms.rpc("taxpay_is_verified_portal_admin");
-          if (permissionError || mayPublish !== true) {
-            await cms.auth.signOut({ scope: "local" });
-            throw new Error("This Office account does not have permission to publish TaxPay content.");
-          }
+      const mayPublish = await hasVerifiedCmsPublisherSession();
+      if (!mayPublish) {
+        // Do not turn a password-free UI entry into publishing authorization,
+        // and do not silently downgrade invalid publisher credentials.
+        if (password) {
+          await cms.auth.signOut({ scope: "local" });
+          throw new Error("This Office account does not have permission to publish TaxPay content.");
+        }
+        throw new Error("Enter your authorized Office password to sign in.");
       }
       setPassword("");
       onOfficeEnter?.();
@@ -158,10 +148,10 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
               id="login-password"
               type="password"
               label={translate("login.password")}
-              placeholder={sharedMode ? "Password" : translate("login.passwordOptionalPlaceholder")}
+              placeholder={sharedMode ? "Password" : translate("login.passwordPlaceholder")}
               value={password}
               onChange={value => { setPassword(value); setSharedError(""); }}
-              autoComplete={sharedMode ? "current-password" : "off"}
+              autoComplete="current-password"
             />
             <button
               type="button"
