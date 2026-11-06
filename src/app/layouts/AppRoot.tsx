@@ -140,7 +140,7 @@ export function AppRoot() {
       ? <p role="status">Verifying Audit officer access…</p>
       : signedOut && !openAuditPreview
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
-        : <AppShell onSignedOut={() => { void handleSignOut(); }}/>
+        : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
     <HelpDrawer/>
   </HelpProvider>;
