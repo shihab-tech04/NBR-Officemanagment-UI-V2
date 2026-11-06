@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   Activity, BadgeCheck, ChevronRight, Download, FileSearch, Filter, Info, Printer, Scale, ShieldAlert,
   Timer, Workflow,
@@ -10,6 +11,10 @@ import { StatusBadge } from "../../components/badges/StatusBadge";
 import { DashSection } from "../../components/dashboard/DashSection";
 import { ResponsiveTable } from "../../components/tables/ResponsiveTable";
 import { DynamicDetailsDrawer } from "../../components/drawers/DynamicDetailsDrawer";
+import { AppModal } from "../../components/modals/AppModal";
+import { AppTextArea } from "../../components/forms/AppTextArea";
+import { PrimaryButton } from "../../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../../components/buttons/SecondaryButton";
 import { AppSearchField } from "../../components/forms/AppSearchField";
 import { AppSelectField } from "../../components/forms/AppSelectField";
 import { FilterPanel } from "../../components/filters/FilterPanel";
@@ -36,6 +41,10 @@ import { AuditManualPage } from "./AuditManualPage";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
 import { isSharedAuditMode } from "./auditSharedSql";
+import {
+  decideSharedSecondReview, listSharedSecondReviews,
+  type SharedReviewAction, type SharedReviewRow,
+} from "./auditSharedSecondReview";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
@@ -59,6 +68,7 @@ type AuditTableConfig = {
   };
   readOnly?: boolean;
   yearScoped?: boolean;
+  extraFooterActions?: (row: TableRow | null) => ReactNode;
 };
 
 function flattenColumns(cols: ColDef[]) {
@@ -297,6 +307,7 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         columns={drawerCols}
         rowData={drawer}
         showActions={false}
+        extraFooterActions={config.extraFooterActions?.(drawer)}
       />
 
       <AuditExplainerDrawer explanation={explanation} onClose={() => setExplanation(null)} />
@@ -316,6 +327,150 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
         />
       )}
     </div>
+  );
+}
+
+
+/**
+ * Shared-SQL Second Review retains the approved Office table and DetailsDrawer.
+ * Only Range Officers with matching circle jurisdiction can act. The current
+ * browser-local review continues through the unchanged default route.
+ */
+function AuditSharedSecondReviewPage({ config }: { config: AuditTableConfig }) {
+  const { assessmentYear } = useSettings();
+  const { i18n } = useTranslation();
+  const isBn = i18n.resolvedLanguage?.startsWith("bn");
+  const [rows, setRows] = useState<SharedReviewRow[]>([]);
+  const [access, setAccess] = useState<{role:string;zone:string|null;circle:string|null}|null>(null);
+  const [busy, setBusy] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false);
+  const [error, setError] = useState("");
+  const [active, setActive] = useState<{ row: SharedReviewRow; action: SharedReviewAction } | null>(null);
+  const [note, setNote] = useState("");
+  const [revision, setRevision] = useState(0);
+
+  const refresh = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await listSharedSecondReviews(assessmentYear);
+      setRows(result.rows);
+      setAccess(result.reviewerScope);
+    } catch (reason) {
+      setRows([]);
+      setAccess(null);
+      setError(reason instanceof Error ? reason.message : "Authorized review records could not be loaded");
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => { void refresh(); }, [assessmentYear]);
+
+  const mayReview = (row: SharedReviewRow) =>
+    row.evidence_verified && Number.isInteger(row.version) && row.version > 0 &&
+    access?.role === "range_user" && access.zone === row.zone &&
+    access.circle === row.circle &&
+    ["Ready for Review", "Second Review"].includes(row.review_status);
+
+  const begin = (row: SharedReviewRow, action: SharedReviewAction) => {
+    if (!mayReview(row)) return;
+    setNote("");
+    setError("");
+    setActive({ row, action });
+  };
+  const submit = async () => {
+    if (!active || inFlight.current) return;
+    inFlight.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      await decideSharedSecondReview(active.row.candidate_id,
+        active.row.version, active.action, note);
+      setActive(null);
+      setNote("");
+      await refresh();
+      setRevision((value) => value + 1);
+      toast.success(isBn ? "দ্বিতীয় পর্যালোচনার সিদ্ধান্ত সংরক্ষিত হয়েছে।" : "Second-review decision saved and verified.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Second review failed");
+    } finally {
+      setSaving(false);
+      inFlight.current = false;
+    }
+  };
+  const withActions: AuditTableConfig = {
+    ...config,
+    rows,
+    filters: config.filters.map((filter) => filter.key === "circle"
+      ? { ...filter, options: [...new Set(rows.map((row) => row.circle))] }
+      : filter),
+    extraFooterActions: (row) => {
+      const candidate = row as SharedReviewRow | null;
+      if (!candidate || !mayReview(candidate)) return null;
+      return (
+        <>
+          <SecondaryButton size="sm" onClick={() => begin(candidate, "request_rework")}>
+            {isBn ? "পুনরায় কাজের অনুরোধ" : "Request rework"}
+          </SecondaryButton>
+          <PrimaryButton size="sm" onClick={() => begin(candidate, "sign_off")}>
+            {isBn ? "অনুমোদন ও সম্পন্ন" : "Sign off"}
+          </PrimaryButton>
+        </>
+      );
+    },
+  };
+  return (
+    <>
+      {busy && <p role="status">{isBn ? "অনুমোদিত পর্যালোচনার তথ্য লোড হচ্ছে…" : "Loading authorized second reviews…"}</p>}
+      {error && !active && (
+        <p role="alert">{error}{" "}
+          <button type="button" onClick={() => { void refresh(); }}>
+            {isBn ? "আবার চেষ্টা করুন" : "Retry"}
+          </button>
+        </p>
+      )}
+      <AuditTablePage key={revision} config={withActions} />
+      <AppModal
+        open={active !== null}
+        size="md"
+        layer="top"
+        title={active?.action === "sign_off"
+          ? (isBn ? "দ্বিতীয় পর্যালোচনা অনুমোদন" : "Second review — Sign off")
+          : (isBn ? "পুনরায় কাজের অনুরোধ" : "Second review — Request rework")}
+        onClose={() => { if (!saving) setActive(null); }}
+        footer={
+          <>
+            <SecondaryButton size="sm" disabled={saving} onClick={() => setActive(null)}>
+              {isBn ? "বাতিল" : "Cancel"}
+            </SecondaryButton>
+            <PrimaryButton size="sm" loading={saving}
+              disabled={!note.trim() || note.trim().length < 20 || saving}
+              onClick={() => { void submit(); }}>
+              {isBn ? "সিদ্ধান্ত সংরক্ষণ" : "Save decision"}
+            </PrimaryButton>
+          </>
+        }
+      >
+        <p>{isBn
+          ? "সিগন্যাল, যাচাইকৃত প্রমাণ ও Findings দেখে নির্দিষ্ট কারণ লিখুন।"
+          : "Review the linked signal, verified evidence and Finding before giving a specific reason."}</p>
+        {active && (
+          <p><strong>{active.row.primary_signal}</strong> · {active.row.evidence_refs} · {active.row.finding_summary}</p>
+        )}
+        <AppTextArea
+          id="audit-second-review-reason"
+          label={isBn ? "পর্যালোচনার কারণ" : "Evidence-based review reason"}
+          value={note}
+          onChange={setNote}
+          helper={isBn ? "২০–২০০০ অক্ষর। সাধারণ অনুমোদন মন্তব্য গ্রহণযোগ্য নয়।" : "20–2000 characters; generic sign-off comments are not accepted."}
+          error={active && error ? error : undefined}
+          rows={4}
+          required
+          disabled={saving}
+        />
+      </AppModal>
+    </>
   );
 }
 
@@ -1520,7 +1675,9 @@ export function AuditModulePage() {
     case "all-taxpayers": return <AuditTablePage config={taxpayerConfig} />;
     case "risk-cases": return <AuditTablePage config={riskConfig} />;
     case "control-data-quality": return <AuditTablePage config={controlConfig} />;
-    case "second-review": return <AuditTablePage config={reviewConfig} />;
+    case "second-review": return isSharedAuditMode()
+      ? <AuditSharedSecondReviewPage config={reviewConfig} />
+      : <AuditTablePage config={reviewConfig} />;
     case "rules-governance": return <AuditTablePage config={rulesConfig} />;
     case "reconciliation": return <AuditTablePage config={reconciliationConfig} />;
     case "audit-trail": return <AuditTablePage config={trailConfig} />;
