@@ -26,7 +26,11 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
   return <img src={failed ? fallbackLogo : src} alt={alt} onError={() => setFailed(true)} />;
 }
 
-export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
+export function SiteLogoPanel({
+  cms, canPublish = false, publishingAuthorizationPending = false,
+}: {
+  cms: SupabaseClient | null; canPublish?: boolean; publishingAuthorizationPending?: boolean;
+}) {
   // Only a direct click on Publish authorizes resuming that same action.
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
@@ -43,13 +47,14 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
   useEffect(() => {
     // Do not discard a pending publish before SQL has supplied the current
     // version needed for its optimistic-lock update.
-    if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
+    if (!canPublish || publishingAuthorizationPending || !record ||
+        getPendingCmsPublish()?.kind !== 'logo') return;
     const pending = getPendingCmsPublish();
     if (pending?.kind !== 'logo') return;
     const shouldPublish = pending.publishAfterSignIn === true;
     clearPendingCmsPublish();
     if (shouldPublish && selected) void save();
-  }, [canPublish, record, selected]);
+  }, [canPublish, publishingAuthorizationPending, record, selected]);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
