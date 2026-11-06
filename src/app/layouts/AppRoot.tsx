@@ -24,9 +24,9 @@ function clearEntry() {
 }
 
 /**
- * The existing Office entry is verified once through the publisher identity.
- * A stale presentation-only marker must never restore live CMS write access.
- * Opt-in shared Audit mode retains its separate officer membership check.
+ * Preserve the approved password-optional Office prototype for its other
+ * modules. Only the live TaxPay CMS route requires the verified publisher
+ * identity already established by the existing Office sign-in form.
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
@@ -38,8 +38,10 @@ export function AppRoot() {
     () => sharedMode || storedEntry() !== "admin",
   );
   const [restoring, setRestoring] = useState(
-    () => sharedMode ? storedEntry() === "officer" : storedEntry() === "admin",
+    () => sharedMode && storedEntry() === "officer",
   );
+  const cmsRoute = !sharedMode && pathname.startsWith("/administration/content-management");
+  const [cmsAccess, setCmsAccess] = useState<"checking" | "authorized" | "denied">("checking");
   const [signOutError, setSignOutError] = useState("");
   useAppearance();
 
@@ -93,29 +95,18 @@ export function AppRoot() {
   }, [sharedMode]);
 
   useEffect(() => {
-    if (sharedMode || storedEntry() !== "admin") return;
+    if (!cmsRoute) return;
     let cancelled = false;
+    setCmsAccess("checking");
     void hasVerifiedCmsPublisherSession()
       .then(allowed => {
-        if (cancelled) return;
-        if (allowed) {
-          setSignedOut(false);
-        } else {
-          clearEntry();
-          setSignedOut(true);
-        }
+        if (!cancelled) setCmsAccess(allowed ? "authorized" : "denied");
       })
       .catch(() => {
-        if (cancelled) return;
-        // Never restore Office authorization from a stale browser marker.
-        clearEntry();
-        setSignedOut(true);
-      })
-      .finally(() => {
-        if (!cancelled) setRestoring(false);
+        if (!cancelled) setCmsAccess("denied");
       });
     return () => { cancelled = true; };
-  }, [sharedMode]);
+  }, [cmsRoute]);
 
   const handleSignOut = useCallback(async () => {
     setSignOutError("");
@@ -142,6 +133,7 @@ export function AppRoot() {
       return;
     }
     clearEntry();
+    setCmsAccess("denied");
     setSignedOut(true);
   }, [sharedMode]);
 
@@ -150,6 +142,7 @@ export function AppRoot() {
       window.sessionStorage.setItem(OFFICE_ENTRY_KEY, sharedMode ? "officer" : "admin");
     } catch { /* The current tab can still navigate without persistence. */ }
     setSignOutError("");
+    if (cmsRoute) setCmsAccess("authorized");
     setSignedOut(false);
   };
 
@@ -162,10 +155,12 @@ export function AppRoot() {
 
   return <HelpProvider>
     {restoring
-      ? <p role="status">{sharedMode ? "Verifying Audit officer access…" : "Verifying Office sign-in…"}</p>
-      : signedOut && !openAuditPreview
-        ? <LoginPage onOfficeEnter={handleEnterOffice}/>
-        : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
+      ? <p role="status">Verifying Audit officer access…</p>
+      : cmsRoute && !signedOut && cmsAccess === "checking"
+        ? <p role="status">Verifying TaxPay publishing access…</p>
+        : (signedOut || (cmsRoute && cmsAccess !== "authorized")) && !openAuditPreview
+          ? <LoginPage onOfficeEnter={handleEnterOffice}/>
+          : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
     <HelpDrawer/>
   </HelpProvider>;
