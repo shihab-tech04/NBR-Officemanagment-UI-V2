@@ -33,8 +33,50 @@ try {
     await page.getByRole('button', { name: 'Edit banner' }).click();
     await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     await expect(page.getByText(/unpublished preview/i)).toBeVisible();
-    await page.screenshot({ path: 'test-results/live-cms-' + device + '.png', fullPage: false });
-    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    // Verify the actual banner crop and publishing-entry journey, not just
+    // the ability to edit its English/Bangla text. Use valid, locally generated
+    // artwork; never upload it to the production database in this smoke test.
+    const bannerPng = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 420;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Unable to create banner crop test image');
+      ctx.fillStyle = '#085587';
+      ctx.fillRect(0, 0, 800, 420);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(30, 30, 740, 360);
+      ctx.fillStyle = '#085587';
+      ctx.fillRect(70, 80, 320, 110);
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    const bannerFixture = Buffer.from(bannerPng, 'base64');
+    for (const slot of ['desktop', 'mobile']) {
+      await page.locator(`.cms-upload--${slot} input[type="file"]`).setInputFiles({
+        name: `banner-${slot}-acceptance.png`, mimeType: 'image/png', buffer: bannerFixture,
+      });
+      await expect(page.getByRole('button', { name: 'Apply crop' })).toBeEnabled({ timeout: 20_000 });
+      await page.getByRole('button', { name: 'Apply crop' }).click();
+      await expect(page.locator(`.cms-upload--${slot}`)).toContainText('Cropped image ready');
+      await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
+    }
+    await page.screenshot({ path: 'test-results/live-cms-banner-' + device + '.png', fullPage: false });
+    await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
+    await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
+    // A preview-only Office entry must not write assets to SQL. An empty
+    // password must fail closed, while the crops remain in tab memory.
+    await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('password to publish');
+
+    // A full navigation intentionally clears the test-only pending files.
+    // Re-enter the normal preview workspace before checking the logo journey.
+    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'User ID' })).toHaveCount(0, { timeout: 30_000 });
+    await page.goto(base + 'administration/content-management', { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.getByRole('tab', { name: 'Site Logo' }).click();
     await expect(page.getByRole('region', { name: 'Site Logo' })).toBeVisible();
     await expect(page.getByAltText('Korbritto TaxPay logo preview')).toBeVisible();

@@ -211,7 +211,9 @@ export function ContentManagementPage() {
       setMessage('Complete English and Bangla fields within the mobile character limits.');
       return;
     }
-    if (authState !== 'authorized') {
+    // A stale authorization label without a verified SQL user must never
+    // silently drop a Publish click or attempt an unauthenticated upload.
+    if (authState !== 'authorized' || !authUid) {
       requestCmsPublishingSignIn({
         kind: 'banner', selectedId, draft, newDraft,
         desiredPosition, desktopFile, mobileFile, publishAfterSignIn: true,
