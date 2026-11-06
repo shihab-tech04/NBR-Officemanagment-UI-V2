@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { verifyPublicImage } from './verifyPublicImage';
+import { clearPendingCmsPublish, getPendingCmsPublish, CMS_PUBLISH_SIGN_IN_EVENT } from '../../services/cmsPublishReturn';
 
 vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
@@ -71,7 +72,7 @@ async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Site Logo SQL editor and Korbritto parity', () => {
-  beforeEach(() => vi.mocked(verifyPublicImage).mockResolvedValue(undefined));
+  beforeEach(() => { clearPendingCmsPublish(); vi.mocked(verifyPublicImage).mockResolvedValue(undefined); });
   it('uses the exact current Korbritto fallback when SQL has no uploaded logo', async () => {
     const cms = logoCms();
     render(<SiteLogoPanel cms={cms.client} />);
@@ -95,6 +96,31 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     const logo = screen.getByAltText('Korbritto TaxPay logo preview');
     fireEvent.error(logo);
     await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
+  });
+
+  it('retains an unpublished cropped logo when requesting existing Office sign-in', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms();
+    const signInRequested = vi.fn();
+    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, signInRequested);
+    try {
+      render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
+      await prepareLogo(user);
+      await user.click(screen.getByRole('button', { name: 'Sign in to publish' }));
+      expect(signInRequested).toHaveBeenCalledOnce();
+      const pending = getPendingCmsPublish();
+      expect(pending?.kind).toBe('logo');
+      if (pending?.kind === 'logo') {
+        expect(pending.selected?.width).toBe(1469);
+        expect(pending.selected?.height).toBe(496);
+        expect(pending.selected?.file.name).toBe('cropped.png');
+      }
+      expect(cms.upload).not.toHaveBeenCalled();
+      expect(cms.update).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, signInRequested);
+      clearPendingCmsPublish();
+    }
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
