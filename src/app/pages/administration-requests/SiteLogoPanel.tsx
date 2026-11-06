@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
@@ -28,7 +28,6 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
 
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
   // Only a direct click on Publish authorizes resuming that same action.
-  const resumePublish = useRef(false);
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
   const [selected, setSelected] = useState<LogoFile | null>(() => {
@@ -47,8 +46,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
     const pending = getPendingCmsPublish();
     if (pending?.kind !== 'logo') return;
-    const shouldPublish = pending.publishAfterSignIn === true && !resumePublish.current;
-    resumePublish.current = true; // At most one save per publish request.
+    const shouldPublish = pending.publishAfterSignIn === true;
     clearPendingCmsPublish();
     if (shouldPublish && selected) void save();
   }, [canPublish, record, selected]);
