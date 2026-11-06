@@ -9,11 +9,6 @@ const mocks = vi.hoisted(() => ({
   onOfficeEnter: vi.fn(),
 }));
 
-const pendingCms = vi.hoisted(() => ({ draft: null as null | { kind: 'logo' } }));
-vi.mock('../../services/cmsPublishReturn', () => ({
-  getPendingCmsPublish: () => pendingCms.draft,
-}));
-
 const shared = vi.hoisted(() => ({
   enabled: false,
   signIn: vi.fn(),
@@ -62,7 +57,6 @@ describe('public Office re-entry after Sign Out', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     shared.enabled = false;
-    pendingCms.draft = null;
     cmsAuth.getClient.mockReturnValue(null);
   });
 
