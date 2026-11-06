@@ -96,3 +96,10 @@
   overflow-wrap: anywhere;
   text-align: left;
 }
+
+.audit-circle-review__table .mobile-table-card__status .badge {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
