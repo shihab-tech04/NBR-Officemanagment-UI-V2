@@ -7,6 +7,7 @@ import type { AuditCandidateRecord } from "./auditCandidateStore";
 import { getLocalAuditStatusEvents } from "./auditCandidateStore";
 import { isSharedAuditMode } from "./auditSharedSql";
 import { getLocalAuditCase, getLocalAuditWorkflowEvents } from "./auditLocalCaseWorkflow";
+import { getLocalAuditControlEvents, getSourceAuditControls } from "./auditLocalControlStore";
 
 /** Every Audit workload count and destination must describe the selected AY. */
 export function getAuditYearScope(
@@ -79,7 +80,7 @@ export function getAuditYearScope(
       assigned_to: "Local workspace", reason_code: candidate.selection_basis,
     }));
   const riskCases = [...storedCaseRows, ...newLocalCases];
-  const controlRows = CONTROL_ROWS.filter(matchesYear);
+  const controlRows = getSourceAuditControls(assessmentYear);
   const caseIds = new Set(riskCases.map((row) => String(row.case_id ?? "")));
   const reviewStates = new Set(["Ready for Review", "Second Review", "Rework Requested"]);
   const secondReviewBase = SECOND_REVIEW_ROWS.filter((row) =>
@@ -123,6 +124,7 @@ export function getAuditYearScope(
     ...AUDIT_TRAIL_ROWS.filter((row) => returnIds.has(String(row.return_id ?? ""))),
     ...getLocalAuditStatusEvents(assessmentYear),
     ...getLocalAuditWorkflowEvents(assessmentYear),
+    ...getLocalAuditControlEvents(assessmentYear),
   ];
   return { population, candidates, riskCases, controlRows, secondReviewRows, trailRows };
 }
