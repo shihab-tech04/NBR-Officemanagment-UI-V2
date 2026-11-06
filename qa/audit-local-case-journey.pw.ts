@@ -57,7 +57,7 @@ test("local case evidence, signal verification, Finding, sign-off and trail pers
 
   await page.goto("/audit/second-review");
   await expect(page.locator(".table-card")).toContainText("CASE-2026-001");
-  await page.locator(".card-table__tbody tr").filter({hasText:"CASE-2026-001"}).click();
+  await page.getByRole("row",{name:/CASE-2026-001/}).click();
   await page.getByRole("button",{name:"Sign off"}).click();
   const review=page.getByRole("dialog",{name:"Sign off"});
   await review.getByRole("textbox",{name:"Specific verification or review note"})
@@ -67,14 +67,14 @@ test("local case evidence, signal verification, Finding, sign-off and trail pers
 
   await page.reload();
   await page.goto("/audit/risk-cases");
-  await expect(page.locator(".card-table__tbody tr").filter({hasText:"CASE-2026-001"})).toContainText("Closed");
+  await expect(page.getByRole("row",{name:/CASE-2026-001/})).toContainText("Closed");
   await page.goto("/audit/audit-trail");
   await expect(page.locator(".table-card")).toContainText("Second review signed off");
 });
 test("control flag review writes one linked taxpayer decision and Audit Trail entry", async ({ page }) => {
   await page.goto("/audit/control-data-quality");
   await expect(page.getByRole("table",{name:"Control & Data Quality"}).getByRole("row").nth(1)).toBeVisible({timeout:18000});
-  const first=page.locator(".card-table__tbody tr").first();
+  const first=page.getByRole("table",{name:"Control & Data Quality"}).getByRole("row").nth(1);
   const returnId=(await first.getByRole("cell").first().innerText()).trim();
   await first.click();
   await page.getByRole("button",{name:"Review control"}).click();
