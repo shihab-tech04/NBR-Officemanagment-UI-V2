@@ -6,7 +6,7 @@ import { SiteLogoPanel } from './SiteLogoPanel';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { verifyPublicImage } from './verifyPublicImage';
 
-vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
+vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn(), restorePreviouslyVerifiedCmsSession: vi.fn(async () => false) }));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 
 vi.mock('./ImageCropDialog', () => ({
