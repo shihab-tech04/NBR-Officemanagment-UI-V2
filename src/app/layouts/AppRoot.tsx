@@ -9,7 +9,7 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
-import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
+import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -24,9 +24,9 @@ function clearEntry() {
 }
 
 /**
- * The Office prototype has a presentation-only login. In opt-in shared mode,
- * that marker cannot restore access: Supabase Auth and active Audit membership
- * must be reverified on reload. Signing out must also end the Auth session.
+ * The existing Office entry is verified once through the publisher identity.
+ * A stale presentation-only marker must never restore live CMS write access.
+ * Opt-in shared Audit mode retains its separate officer membership check.
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
@@ -38,7 +38,7 @@ export function AppRoot() {
     () => sharedMode || storedEntry() !== "admin",
   );
   const [restoring, setRestoring] = useState(
-    () => sharedMode && storedEntry() === "officer",
+    () => sharedMode ? storedEntry() === "officer" : storedEntry() === "admin",
   );
   const [signOutError, setSignOutError] = useState("");
   useAppearance();
@@ -92,6 +92,31 @@ export function AppRoot() {
     };
   }, [sharedMode]);
 
+  useEffect(() => {
+    if (sharedMode || storedEntry() !== "admin") return;
+    let cancelled = false;
+    void hasVerifiedCmsPublisherSession()
+      .then(allowed => {
+        if (cancelled) return;
+        if (allowed) {
+          setSignedOut(false);
+        } else {
+          clearEntry();
+          setSignedOut(true);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Never restore Office authorization from a stale browser marker.
+        clearEntry();
+        setSignedOut(true);
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+    return () => { cancelled = true; };
+  }, [sharedMode]);
+
   const handleSignOut = useCallback(async () => {
     setSignOutError("");
     if (sharedMode) {
@@ -137,7 +162,7 @@ export function AppRoot() {
 
   return <HelpProvider>
     {restoring
-      ? <p role="status">Verifying Audit officer access…</p>
+      ? <p role="status">{sharedMode ? "Verifying Audit officer access…" : "Verifying Office sign-in…"}</p>
       : signedOut && !openAuditPreview
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
         : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
