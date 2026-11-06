@@ -110,7 +110,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(screen.getByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Preview without publishing');
-    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     expect(screen.getByText(/unpublished preview/i)).toBeInTheDocument();
     expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
@@ -126,15 +126,37 @@ describe('verified TaxPay banner CMS', () => {
     const heading = screen.getByLabelText('Desktop heading · English');
     await user.clear(heading);
     await user.type(heading, 'Needs verified Office publish');
-    await user.click(screen.getByRole('button', { name: 'Sign in to publish' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     const pending = getPendingCmsPublish();
     expect(pending?.kind).toBe('banner');
     if (pending?.kind === 'banner') {
+      expect(pending.publishAfterSignIn).toBe(true);
       expect((pending.draft as { heading_en: string; version: number }).heading_en).toBe('Needs verified Office publish');
       expect((pending.draft as { heading_en: string; version: number }).version).toBe(8);
     }
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
     clearPendingCmsPublish();
+  });
+
+  it('publishes the preserved banner draft after the existing Office sign-in verifies the administrator', async () => {
+    const { client, publicClient, rpc } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { requestCmsPublishingSignIn, getPendingCmsPublish } = await import('../../services/cmsPublishReturn');
+    const resumed = { ...row(), heading_en: 'Publish this retained banner' };
+    requestCmsPublishingSignIn({
+      kind: 'banner', selectedId: 'intro', draft: resumed, newDraft: null,
+      desiredPosition: 1, desktopFile: null, mobileFile: null, publishAfterSignIn: true,
+    });
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    render(<ContentManagementPage />);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
+      expect.objectContaining({
+        p_expected_version: 8,
+        p_banner: expect.objectContaining({ heading_en: 'Publish this retained banner' }),
+      }),
+    ));
+    expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
+    expect(getPendingCmsPublish()).toBeNull();
   });
 
   it('shows published data but does not expose write controls to a non-admin SQL session', async () => {
@@ -148,7 +170,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.getByRole('button', { name: 'Add banner' })).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Edit banner' }));
-    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
