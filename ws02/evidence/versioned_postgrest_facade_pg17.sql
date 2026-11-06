@@ -90,6 +90,8 @@ BEGIN
   -- The effective privilege assertion below is the security invariant.
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
+ -- A warning-only GRANT retains SET LOCAL ROLE; restore before denial probes.
+ EXECUTE 'RESET ROLE';
  IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
  THEN RAISE EXCEPTION 'ENGINE_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
