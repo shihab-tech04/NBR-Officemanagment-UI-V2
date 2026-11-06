@@ -10,7 +10,6 @@ import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
-import { CMS_PUBLISH_SIGN_IN_EVENT } from "../services/cmsPublishReturn";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -120,15 +119,6 @@ export function AppRoot() {
     clearEntry();
     setSignedOut(true);
   }, [sharedMode]);
-
-  // Use the existing Office sign-in to authorize CMS publishing. The route
-  // stays unchanged and the unpublished crop remains only in tab memory.
-  useEffect(() => {
-    if (sharedMode) return;
-    const requestSignIn = () => { void handleSignOut(); };
-    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-    return () => window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-  }, [sharedMode, handleSignOut]);
 
   const handleEnterOffice = () => {
     try {
