@@ -241,7 +241,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         <h3>{editing && selected ? 'New logo preview (not yet published)' : 'Current TaxPay logo'}</h3>
         <div className="cms-logo__image"><LogoPreviewImage src={displayUrl} alt="Korbritto TaxPay logo preview" /></div>
         <p>Source image: {dimensions}</p>
-        {!record?.image_path && <p>Showing the current Korbritto brand used by TaxPay when SQL has no uploaded logo.</p>}
+        {!record?.image_path && !(editing && selected) && <p>Showing the current Korbritto brand used by TaxPay when SQL has no uploaded logo.</p>}
       </div>
       <div className="cms-logo__placement-grid">
         <div className="cms-logo__placement"><h3>Desktop header</h3><div className="cms-logo__slot cms-logo__slot--desktop"><LogoPreviewImage src={displayUrl} alt="Desktop header logo preview" /></div><p>154 × 52 px slot</p></div>
