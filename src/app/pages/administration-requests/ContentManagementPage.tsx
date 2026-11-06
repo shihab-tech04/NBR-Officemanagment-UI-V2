@@ -3,7 +3,9 @@ import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/tax
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
-import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
+import { CMS_PUBLISH_SIGN_IN_EVENT, clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
+import { PRIMARY_ADMIN_EMAIL } from '../../utils/primaryAdminIdentity';
+import { AppModal } from '../../components/modals/AppModal';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { verifyPublicImage } from './verifyPublicImage';
@@ -70,7 +72,7 @@ function originalImageUrl(id: string) {
 export function ContentManagementPage() {
   const pending = getPendingCmsPublish();
   const pendingBanner = pending?.kind === 'banner' ? pending : null;
-  const resumePublish = useRef(pendingBanner?.publishAfterSignIn === true);
+  const resumePublish = useRef(false);
   const [tab, setTab] = useState<'banners' | 'logo'>(() => pending?.kind === 'logo' ? 'logo' : 'banners');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(() => pendingBanner?.selectedId ?? null);
@@ -88,14 +90,86 @@ export function ContentManagementPage() {
   const [authState, setAuthState] = useState<'checking' | 'signed-out' | 'denied' | 'authorized'>('checking');
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [deleteRequested, setDeleteRequested] = useState(false);
+  const [publishAuthOpen, setPublishAuthOpen] = useState(false);
+  const [publishPassword, setPublishPassword] = useState('');
+  const [publishAuthError, setPublishAuthError] = useState('');
+  const [publishAuthBusy, setPublishAuthBusy] = useState(false);
+
+  // A Publish click must never end the Office session or unmount the editor:
+  // cropped files and bilingual drafts remain in memory while the authorized
+  // publisher confirms their existing Office account password here.
+  useEffect(() => {
+    const onPublish = () => {
+      setPublishPassword('');
+      setPublishAuthError('');
+      setPublishAuthOpen(true);
+    };
+    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, onPublish);
+    return () => window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, onPublish);
+  }, []);
 
   useEffect(() => {
-    if (authState !== 'authorized' || !authUid || getPendingCmsPublish()?.kind !== 'banner') return;
-    const shouldPublish = resumePublish.current;
-    resumePublish.current = false; // Never double-publish on auth refresh.
+    const pending = getPendingCmsPublish();
+    if (authState !== 'authorized' || !authUid || pending?.kind !== 'banner' ||
+        !pending.publishAfterSignIn || !draft || draft.id !== pending.selectedId ||
+        resumePublish.current) return;
+    resumePublish.current = true; // Avoid a duplicate commit during auth refresh.
     clearPendingCmsPublish();
-    if (shouldPublish && draft) void save();
+    void save();
   }, [authState, authUid, draft]);
+
+  function cancelPublishAuthorization() {
+    if (publishAuthBusy) return;
+    clearPendingCmsPublish(); // Keep local editor and image previews intact.
+    setPublishPassword('');
+    setPublishAuthError('');
+    setPublishAuthOpen(false);
+  }
+
+  async function verifyPublishingAccess() {
+    if (publishAuthBusy) return;
+    if (!cms) {
+      setPublishAuthError('TaxPay publishing service is unavailable.');
+      return;
+    }
+    if (!publishPassword) {
+      setPublishAuthError('Enter the password for your authorized Office publishing account.');
+      return;
+    }
+    setPublishAuthBusy(true);
+    setPublishAuthError('');
+    try {
+      const { data, error } = await cms.auth.signInWithPassword({
+        email: PRIMARY_ADMIN_EMAIL, password: publishPassword,
+      });
+      if (error || !data?.session?.user?.id) {
+        throw new Error('Publishing authorization failed. Check the Office password and retry.');
+      }
+      const { data: verified, error: verifyError } = await cms.auth.getUser();
+      if (verifyError || !verified?.user || verified.user.is_anonymous ||
+          verified.user.id !== data.session.user.id) {
+        throw new Error('Publishing session could not be verified. Retry your Office password.');
+      }
+      const { data: isAdmin, error: permissionError } =
+        await cms.rpc('taxpay_is_verified_portal_admin');
+      if (permissionError || isAdmin !== true) {
+        // Revoke only the CMS token, never the Office workspace session.
+        await cms.auth.signOut({ scope: 'local' });
+        throw new Error('This Office account does not have TaxPay publishing permission.');
+      }
+      setPublishPassword('');
+      setPublishAuthOpen(false);
+      setAuthUid(data.session.user.id);
+      setAuthState('authorized');
+      // The existing banner/logo editor resumes the exact pending Publish
+      // only after this verified identity and database permission check.
+    } catch (error) {
+      setPublishPassword('');
+      setPublishAuthError(error instanceof Error ? error.message : 'Publishing authorization failed.');
+    } finally {
+      setPublishAuthBusy(false);
+    }
+  }
 
   const refreshSession = useCallback(async () => {
     if (!cms) { setAuthState('signed-out'); setAuthUid(null); return; }
@@ -214,6 +288,7 @@ export function ContentManagementPage() {
     // A stale authorization label without a verified SQL user must never
     // silently drop a Publish click or attempt an unauthenticated upload.
     if (authState !== 'authorized' || !authUid) {
+      resumePublish.current = false;
       requestCmsPublishingSignIn({
         kind: 'banner', selectedId, draft, newDraft,
         desiredPosition, desktopFile, mobileFile, publishAfterSignIn: true,
@@ -416,7 +491,7 @@ export function ContentManagementPage() {
       </div>
     </header>
     {authState === 'checking' && !banners.length && <p role="status">Loading TaxPay content…</p>}
-    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. To publish live changes, sign in to Office once with the password for your authorized Office account.</p>}
+    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. Publishing asks for your authorized Office password without signing you out or discarding edits.</p>}
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
@@ -474,8 +549,8 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">
-             This is an unpublished preview. Select Publish to TaxPay to authorize using the
-             existing Office sign-in. Your changes and cropped images will be published after verification.
+             This is an unpublished preview. Select Publish to TaxPay to verify
+             publishing access without leaving Office or losing your cropped images.
            </p>}
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
@@ -485,6 +560,31 @@ export function ContentManagementPage() {
         </section>}
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
+    <AppModal open={publishAuthOpen} title="Verify publishing access" size="sm"
+      onClose={cancelPublishAuthorization} describedBy="cms-publish-authorization-help">
+      <div className="cms-login">
+        <p id="cms-publish-authorization-help">
+          Enter the password for your authorized Office account to publish this
+          {getPendingCmsPublish()?.kind === 'logo' ? ' logo' : ' banner'}.
+          Your Office workspace and uploaded images will stay open.
+        </p>
+        <form onSubmit={event => { event.preventDefault(); void verifyPublishingAccess(); }}>
+          <label htmlFor="cms-publish-password">Office publishing password</label>
+          <input id="cms-publish-password" type="password" autoComplete="current-password"
+            aria-invalid={!!publishAuthError} value={publishPassword}
+            disabled={publishAuthBusy}
+            onChange={event => { setPublishPassword(event.target.value); setPublishAuthError(''); }} />
+          {publishAuthError && <p role="alert" className="cms-crop__error">{publishAuthError}</p>}
+          <div className="cms-actions__main">
+            <button type="button" disabled={publishAuthBusy}
+              onClick={cancelPublishAuthorization}>Cancel</button>
+            <button type="submit" className="cms-primary" disabled={publishAuthBusy}>
+              {publishAuthBusy ? 'Verifying…' : 'Verify and publish'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </AppModal>
     {deleteRequested && draft && <SConfirmModal
       title="Remove banner"
       message={`Delete “${draft.heading_en}” from shared SQL and public TaxPay? This cannot be undone.`}
