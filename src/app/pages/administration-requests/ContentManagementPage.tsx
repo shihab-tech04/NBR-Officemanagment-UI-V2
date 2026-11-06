@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { getTaxPayCmsClient, getTaxPayCmsPublicClient, restorePreviouslyVerifiedCmsSession } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
@@ -87,8 +87,13 @@ export function ContentManagementPage() {
 
   const refreshSession = useCallback(async () => {
     if (!cms) { setAuthState('signed-out'); setAuthUid(null); return null; }
-    const { data: { session }, error: sessionError } = await cms.auth.getSession();
+    let { data: { session }, error: sessionError } = await cms.auth.getSession();
     if (sessionError) throw sessionError;
+    if (!session && await restorePreviouslyVerifiedCmsSession()) {
+      // Recover an earlier valid publisher session without another login.
+      ({ data: { session }, error: sessionError } = await cms.auth.getSession());
+      if (sessionError) throw sessionError;
+    }
     if (!session) { setAuthUid(null); setAuthState('signed-out'); return null; }
     const { data: isAdmin, error: accessError } = await cms.rpc('taxpay_is_verified_portal_admin');
     if (accessError) throw accessError;
