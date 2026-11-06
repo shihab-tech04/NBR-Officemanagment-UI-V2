@@ -28,9 +28,11 @@ import { VERIFIED_TAX_JURISDICTIONS, getVerifiedCirclesForZone } from "../../dat
 const AUDIT_DROPDOWN_SEARCH_THRESHOLD = 5;
 
 const TRACK_STEPS = {
-  population: ["setup", "population", "readiness", "preview", "funnel", "review"],
-  risk: ["setup", "population", "readiness", "riskCriteria", "screeningRun", "preview", "funnel", "review"],
-  manual: ["setup", "population", "readiness", "manualSelection", "preview", "funnel", "review"],
+  // Selection always begins with the full AY population. The Population and
+  // Data readiness steps are intentionally removed from all track journeys.
+  population: ["setup", "preview", "funnel", "review"],
+  risk: ["setup", "riskCriteria", "screeningRun", "preview", "funnel", "review"],
+  manual: ["setup", "manualSelection", "preview", "funnel", "review"],
 } as const;
 
 type TrackId = keyof typeof TRACK_STEPS;
@@ -293,10 +295,10 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     return coverageAvailable.filter((tier) => tier.toLowerCase().includes(needle));
   }, [coverageSearch, coverageAvailable]);
 
-  const readinessRows = useMemo(() => populationRows.filter((row) =>
-    dataQuality.includes(String(row.data_quality)) &&
-    coverageTiers.includes(String(row.coverage_tier))
-  ), [populationRows, dataQuality, coverageTiers]);
+  // No implicit readiness exclusion: all taxpayer records in the selected AY
+  // (Complete, Incomplete, Invalid, and every coverage tier) are eligible for
+  // screening. Only the explicitly chosen track criteria narrow candidates.
+  const readinessRows = populationRows;
 
   const selectedReturnKeys = useMemo(() => new Set(
     getAuditCandidates().map(item => item.assessment_year + "|" + item.return_id)
@@ -732,8 +734,10 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     }
   };
 
-  const populationStepIndex = activeSteps.indexOf("population");
-  const readinessStepIndex = activeSteps.indexOf("readiness");
+  // Full population and all quality/coverage categories are established by
+  // Selection setup, not by hidden/skipped steps.
+  const populationStepIndex = activeSteps.indexOf("setup");
+  const readinessStepIndex = activeSteps.indexOf("setup");
   const criteriaStepIndex = activeSteps.findIndex((id) =>
     id === "riskCriteria" || id === "manualSelection"
   );
