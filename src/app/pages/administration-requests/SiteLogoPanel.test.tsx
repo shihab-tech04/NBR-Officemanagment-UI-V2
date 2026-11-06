@@ -129,7 +129,7 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
     await prepareLogo(user);
     expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
-    expect(screen.getByText(/valid account password and publishing permission/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in to publish' })).toBeEnabled();
     expect(cms.upload).not.toHaveBeenCalled();
     expect(cms.update).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
