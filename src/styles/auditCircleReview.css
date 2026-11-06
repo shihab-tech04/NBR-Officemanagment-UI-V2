@@ -79,3 +79,20 @@
   .audit-circle-review__toolbar { align-items: stretch; }
   .audit-circle-review__count { white-space: normal; }
 }
+
+/* Keep long Circle review classifications and large ৳ amounts fully readable
+   in approved mobile cards without modifying the shared card component. */
+.audit-circle-review__table .mobile-table-card__footer {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.audit-circle-review__table .mobile-table-card__status,
+.audit-circle-review__table .mobile-table-card__date {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
