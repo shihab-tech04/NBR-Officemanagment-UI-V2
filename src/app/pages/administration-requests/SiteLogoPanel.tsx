@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
-import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
 import { verifyPublicImage } from './verifyPublicImage';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
@@ -27,30 +26,15 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
-  // Only a direct click on Publish authorizes resuming that same action.
-  const resumePublish = useRef(getPendingCmsPublish()?.kind === 'logo' &&
-    getPendingCmsPublish()?.publishAfterSignIn === true);
+  const publishInFlight = useRef(false);
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
-  const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
-  const [selected, setSelected] = useState<LogoFile | null>(() => {
-    const pending = getPendingCmsPublish();
-    return pending?.kind === 'logo' ? pending.selected : null;
-  });
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState<LogoFile | null>(null);
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [restoreRequested, setRestoreRequested] = useState(false);
-
-  useEffect(() => {
-    // Do not discard a pending publish before SQL has supplied the current
-    // version needed for its optimistic-lock update.
-    if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
-    const shouldPublish = resumePublish.current;
-    resumePublish.current = false; // At most once, including Strict Mode remounts.
-    clearPendingCmsPublish();
-    if (shouldPublish && selected) void save();
-  }, [canPublish, record, selected]);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
@@ -91,21 +75,36 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     setCropSource(file);
   }
 
-  function publish() {
-    if (busy || !selected) return;
-    if (!canPublish) {
-      requestCmsPublishingSignIn({ kind: 'logo', selected, publishAfterSignIn: true });
-      return;
-    }
-    void save();
+  async function publish() {
+    if (busy || !selected || publishInFlight.current) return;
+    publishInFlight.current = true;
+    try {
+      if (!cms) { setMessage('Logo not published: content service is unavailable.'); return; }
+      // Publish uses the Office session already on this browser, without a
+      // duplicate sign-in modal. Server-side Storage and SQL policies remain
+      // authoritative even if this local role label is stale.
+      if (!canPublish) {
+        const { data: { session }, error: sessionError } = await cms.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) {
+          setMessage('Not published: this Office session has no active TaxPay publishing access. Your cropped logo is preserved.');
+          return;
+        }
+        const { data: allowed, error } = await cms.rpc('taxpay_is_verified_portal_admin');
+        if (error) throw error;
+        if (allowed !== true) {
+          setMessage('Not published: this Office account is not authorized for TaxPay publishing. Your cropped logo is preserved.');
+          return;
+        }
+      }
+      await save();
+    } catch (error) {
+      setMessage('Logo was not published. Your cropped image remains available: ' + (error as Error).message);
+    } finally { publishInFlight.current = false; }
   }
 
   async function save() {
     if (busy || !selected || !cms || !record) return;
-    if (!canPublish) {
-      setMessage('Logo was not published. Use your existing Office sign-in with a valid account password and publishing permission.');
-      return;
-    }
     if (!isSupportedImageType(selected.file)) {
       setMessage('Only PNG, JPG or JPEG files up to 5 MB are accepted.');
       return;
@@ -250,8 +249,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       </div>
       {editing && <>
         {!canPublish && <p role="status" className="cms-editor__note">
-          Your logo is an unpublished preview. Select Publish to TaxPay to authorize using
-          the existing Office sign-in; the cropped logo will then publish automatically.
+          Your logo is an unpublished preview until Publish to TaxPay confirms the saved image in SQL.
         </p>}
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo

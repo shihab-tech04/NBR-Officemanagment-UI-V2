@@ -5,7 +5,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { verifyPublicImage } from './verifyPublicImage';
-import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn, CMS_PUBLISH_SIGN_IN_EVENT } from '../../services/cmsPublishReturn';
 
 vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
@@ -17,7 +16,7 @@ vi.mock('./ImageCropDialog', () => ({
     </button>,
 }));
 
-function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok') {
+function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok', sessionActive = false) {
   let row = {
     id: 'primary' as const, image_path: null as string | null,
     image_width: null as number | null, image_height: null as number | null,
@@ -50,9 +49,11 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok')
     getPublicUrl: (path: string) => ({ data: { publicUrl: 'https://images.test/' + path } }),
     upload, remove,
   })) };
+  const rpc = vi.fn(async () => ({ data: true, error: null }));
+  const getSession = vi.fn(async () => ({ data: { session: sessionActive ? { user: { id: 'publisher' } } : null }, error: null }));
   const client = {
     from, channel: vi.fn(() => channel), removeChannel: vi.fn().mockResolvedValue('ok'),
-    storage,
+    storage, rpc, auth: { getSession },
   } as unknown as SupabaseClient;
   const stalePublicClient = {
     from: vi.fn(() => ({ select: () => ({ eq: () => ({ single: async () => ({
@@ -61,7 +62,7 @@ function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok')
     }) }) }) })),
   } as unknown as SupabaseClient;
   vi.mocked(getTaxPayCmsPublicClient).mockReturnValue(writeMode === 'publicStale' ? stalePublicClient : client);
-  return { client, upload, update, from, remove };
+  return { client, upload, update, from, remove, rpc, getSession };
 }
 
 async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
@@ -72,7 +73,7 @@ async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Site Logo SQL editor and Korbritto parity', () => {
-  beforeEach(() => { clearPendingCmsPublish(); vi.mocked(verifyPublicImage).mockResolvedValue(undefined); });
+  beforeEach(() => { vi.mocked(verifyPublicImage).mockResolvedValue(undefined); });
   it('uses the exact current Korbritto fallback when SQL has no uploaded logo', async () => {
     const cms = logoCms();
     render(<SiteLogoPanel cms={cms.client} />);
@@ -98,48 +99,30 @@ describe('Site Logo SQL editor and Korbritto parity', () => {
     await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
   });
 
-  it('retains an unpublished cropped logo when requesting existing Office sign-in', async () => {
+  it('does not show another login or upload when the Office session has no publishing grant', async () => {
     const user = userEvent.setup();
     const cms = logoCms();
-    const signInRequested = vi.fn();
-    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, signInRequested);
-    try {
-      render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
-      await prepareLogo(user);
-      await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-      expect(signInRequested).toHaveBeenCalledOnce();
-      const pending = getPendingCmsPublish();
-      expect(pending?.kind).toBe('logo');
-      if (pending?.kind === 'logo') {
-        expect(pending.publishAfterSignIn).toBe(true);
-        expect(pending.selected?.width).toBe(1469);
-        expect(pending.selected?.height).toBe(496);
-        expect(pending.selected?.file.name).toBe('cropped.png');
-      }
-      expect(cms.upload).not.toHaveBeenCalled();
-      expect(cms.update).not.toHaveBeenCalled();
-    } finally {
-      window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, signInRequested);
-      clearPendingCmsPublish();
-    }
+    render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    expect(await screen.findByText(/no active TaxPay publishing access/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
+    expect(cms.upload).not.toHaveBeenCalled();
+    expect(cms.update).not.toHaveBeenCalled();
   });
 
-  it('automatically publishes the preserved crop after Office verifies its administrator session', async () => {
-    const cms = logoCms();
-    requestCmsPublishingSignIn({
-      kind: 'logo',
-      selected: {
-        file: new File([new Uint8Array([137, 80, 78, 71])], 'resumed.png', { type: 'image/png' }),
-        width: 1469,
-        height: 496,
-      },
-      publishAfterSignIn: true,
-    });
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    expect(await screen.findByText(/Logo saved to SQL and verified in the public TaxPay logo feed/)).toBeInTheDocument();
+  it('publishes in one click through an existing verified CMS session with stale UI permission state', async () => {
+    const user = userEvent.setup();
+    const cms = logoCms('ok', true);
+    render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
+    await prepareLogo(user);
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    expect(await screen.findByText(/verified in the public TaxPay logo feed/)).toBeInTheDocument();
+    expect(cms.getSession).toHaveBeenCalled();
+    expect(cms.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
     expect(cms.upload).toHaveBeenCalledOnce();
     expect(cms.update).toHaveBeenCalledOnce();
-    expect(getPendingCmsPublish()).toBeNull();
   });
 
   it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {

@@ -9,11 +9,6 @@ const mocks = vi.hoisted(() => ({
   onOfficeEnter: vi.fn(),
 }));
 
-const pendingCms = vi.hoisted(() => ({ draft: null as null | { kind: 'logo' } }));
-vi.mock('../../services/cmsPublishReturn', () => ({
-  getPendingCmsPublish: () => pendingCms.draft,
-}));
-
 const shared = vi.hoisted(() => ({
   enabled: false,
   signIn: vi.fn(),
@@ -62,7 +57,6 @@ describe('public Office re-entry after Sign Out', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     shared.enabled = false;
-    pendingCms.draft = null;
     cmsAuth.getClient.mockReturnValue(null);
   });
 
@@ -119,7 +113,7 @@ describe('public Office re-entry after Sign Out', () => {
     await user.type(screen.getByLabelText('Password'), 'verified-publishing-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
-    expect(cmsAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(cmsAuth.signOut).not.toHaveBeenCalled();
     expect(cmsAuth.signIn).toHaveBeenCalledWith({
       email: 'shihabshajib01@gmail.com', password: 'verified-publishing-password',
     });
@@ -128,37 +122,7 @@ describe('public Office re-entry after Sign Out', () => {
     expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
   });
 
-  it('requires a publishing password before returning with an unpublished logo draft', async () => {
-    pendingCms.draft = { kind: 'logo' };
-    const user = userEvent.setup();
-    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('password to publish');
-    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
-    expect(mocks.navigate).not.toHaveBeenCalled();
-  });
-
-  it('returns directly to Content Management after verified Office sign-in with a pending crop', async () => {
-    pendingCms.draft = { kind: 'logo' };
-    cmsAuth.signOut.mockResolvedValue({ error: null });
-    cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'sql-office-admin' } } } });
-    cmsAuth.getUser.mockResolvedValue({ error: null, data: { user: { id: 'sql-office-admin', is_anonymous: false } } });
-    cmsAuth.rpc.mockResolvedValue({ error: null, data: true });
-    cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn, getUser: cmsAuth.getUser,
-    }, rpc: cmsAuth.rpc });
-    const user = userEvent.setup();
-    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
-    await user.type(screen.getByLabelText('Password'), 'verified-publishing-password');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
-    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management');
-    expect(cmsAuth.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
-  });
-
-  it('clears a former CMS session on blank-password Office entry', async () => {
+  it('preserves a former CMS session on blank-password Office entry', async () => {
     const user = userEvent.setup();
     cmsAuth.signOut.mockResolvedValue({ error: null });
     cmsAuth.getClient.mockReturnValue({ auth: {
@@ -168,8 +132,9 @@ describe('public Office re-entry after Sign Out', () => {
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
-    expect(cmsAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(cmsAuth.signOut).not.toHaveBeenCalled();
     expect(cmsAuth.signIn).not.toHaveBeenCalled();
+    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
   });
 
   it('does not turn an invalid CMS password into SQL publishing authority', async () => {
@@ -203,7 +168,7 @@ describe('public Office re-entry after Sign Out', () => {
     await user.type(screen.getByLabelText('Password'), 'sql-account-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not have permission to publish TaxPay content');
-    expect(cmsAuth.signOut).toHaveBeenCalledTimes(2);
+    expect(cmsAuth.signOut).toHaveBeenCalledTimes(1);
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
@@ -223,7 +188,7 @@ describe('public Office re-entry after Sign Out', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Office session could not be verified');
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(cmsAuth.rpc).not.toHaveBeenCalled();
-    expect(cmsAuth.signOut).toHaveBeenCalledTimes(2);
+    expect(cmsAuth.signOut).toHaveBeenCalledTimes(1);
   });
 
   it('blocks password-backed Office sign-in when SQL publishing service is not configured', async () => {
@@ -235,19 +200,6 @@ describe('public Office re-entry after Sign Out', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('service is unavailable');
     expect(mocks.navigate).not.toHaveBeenCalled();
-  });
-
-  it('fails closed when previous CMS publishing credentials cannot be cleared', async () => {
-    const user = userEvent.setup();
-    cmsAuth.signOut.mockResolvedValue({ error: new Error('logout failed') });
-    cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
-    } });
-    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('previous Content Management session');
-    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
   });
 
   it('authenticates a shared-mode officer and checks active SQL membership before access', async () => {

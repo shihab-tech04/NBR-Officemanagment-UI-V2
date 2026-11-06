@@ -5,14 +5,11 @@ import type { AppDispatch } from "../store/store";
 import { setIsDesktop } from "../store/uiSlice";
 import { useAppearance } from "../hooks/useAppearance";
 import { AppShell } from "./AppShell";
-import { AppModal } from "../components/modals/AppModal";
-import { LoginForm } from "../components/auth/LoginForm";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
-import { CMS_PUBLISH_SIGN_IN_EVENT, clearPendingCmsPublish } from "../services/cmsPublishReturn";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -44,8 +41,6 @@ export function AppRoot() {
     () => sharedMode && storedEntry() === "officer",
   );
   const [signOutError, setSignOutError] = useState("");
-  const [cmsPublishingSignIn, setCmsPublishingSignIn] = useState(false);
-  const [cmsSessionVersion, setCmsSessionVersion] = useState(0);
   useAppearance();
 
   useEffect(() => {
@@ -125,30 +120,6 @@ export function AppRoot() {
     setSignedOut(true);
   }, [sharedMode]);
 
-  // An authorization request from Publish is not an Office sign-out.
-  // Reuse the existing Office sign-in inside the approved shared modal while
-  // keeping the workspace and unpublished crops mounted. Explicit Sign out
-  // continues to revoke both Office and CMS sessions via handleSignOut.
-  useEffect(() => {
-    if (sharedMode) return;
-    const requestSignIn = () => setCmsPublishingSignIn(true);
-    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-    return () => window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-  }, [sharedMode]);
-
-  const cancelCmsPublishingSignIn = () => {
-    clearPendingCmsPublish();
-    setCmsPublishingSignIn(false);
-  };
-
-  const finishCmsPublishingSignIn = () => {
-    handleEnterOffice();
-    setCmsPublishingSignIn(false);
-    // Remount only after verified SQL sign-in so CMS restores the preserved
-    // pending draft and publishes once using its existing resume contract.
-    setCmsSessionVersion(version => version + 1);
-  };
-
   const handleEnterOffice = () => {
     try {
       window.sessionStorage.setItem(OFFICE_ENTRY_KEY, sharedMode ? "officer" : "admin");
@@ -169,10 +140,7 @@ export function AppRoot() {
       ? <p role="status">Verifying Audit officer access…</p>
       : signedOut && !openAuditPreview
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
-        : <AppShell key={cmsSessionVersion} onSignedOut={() => { void handleSignOut(); }}/>}
-    <AppModal open={cmsPublishingSignIn && !signedOut && !sharedMode} title="Confirm TaxPay publishing" onClose={cancelCmsPublishingSignIn} size="lg">
-      <LoginForm isDesktop={true} onOfficeEnter={finishCmsPublishingSignIn}/>
-    </AppModal>
+        : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
     <HelpDrawer/>
   </HelpProvider>;
