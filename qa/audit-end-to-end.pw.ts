@@ -60,7 +60,7 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(circleTable).toContainText("Circle-331 (Company)");
   await expect(circleTable).toContainText("Provisional 4/10");
   await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("Circle-331");
-  await expect(circle).toContainText("1 of 1 Circles match");
+  await expect(circle).toContainText("1 of 1,057 Circles match");
   await expect(circleTable).toContainText("809,661,593");
   await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("no such circle");
   await expect(circle).toContainText("No Circles match this search.");
