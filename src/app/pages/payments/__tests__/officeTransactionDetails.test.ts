@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { StoryPayment } from '../story1OfficeApi';
-import { getOfficePaymentItems, officeMoney } from '../officeTransactionDetails';
+import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor } from '../officeTransactionDetails';
 import { buildDisplayedOfficeReceiptDocument } from '../OfficeReceiptModal';
 
 const transaction: StoryPayment = {
@@ -20,6 +20,20 @@ describe('Office-native transaction record and receipt', () => {
     expect(items[1]).toMatchObject({ taxpayer: 'user7', service: 'Penalty Payment', assessmentYear: '2025-26', amountMinor: 2350 });
     expect(officeMoney(items[0].amountMinor)).toBe('৳150.25');
     expect(officeMoney(17375)).toBe('৳173.75');
+  });
+
+  it('reconciles the same exact receipt amount in English and Bengali without inventing credits', () => {
+    expect(officeMoney(17375, 'en')).toBe('৳173.75');
+    expect(officeMoney(17375, 'bn')).toBe('৳১৭৩.৭৫');
+    expect(parseOfficeMoneyMinor(officeMoney(17375, 'en'))).toBe(17375);
+    expect(parseOfficeMoneyMinor(officeMoney(17375, 'bn'))).toBe(17375);
+    expect(parseOfficeMoneyMinor('৳ ১,২৩৪.৫০')).toBe(123450);
+    expect(parseOfficeMoneyMinor('৳1,234.50')).toBe(123450);
+    expect(parseOfficeMoneyMinor('৳১,২৩৪.৫০') === getOfficePaymentItems(transaction)[0].amountMinor).toBe(false);
+    for (const invalid of [null, undefined, 1234, '—', '123.45', '৳১,২৩,৪.৫০',
+      '৳১,২৩৪.৫০১', '৳-১.০০', '৳১২.১২৩', '৳৯৯৯৯৯৯৯৯৯৯৯৯৯৯৯৯']) {
+      expect(parseOfficeMoneyMinor(invalid)).toBeNull();
+    }
   });
 
   it('never attributes unreconciled amounts or mixed beneficiary formats', () => {
