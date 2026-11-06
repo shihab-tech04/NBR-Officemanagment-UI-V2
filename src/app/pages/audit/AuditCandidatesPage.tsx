@@ -1153,6 +1153,18 @@ export function AuditCandidatesPage({
   const availableAuditYears = getAvailableAuditYears(storedRows);
   const [sharedDataError, setSharedDataError] = useState("");
   const [sharedDataLoading, setSharedDataLoading] = useState(isSharedAuditMode());
+  // Direct Audit Candidates entry must behave like the Audit Overview on a fresh browser.
+  // Never override an explicitly saved assessment year or activate SQL data mode.
+  useEffect(() => {
+    if (isSharedAuditMode() || typeof window === "undefined" ||
+        window.localStorage.getItem("gov_ui_settings") !== null ||
+        window.sessionStorage.getItem("nbr-audit-initial-year-v1")) return;
+    window.sessionStorage.setItem("nbr-audit-initial-year-v1", "checked");
+    const available = getAvailableAuditYears(getAuditCandidates());
+    if (!available.includes(assessmentYear) && available.length) {
+      setAssessmentYear(available[0]);
+    }
+  }, []);
   const refreshCandidates = async () => {
     if (!isSharedAuditMode()) {
       setStoredRows(getAuditCandidates());
