@@ -105,9 +105,10 @@ export function getAuditYearScope(
   });
   const knownReviewIds = new Set(secondReviewBase.map((row) => String(row.case_id ?? "")));
   const newLocalReviews: TableRow[] = riskCases
-    .filter((row) => String(row.case_id ?? "").startsWith("LOCAL-CASE-") &&
-      reviewStates.has(String(row.case_status ?? "")) &&
-      !knownReviewIds.has(String(row.case_id ?? "")))
+    .filter((row) => reviewStates.has(String(row.case_status ?? "")) &&
+      !knownReviewIds.has(String(row.case_id ?? "")) &&
+      (String(row.case_id ?? "").startsWith("LOCAL-CASE-") ||
+       !!selectedByReturn.get(String(row.return_id ?? ""))?.local_status_updated_at))
     .map((row) => ({
       id: row.id, case_id: row.case_id, return_id: row.return_id, tin: row.tin,
       circle: row.circle, risk_level: row.risk_level,
