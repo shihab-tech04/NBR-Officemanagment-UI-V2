@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
@@ -72,7 +72,6 @@ function originalImageUrl(id: string) {
 export function ContentManagementPage() {
   const pending = getPendingCmsPublish();
   const pendingBanner = pending?.kind === 'banner' ? pending : null;
-  const resumePublish = useRef(false);
   const [tab, setTab] = useState<'banners' | 'logo'>(() => pending?.kind === 'logo' ? 'logo' : 'banners');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(() => pendingBanner?.selectedId ?? null);
@@ -111,9 +110,7 @@ export function ContentManagementPage() {
   useEffect(() => {
     const pending = getPendingCmsPublish();
     if (authState !== 'authorized' || !authUid || pending?.kind !== 'banner' ||
-        !pending.publishAfterSignIn || !draft || draft.id !== pending.selectedId ||
-        resumePublish.current) return;
-    resumePublish.current = true; // Avoid a duplicate commit during auth refresh.
+        !pending.publishAfterSignIn || !draft || draft.id !== pending.selectedId) return;
     clearPendingCmsPublish();
     void save();
   }, [authState, authUid, draft]);
@@ -288,7 +285,6 @@ export function ContentManagementPage() {
     // A stale authorization label without a verified SQL user must never
     // silently drop a Publish click or attempt an unauthenticated upload.
     if (authState !== 'authorized' || !authUid) {
-      resumePublish.current = false;
       requestCmsPublishingSignIn({
         kind: 'banner', selectedId, draft, newDraft,
         desiredPosition, desktopFile, mobileFile, publishAfterSignIn: true,
