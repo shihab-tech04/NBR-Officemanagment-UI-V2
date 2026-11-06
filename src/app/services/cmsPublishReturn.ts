@@ -1,7 +1,7 @@
 /**
  * Holds an unpublished CMS crop/draft only in this browser tab's JavaScript memory
- * while the user returns through the existing Office sign-in. Never persist files,
- * credentials, or publishing authority in browser storage.
+ * while the existing Office workspace verifies the current publishing request.
+ * Never persist files, passwords, or publishing authority in browser storage.
  */
 export type PendingCmsPublish =
   | { kind: 'logo'; selected: { file: File; width: number; height: number } | null; publishAfterSignIn?: boolean }
@@ -16,6 +16,7 @@ export type PendingCmsPublish =
       mobileFile: File | null;
     };
 
+// The event only opens the in-place authorization dialog; it must never sign out Office.
 export const CMS_PUBLISH_SIGN_IN_EVENT = 'office:cms-publish-sign-in';
 
 let pending: PendingCmsPublish | null = null;
