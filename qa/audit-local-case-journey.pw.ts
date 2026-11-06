@@ -69,7 +69,7 @@ test("local case evidence, signal verification, Finding, sign-off and trail pers
   await page.goto("/audit/risk-cases");
   await expect(page.getByRole("row",{name:/CASE-2026-001/})).toContainText("Closed");
   await page.goto("/audit/audit-trail");
-  await page.getByRole("button",{name:"Next",exact:true}).click();
+  await page.getByRole("button",{name:"Go to next page",exact:true}).click();
   await expect(page.locator(".table-card")).toContainText("Second review signed off");
 });
 test("control flag review writes one linked taxpayer decision and Audit Trail entry", async ({ page }) => {
