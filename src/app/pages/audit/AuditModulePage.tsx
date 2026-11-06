@@ -1458,7 +1458,19 @@ function AuditOverviewPage() {
 export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
   const { t } = useTranslation("audit");
-  const { assessmentYear } = useSettings();
+  const { assessmentYear, setAssessmentYear } = useSettingsActions();
+  useEffect(() => {
+    // Only activate a meaningful Audit year for a genuinely new workspace.
+    // An explicitly stored AY (including an empty historic year) is never changed.
+    if (isSharedAuditMode() || typeof window === "undefined" ||
+        window.localStorage.getItem("gov_ui_settings") !== null ||
+        window.sessionStorage.getItem("nbr-audit-initial-year-v1")) return;
+    window.sessionStorage.setItem("nbr-audit-initial-year-v1", "checked");
+    const available = getAvailableAuditYears(getAuditCandidates());
+    if (!available.includes(assessmentYear) && available.length) {
+      setAssessmentYear(available[0]);
+    }
+  }, []);
   const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
   const availablePopulation = isSharedAuditMode() ? [] : ALL_TAXPAYER_ROWS;
 
