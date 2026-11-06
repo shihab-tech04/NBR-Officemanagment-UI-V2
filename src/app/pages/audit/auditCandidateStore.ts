@@ -257,10 +257,10 @@ const LOCAL_EVENT_KEY = "nbr-audit-local-status-events-v1";
 const AUDIT_STATUS_TRANSITIONS: Record<string, string[]> = {
   "Not Started": ["Assigned"],
   "Assigned": ["Verifying"],
-  "Verifying": ["Evidence Pending", "Ready for Review"],
-  "Evidence Pending": ["Verifying", "Ready for Review"],
+  "Verifying": ["Evidence Pending"],
+  "Evidence Pending": ["Verifying"],
   "Ready for Review": ["Verifying", "Second Review"],
-  "Second Review": ["Ready for Review", "Closed"],
+  "Second Review": ["Ready for Review"],
   "Closed": [],
 };
 
