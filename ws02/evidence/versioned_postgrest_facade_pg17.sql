@@ -61,6 +61,16 @@ BEGIN
  OR has_function_privilege('ws02_owner_anon',fn,'EXECUTE')
  OR NOT has_function_privilege('ws02_owner_engine',fn,'EXECUTE')
  THEN RAISE EXCEPTION 'VERSIONED_FACADE_ACL_BOUNDARY_DRIFT'; END IF;
+ -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
+ -- This is an executable permission probe, not merely an ACL metadata check.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'CREATE FUNCTION ws02_versioned_api.ws02_shadow_endpoint_probe() RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_CREATED_FACADE_ENDPOINT';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ IF to_regprocedure('ws02_versioned_api.ws02_shadow_endpoint_probe()') IS NOT NULL
+ THEN RAISE EXCEPTION 'ENGINE_SHADOW_ENDPOINT_PROBE_LEFT_OBJECT'; END IF;
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_auth';
