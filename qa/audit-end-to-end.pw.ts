@@ -59,12 +59,12 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   const circleTable = circle.getByRole("table", { name: "Circle filing and TIN overview" });
   await expect(circleTable).toContainText("Circle-331 (Company)");
   await expect(circleTable).toContainText("Provisional 4/10");
-  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("Circle-331");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("Circle-331");
   await expect(circle).toContainText("1 of 1 Circles match");
   await expect(circleTable).toContainText("809,661,593");
-  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("no such circle");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("no such circle");
   await expect(circle).toContainText("No Circles match this search.");
-  await circle.getByRole("textbox", { name: "Search tax zone or Circle" }).fill("");
+  await circle.getByRole("searchbox", { name: "Search tax zone or Circle" }).fill("");
   await expect(modal).toContainText("Anika Engineering");
   const confirmation = modal.getByRole("button", { name: "Confirm candidates" });
   await expect(confirmation).toBeEnabled();
@@ -178,6 +178,12 @@ test("population selection uses all 70 taxpayers without population or readiness
 
 test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
   await page.goto("/audit/audit-candidates");
+  // Wait for the existing candidate registry to hydrate and restore seed batches
+  // before adding the saved-state scenario. Otherwise a later seed reconciliation
+  // would duplicate test-injected identities by candidate ID.
+  await expect(page.locator(".table-card")).toContainText("AUD-2026-RISK-01");
+  await expect.poll(async () => page.evaluate(() =>
+    JSON.parse(localStorage.getItem("nbr-audit-candidates-v3") || "[]").length)).toBeGreaterThan(0);
   // Reproduce the owner's saved browser state: all 55 signal-positive returns
   // have been selected in earlier Audit batches. Preserve existing seeded rows,
   // then add only the previous selections missing from the local registry.
