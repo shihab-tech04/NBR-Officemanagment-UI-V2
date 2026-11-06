@@ -72,6 +72,17 @@ BEGIN
   RAISE EXCEPTION 'AUTH_ROLE_UNEXPECTEDLY_INVOKED_VERSIONED_FACADE';
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
+ -- Anonymous clients must be denied independently of authenticated clients.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_anon';
+  PERFORM ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(
+   '60000000-0000-4000-8000-000000000001',
+   '50000000-0000-4000-8000-000000000001','2026-27',
+   'synthetic-anon-denied-00001',repeat('a',64),repeat('b',64),
+   repeat('c',64),'FAIL_CLOSED','{}'::jsonb,'{}','NBR_W5_CANONICAL_UTF8_V1');
+  RAISE EXCEPTION 'ANON_ROLE_UNEXPECTEDLY_INVOKED_VERSIONED_FACADE';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
  IF current_user <> session_user THEN
   RAISE EXCEPTION 'DENIED_ROLE_PROBE_NOT_RESTORED';
  END IF;
