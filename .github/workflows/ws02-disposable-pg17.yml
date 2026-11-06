@@ -504,6 +504,7 @@ jobs:
           echo 'COMMIT;' >> /tmp/ws02_versioned_owner_ddl.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/ws02_versioned_owner_ddl.sql > /tmp/ws02_versioned_setup.log
           psql -X -v ON_ERROR_STOP=1 -f ws02/isolated_versioned_atomic_envelope.sql
+          psql -X -v ON_ERROR_STOP=1 -f ws02/evidence/versioned_postgrest_facade_pg17.sql
           node --check ws02/evidence/ws04_versioned_atomic_envelope_pg17.node.mjs
           node ws02/evidence/ws04_versioned_atomic_envelope_pg17.node.mjs
           psql -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA ws02_owner CASCADE; DROP OWNED BY ws02_owner_rpc, ws02_owner_lock; DROP ROLE ws02_owner_engine; DROP ROLE ws02_owner_rpc; DROP ROLE ws02_owner_lock; DROP ROLE ws02_owner_auth; DROP ROLE ws02_owner_anon;' >/dev/null
