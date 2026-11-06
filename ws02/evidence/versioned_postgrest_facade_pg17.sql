@@ -4,6 +4,26 @@ BEGIN;
 CREATE SCHEMA ws02_versioned_api;
 REVOKE ALL ON SCHEMA ws02_versioned_api FROM PUBLIC;
 GRANT USAGE ON SCHEMA ws02_versioned_api TO ws02_owner_engine;
+-- The facade namespace must not be owned or indirectly controlled by a runtime role.
+-- A runtime owner could create shadow endpoints regardless of function ACLs.
+DO $schema_owner$
+DECLARE schema_owner oid; runtime_role name;
+BEGIN
+ SELECT nspowner INTO STRICT schema_owner
+ FROM pg_catalog.pg_namespace WHERE nspname='ws02_versioned_api';
+ FOREACH runtime_role IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+  'ws02_owner_rpc','ws02_owner_lock'
+ ] LOOP
+  IF schema_owner=runtime_role::regrole::oid
+     OR pg_catalog.pg_has_role(runtime_role,schema_owner,'MEMBER')
+     OR pg_catalog.pg_has_role(runtime_role,schema_owner,'USAGE')
+     OR pg_catalog.pg_has_role(runtime_role,schema_owner,'SET')
+  THEN RAISE EXCEPTION 'VERSIONED_FACADE_SCHEMA_OWNER_ESCALATION_%',runtime_role;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_SCHEMA_OWNER_BOUNDARY';
+END $schema_owner$;
 CREATE FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(
  p_auth_user_id uuid,p_taxpayer_record_id uuid,p_assessment_year text,
  p_idempotency_key text,p_request_hash text,p_receipt_hash text,
