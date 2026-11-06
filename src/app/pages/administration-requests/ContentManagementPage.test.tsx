@@ -115,6 +115,28 @@ describe('verified TaxPay banner CMS', () => {
     expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
+  it('keeps a banner text draft and original SQL version while routing to authorized Office sign-in', async () => {
+    const { client, rpc } = makeClient(false);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const { getPendingCmsPublish, clearPendingCmsPublish } = await import('../../services/cmsPublishReturn');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const heading = screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading, 'Needs verified Office publish');
+    await user.click(screen.getByRole('button', { name: 'Sign in to publish' }));
+    const pending = getPendingCmsPublish();
+    expect(pending?.kind).toBe('banner');
+    if (pending?.kind === 'banner') {
+      expect((pending.draft as { heading_en: string; version: number }).heading_en).toBe('Needs verified Office publish');
+      expect((pending.draft as { heading_en: string; version: number }).version).toBe(8);
+    }
+    expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+    clearPendingCmsPublish();
+  });
+
   it('shows published data but does not expose write controls to a non-admin SQL session', async () => {
     const { client, rpc } = makeClient(false, true);
     deps.createClient.mockReturnValue(client);
