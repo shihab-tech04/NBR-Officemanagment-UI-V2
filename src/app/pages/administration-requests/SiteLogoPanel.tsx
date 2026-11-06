@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
@@ -27,6 +27,9 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
+  // Only a direct click on Publish authorizes resuming that same action.
+  const resumePublish = useRef(getPendingCmsPublish()?.kind === 'logo' &&
+    getPendingCmsPublish()?.publishAfterSignIn === true);
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
   const [selected, setSelected] = useState<LogoFile | null>(() => {
@@ -40,8 +43,14 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
   const [restoreRequested, setRestoreRequested] = useState(false);
 
   useEffect(() => {
-    if (canPublish && getPendingCmsPublish()?.kind === 'logo') clearPendingCmsPublish();
-  }, [canPublish]);
+    // Do not discard a pending publish before SQL has supplied the current
+    // version needed for its optimistic-lock update.
+    if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
+    const shouldPublish = resumePublish.current;
+    resumePublish.current = false; // At most once, including Strict Mode remounts.
+    clearPendingCmsPublish();
+    if (shouldPublish && selected) void save();
+  }, [canPublish, record, selected]);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
@@ -80,6 +89,15 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     setMessage('');
     if (!file) return;
     setCropSource(file);
+  }
+
+  function publish() {
+    if (busy || !selected) return;
+    if (!canPublish) {
+      requestCmsPublishingSignIn({ kind: 'logo', selected, publishAfterSignIn: true });
+      return;
+    }
+    void save();
   }
 
   async function save() {
@@ -223,7 +241,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         <h3>{editing && selected ? 'New logo preview (not yet published)' : 'Current TaxPay logo'}</h3>
         <div className="cms-logo__image"><LogoPreviewImage src={displayUrl} alt="Korbritto TaxPay logo preview" /></div>
         <p>Source image: {dimensions}</p>
-        {!record?.image_path && <p>Showing the current Korbritto brand used by TaxPay when SQL has no uploaded logo.</p>}
+        {!record?.image_path && !(editing && selected) && <p>Showing the current Korbritto brand used by TaxPay when SQL has no uploaded logo.</p>}
       </div>
       <div className="cms-logo__placement-grid">
         <div className="cms-logo__placement"><h3>Desktop header</h3><div className="cms-logo__slot cms-logo__slot--desktop"><LogoPreviewImage src={displayUrl} alt="Desktop header logo preview" /></div><p>154 × 52 px slot</p></div>
@@ -232,12 +250,8 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       </div>
       {editing && <>
         {!canPublish && <p role="status" className="cms-editor__note">
-          Your logo is an unpublished preview. Publishing requires an authorized Office sign-in.
-          {' '}<button type="button" className="cms-edit-button" disabled={busy}
-            onClick={() => requestCmsPublishingSignIn({ kind: 'logo', selected })}>
-            Sign in to publish
-          </button>
-          {selected && ' Your cropped logo will remain ready in this tab after sign-in.'}
+          Your logo is an unpublished preview. Select Publish to TaxPay to authorize using
+          the existing Office sign-in; the cropped logo will then publish automatically.
         </p>}
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
@@ -250,7 +264,7 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
           <p>PNG, JPG or JPEG only · Crop to 1469 × 496 px · Max 5 MB. PNG preserves transparency. The current blue design remains until you save.</p>
         </div>
         <div className="cms-actions"><div className="cms-actions__main">
-          <button type="button" className="cms-primary" disabled={busy || !selected || !canPublish} onClick={() => void save()}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button>
+          <button type="button" className="cms-primary" disabled={busy || !selected} onClick={publish}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button>
           {record?.image_path && <button type="button" disabled={busy || !canPublish} onClick={() => setRestoreRequested(true)}>Restore original logo</button>}
           <button type="button" disabled={busy} onClick={cancel}>Cancel</button>
         </div></div>

@@ -31,7 +31,7 @@ try {
     await expect(page.getByRole('button', { name: 'Edit banner' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add banner' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit banner' }).click();
-    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     await expect(page.getByText(/unpublished preview/i)).toBeVisible();
     await page.screenshot({ path: 'test-results/live-cms-' + device + '.png', fullPage: false });
     await page.getByRole('button', { name: 'Cancel' }).click();
@@ -44,9 +44,27 @@ try {
     await expect(page.getByRole('button', { name: 'Edit logo' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit logo' }).click();
     await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    // The original bug only occurred AFTER cropping: the primary Publish
+    // remained disabled in the actual live Office session. Exercise that
+    // exact journey without performing any unauthorized production SQL write.
+    const fixture = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/pZ0AAAAASUVORK5CYII=',
+      'base64',
+    );
+    await page.getByLabel('Upload / replace logo').setInputFiles({
+      name: 'public-preview-check.png', mimeType: 'image/png', buffer: fixture,
+    });
+    await expect(page.getByRole('button', { name: 'Apply crop' })).toBeEnabled({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Apply crop' }).click();
+    await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
+    await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
+    // Do not supply administrator credentials or write production content in
+    // a smoke test. Authorized Office users complete the same flow privately.
     await page.close();
   }
-  console.log('PASS: live CMS banner/logo edit previews available; current Korbritto fallback; unauthorized SQL publishing disabled');
+  console.log('PASS: live CMS preview crop enables primary Publish; preview-only click opens existing Office sign-in without SQL writes');
 } finally {
   await browser.close();
 }
