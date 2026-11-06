@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ALL_TAXPAYER_ROWS } from "../src/app/pages/audit/auditData";
 
 /** Full Audit user journey, using the existing Office layout and persistent candidate store. */
 test.beforeEach(async ({ page }) => {
@@ -158,13 +159,42 @@ test("population selection uses all 70 taxpayers without population or readiness
 
 test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
   await page.goto("/audit/audit-candidates");
+  // Reproduce the owner's saved browser state: all 55 signal-positive returns
+  // have been selected in earlier Audit batches. Preserve existing seeded rows,
+  // then add only the previous selections missing from the local registry.
+  const previouslySelected = ALL_TAXPAYER_ROWS
+    .filter((row) => /R-[A-E]\\d/.test(String(row.signals)))
+    .map((row) => ({
+      return_id: String(row.return_id),
+      assessment_year: String(row.assessment_year),
+      taxpayer_name: String(row.taxpayer_name),
+      tin: String(row.tin),
+    }));
+  await page.evaluate((previous) => {
+    const key = "nbr-audit-candidates-v3";
+    const current = JSON.parse(localStorage.getItem(key) || "[]");
+    const selected = new Set(current.map((item: { assessment_year: string; return_id: string }) =>
+      item.assessment_year + "|" + item.return_id));
+    const missing = previous.filter((row) => !selected.has(row.assessment_year + "|" + row.return_id));
+    const restored = missing.map((row) => ({
+      ...row,
+      candidate_id: "RESTORED-" + row.return_id,
+      batch_id: "AUD-2026-EXISTING-TEST",
+      audit_status: "Assigned",
+      candidate_status: "Selected",
+      selection_track: "Risk-based Audit",
+    }));
+    localStorage.setItem(key, JSON.stringify([...current, ...restored]));
+  }, previouslySelected);
+  await page.reload();
+
   await page.getByRole("button", { name: "Initiate Audit" }).click();
   const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
   const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
 
   await next(); // Selection setup -> Risk criteria
-  // Selecting all R-A1–R-E3 signals matches already-audited profiles in this
-  // baseline; there must be no hidden automatic reselection or duplicate batch.
+  // Selecting all R-A1–R-E3 signals matches records already selected in Audit.
+  // No existing record may be reinserted, overwritten, or silently reselected.
   await modal.getByRole("button", { name: "Select all", exact: true }).last().click();
   await next(); // Risk criteria -> Screening run
   await modal.getByRole("button", { name: "Start screening" }).click();
