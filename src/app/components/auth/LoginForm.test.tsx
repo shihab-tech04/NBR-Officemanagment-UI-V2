@@ -26,9 +26,11 @@ const cmsAuth = vi.hoisted(() => ({
   signIn: vi.fn(),
   getUser: vi.fn(),
   rpc: vi.fn(),
+  hasVerified: vi.fn(),
 }));
 vi.mock('../../services/taxpayCmsClient', () => ({
   getTaxPayCmsClient: cmsAuth.getClient,
+  hasVerifiedCmsPublisherSession: (...args: unknown[]) => cmsAuth.hasVerified(...args),
 }));
 vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('react-i18next', () => ({
@@ -58,17 +60,25 @@ describe('public Office re-entry after Sign Out', () => {
     vi.clearAllMocks();
     shared.enabled = false;
     cmsAuth.getClient.mockReturnValue(null);
+    cmsAuth.hasVerified.mockResolvedValue(false);
   });
 
-  it('restores the User ID field and enters Office without email or OTP', async () => {
+  it('uses the existing Office sign-in to authorize publishing without another login', async () => {
     const user = userEvent.setup();
+    cmsAuth.signIn.mockResolvedValue({ data: { session: { user: { id: 'publisher' } } }, error: null });
+    cmsAuth.hasVerified.mockResolvedValue(true);
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByLabelText('Password'), 'existing-office-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
+    expect(cmsAuth.signIn).toHaveBeenCalledWith({
+      email: 'shihabshajib01@gmail.com', password: 'existing-office-password',
+    });
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
-    expect(screen.queryByRole('textbox', { name: /officer email/i })).not.toBeInTheDocument();
   });
 
   it('rejects non-admin identifiers and does not treat an arbitrary password as a valid Office session', async () => {
@@ -84,55 +94,51 @@ describe('public Office re-entry after Sign Out', () => {
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
-  it('accepts blank password for admin and rejects another name even with a password', async () => {
+  it('rejects a password-free admin marker and unrelated Office identifiers', async () => {
     const user = userEvent.setup();
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'officer');
-    await user.type(screen.getByLabelText('Password'), 'secret');
+    await user.type(screen.getByLabelText('Password'), 'wrong-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(screen.getByText('Enter admin to open the Office prototype.')).toBeInTheDocument();
+
     await user.clear(screen.getByRole('textbox', { name: 'User ID' }));
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), ' admin ');
     await user.clear(screen.getByLabelText('Password'));
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(mocks.onOfficeEnter).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your authorized Office password');
+    expect(cmsAuth.signIn).not.toHaveBeenCalled();
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
   });
 
-  it('uses the existing Office form to establish CMS authentication without another login', async () => {
+  it('confirms the existing Office publisher once before entering the workspace', async () => {
     const user = userEvent.setup();
-    cmsAuth.signOut.mockResolvedValue({ error: null });
     cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'sql-office-admin' } } } });
-    cmsAuth.getUser.mockResolvedValue({ error: null, data: { user: { id: 'sql-office-admin', is_anonymous: false } } });
-    cmsAuth.rpc.mockResolvedValue({ error: null, data: true });
-    cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn, getUser: cmsAuth.getUser,
-    }, rpc: cmsAuth.rpc });
+    cmsAuth.hasVerified.mockResolvedValue(true);
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'verified-publishing-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
-    expect(cmsAuth.signOut).not.toHaveBeenCalled();
     expect(cmsAuth.signIn).toHaveBeenCalledWith({
       email: 'shihabshajib01@gmail.com', password: 'verified-publishing-password',
     });
-    expect(cmsAuth.getUser).toHaveBeenCalledOnce();
-    expect(cmsAuth.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
   });
 
-  it('preserves a former CMS session on blank-password Office entry', async () => {
+  it('reuses a verified returning publisher session without demanding another password', async () => {
     const user = userEvent.setup();
-    cmsAuth.signOut.mockResolvedValue({ error: null });
-    cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
-    } });
+    cmsAuth.hasVerified.mockResolvedValue(true);
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
-    expect(cmsAuth.signOut).not.toHaveBeenCalled();
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(cmsAuth.signIn).not.toHaveBeenCalled();
     expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
   });
@@ -154,40 +160,38 @@ describe('public Office re-entry after Sign Out', () => {
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
-  it('rejects credentials that sign in but do not have the existing SQL publishing permission', async () => {
+  it('rejects a password-backed account without SQL publisher authority', async () => {
     const user = userEvent.setup();
     cmsAuth.signOut.mockResolvedValue({ error: null });
     cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'unauthorized' } } } });
-    cmsAuth.getUser.mockResolvedValue({ error: null, data: { user: { id: 'unauthorized', is_anonymous: false } } });
-    cmsAuth.rpc.mockResolvedValue({ error: null, data: false });
+    cmsAuth.hasVerified.mockResolvedValue(false);
     cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn, getUser: cmsAuth.getUser,
-    }, rpc: cmsAuth.rpc });
+      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
+    } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'sql-account-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not have permission to publish TaxPay content');
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(cmsAuth.signOut).toHaveBeenCalledTimes(1);
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
-  it('rejects a revoked or unverified SQL session at the same Office sign-in', async () => {
+  it('rejects an unverified SQL identity without entering Office', async () => {
     const user = userEvent.setup();
     cmsAuth.signOut.mockResolvedValue({ error: null });
     cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'sql-admin' } } } });
-    cmsAuth.getUser.mockResolvedValue({ error: new Error('revoked'), data: { user: null } });
-    cmsAuth.getClient.mockReturnValue({ auth: {
-      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn, getUser: cmsAuth.getUser,
-    }, rpc: cmsAuth.rpc });
+    cmsAuth.hasVerified.mockResolvedValue(false);
+    cmsAuth.getClient.mockReturnValue({ auth: { signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'revoked-session-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Office session could not be verified');
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not have permission to publish TaxPay content');
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(mocks.navigate).not.toHaveBeenCalled();
-    expect(cmsAuth.rpc).not.toHaveBeenCalled();
     expect(cmsAuth.signOut).toHaveBeenCalledTimes(1);
   });
 
