@@ -109,11 +109,13 @@ export function ContentManagementPage() {
 
   useEffect(() => {
     const pending = getPendingCmsPublish();
-    if (authState !== 'authorized' || !authUid || pending?.kind !== 'banner' ||
-        !pending.publishAfterSignIn || !draft || draft.id !== pending.selectedId) return;
+    // Never replay pending writes in the middle of password or identity checks.
+    if (publishAuthOpen || publishAuthBusy || authState !== 'authorized' || !authUid ||
+        pending?.kind !== 'banner' || !pending.publishAfterSignIn ||
+        !draft || draft.id !== pending.selectedId) return;
     clearPendingCmsPublish();
     void save();
-  }, [authState, authUid, draft]);
+  }, [authState, authUid, draft, publishAuthOpen, publishAuthBusy]);
 
   function cancelPublishAuthorization() {
     if (publishAuthBusy) return;
@@ -492,7 +494,8 @@ export function ContentManagementPage() {
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
     </div>
-    {tab === 'logo' ? <SiteLogoPanel cms={cms} canPublish={authState === 'authorized'} /> : <div className="cms-layout">
+    {tab === 'logo' ? <SiteLogoPanel cms={cms} canPublish={authState === 'authorized'}
+      publishingAuthorizationPending={publishAuthOpen || publishAuthBusy} /> : <div className="cms-layout">
         <section className="cms-panel cms-list" aria-label="Banner list">
           <div className="cms-panel__heading cms-list__heading"><h2>Banners <span className="cms-count">{banners.length}</span></h2><button type="button" className="cms-add-button" onClick={() => { if (!editing || window.confirm('Discard unsaved banner changes?')) addBanner(); }}><Plus size={16}/> Add banner</button></div>
           {banners.map((row, index) => <button key={row.id} type="button" className={`cms-banner-item${selectedId === row.id ? ' is-selected' : ''}`} onClick={() => { if (editing && row.id !== selectedId && !window.confirm('Discard unsaved banner changes?')) return; setNewDraft(null); setSelectedId(row.id); setEditing(false); }}>
