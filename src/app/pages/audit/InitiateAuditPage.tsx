@@ -1432,6 +1432,18 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                       </span>
                     )}
                   </div>
+                  {matchedRows.length === 0 && (
+                    <p className="form-helper" role="status">
+                      {matchedAlreadyInAuditRows.length > 0
+                        ? t("initiate.previewDecision.noNewCandidates", {
+                            count:matchedAlreadyInAuditRows.length,
+                            available:selectableRows.length,
+                          })
+                        : t("initiate.previewDecision.noCandidatesMeetCriteria", {
+                            available:selectableRows.length,
+                          })}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1544,7 +1556,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                       const width = mismatch <= 0
                         ? 0
                         : Math.max(3, Math.min(100, (mismatch / Math.max(1, previewDisplayMismatchMax)) * 100));
-                      const alreadyInAudit = String(row.audit_state ?? "Not Started") !== "Not Started";
+                      const alreadyInAudit = isAlreadySelected(row);
                       const detailRow = { ...row };
 
                       return (
@@ -1585,7 +1597,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                     const id=String(row.return_id);
                     const rowSignals=signalIds(row.signals);
                     const mismatch=candidateMismatchAmount(row);
-                    const alreadyInAudit = String(row.audit_state ?? "Not Started") !== "Not Started";
+                    const alreadyInAudit = isAlreadySelected(row);
                     const detailRow = { ...row };
                     return (
                       <div
@@ -1774,6 +1786,16 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     setStep((value) => Math.min(activeSteps.length - 1, value + 1));
   };
 
+  // An exhausted risk selection must not create duplicate Audit batches.
+  // Offer an explicit, user-triggered switch to the remaining available
+  // population, preserving the selected assessment year and approved UI.
+  const reviewRemainingAvailable = () => {
+    if (track !== "risk" || selectableRows.length === 0) return;
+    handleTrackSelect("population");
+    setMaxCompletedStep(0);
+    setStep(TRACK_STEPS.population.indexOf("preview"));
+  };
+
   const modalFooter = activeStepId === "screeningRun" ? (
     <>
       {screeningRunStatus !== "processing" && step > 0 && (
@@ -1808,13 +1830,28 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
         </SecondaryButton>
       )}
       {step < activeSteps.length - 1 ? (
-        <PrimaryButton
-          size="sm"
-          disabled={!stepValid}
-          onClick={goToNextStep}
-        >
-          {t("initiate.actions.continue")}
-        </PrimaryButton>
+        activeStepId === "preview" && matchedRows.length === 0 ? (
+          <>
+            {track === "risk" && (
+              <SecondaryButton size="sm" onClick={() => setStep(activeSteps.indexOf("riskCriteria"))}>
+                {t("initiate.actions.changeRiskCriteria")}
+              </SecondaryButton>
+            )}
+            {track === "risk" && selectableRows.length > 0 ? (
+              <PrimaryButton size="sm" onClick={reviewRemainingAvailable}>
+                {t("initiate.actions.reviewRemaining", { count:selectableRows.length })}
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton size="sm" onClick={closeFreshSession}>
+                {t("initiate.actions.returnToCandidates")}
+              </PrimaryButton>
+            )}
+          </>
+        ) : (
+          <PrimaryButton size="sm" disabled={!stepValid} onClick={goToNextStep}>
+            {t("initiate.actions.continue")}
+          </PrimaryButton>
+        )
       ) : (
         <PrimaryButton size="sm" loading={confirmBusy} disabled={!stepValid || confirmBusy} onClick={confirmCandidates}>
           {t("initiate.actions.confirmCandidates")}
@@ -1845,7 +1882,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
           <div className="app-wizard-main">
             {renderStep()}
 
-            {!stepValid && activeStepId !== "screeningRun" && (
+            {!stepValid && activeStepId !== "screeningRun" &&
+              !(activeStepId === "preview" && matchedRows.length === 0) && (
               <p className="form-error" role="status">{t("initiate.validation.completeStep")}</p>
             )}
           </div>
