@@ -9,6 +9,7 @@ import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 import { getTaxPayCmsClient } from "../../services/taxpayCmsClient";
 import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
+import { getPendingCmsPublish } from "../../services/cmsPublishReturn";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -59,6 +60,11 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
+    const returningToCms = getPendingCmsPublish() !== null;
+    if (returningToCms && !password) {
+      setSharedError("Enter your authorized Office account password to publish the saved content draft.");
+      return;
+    }
     // Office keeps its existing presentation-only entry. When valid SQL
     // credentials are supplied here, they also establish the CMS session;
     // no second login is requested on the Content Management page.
@@ -101,7 +107,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
       }
       setPassword("");
       onOfficeEnter?.();
-      navigate("/dashboard/dashboard-main");
+      navigate(returningToCms ? "/administration/content-management" : "/dashboard/dashboard-main");
     } catch (error) {
       setSharedError(error instanceof Error ? error.message : "Office sign-in could not be verified. Please retry.");
     } finally {

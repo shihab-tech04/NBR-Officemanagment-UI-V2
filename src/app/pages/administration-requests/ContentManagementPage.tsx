@@ -3,6 +3,7 @@ import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/tax
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
+import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { verifyPublicImage } from './verifyPublicImage';
@@ -67,15 +68,17 @@ function originalImageUrl(id: string) {
 }
 
 export function ContentManagementPage() {
-  const [tab, setTab] = useState<'banners' | 'logo'>('banners');
+  const pending = getPendingCmsPublish();
+  const pendingBanner = pending?.kind === 'banner' ? pending : null;
+  const [tab, setTab] = useState<'banners' | 'logo'>(() => pending?.kind === 'logo' ? 'logo' : 'banners');
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Banner | null>(null);
-  const [newDraft, setNewDraft] = useState<Banner | null>(null);
-  const [desiredPosition, setDesiredPosition] = useState(1);
-  const [editing, setEditing] = useState(false);
-  const [desktopFile, setDesktopFile] = useState<File | null>(null);
-  const [mobileFile, setMobileFile] = useState<File | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => pendingBanner?.selectedId ?? null);
+  const [draft, setDraft] = useState<Banner | null>(() => (pendingBanner?.draft as Banner | null) ?? null);
+  const [newDraft, setNewDraft] = useState<Banner | null>(() => (pendingBanner?.newDraft as Banner | null) ?? null);
+  const [desiredPosition, setDesiredPosition] = useState(() => pendingBanner?.desiredPosition ?? 1);
+  const [editing, setEditing] = useState(() => !!pendingBanner?.draft);
+  const [desktopFile, setDesktopFile] = useState<File | null>(() => pendingBanner?.desktopFile ?? null);
+  const [mobileFile, setMobileFile] = useState<File | null>(() => pendingBanner?.mobileFile ?? null);
   const [cropTask, setCropTask] = useState<{ device: 'desktop' | 'mobile'; file: File } | null>(null);
   const desktopPreview = useImagePreview(desktopFile);
   const mobilePreview = useImagePreview(mobileFile);
@@ -84,6 +87,11 @@ export function ContentManagementPage() {
   const [authState, setAuthState] = useState<'checking' | 'signed-out' | 'denied' | 'authorized'>('checking');
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [deleteRequested, setDeleteRequested] = useState(false);
+
+  useEffect(() => {
+    if (authState === 'authorized' && getPendingCmsPublish()?.kind === 'banner')
+      clearPendingCmsPublish();
+  }, [authState]);
 
   const refreshSession = useCallback(async () => {
     if (!cms) { setAuthState('signed-out'); setAuthUid(null); return; }
@@ -115,7 +123,7 @@ export function ContentManagementPage() {
     if (error) throw error;
     const next = (data || []) as Banner[];
     setBanners(next);
-    setSelectedId(id => id && next.some(row => row.id === id) ? id : next[0]?.id || null);
+    setSelectedId(id => id && (next.some(row => row.id === id) || newDraft?.id === id) ? id : next[0]?.id || null);
     return next;
   };
 
@@ -188,6 +196,14 @@ export function ContentManagementPage() {
 
   function update(key: TextKey, value: string) {
     setDraft(current => current ? { ...current, [key]: value } : null);
+  }
+
+  function signInToPublish() {
+    if (!draft || busy) return;
+    requestCmsPublishingSignIn({
+      kind: 'banner', selectedId, draft, newDraft,
+      desiredPosition, desktopFile, mobileFile,
+    });
   }
 
   function cancelEdit() {
@@ -440,7 +456,12 @@ export function ContentManagementPage() {
               <p className="cms-readonly-value">{draft[field.key]}</p>}
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
-          {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">This is an unpublished preview. Publishing requires an Office sign-in with a valid account password and publishing permission.</p>}
+          {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">
+             This is an unpublished preview. Publishing requires an authorized Office sign-in.
+             {' '}<button type="button" className="cms-edit-button" disabled={busy || authState === 'checking'}
+               onClick={signInToPublish}>Sign in to publish</button>
+             {' '}Your banner changes and cropped images will remain ready in this tab after sign-in.
+           </p>}
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>

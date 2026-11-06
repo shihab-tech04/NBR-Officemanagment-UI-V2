@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
   onOfficeEnter: vi.fn(),
 }));
 
+const pendingCms = vi.hoisted(() => ({ draft: null as null | { kind: 'logo' } }));
+vi.mock('../../services/cmsPublishReturn', () => ({
+  getPendingCmsPublish: () => pendingCms.draft,
+}));
+
 const shared = vi.hoisted(() => ({
   enabled: false,
   signIn: vi.fn(),
@@ -57,6 +62,7 @@ describe('public Office re-entry after Sign Out', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     shared.enabled = false;
+    pendingCms.draft = null;
     cmsAuth.getClient.mockReturnValue(null);
   });
 
@@ -120,6 +126,36 @@ describe('public Office re-entry after Sign Out', () => {
     expect(cmsAuth.getUser).toHaveBeenCalledOnce();
     expect(cmsAuth.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
     expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+  });
+
+  it('requires a publishing password before returning with an unpublished logo draft', async () => {
+    pendingCms.draft = { kind: 'logo' };
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('password to publish');
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it('returns directly to Content Management after verified Office sign-in with a pending crop', async () => {
+    pendingCms.draft = { kind: 'logo' };
+    cmsAuth.signOut.mockResolvedValue({ error: null });
+    cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'sql-office-admin' } } } });
+    cmsAuth.getUser.mockResolvedValue({ error: null, data: { user: { id: 'sql-office-admin', is_anonymous: false } } });
+    cmsAuth.rpc.mockResolvedValue({ error: null, data: true });
+    cmsAuth.getClient.mockReturnValue({ auth: {
+      signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn, getUser: cmsAuth.getUser,
+    }, rpc: cmsAuth.rpc });
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByLabelText('Password'), 'verified-publishing-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
+    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management');
+    expect(cmsAuth.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
   });
 
   it('clears a former CMS session on blank-password Office entry', async () => {
