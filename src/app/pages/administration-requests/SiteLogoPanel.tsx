@@ -28,8 +28,7 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
 
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
   // Only a direct click on Publish authorizes resuming that same action.
-  const resumePublish = useRef(getPendingCmsPublish()?.kind === 'logo' &&
-    getPendingCmsPublish()?.publishAfterSignIn === true);
+  const resumePublish = useRef(false);
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
   const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
   const [selected, setSelected] = useState<LogoFile | null>(() => {
@@ -46,8 +45,10 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     // Do not discard a pending publish before SQL has supplied the current
     // version needed for its optimistic-lock update.
     if (!canPublish || !record || getPendingCmsPublish()?.kind !== 'logo') return;
-    const shouldPublish = resumePublish.current;
-    resumePublish.current = false; // At most once, including Strict Mode remounts.
+    const pending = getPendingCmsPublish();
+    if (pending?.kind !== 'logo') return;
+    const shouldPublish = pending.publishAfterSignIn === true && !resumePublish.current;
+    resumePublish.current = true; // At most one save per publish request.
     clearPendingCmsPublish();
     if (shouldPublish && selected) void save();
   }, [canPublish, record, selected]);
@@ -250,8 +251,8 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       </div>
       {editing && <>
         {!canPublish && <p role="status" className="cms-editor__note">
-          Your logo is an unpublished preview. Select Publish to TaxPay to authorize using
-          the existing Office sign-in; the cropped logo will then publish automatically.
+          Your logo is an unpublished preview. Select Publish to TaxPay to verify publishing
+          access here, without leaving Office or losing the cropped image.
         </p>}
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
