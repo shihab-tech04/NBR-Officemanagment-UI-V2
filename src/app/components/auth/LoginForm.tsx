@@ -9,7 +9,6 @@ import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 import { getTaxPayCmsClient } from "../../services/taxpayCmsClient";
 import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
-import { getPendingCmsPublish } from "../../services/cmsPublishReturn";
 
 interface LoginFormProps {
   isDesktop: boolean;
@@ -60,25 +59,16 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     }
     if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
     setEntryError(false);
-    const returningToCms = getPendingCmsPublish() !== null;
-    if (returningToCms && !password) {
-      setSharedError("Enter your authorized Office account password to publish the saved content draft.");
-      return;
-    }
-    // Office keeps its existing presentation-only entry. When valid SQL
-    // credentials are supplied here, they also establish the CMS session;
-    // no second login is requested on the Content Management page.
-    // Never carry a prior administrator's publishing token into this entry.
+    // Office entry and CMS publishing share the same existing sign-in.
+    // Never discard a verified publisher session just because this Office
+    // entry used the approved optional-password preview path.
     setSharedBusy(true);
     try {
       const cms = getTaxPayCmsClient();
       if (!cms && password) {
         throw new Error("Office content service is unavailable. Publishing sign-in could not be verified.");
       }
-      if (cms) {
-        const { error: signOutError } = await cms.auth.signOut({ scope: "local" });
-        if (signOutError) throw new Error("The previous Content Management session could not be cleared. Retry sign-in.");
-        if (password) {
+      if (cms && password) {
           // The existing Office form is the only sign-in for the TaxPay editor.
           // An invalid password must not silently downgrade to a preview after
           // the user supplied credentials expecting to publish.
@@ -103,11 +93,10 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
             await cms.auth.signOut({ scope: "local" });
             throw new Error("This Office account does not have permission to publish TaxPay content.");
           }
-        }
       }
       setPassword("");
       onOfficeEnter?.();
-      navigate(returningToCms ? "/administration/content-management" : "/dashboard/dashboard-main");
+      navigate("/dashboard/dashboard-main");
     } catch (error) {
       setSharedError(error instanceof Error ? error.message : "Office sign-in could not be verified. Please retry.");
     } finally {
