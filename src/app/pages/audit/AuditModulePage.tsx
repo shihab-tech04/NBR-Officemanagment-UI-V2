@@ -46,6 +46,8 @@ import {
   type SharedReviewAction, type SharedReviewRow,
 } from "./auditSharedSecondReview";
 import { AuditYearAvailabilityNotice } from "./AuditYearAvailabilityNotice";
+import { AuditLocalCaseActions } from "./AuditLocalCaseActions";
+import { AuditLocalControlActions } from "./AuditLocalControlActions";
 import { formatLocalizedDateTime, formatLocalizedPercent } from "../../utils/localeFormatting";
 import { localizeRecordValue } from "../../utils/recordDisplay";
 
@@ -116,6 +118,12 @@ function AuditTablePage({ config }: { config: AuditTableConfig }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [drawer, setDrawer] = useState<TableRow | null>(null);
+  useEffect(() => {
+    if (!drawer) return;
+    const latest = config.rows.find((row) => String(row.id) === String(drawer.id));
+    if (latest && JSON.stringify(latest) !== JSON.stringify(drawer)) setDrawer(latest);
+    if (!latest) setDrawer(null);
+  }, [config.rows]);
   const [explanation, setExplanation] = useState<AuditExplanation | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
@@ -1458,7 +1466,25 @@ function AuditOverviewPage() {
 export function AuditModulePage() {
   const { subNav = "audit-overview" } = useParams<{ subNav: string }>();
   const { t } = useTranslation("audit");
-  const { assessmentYear } = useSettings();
+  const { assessmentYear, setAssessmentYear } = useSettingsActions();
+  const [, setLocalCaseRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setLocalCaseRevision((value) => value + 1);
+    window.addEventListener("nbr-audit-local-case-updated", refresh);
+    return () => window.removeEventListener("nbr-audit-local-case-updated", refresh);
+  }, []);
+  useEffect(() => {
+    // Only activate a meaningful Audit year for a genuinely new workspace.
+    // An explicitly stored AY (including an empty historic year) is never changed.
+    if (isSharedAuditMode() || typeof window === "undefined" ||
+        window.localStorage.getItem("gov_ui_settings") !== null ||
+        window.sessionStorage.getItem("nbr-audit-initial-year-v1")) return;
+    window.sessionStorage.setItem("nbr-audit-initial-year-v1", "checked");
+    const available = getAvailableAuditYears(getAuditCandidates());
+    if (!available.includes(assessmentYear) && available.length) {
+      setAssessmentYear(available[0]);
+    }
+  }, []);
   const scope = getAuditYearScope(assessmentYear, getAuditCandidates());
   const availablePopulation = isSharedAuditMode() ? [] : ALL_TAXPAYER_ROWS;
 
@@ -1537,6 +1563,8 @@ export function AuditModulePage() {
     ],
     clickableKeys:["circle","coverage_tier","risk_level","case_status","sla"],
     mobileCardMapping:{ primary:"case_id", identifier:"return_id", meta:["circle","risk_level","coverage_tier"], status:"case_status" },
+    extraFooterActions: isSharedAuditMode() ? undefined
+      : (row) => <AuditLocalCaseActions row={row} mode="evidence" />,
   };
 
   const controlConfig: AuditTableConfig = {
@@ -1562,6 +1590,7 @@ export function AuditModulePage() {
     ],
     clickableKeys:["circle","flag_id","coverage_tier","control_status"],
     mobileCardMapping:{primary:"flag_id",identifier:"return_id",meta:["circle","coverage_tier","queue"],status:"control_status"},
+    extraFooterActions: isSharedAuditMode() ? undefined : (row) => <AuditLocalControlActions row={row} />,
   };
 
   const reviewConfig: AuditTableConfig = {
@@ -1588,6 +1617,8 @@ export function AuditModulePage() {
     ],
     clickableKeys:["circle","risk_level","primary_signal","review_status"],
     mobileCardMapping:{primary:"case_id",identifier:"return_id",meta:["circle","risk_level","primary_signal"],status:"review_status"},
+    extraFooterActions: isSharedAuditMode() ? undefined
+      : (row) => <AuditLocalCaseActions row={row} mode="review" />,
   };
 
   const rulesConfig: AuditTableConfig = {

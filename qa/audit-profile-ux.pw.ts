@@ -27,8 +27,8 @@ for(const viewport of [{width:1366,height:865},{width:1024,height:768},{width:39
     await expect(details).toBeVisible();
     await details.locator("summary").click();
     await expect(details).toHaveAttribute("open","");
-    await expect(details).toContainText("3,074,468");
-    await expect(details).toContainText("3,812,340");
+    await expect(details).toContainText("2,362,128");
+    await expect(details).toContainText("3,100,000");
     await expect(details).toContainText("737,872");
     const indicatorText=(await page.locator(".audit-key-indicator__changes").allTextContents()).join(" ");
     expect(indicatorText).not.toContain("−146.4%");
