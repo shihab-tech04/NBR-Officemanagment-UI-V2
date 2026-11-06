@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyPublicImage } from './verifyPublicImage';
@@ -32,6 +32,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   const banners: Record<string, unknown>[] = [row()];
   const upload = vi.fn(async () => ({ error: null }));
   let sessionActive = hasSession;
+  let authorizedRole = authorized;
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
   query.order = vi.fn(() => query);
@@ -39,7 +40,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   query.then = (onFulfilled: (value: unknown) => unknown) =>
     Promise.resolve({ data: banners, error: null }).then(onFulfilled);
   const rpc = vi.fn(async (name: string, args?: unknown) => {
-    if (name === 'taxpay_is_verified_portal_admin') return { data: authorized, error: null };
+    if (name === 'taxpay_is_verified_portal_admin') return { data: authorizedRole, error: null };
     if (name === 'taxpay_save_banner') {
       if (options.rejectWrite) return { data: null, error: new Error('SQL rejected banner write') };
       const changes = (args as { p_banner: Record<string, unknown> }).p_banner;
@@ -56,10 +57,26 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
         onAuthChange = callback;
         return { data: { subscription: { unsubscribe: vi.fn() } } };
       }),
-      signInWithPassword: vi.fn(),
+      signInWithPassword: vi.fn(async ({ password }: { email: string; password: string }) => {
+        if (password !== 'valid-publishing-password') {
+          return { data: { session: null }, error: new Error('Invalid credentials') };
+        }
+        sessionActive = true;
+        authorizedRole = true;
+        onAuthChange?.();
+        return { data: { session: { user: { id: 'verified-user' } } }, error: null };
+      }),
+      getUser: vi.fn(async () => ({
+        data: { user: { id: 'verified-user', is_anonymous: false } }, error: null,
+      })),
       signInWithOtp: vi.fn(),
       verifyOtp: vi.fn(),
-      signOut: vi.fn(),
+      signOut: vi.fn(async () => {
+        sessionActive = false;
+        authorizedRole = false;
+        onAuthChange?.();
+        return { error: null };
+      }),
     },
     rpc,
     channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() })),
@@ -125,7 +142,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
-  it('keeps a banner text draft and original SQL version while routing to authorized Office sign-in', async () => {
+  it('keeps the banner draft and Office workspace intact while requesting in-place publishing authorization', async () => {
     const { client, rpc } = makeClient(false);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
@@ -137,6 +154,10 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(heading);
     await user.type(heading, 'Needs verified Office publish');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    expect(screen.getByRole('dialog', { name: 'Verify publishing access' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Content Management' })).toBeVisible();
+    expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Needs verified Office publish');
+    expect(client.auth.signOut).not.toHaveBeenCalled();
     const pending = getPendingCmsPublish();
     expect(pending?.kind).toBe('banner');
     if (pending?.kind === 'banner') {
@@ -146,6 +167,61 @@ describe('verified TaxPay banner CMS', () => {
     }
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
     clearPendingCmsPublish();
+  });
+
+  it('does not sign out Office for invalid publishing credentials and resumes the saved banner after verification', async () => {
+    const { client, publicClient, rpc } = makeClient(false);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const heading = screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading, 'New banner heading remains');
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    const dialog = screen.getByRole('dialog', { name: 'Verify publishing access' });
+    expect(dialog).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Verify and publish' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the password');
+    expect(client.auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText('Office publishing password'), 'incorrect');
+    await user.click(screen.getByRole('button', { name: 'Verify and publish' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('authorization failed');
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Content Management' })).toBeVisible();
+    expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('New banner heading remains');
+    await user.type(screen.getByLabelText('Office publishing password'), 'valid-publishing-password');
+    await user.click(screen.getByRole('button', { name: 'Verify and publish' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
+      expect.objectContaining({ p_expected_version: 8, p_banner: expect.objectContaining({
+        heading_en: 'New banner heading remains', id: 'intro',
+      }) }),
+    ));
+    expect(await screen.findByText(/Saved to SQL; public TaxPay text and images verified/)).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: 'Verify publishing access' })).not.toBeInTheDocument();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('canceling publishing authorization keeps the cropped banner draft and Office open', async () => {
+    const { client, rpc } = makeClient(false);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const upload = container.querySelector('.cms-upload--desktop input[type="file"]') as HTMLInputElement;
+    await user.upload(upload, new File([new Uint8Array(256)], 'preview.png', { type: 'image/png' }));
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    const dialog = screen.getByRole('dialog', { name: 'Verify publishing access' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Verify publishing access' })).not.toBeInTheDocument();
+    expect(container.querySelector('.cms-upload--desktop')).toHaveTextContent('Cropped image ready');
+    expect(screen.getByRole('heading', { name: 'Content Management' })).toBeVisible();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
   it('publishes the preserved banner draft after the existing Office sign-in verifies the administrator', async () => {
