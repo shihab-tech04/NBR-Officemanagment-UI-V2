@@ -523,6 +523,45 @@
       "finalList": "Representative final list ({{count}})",
       "finalListHelp": "This is the post-funnel list that will be added when you confirm."
     },
+    "circleReview": {
+      "title": "Circle-level filing and TIN overview",
+      "source": "Submission compilation · {{count}} Circles for this assessment year",
+      "metricsLabel": "Circle filing summary",
+      "circles": "Circles",
+      "tinCount": "TIN Count",
+      "returns": "Reported returns",
+      "filingProxy": "Returns ÷ TIN Count (proxy)",
+      "totalPaid": "Reported tax payment",
+      "search": "Search tax zone or Circle",
+      "matching": "{{filtered}} of {{total}} Circles match",
+      "zone": "Tax zone",
+      "circle": "Circle",
+      "paid": "Reported tax payment (৳)",
+      "currentReview": "Current review screen",
+      "score": "Provisional score (1–10)",
+      "tableLabel": "Circle filing and TIN overview",
+      "empty": "No Circles match this search.",
+      "partial": "Partial",
+      "incomplete": "Incomplete channel data",
+      "unavailable": "Unavailable",
+      "provisionalScore": "Provisional {{score}}/10",
+      "note": "Circle-level figures give administrative context only. Returns ÷ TIN Count is a filing proxy. These figures do not change the selected taxpayers or establish an Audit finding.",
+      "noYear": "Circle-level filing data is not available for {{year}}.",
+      "status": {
+        "none": "No relative flag",
+        "lowCoverage": "Low filing coverage",
+        "highBase": "High TIN base",
+        "priority": "Priority review"
+      },
+      "flags": {
+        "highPaid": "High paid outlier",
+        "highReturns": "High return outlier",
+        "highTin": "High TIN count outlier",
+        "extreme": "Extreme scale anomaly",
+        "missingPaid": "Missing paid amount",
+        "abnormalPaid": "Abnormal payment"
+      }
+    },
     "validation": {
       "completeStep": "Complete required selections.",
       "noCirclesFound": "No Circles match this search.",
