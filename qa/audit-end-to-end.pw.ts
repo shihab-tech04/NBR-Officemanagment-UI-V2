@@ -75,6 +75,24 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(circle.locator(".mobile-table-card-list")).toBeVisible();
   await expect(circle.locator(".mobile-table-card-list")).toContainText("Circle-331");
+  const firstCircleCard = circle.locator(".mobile-table-card").first();
+  await expect(firstCircleCard).toContainText("Provisional 4/10");
+  await expect(firstCircleCard).toContainText("809,661,593");
+  const mobileFooterFits = await firstCircleCard.evaluate(card => {
+    const cardBox = card.getBoundingClientRect();
+    const footer = card.querySelector(".mobile-table-card__footer");
+    if (!footer) return false;
+    const pieces = [
+      footer.querySelector(".mobile-table-card__status"),
+      footer.querySelector(".mobile-table-card__date"),
+    ].filter(Boolean);
+    return pieces.every(piece => {
+      const box = piece!.getBoundingClientRect();
+      return box.left >= cardBox.left - 1 && box.right <= cardBox.right + 1
+        && piece!.scrollWidth <= piece!.clientWidth + 1;
+    });
+  });
+  expect(mobileFooterFits).toBe(true);
   await page.screenshot({ path: "test-results/audit-circle-final-review-mobile.png" });
   if (previousViewport) await page.setViewportSize(previousViewport);
 
