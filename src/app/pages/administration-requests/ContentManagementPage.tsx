@@ -464,13 +464,13 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">
-             This is an unpublished preview. Select Publish to TaxPay to authorize using the
-             existing Office sign-in. Your changes and cropped images will be published after verification.
+             This is an unpublished preview. Publish to TaxPay uses your current Office
+             session. Your edits and cropped images remain here if publishing fails.
            </p>}
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>
-            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={publish}><Save size={16}/> {busy ? 'Saving…' : authState !== 'authorized' ? 'Publish to TaxPay' : isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={publish}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
