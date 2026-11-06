@@ -125,48 +125,37 @@ describe('verified TaxPay banner CMS', () => {
     expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
   });
 
-  it('keeps a banner text draft and original SQL version while routing to authorized Office sign-in', async () => {
+  it('does not request another login or lose the draft when the existing Office session lacks publishing access', async () => {
     const { client, rpc } = makeClient(false);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
-    const { getPendingCmsPublish, clearPendingCmsPublish } = await import('../../services/cmsPublishReturn');
     const user = userEvent.setup();
     render(<ContentManagementPage />);
     await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
     const heading = screen.getByLabelText('Desktop heading · English');
     await user.clear(heading);
-    await user.type(heading, 'Needs verified Office publish');
+    await user.type(heading, 'My cropped edits remain here');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    const pending = getPendingCmsPublish();
-    expect(pending?.kind).toBe('banner');
-    if (pending?.kind === 'banner') {
-      expect(pending.publishAfterSignIn).toBe(true);
-      expect((pending.draft as { heading_en: string; version: number }).heading_en).toBe('Needs verified Office publish');
-      expect((pending.draft as { heading_en: string; version: number }).version).toBe(8);
-    }
+    expect(await screen.findByText(/no verified TaxPay publishing access/)).toBeInTheDocument();
+    expect(heading).toHaveValue('My cropped edits remain here');
+    expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
     expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
-    clearPendingCmsPublish();
   });
 
-  it('publishes the preserved banner draft after the existing Office sign-in verifies the administrator', async () => {
+  it('publishes an edited banner with one click through the existing verified SQL session', async () => {
     const { client, publicClient, rpc } = makeClient(true);
     deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
-    const { requestCmsPublishingSignIn, getPendingCmsPublish } = await import('../../services/cmsPublishReturn');
-    const resumed = { ...row(), heading_en: 'Publish this retained banner' };
-    requestCmsPublishingSignIn({
-      kind: 'banner', selectedId: 'intro', draft: resumed, newDraft: null,
-      desiredPosition: 1, desktopFile: null, mobileFile: null, publishAfterSignIn: true,
-    });
     const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
     render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'Single-click verified banner');
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
-      expect.objectContaining({
-        p_expected_version: 8,
-        p_banner: expect.objectContaining({ heading_en: 'Publish this retained banner' }),
-      }),
-    ));
+      expect.objectContaining({ p_banner: expect.objectContaining({ heading_en: 'Single-click verified banner' }) })));
     expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
-    expect(getPendingCmsPublish()).toBeNull();
+    expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
   });
 
   it('uploads both cropped banner image slots and verifies their SQL and public paths', async () => {
@@ -227,9 +216,9 @@ describe('verified TaxPay banner CMS', () => {
     await user.type(heading, 'Unsaved draft stays open');
     expect(heading).toHaveValue('Unsaved draft stays open');
     act(() => { setSession(false); });
-    await waitFor(() => expect(screen.getByText(/To publish live changes, sign in to Office once/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Changes are published only when this Office session has existing publishing access/)).toBeInTheDocument());
     act(() => { setSession(true); });
-    await waitFor(() => expect(screen.queryByText(/To publish live changes, sign in to Office once/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Changes are published only when this Office session has existing publishing access/)).not.toBeInTheDocument());
     expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Unsaved draft stays open');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeVisible();
