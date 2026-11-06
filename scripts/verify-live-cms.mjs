@@ -63,20 +63,23 @@ try {
     }
     await page.screenshot({ path: 'test-results/live-cms-banner-' + device + '.png', fullPage: false });
     await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
-    await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
-    // A preview-only Office entry must not write assets to SQL. An empty
-    // password must fail closed, while the crops remain in tab memory.
-    await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('password to publish');
-
-    // A full navigation intentionally clears the test-only pending files.
-    // Re-enter the normal preview workspace before checking the logo journey.
-    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await page.getByRole('textbox', { name: 'User ID' }).fill('admin');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'User ID' })).toHaveCount(0, { timeout: 30_000 });
-    await page.goto(base + 'administration/content-management', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    const publishDialog = page.getByRole('dialog', { name: 'Verify publishing access' });
+    await expect(publishDialog).toBeVisible({ timeout: 20_000 });
+    // Regression: Publish must NEVER log out of Office or discard both crops.
+    await expect(page.getByRole('heading', { name: 'Content Management', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'User ID' })).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('office_ui_entered')))
+      .toBe('admin');
+    for (const slot of ['desktop', 'mobile']) {
+      await expect(page.locator(`.cms-upload--${slot}`)).toContainText('Cropped image ready');
+    }
+    // A blank password cannot write SQL, but the Office page must stay open.
+    await publishDialog.getByRole('button', { name: 'Verify and publish' }).click();
+    await expect(publishDialog.getByRole('alert')).toContainText('password for your authorized Office');
+    await publishDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.locator('.cms-upload--desktop')).toContainText('Cropped image ready');
+    await expect(page.locator('.cms-upload--mobile')).toContainText('Cropped image ready');
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('tab', { name: 'Site Logo' }).click();
     await expect(page.getByRole('region', { name: 'Site Logo' })).toBeVisible();
     await expect(page.getByAltText('Korbritto TaxPay logo preview')).toBeVisible();
@@ -113,12 +116,18 @@ try {
     await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     await page.getByRole('button', { name: 'Publish to TaxPay' }).click();
-    await expect(page.getByRole('textbox', { name: 'User ID' })).toBeVisible({ timeout: 20_000 });
+    const logoPublishDialog = page.getByRole('dialog', { name: 'Verify publishing access' });
+    await expect(logoPublishDialog).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Content Management', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'User ID' })).toHaveCount(0);
+    await logoPublishDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeVisible();
     // Do not supply administrator credentials or write production content in
-    // a smoke test. Authorized Office users complete the same flow privately.
+    // a smoke test. SQL/RLS writes require the real verified publisher.
     await page.close();
   }
-  console.log('PASS: live CMS preview crop enables primary Publish; preview-only click opens existing Office sign-in without SQL writes');
+  console.log('PASS: live banner/logo Publish opens in-place Office password confirmation without logout; previews remain intact');
 } finally {
   await browser.close();
 }
