@@ -175,7 +175,7 @@ describe('verified TaxPay banner CMS', () => {
       await user.click(screen.getByRole('button', { name: 'Apply crop' }));
       expect(container.querySelector(`.cms-upload--${device}`)).toHaveTextContent('Cropped image ready');
     }
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
     const paths = upload.mock.calls.map(args => args[0] as string);
     expect(paths).toHaveLength(2);
@@ -224,7 +224,7 @@ describe('verified TaxPay banner CMS', () => {
     await waitFor(() => expect(screen.queryByText(/Changes are published only when this Office session has existing publishing access/)).not.toBeInTheDocument());
     expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Unsaved draft stays open');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeVisible();
   });
 
   it('locks canonical Intro category, publishing and deletion controls', async () => {
@@ -250,7 +250,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Rejected edit');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner', expect.anything()));
     expect(await screen.findByText(/Save not completed: SQL rejected banner write/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
@@ -266,7 +266,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Stale read-back edit');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     expect(await screen.findByText(/SQL read-back did not match the published banner/)).toBeInTheDocument();
     expect(screen.queryByText(/Saved to SQL\./)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
@@ -281,7 +281,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Publicly verified headline');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
     expect(publicClient.from).toHaveBeenCalledWith('taxpay_site_banners');
     expect(deps.createClient).toHaveBeenCalledWith('https://cms.test.supabase.co', 'sb_publishable_test',
@@ -297,7 +297,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Unseen on public');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     expect(await screen.findByText(/Public TaxPay visibility does not match the committed SQL banner/)).toBeInTheDocument();
     expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
   });
@@ -325,7 +325,7 @@ describe('verified TaxPay banner CMS', () => {
     const heading = screen.getByLabelText('Desktop heading · English');
     await user.clear(heading);
     await user.type(heading, 'Updated fixed headline');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
       expect.objectContaining({
         p_expected_version: 8,
