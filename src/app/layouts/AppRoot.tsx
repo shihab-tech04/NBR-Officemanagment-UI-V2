@@ -10,7 +10,12 @@ import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
-import { CMS_PUBLISH_SIGN_IN_EVENT } from "../services/cmsPublishReturn";
+import { CMS_PUBLISH_SIGN_IN_EVENT, clearPendingCmsPublish } from "../services/cmsPublishReturn";
+import { PRIMARY_ADMIN_EMAIL } from "../utils/primaryAdminIdentity";
+import { AppModal } from "../components/modals/AppModal";
+import { AppTextField } from "../components/forms/AppTextField";
+import { PrimaryButton } from "../components/buttons/PrimaryButton";
+import { SecondaryButton } from "../components/buttons/SecondaryButton";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -42,6 +47,10 @@ export function AppRoot() {
     () => sharedMode && storedEntry() === "officer",
   );
   const [signOutError, setSignOutError] = useState("");
+  const [cmsVerificationRequested, setCmsVerificationRequested] = useState(false);
+  const [cmsPassword, setCmsPassword] = useState("");
+  const [cmsVerificationError, setCmsVerificationError] = useState("");
+  const [cmsVerifying, setCmsVerifying] = useState(false);
   useAppearance();
 
   useEffect(() => {
@@ -121,14 +130,65 @@ export function AppRoot() {
     setSignedOut(true);
   }, [sharedMode]);
 
-  // Use the existing Office sign-in to authorize CMS publishing. The route
-  // stays unchanged and the unpublished crop remains only in tab memory.
+  // Publishing must never sign the user out of Office or destroy the mounted
+  // banner/logo editor. The CMS credential is verified inside the existing
+  // workspace, while the uncommitted cropped File remains in tab memory.
   useEffect(() => {
     if (sharedMode) return;
-    const requestSignIn = () => { void handleSignOut(); };
-    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-    return () => window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestSignIn);
-  }, [sharedMode, handleSignOut]);
+    const requestVerification = () => {
+      setCmsVerificationError("");
+      setCmsVerificationRequested(true);
+    };
+    window.addEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestVerification);
+    return () => window.removeEventListener(CMS_PUBLISH_SIGN_IN_EVENT, requestVerification);
+  }, [sharedMode]);
+
+  const cancelCmsVerification = () => {
+    if (cmsVerifying) return;
+    clearPendingCmsPublish();
+    setCmsPassword("");
+    setCmsVerificationError("");
+    setCmsVerificationRequested(false);
+  };
+
+  const verifyCmsPublisher = async () => {
+    if (cmsVerifying) return;
+    if (!cmsPassword) {
+      setCmsVerificationError("Enter your authorized Office account password to publish.");
+      return;
+    }
+    const cms = getTaxPayCmsClient();
+    if (!cms) {
+      setCmsVerificationError("TaxPay publishing service is unavailable. Your Office session and draft are unchanged.");
+      return;
+    }
+    setCmsVerifying(true);
+    setCmsVerificationError("");
+    let signedIn = false;
+    try {
+      const { data, error } = await cms.auth.signInWithPassword({
+        email: PRIMARY_ADMIN_EMAIL, password: cmsPassword,
+      });
+      if (error || !data.session?.user?.id) throw new Error("Office publishing verification failed. Check the password and retry.");
+      signedIn = true;
+      const { data: verified, error: userError } = await cms.auth.getUser();
+      if (userError || !verified.user || verified.user.is_anonymous ||
+          verified.user.id !== data.session.user.id) {
+        throw new Error("Unable to verify this Office publishing session.");
+      }
+      const { data: allowed, error: accessError } = await cms.rpc("taxpay_is_verified_portal_admin");
+      if (accessError || allowed !== true) throw new Error("This account cannot publish TaxPay content.");
+      setCmsPassword("");
+      setCmsVerificationRequested(false);
+      // Supabase SIGNED_IN refreshes the mounted banner/logo editor; it then
+      // resumes exactly the pending Publish once, with SQL/RLS validation.
+    } catch (error) {
+      if (signedIn) await cms.auth.signOut({ scope: "local" }).catch(() => undefined);
+      setCmsVerificationError(error instanceof Error ? error.message : "Publishing verification failed. Retry.");
+    } finally {
+      setCmsVerifying(false);
+    }
+  };
 
   const handleEnterOffice = () => {
     try {
@@ -153,5 +213,24 @@ export function AppRoot() {
         : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
     <HelpDrawer/>
+    <AppModal
+      open={cmsVerificationRequested && !signedOut && !sharedMode}
+      title="Verify TaxPay publishing"
+      size="sm"
+      onClose={cancelCmsVerification}
+      footer={<>
+        <SecondaryButton size="md" onClick={cancelCmsVerification} disabled={cmsVerifying}>Cancel</SecondaryButton>
+        <PrimaryButton size="md" onClick={() => { void verifyCmsPublisher(); }} disabled={cmsVerifying}>
+          {cmsVerifying ? "Verifying…" : "Verify and publish"}
+        </PrimaryButton>
+      </>}
+    >
+      <p>Confirm your authorized Office password to publish the pending banner or logo. Your Office session and unsaved edits will stay open.</p>
+      <AppTextField id="cms-publish-password" label="Office account password" type="password"
+        value={cmsPassword} onChange={value => { setCmsPassword(value); setCmsVerificationError(""); }}
+        onKeyDown={event => { if (event.key === "Enter") void verifyCmsPublisher(); }}
+        disabled={cmsVerifying} autoComplete="current-password" required />
+      {cmsVerificationError && <p role="alert" className="form-error">{cmsVerificationError}</p>}
+    </AppModal>
   </HelpProvider>;
 }
