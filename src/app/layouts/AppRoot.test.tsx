@@ -113,23 +113,37 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(shared.signOut).not.toHaveBeenCalled();
   });
 
-  it("revalidates a verified publisher session before restoring Office on refresh", async () => {
+  it("preserves the approved password-optional preview entry on other Office pages", async () => {
+    shared.hasVerified.mockResolvedValue(false);
     window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/payments/transactions");
     render(<AppRoot />);
-    expect(screen.getByRole("status")).toHaveTextContent("Verifying Office sign-in");
-    await waitFor(() => expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument());
-    expect(shared.hasVerified).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(shared.hasVerified).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
   });
 
-  it("does not restore a password-free or expired Office marker as CMS permission", async () => {
+  it("restores TaxPay CMS only after verifying the existing publisher session", async () => {
+    window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
+    render(<AppRoot />);
+    expect(screen.getByRole("status")).toHaveTextContent("Verifying TaxPay publishing access");
+    await waitFor(() => expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument());
+    expect(shared.hasVerified).toHaveBeenCalledOnce();
+  });
+
+  it("requires the existing Office sign-in for a preview-only CMS visitor", async () => {
     shared.hasVerified.mockResolvedValue(false);
     window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
     render(<AppRoot />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Enter Office (admin)" }))
       .toBeInTheDocument());
     expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
-    expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // The owner can return to other approved Office preview routes without
+    // losing the existing Office entry marker or being globally logged out.
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
   });
 
   it("does not restore a prototype admin marker in shared mode", async () => {
