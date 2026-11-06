@@ -86,7 +86,8 @@ BEGIN
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
   EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_auth';
-  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_GRANTED_FACADE_EXECUTE';
+  -- PostgreSQL may emit WARNING 'no privileges were granted' rather than an error.
+  -- The effective privilege assertion below is the security invariant.
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
  IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
