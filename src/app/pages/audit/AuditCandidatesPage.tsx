@@ -563,6 +563,64 @@ export function buildComparison(candidate: AuditCandidateRecord): ComparisonSect
     },
   ];
 
+  // Use the same audited financial facts that produced the A–E signals.
+  // Do not infer current-year values from a taxpayer-ID illustration.
+  const source = ALL_TAXPAYER_ROWS.find((row) =>
+    String(row.return_id) === candidate.return_id &&
+    String(row.assessment_year) === candidate.assessment_year);
+  if (typeof source?.financial_inputs === "string") {
+    try {
+      const facts = JSON.parse(source.financial_inputs) as {
+        income: number; businessIncome: number; payableTax: number; tds: number;
+        assets: number; priorAssets: number; openingWealth: number;
+        priorClosingWealth: number; expenditure: number; otherReceipts: number;
+        liabilitiesChange: number; priorIncome: number; vatTurnover?: number;
+      };
+      const required = [facts.income, facts.businessIncome, facts.payableTax, facts.tds,
+        facts.assets, facts.priorAssets, facts.openingWealth, facts.priorClosingWealth,
+        facts.expenditure, facts.otherReceipts, facts.liabilitiesChange, facts.priorIncome];
+      if (required.every(Number.isFinite)) {
+        const metric = (key: string) =>
+          metrics.flatMap((section) => section.metrics).find((item) => item.key === key);
+        const set = (key: string, value: number, year = 2) => {
+          const record = metric(key);
+          if (record && Number.isFinite(value)) record.values[year] = Math.round(value);
+        };
+        const otherIncome = Math.max(0, facts.income - facts.businessIncome);
+        const parts = ["employmentIncome", "rentalIncome", "agricultureIncome", "financialAssetIncome"];
+        const weights = parts.map((key) => Math.max(0, metric(key)?.values[2] ?? 0));
+        const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+        let allocated = 0;
+        parts.forEach((key, index) => {
+          const value = index === parts.length - 1 ? otherIncome - allocated
+            : Math.round(otherIncome * (totalWeight ? weights[index] / totalWeight : 1 / parts.length));
+          allocated += value;
+          set(key, value);
+        });
+        set("businessIncome", facts.businessIncome);
+        set("businessNetProfit", facts.businessIncome);
+        set("totalIncome", facts.income);
+        set("totalIncome", facts.priorIncome, 1);
+        set("taxPayable", facts.payableTax);
+        set("tds", facts.tds);
+        set("netWealth", facts.assets);
+        set("netWealth", facts.priorAssets, 1);
+        set("openingNetWealth", facts.openingWealth);
+        set("openingNetWealth", facts.priorClosingWealth, 1);
+        set("lifestyleExpense", facts.expenditure);
+        if (facts.vatTurnover !== undefined) set("businessTurnover", facts.vatTurnover);
+        const availableFunds = facts.openingWealth + facts.income + facts.otherReceipts;
+        const recordedOutflow = facts.assets + facts.expenditure + facts.liabilitiesChange;
+        set("sourceOfFund", availableFunds);
+        set("fundOutflow", recordedOutflow);
+        set("difference", availableFunds - recordedOutflow);
+      }
+    } catch {
+      // A custom candidate with missing/corrupt financial inputs retains its
+      // existing comparison; never borrow another taxpayer's financial figures.
+    }
+  }
+
   return metrics;
 }
 
