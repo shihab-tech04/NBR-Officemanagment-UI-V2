@@ -81,6 +81,16 @@ BEGIN
  END;
  IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=fn) IS DISTINCT FROM false
  THEN RAISE EXCEPTION 'ENGINE_ALTER_PROBE_CHANGED_FACADE_SECURITY'; END IF;
+ -- Runtime EXECUTE permission must not permit delegating facade access to citizen roles.
+ -- Test the GRANT operation itself and verify no ACL change survives the probe.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_auth';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_GRANTED_FACADE_EXECUTE';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
+ THEN RAISE EXCEPTION 'ENGINE_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_auth';
