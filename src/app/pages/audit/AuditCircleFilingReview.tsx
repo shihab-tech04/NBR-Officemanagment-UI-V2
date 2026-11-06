@@ -160,7 +160,7 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
               onSortColumn={changeSort}
               mobileCardMapping={{
                 primary: "circle", identifier: "zone",
-                meta: ["tin_count", "returns", "filing_proxy"],
+                meta: ["tin_count", "returns", "filing_proxy", "score"],
                 status: "review", amount: "paid",
               }}
             />
