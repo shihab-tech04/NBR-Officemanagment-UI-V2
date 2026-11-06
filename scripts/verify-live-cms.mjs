@@ -31,7 +31,7 @@ try {
     await expect(page.getByRole('button', { name: 'Edit banner' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add banner' })).toBeVisible();
     await page.getByRole('button', { name: 'Edit banner' }).click();
-    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     await expect(page.getByText(/unpublished preview/i)).toBeVisible();
     await page.screenshot({ path: 'test-results/live-cms-' + device + '.png', fullPage: false });
     await page.getByRole('button', { name: 'Cancel' }).click();
