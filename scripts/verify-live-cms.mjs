@@ -47,8 +47,9 @@ try {
     // The original bug only occurred AFTER cropping: the primary Publish
     // remained disabled in the actual live Office session. Exercise that
     // exact journey without performing any unauthorized production SQL write.
+    // Real 160×100 PNG: the cropper correctly rejects smaller image dimensions.
     const fixture = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/pZ0AAAAASUVORK5CYII=',
+      'iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAAAsUlEQVR42u3RAQ0AMAjAsHMBCEMU2rFBSCdhjax+utu3ALAAC7AAC7AACzBgARZgARZgARZgwAIswAIswAIswAIMWIAFWIAFWIAFGLAAC7AAC7AACzBgARZgARZgAQYswAIswAIswAIMWIAFWIAFWIAFGLAAC7AAC7AAC7AAAxZgARZgARZgAQYswAIswAIswAIswIAFWIAFWIAFWIABC7AAC7AAC7AAAxZgAda+Bjz5AZ65BwlQAAAAAElFTkSuQmCC',
       'base64',
     );
     await page.getByLabel('Upload / replace logo').setInputFiles({
