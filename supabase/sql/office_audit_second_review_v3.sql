@@ -267,6 +267,15 @@ begin
        and m.zone=new.zone and m.circle=new.circle) then
     v_normal:=true;
   end if;
+  -- Rework from Second Review must be requested by the independent Range
+  -- Officer workflow, not through the general DCT status selector.
+  if old.audit_status='Second Review' and new.audit_status='Verifying'
+     and current_setting('office_audit.review_action',true)='request_rework'
+     and exists(select 1 from public.office_audit_memberships m
+       where m.user_id=auth.uid() and m.active and m.office_role='range_user'
+         and m.zone=new.zone and m.circle=new.circle) then
+    v_normal:=true;
+  end if;
   if not coalesce(v_normal,false) then
     raise exception 'Audit transition requires appropriate review authority' using errcode='42501';
   end if;
@@ -293,6 +302,78 @@ begin
      or p_action not in ('sign_off','request_rework')
      or v_case.audit_status not in ('Ready for Review','Second Review')
      or length(btrim(coalesce(p_note,''))) not between 20 and 2000
+     or lower(regexp_replace(btrim(coalesce(p_note,'')),
+          '[[:space:]]+', ' ', 'g')) ~ '^reviewed( and approved)?\\.?
+      m.user_id=auth.uid() and m.active and m.office_role='range_user'
+      and m.zone=v_case.zone and m.circle=v_case.circle) then
+    raise exception 'Authorized Range Officer review and current version required' using errcode='42501';
+  end if;
+  select * into v_finding from public.office_audit_findings where candidate_id=p_candidate_id
+    order by submitted_at desc, id desc limit 1;
+  if not found or v_finding.submitted_by=auth.uid() or
+     not exists(select 1 from public.office_audit_evidence e
+      where e.id=v_finding.evidence_id and e.candidate_id=p_candidate_id
+      and e.signal_code=v_finding.signal_code and e.verification_status='Verified') then
+    raise exception 'Independent reviewer and verified signal-linked finding required' using errcode='42501';
+  end if;
+  v_target:=case when p_action='sign_off' then 'Closed' else 'Verifying' end;
+  perform set_config('office_audit.status_note',left(btrim(p_note),500),true);
+  perform set_config('office_audit.review_action',p_action,true);
+  update public.office_audit_candidates c set audit_status=v_target
+    where c.id=p_candidate_id and c.version=p_expected_version;
+  if not found then raise exception 'Case conflict' using errcode='40001'; end if;
+  perform set_config('office_audit.insert_review','authorized',true);
+  insert into public.office_audit_second_reviews(candidate_id,finding_id,reviewer_id,
+    action,review_note,previous_version,next_version)
+    values(p_candidate_id,v_finding.id,auth.uid(),p_action,btrim(p_note),
+      p_expected_version,p_expected_version+1);
+  return query select p_candidate_id,p_expected_version+1,v_target;
+end $$;
+
+-- Record evidence and Finding actions in the existing append-only Audit Trail.
+create or replace function office_audit_private.log_case_material_event()
+returns trigger language plpgsql security definer
+set search_path=pg_catalog,public,office_audit_private as $audit$
+declare v_kind text; v_event text; v_note text;
+begin
+  if auth.uid() is null then raise exception 'Verified officer required' using errcode='28000'; end if;
+  if tg_table_name='office_audit_evidence' then
+    if tg_op='UPDATE' and old.verification_status is not distinct from new.verification_status
+      then return new; end if;
+    v_event:=case when tg_op='INSERT' then 'evidence_recorded' else 'evidence_verified' end;
+    v_note:=case when tg_op='INSERT' then 'Evidence reference registered for '||new.signal_code
+      else left(coalesce(new.verification_note,'Evidence verified'),500) end;
+  else
+    v_event:='finding_submitted';
+    v_note:=left(new.signal_code||': '||new.finding_summary,500);
+  end if;
+  select b.source_kind into v_kind from public.office_audit_candidates c
+    join public.office_audit_batches b on b.id=c.batch_id
+    where c.id=new.candidate_id;
+  if v_kind is null then raise exception 'Audit source batch is missing' using errcode='23503'; end if;
+  insert into public.office_audit_events(
+    candidate_id,actor_id,event_type,previous_status,new_status,source_kind,review_note
+  ) values(new.candidate_id,auth.uid(),v_event,null,null,v_kind,v_note);
+  return new;
+end $audit$;
+create trigger office_audit_evidence_event after insert or update
+  on public.office_audit_evidence for each row
+  execute function office_audit_private.log_case_material_event();
+create trigger office_audit_finding_event after insert
+  on public.office_audit_findings for each row
+  execute function office_audit_private.log_case_material_event();
+revoke all on function office_audit_private.log_case_material_event()
+  from public,anon,authenticated;
+
+revoke all on function public.office_audit_record_evidence(uuid,text,text),
+public.office_audit_verify_evidence(uuid,text),
+public.office_audit_submit_finding(uuid,uuid,text,text),
+public.office_audit_second_review(uuid,integer,text,text) from public,anon;
+grant execute on function public.office_audit_record_evidence(uuid,text,text),
+public.office_audit_verify_evidence(uuid,text),
+public.office_audit_submit_finding(uuid,uuid,text,text),
+public.office_audit_second_review(uuid,integer,text,text) to authenticated;
+commit;
      or not exists(select 1 from public.office_audit_memberships m where
       m.user_id=auth.uid() and m.active and m.office_role='range_user'
       and m.zone=v_case.zone and m.circle=v_case.circle) then
