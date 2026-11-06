@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
@@ -70,6 +70,7 @@ function originalImageUrl(id: string) {
 export function ContentManagementPage() {
   const pending = getPendingCmsPublish();
   const pendingBanner = pending?.kind === 'banner' ? pending : null;
+  const resumePublish = useRef(pendingBanner?.publishAfterSignIn === true);
   const [tab, setTab] = useState<'banners' | 'logo'>(() => pending?.kind === 'logo' ? 'logo' : 'banners');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(() => pendingBanner?.selectedId ?? null);
@@ -89,9 +90,12 @@ export function ContentManagementPage() {
   const [deleteRequested, setDeleteRequested] = useState(false);
 
   useEffect(() => {
-    if (authState === 'authorized' && getPendingCmsPublish()?.kind === 'banner')
-      clearPendingCmsPublish();
-  }, [authState]);
+    if (authState !== 'authorized' || !authUid || getPendingCmsPublish()?.kind !== 'banner') return;
+    const shouldPublish = resumePublish.current;
+    resumePublish.current = false; // Never double-publish on auth refresh.
+    clearPendingCmsPublish();
+    if (shouldPublish && draft) void save();
+  }, [authState, authUid, draft]);
 
   const refreshSession = useCallback(async () => {
     if (!cms) { setAuthState('signed-out'); setAuthUid(null); return; }
@@ -198,12 +202,23 @@ export function ContentManagementPage() {
     setDraft(current => current ? { ...current, [key]: value } : null);
   }
 
-  function signInToPublish() {
+  function publish() {
     if (!draft || busy) return;
-    requestCmsPublishingSignIn({
-      kind: 'banner', selectedId, draft, newDraft,
-      desiredPosition, desktopFile, mobileFile,
-    });
+    // Validate before asking for Office credentials so a malformed draft
+    // never causes unnecessary sign-out or an unexpected SQL write.
+    if (fields.some(field => !draft[field.key].trim() ||
+        (field.max && Array.from(draft[field.key]).length > field.max))) {
+      setMessage('Complete English and Bangla fields within the mobile character limits.');
+      return;
+    }
+    if (authState !== 'authorized') {
+      requestCmsPublishingSignIn({
+        kind: 'banner', selectedId, draft, newDraft,
+        desiredPosition, desktopFile, mobileFile, publishAfterSignIn: true,
+      });
+      return;
+    }
+    void save();
   }
 
   function cancelEdit() {
@@ -457,15 +472,13 @@ export function ContentManagementPage() {
             {field.max && <small>{Array.from(draft[field.key]).length}/{field.max} characters · one line on mobile</small>}
           </div>)}</div>
           {editing && authState !== 'authorized' && <p role="status" className="cms-editor__note">
-             This is an unpublished preview. Publishing requires an authorized Office sign-in.
-             {' '}<button type="button" className="cms-edit-button" disabled={busy || authState === 'checking'}
-               onClick={signInToPublish}>Sign in to publish</button>
-             {' '}Your banner changes and cropped images will remain ready in this tab after sign-in.
+             This is an unpublished preview. Select Publish to TaxPay to authorize using the
+             existing Office sign-in. Your changes and cropped images will be published after verification.
            </p>}
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>
-            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy || authState !== 'authorized'} onClick={() => void save()}><Save size={16}/> {busy ? 'Saving…' : authState !== 'authorized' ? 'Publish to TaxPay' : isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={publish}><Save size={16}/> {busy ? 'Saving…' : authState !== 'authorized' ? 'Publish to TaxPay' : isNewBanner ? 'Save banner' : 'Save changes'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
