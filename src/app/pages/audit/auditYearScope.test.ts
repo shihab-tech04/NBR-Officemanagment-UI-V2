@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getAuditCandidates } from "./auditCandidateStore";
 import { getAuditYearScope, getAvailableAuditYears } from "./auditYearScope";
+import { ALL_TAXPAYER_ROWS } from "./auditData";
 
 describe("Office Audit AY consistency and stale-cache recovery", () => {
   beforeEach(() => window.localStorage.clear());
@@ -23,7 +24,12 @@ describe("Office Audit AY consistency and stale-cache recovery", () => {
     expect(scope.population.length).toBeGreaterThan(0);
     expect(scope.candidates.length).toBeGreaterThan(0);
     expect(scope.riskCases).toHaveLength(8);
-    expect(scope.controlRows).toHaveLength(6);
+    const expected = ALL_TAXPAYER_ROWS.filter((row) => row.assessment_year === "2025-26")
+      .flatMap((row) => String(row.control_flags ?? "").match(/F[0-5]/g) ?? []);
+    expect(scope.controlRows).toHaveLength(expected.length);
+    expect(scope.controlRows.every((row) => scope.population.some((source) =>
+      source.return_id === row.return_id && source.assessment_year === row.assessment_year))).toBe(true);
+    expect(new Set(scope.controlRows.map((row) => row.id)).size).toBe(scope.controlRows.length);
     expect(scope.secondReviewRows).toHaveLength(3);
     expect(getAvailableAuditYears(candidates)).toContain("2025-26");
   });
