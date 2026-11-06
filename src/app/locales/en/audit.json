@@ -471,6 +471,9 @@
       "continueLater": "Continue later",
       "checkStatus": "Check status",
       "continueToCandidatePreview": "Continue to Candidate preview",
+      "changeRiskCriteria": "Change risk criteria",
+      "reviewRemaining": "Review {{count}} available taxpayers",
+      "returnToCandidates": "Return to candidates",
       "next": "Next"
     },
     "summary": {
@@ -637,6 +640,9 @@
       "alreadyInAuditCount": "{{count}} already in audit",
       "alreadyInAudit": "Already in audit",
       "alreadyInAuditState": "Already in audit: {{state}}",
+      "noRemainingCandidates": "No new taxpayers are available for this assessment year. Existing audits are preserved.",
+      "noNewCandidates": "All {{count}} matching taxpayers are already in audit. Change the risk criteria or review {{available}} remaining taxpayers through Population selection.",
+      "noCandidatesMeetCriteria": "No taxpayers match these risk criteria. Change the criteria or review {{available}} remaining taxpayers through Population selection.",
       "comparisonTitle": "Mismatch comparison",
       "comparisonDescription": "Compare candidates by mismatch amount; signal count stays visible beside each record.",
       "comparisonLegend": "Bar = mismatch · badge = signals",
