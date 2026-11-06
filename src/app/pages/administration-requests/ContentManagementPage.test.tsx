@@ -303,9 +303,9 @@ describe('verified TaxPay banner CMS', () => {
     await user.type(heading, 'Unsaved draft stays open');
     expect(heading).toHaveValue('Unsaved draft stays open');
     act(() => { setSession(false); });
-    await waitFor(() => expect(screen.getByText(/To publish live changes, sign in to Office once/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Publishing asks for your authorized Office password/)).toBeInTheDocument());
     act(() => { setSession(true); });
-    await waitFor(() => expect(screen.queryByText(/To publish live changes, sign in to Office once/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Publishing asks for your authorized Office password/)).not.toBeInTheDocument());
     expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Unsaved draft stays open');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeVisible();
