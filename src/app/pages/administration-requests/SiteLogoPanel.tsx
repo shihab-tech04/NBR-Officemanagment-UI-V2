@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
 import { verifyPublicImage } from './verifyPublicImage';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
@@ -27,13 +28,20 @@ function LogoPreviewImage({ src, alt }: { src: string; alt: string }) {
 
 export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient | null; canPublish?: boolean }) {
   const [record, setRecord] = useState<SiteLogoRecord | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [selected, setSelected] = useState<LogoFile | null>(null);
+  const [editing, setEditing] = useState(() => getPendingCmsPublish()?.kind === 'logo');
+  const [selected, setSelected] = useState<LogoFile | null>(() => {
+    const pending = getPendingCmsPublish();
+    return pending?.kind === 'logo' ? pending.selected : null;
+  });
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [restoreRequested, setRestoreRequested] = useState(false);
+
+  useEffect(() => {
+    if (canPublish && getPendingCmsPublish()?.kind === 'logo') clearPendingCmsPublish();
+  }, [canPublish]);
 
   const refresh = useCallback(async () => {
     if (!cms) return;
@@ -223,7 +231,14 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
         <div className="cms-logo__placement"><h3>Taxpayer sidebar</h3><div className="cms-logo__slot cms-logo__slot--sidebar"><LogoPreviewImage src={displayUrl} alt="Taxpayer sidebar logo preview" /></div><p>164 × 58 px slot</p></div>
       </div>
       {editing && <>
-        {!canPublish && <p role="status" className="cms-editor__note">You can preview the logo, but publishing requires an Office sign-in with a valid account password and publishing permission.</p>}
+        {!canPublish && <p role="status" className="cms-editor__note">
+          Your logo is an unpublished preview. Publishing requires an authorized Office sign-in.
+          {' '}<button type="button" className="cms-edit-button" disabled={busy}
+            onClick={() => requestCmsPublishingSignIn({ kind: 'logo', selected })}>
+            Sign in to publish
+          </button>
+          {selected && ' Your cropped logo will remain ready in this tab after sign-in.'}
+        </p>
         <div className="cms-logo__upload-area">
           <label className="cms-upload-label"><UploadCloud size={16}/> Upload / replace logo
             <input type="file" accept={IMAGE_FILE_ACCEPT} disabled={busy} onChange={event => {
