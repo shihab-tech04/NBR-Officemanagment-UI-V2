@@ -91,7 +91,9 @@ export function ContentManagementPage() {
 
   useEffect(() => {
     if (authState !== 'authorized' || !authUid || getPendingCmsPublish()?.kind !== 'banner') return;
-    const shouldPublish = resumePublish.current;
+    // The Office workspace stays mounted during credential verification.
+    // Detect both a pending action restored at mount and one requested in-place.
+    const shouldPublish = resumePublish.current || getPendingCmsPublish()?.publishAfterSignIn === true;
     resumePublish.current = false; // Never double-publish on auth refresh.
     clearPendingCmsPublish();
     if (shouldPublish && draft) void save();
