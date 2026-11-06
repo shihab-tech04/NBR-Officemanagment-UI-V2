@@ -23,7 +23,7 @@ function mockPublisherSession(options: {
       return { data: { session }, error: null };
     }),
     getUser: vi.fn(async () => ({
-      data: { user: options.verified === false
+      data: { user: !session ? null : options.verified === false
         ? { id: 'another-user', is_anonymous: false }
         : { id: 'approved-publisher', is_anonymous: false } },
       error: null,
@@ -116,4 +116,39 @@ describe('historical Office CMS publisher session continuity', () => {
     expect(await restorePreviouslyVerifiedCmsSession()).toBe(false);
     expect(auth.setSession).not.toHaveBeenCalled();
   });
+  it('recognizes a server-verified current publisher without another login', async () => {
+    const { auth, rpc } = mockPublisherSession({ existing: true });
+    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
+    expect(await hasVerifiedCmsPublisherSession()).toBe(true);
+    expect(auth.getUser).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
+    expect(auth.setSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects an existing signed-in user without the SQL CMS publisher role', async () => {
+    const { rpc } = mockPublisherSession({ existing: true, allowed: false });
+    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
+    expect(await hasVerifiedCmsPublisherSession()).toBe(false);
+    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
+  });
+
+  it('rejects a password-free Office entry that has no Auth session', async () => {
+    const { auth, rpc } = mockPublisherSession();
+    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
+    expect(await hasVerifiedCmsPublisherSession()).toBe(false);
+    expect(auth.setSession).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('recovers a server-verified older publisher without a second login', async () => {
+    const { auth, rpc } = mockPublisherSession();
+    localStorage.setItem(oldKey, JSON.stringify({
+      access_token: 'legacy-access', refresh_token: 'legacy-refresh',
+    }));
+    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
+    expect(await hasVerifiedCmsPublisherSession()).toBe(true);
+    expect(auth.setSession).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
+  });
+
 });
