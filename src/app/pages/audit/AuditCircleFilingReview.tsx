@@ -11,7 +11,6 @@ interface AuditCircleFilingReviewProps {
   assessmentYear: string;
 }
 
-const fmt = (value: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 const pct = (returns: number, tins: number) =>
   tins > 0 ? ((returns / tins) * 100).toFixed(1) + "%" : "—";
 
@@ -59,6 +58,7 @@ export function AuditCircleFilingReview({ assessmentYear }: AuditCircleFilingRev
           - (b.tinCount ? b.reportedReturns / b.tinCount : -1);
         case "paid": return a.reportedPayment - b.reportedPayment;
         case "score": return (a.provisionalScore ?? -1) - (b.provisionalScore ?? -1);
+        case "review": return a.review.localeCompare(b.review, "en");
         case "circle": return a.circle.localeCompare(b.circle, "en", { numeric: true });
         default: return a.zone.localeCompare(b.zone, "en", { numeric: true });
       }
