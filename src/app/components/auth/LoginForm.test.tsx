@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   openHelp: vi.fn(),
   onOfficeEnter: vi.fn(),
+  pathname: "/",
 }));
 
 const shared = vi.hoisted(() => ({
@@ -32,7 +33,7 @@ vi.mock('../../services/taxpayCmsClient', () => ({
   getTaxPayCmsClient: cmsAuth.getClient,
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => cmsAuth.hasVerified(...args),
 }));
-vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate }));
+vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate, useLocation: () => ({ pathname: mocks.pathname }) }));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => ({
@@ -40,6 +41,7 @@ vi.mock('react-i18next', () => ({
       'appSubtitle': 'Office Management System',
       'login.title': 'Welcome back',
       'login.subtitle': 'Sign in to access your office workspace.',
+      'login.publisherSubtitle': 'Enter authorized Office password to publish.',
       'login.userManual': 'Help & User Guide',
       'login.userId': 'User ID',
       'login.userIdPlaceholder': 'Enter your User ID',
@@ -47,6 +49,7 @@ vi.mock('react-i18next', () => ({
       'login.needHelp': 'Demo workspace.',
       'login.password': 'Password',
       'login.passwordOptionalPlaceholder': 'Optional',
+      'login.passwordPlaceholder': 'Enter password',
       'login.adminOnly': 'Enter admin to open the Office prototype.',
       'specialReg.helper': 'NRB registration support.',
       'specialReg.button': 'Special registration',
@@ -59,6 +62,7 @@ describe('public Office re-entry after Sign Out', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     shared.enabled = false;
+    mocks.pathname = '/';
     cmsAuth.getClient.mockReturnValue(null);
     cmsAuth.hasVerified.mockResolvedValue(false);
   });
@@ -94,26 +98,35 @@ describe('public Office re-entry after Sign Out', () => {
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
-  it('rejects a password-free admin marker and unrelated Office identifiers', async () => {
+  it('preserves the approved password-optional entry on other Office pages', async () => {
     const user = userEvent.setup();
-    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'officer');
-    await user.type(screen.getByLabelText('Password'), 'wrong-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(screen.getByText('Enter admin to open the Office prototype.')).toBeInTheDocument();
-
     await user.clear(screen.getByRole('textbox', { name: 'User ID' }));
     await user.type(screen.getByRole('textbox', { name: 'User ID' }), ' admin ');
-    await user.clear(screen.getByLabelText('Password'));
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your authorized Office password');
-    expect(cmsAuth.signIn).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
+    expect(cmsAuth.hasVerified).not.toHaveBeenCalled();
+    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+  });
+
+  it('requires the existing publisher password only when opening TaxPay CMS', async () => {
+    mocks.pathname = '/administration/content-management';
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your authorized Office password to publish TaxPay content');
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
   it('confirms the existing Office publisher once before entering the workspace', async () => {
+    mocks.pathname = '/administration/content-management';
     const user = userEvent.setup();
     cmsAuth.signIn.mockResolvedValue({ error: null, data: { session: { user: { id: 'sql-office-admin' } } } });
     cmsAuth.hasVerified.mockResolvedValue(true);
@@ -127,10 +140,11 @@ describe('public Office re-entry after Sign Out', () => {
       email: 'shihabshajib01@gmail.com', password: 'verified-publishing-password',
     });
     expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
-    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management');
   });
 
   it('reuses a verified returning publisher session without demanding another password', async () => {
+    mocks.pathname = '/administration/content-management';
     const user = userEvent.setup();
     cmsAuth.hasVerified.mockResolvedValue(true);
     cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
@@ -140,7 +154,7 @@ describe('public Office re-entry after Sign Out', () => {
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
     expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
     expect(cmsAuth.signIn).not.toHaveBeenCalled();
-    expect(mocks.navigate).toHaveBeenCalledWith('/dashboard/dashboard-main');
+    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management');
   });
 
   it('does not turn an invalid CMS password into SQL publishing authority', async () => {
