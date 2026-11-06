@@ -21,9 +21,17 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   await expect(modal).toBeVisible();
   const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
 
-  await next(); // Selected assessment year and risk-based selection track
-  await next(); // Full population
-  await next(); // Existing data-readiness defaults
+  const stepper = modal.locator(".app-stepper");
+  await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
+  await expect(stepper.getByRole("button", { name: "Data readiness", exact: true })).toHaveCount(0);
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(6);
+
+  await next(); // Selection setup -> Risk criteria, with full AY population
+  await expect(stepper.getByRole("button", { name: "Risk criteria", exact: true }))
+    .toHaveAttribute("aria-current", "step");
+  await expect(modal.getByRole("combobox", { name: "Zone", exact: true })).toHaveCount(0);
+  await expect(modal.getByRole("checkbox", { name: "Incomplete", exact: true })).toHaveCount(0);
+  await expect(modal.getByRole("checkbox", { name: "Invalid", exact: true })).toHaveCount(0);
 
   const criterion = modal.getByRole("checkbox", { name: "Zero income + declared asset" });
   await expect(criterion).toBeVisible();
@@ -128,4 +136,21 @@ test("confirmed selection cannot be inserted a second time for its assessment ye
     return { total: keys.length, unique: new Set(keys).size };
   });
   expect(result.unique).toBe(result.total);
+});
+
+test("population selection uses all 70 taxpayers without population or readiness steps", async ({ page }) => {
+  await page.goto("/audit/audit-candidates");
+  await page.getByRole("button", { name: "Initiate Audit" }).click();
+  const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
+  const stepper = modal.locator(".app-stepper");
+  await modal.getByRole("radio", { name: /Population \/ Circle-based Audit/ }).check();
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(4);
+  await expect(stepper).not.toContainText("Data readiness");
+  await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
+  await modal.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(stepper.getByRole("button", { name: "Candidate preview" }))
+    .toHaveAttribute("aria-current", "step");
+  // The 70-record AY includes every data quality and coverage category:
+  // no invisible readiness filter excludes incomplete or invalid profiles.
+  await expect(modal).toContainText("Representative preview · 70 records");
 });
