@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
-import { clearPendingCmsPublish, getPendingCmsPublish, requestCmsPublishingSignIn } from '../../services/cmsPublishReturn';
 import { ImageCropDialog } from './ImageCropDialog';
 import { IMAGE_FILE_ACCEPT, MAX_IMAGE_BYTES } from './imageCrop';
 import { verifyPublicImage } from './verifyPublicImage';
@@ -68,18 +67,15 @@ function originalImageUrl(id: string) {
 }
 
 export function ContentManagementPage() {
-  const pending = getPendingCmsPublish();
-  const pendingBanner = pending?.kind === 'banner' ? pending : null;
-  const resumePublish = useRef(pendingBanner?.publishAfterSignIn === true);
-  const [tab, setTab] = useState<'banners' | 'logo'>(() => pending?.kind === 'logo' ? 'logo' : 'banners');
+  const [tab, setTab] = useState<'banners' | 'logo'>('banners');
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(() => pendingBanner?.selectedId ?? null);
-  const [draft, setDraft] = useState<Banner | null>(() => (pendingBanner?.draft as Banner | null) ?? null);
-  const [newDraft, setNewDraft] = useState<Banner | null>(() => (pendingBanner?.newDraft as Banner | null) ?? null);
-  const [desiredPosition, setDesiredPosition] = useState(() => pendingBanner?.desiredPosition ?? 1);
-  const [editing, setEditing] = useState(() => !!pendingBanner?.draft);
-  const [desktopFile, setDesktopFile] = useState<File | null>(() => pendingBanner?.desktopFile ?? null);
-  const [mobileFile, setMobileFile] = useState<File | null>(() => pendingBanner?.mobileFile ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Banner | null>(null);
+  const [newDraft, setNewDraft] = useState<Banner | null>(null);
+  const [desiredPosition, setDesiredPosition] = useState(1);
+  const [editing, setEditing] = useState(false);
+  const [desktopFile, setDesktopFile] = useState<File | null>(null);
+  const [mobileFile, setMobileFile] = useState<File | null>(null);
   const [cropTask, setCropTask] = useState<{ device: 'desktop' | 'mobile'; file: File } | null>(null);
   const desktopPreview = useImagePreview(desktopFile);
   const mobilePreview = useImagePreview(mobileFile);
@@ -89,23 +85,16 @@ export function ContentManagementPage() {
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [deleteRequested, setDeleteRequested] = useState(false);
 
-  useEffect(() => {
-    if (authState !== 'authorized' || !authUid || getPendingCmsPublish()?.kind !== 'banner') return;
-    const shouldPublish = resumePublish.current;
-    resumePublish.current = false; // Never double-publish on auth refresh.
-    clearPendingCmsPublish();
-    if (shouldPublish && draft) void save();
-  }, [authState, authUid, draft]);
-
   const refreshSession = useCallback(async () => {
-    if (!cms) { setAuthState('signed-out'); setAuthUid(null); return; }
+    if (!cms) { setAuthState('signed-out'); setAuthUid(null); return null; }
     const { data: { session }, error: sessionError } = await cms.auth.getSession();
     if (sessionError) throw sessionError;
-    if (!session) { setAuthUid(null); setAuthState('signed-out'); return; }
+    if (!session) { setAuthUid(null); setAuthState('signed-out'); return null; }
     const { data: isAdmin, error: accessError } = await cms.rpc('taxpay_is_verified_portal_admin');
     if (accessError) throw accessError;
     setAuthUid(isAdmin ? session.user.id : null);
     setAuthState(isAdmin ? 'authorized' : 'denied');
+    return isAdmin ? session.user.id : null;
   }, []);
 
   useEffect(() => {
@@ -202,25 +191,26 @@ export function ContentManagementPage() {
     setDraft(current => current ? { ...current, [key]: value } : null);
   }
 
-  function publish() {
+  async function publish() {
     if (!draft || busy) return;
-    // Validate before asking for Office credentials so a malformed draft
-    // never causes unnecessary sign-out or an unexpected SQL write.
     if (fields.some(field => !draft[field.key].trim() ||
         (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete English and Bangla fields within the mobile character limits.');
       return;
     }
-    // A stale authorization label without a verified SQL user must never
-    // silently drop a Publish click or attempt an unauthenticated upload.
-    if (authState !== 'authorized' || !authUid) {
-      requestCmsPublishingSignIn({
-        kind: 'banner', selectedId, draft, newDraft,
-        desiredPosition, desktopFile, mobileFile, publishAfterSignIn: true,
-      });
+    // One click attempts the existing verified Office CMS session directly.
+    // Never open a second login or clear the Office workspace or cropped files.
+    let publisherUid: string | null = null;
+    try { publisherUid = await refreshSession(); }
+    catch (error) {
+      setMessage('Publishing check failed; your draft remains here: ' + (error as Error).message);
       return;
     }
-    void save();
+    if (!publisherUid) {
+      setMessage('Not published: this Office session has no verified TaxPay publishing access. Your uploaded images and edits are preserved.');
+      return;
+    }
+    await save(publisherUid);
   }
 
   function cancelEdit() {
@@ -239,8 +229,8 @@ export function ContentManagementPage() {
     setMessage('');
   }
 
-  async function uploadImage(file: File, bannerId: string): Promise<string> {
-    if (!cms || !authUid) throw new Error('Your Office session does not have content publishing permission.');
+  async function uploadImage(file: File, bannerId: string, publisherUid: string): Promise<string> {
+    if (!cms || !publisherUid) throw new Error('Your Office session does not have content publishing permission.');
     if (!IMAGE_FILE_ACCEPT.includes(file.type) || file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
       throw new Error('Select a cropped PNG or JPEG image up to 5 MB.');
     }
@@ -266,8 +256,8 @@ export function ContentManagementPage() {
     if (cleanupError) throw cleanupError;
   }
 
-  async function save() {
-    if (!cms || !draft || !authUid || authState !== 'authorized' || busy) return;
+  async function save(publisherUid: string) {
+    if (!cms || !draft || !publisherUid || busy) return;
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete English and Bangla fields within the mobile character limits.');
       return;
@@ -280,8 +270,8 @@ export function ContentManagementPage() {
     try {
       let desktopPath = draft.desktop_image_path;
       let mobilePath = draft.mobile_image_path;
-      if (desktopFile) { desktopPath = await uploadImage(desktopFile, draft.id); uploads.push(desktopPath); }
-      if (mobileFile) { mobilePath = await uploadImage(mobileFile, draft.id); uploads.push(mobilePath); }
+      if (desktopFile) { desktopPath = await uploadImage(desktopFile, draft.id, publisherUid); uploads.push(desktopPath); }
+      if (mobileFile) { mobilePath = await uploadImage(mobileFile, draft.id, publisherUid); uploads.push(mobilePath); }
       // Validate freshly uploaded public images BEFORE a banner record references them.
       const publicCms = getTaxPayCmsPublicClient();
       if (!publicCms) throw new Error('Public TaxPay verification is not configured.');
@@ -416,7 +406,7 @@ export function ContentManagementPage() {
       </div>
     </header>
     {authState === 'checking' && !banners.length && <p role="status">Loading TaxPay content…</p>}
-    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. To publish live changes, sign in to Office once with the password for your authorized Office account.</p>}
+    {authState !== 'authorized' && authState !== 'checking' && <p className="cms-editor__note" role="status">You can edit and preview content here. Changes are published only when this Office session has existing publishing access.</p>}
     <div className="tab-bar" role="tablist" aria-label="Content type">
       <button type="button" role="tab" aria-selected={tab === 'banners'} className={`tab-bar__tab${tab === 'banners' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('banners')}>Banner</button>
       <button type="button" role="tab" aria-selected={tab === 'logo'} className={`tab-bar__tab${tab === 'logo' ? ' tab-bar__tab--active' : ''}`} onClick={() => setTab('logo')}>Site Logo</button>
