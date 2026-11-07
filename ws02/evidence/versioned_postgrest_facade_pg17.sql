@@ -104,6 +104,17 @@ BEGIN
  EXECUTE 'RESET ROLE';
  IF has_schema_privilege('ws02_owner_auth','ws02_versioned_api','USAGE')
  THEN RAISE EXCEPTION 'ENGINE_SCHEMA_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
+ -- The runtime engine must also be unable to grant facade USAGE to PUBLIC.
+ -- PUBLIC would include anonymous and all future roles, not just current citizens.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT USAGE ON SCHEMA ws02_versioned_api TO PUBLIC';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_schema_privilege('ws02_owner_anon','ws02_versioned_api','USAGE')
+ OR has_schema_privilege('ws02_owner_auth','ws02_versioned_api','USAGE')
+ THEN RAISE EXCEPTION 'ENGINE_PUBLIC_SCHEMA_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
  -- A runtime role must not delegate facade CREATE to a citizen role.
  -- An unauthorized GRANT can emit WARNING without throwing on PostgreSQL 17.
  BEGIN
