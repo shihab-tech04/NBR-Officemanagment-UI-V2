@@ -9,7 +9,8 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
-import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
+import { hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
+import { getOfficeCmsAuthClient } from "../services/officeCmsBridge";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -128,7 +129,7 @@ export function AppRoot() {
     try {
       // Revoke the CMS session whenever Office signs out. A later preview
       // login must never inherit the previous administrator's SQL authority.
-      const cms = getTaxPayCmsClient();
+      const cms = getOfficeCmsAuthClient();
       if (cms) {
         const { error } = await cms.auth.signOut({ scope: "local" });
         if (error) throw error;
