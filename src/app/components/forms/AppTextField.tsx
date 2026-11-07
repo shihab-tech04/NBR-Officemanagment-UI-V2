@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { TextField } from "@mui/material";
 import { muiFieldSx, muiFilterSx } from "./muiFieldSx";
 
@@ -16,6 +16,8 @@ interface AppTextFieldProps {
   readOnly?: boolean;
   autoComplete?: string;
   inputRef?: Ref<HTMLInputElement>;
+  /** Optional icon/control inside the shared outlined input, without changing default fields. */
+  endAdornment?: ReactNode;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   /** compact=true → size="small" (filters, topbar). Default → MUI normal size (forms). */
   compact?: boolean;
@@ -26,7 +28,7 @@ interface AppTextFieldProps {
 export function AppTextField({
   id, label, value, onChange, placeholder, helper, error, type,
   required, disabled, readOnly, autoComplete, inputRef, onKeyDown, compact,
-  maxLength, inputMode,
+  maxLength, inputMode, endAdornment,
 }: AppTextFieldProps) {
   return (
     <TextField
@@ -43,6 +45,7 @@ export function AppTextField({
       disabled={disabled}
       inputRef={inputRef}
       autoComplete={autoComplete ?? "off"}
+      InputProps={endAdornment ? { endAdornment } : undefined}
       variant="outlined"
       size={compact ? "small" : undefined}
       fullWidth
