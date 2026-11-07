@@ -27,7 +27,7 @@ vi.mock("../services/taxpayCmsClient", () => ({
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => shared.hasVerified(...args),
 }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
-vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname }) }));
+vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname, search: window.location.search }) }));
 vi.mock("../hooks/useAppearance", () => ({ useAppearance: () => undefined }));
 vi.mock("../context/HelpContext", () => ({
   HelpProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -203,4 +203,14 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
     expect(window.sessionStorage.getItem("office_ui_entered")).toBe("officer");
   });
+  it("always displays the password recovery UI on a CMS email callback, without entering Office", () => {
+    window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management?cmsRecovery=1");
+    render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    expect(shared.hasVerified).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
+  });
+
 });
