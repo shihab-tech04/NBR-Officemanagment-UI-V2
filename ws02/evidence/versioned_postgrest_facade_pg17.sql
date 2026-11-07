@@ -94,6 +94,17 @@ BEGIN
  EXECUTE 'RESET ROLE';
  IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
  THEN RAISE EXCEPTION 'ENGINE_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
+ -- PUBLIC function EXECUTE would include every current and future database role.
+ -- A warning-only unauthorized GRANT must not bypass the effective-ACL assertion.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO PUBLIC';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_function_privilege('ws02_owner_auth',fn,'EXECUTE')
+ OR has_function_privilege('ws02_owner_anon',fn,'EXECUTE')
+ THEN RAISE EXCEPTION 'ENGINE_PUBLIC_FUNCTION_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
  -- EXECUTE denial is insufficient if a runtime role can grant schema USAGE.
  -- PostgreSQL may report an unauthorized GRANT as a warning, so assert effective ACL.
  BEGIN
