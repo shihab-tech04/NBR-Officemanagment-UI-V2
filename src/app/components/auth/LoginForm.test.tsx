@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   openHelp: vi.fn(),
   onOfficeEnter: vi.fn(),
   pathname: "/",
+  search: "",
 }));
 
 const shared = vi.hoisted(() => ({
@@ -28,18 +29,42 @@ const cmsAuth = vi.hoisted(() => ({
   getUser: vi.fn(),
   rpc: vi.fn(),
   hasVerified: vi.fn(),
+  resetEmail: vi.fn(),
+  getUser: vi.fn(),
+  updatePassword: vi.fn(),
 }));
 vi.mock('../../services/taxpayCmsClient', () => ({
   getTaxPayCmsClient: cmsAuth.getClient,
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => cmsAuth.hasVerified(...args),
 }));
-vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate, useLocation: () => ({ pathname: mocks.pathname }) }));
+vi.mock('react-router', () => ({ useNavigate: () => mocks.navigate, useLocation: () => ({ pathname: mocks.pathname, search: mocks.search }) }));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => ({
       'appTitle': 'eReturn Office',
       'appSubtitle': 'Office Management System',
       'login.title': 'Welcome back',
+      'login.forgotPassword': 'Forgot password?',
+      'login.resetTitle': 'Reset password',
+      'login.resetSubtitle': 'Request a recovery link',
+      'login.resetChooseTitle': 'Choose a new password',
+      'login.resetChooseSubtitle': 'Set a new password',
+      'login.resetEmailHint': 'Registered administrator email',
+      'login.resetSend': 'Send reset link',
+      'login.resetSending': 'Sending…',
+      'login.resetEmailSent': 'Check inbox',
+      'login.resetBack': 'Back to sign in',
+      'login.resetChecking': 'Verifying reset link',
+      'login.resetLinkInvalid': 'This reset link is invalid or expired',
+      'login.newPassword': 'New password',
+      'login.confirmPassword': 'Confirm new password',
+      'login.newPasswordTooShort': 'Use at least 12 characters',
+      'login.passwordMismatch': 'The two passwords do not match',
+      'login.resetUpdate': 'Update password',
+      'login.resetUpdating': 'Updating…',
+      'login.resetUpdated': 'Your password has been changed',
+      'login.resetUnavailable': 'Password recovery is unavailable',
+      'login.resetSignOutWarning': 'Password updated but session remains',
       'login.subtitle': 'Sign in to access your office workspace.',
       'login.publisherSubtitle': 'Enter authorized Office password to publish.',
       'login.publisherPasswordRequired': 'Enter your authorized Office password to publish TaxPay content.',
@@ -64,6 +89,7 @@ describe('public Office re-entry after Sign Out', () => {
     vi.clearAllMocks();
     shared.enabled = false;
     mocks.pathname = '/';
+    mocks.search = "";
     cmsAuth.getClient.mockReturnValue(null);
     cmsAuth.hasVerified.mockResolvedValue(false);
   });
@@ -265,4 +291,93 @@ describe('public Office re-entry after Sign Out', () => {
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
+  it('shows a password recovery link only at the existing Office publishing sign-in', async () => {
+    const user = userEvent.setup();
+    mocks.pathname = '/administration/content-management';
+    cmsAuth.resetEmail.mockResolvedValue({ data: {}, error: null });
+    cmsAuth.getClient.mockReturnValue({ auth: { resetPasswordForEmail: cmsAuth.resetEmail } });
+    render(<LoginForm isDesktop />);
+
+    await user.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }));
+    await waitFor(() => expect(cmsAuth.resetEmail).toHaveBeenCalledOnce());
+    expect(cmsAuth.resetEmail).toHaveBeenCalledWith('shihabshajib01@gmail.com', {
+      redirectTo: expect.stringContaining('/administration/content-management?cmsRecovery=1'),
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Check inbox');
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Back to sign in' }));
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('keeps all non-CMS sign-in screens unchanged', () => {
+    render(<LoginForm isDesktop />);
+    expect(screen.queryByRole('button', { name: 'Forgot password?' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('shows actionable errors when reset email cannot be sent without changing Office access', async () => {
+    const user = userEvent.setup();
+    mocks.pathname = '/administration/content-management';
+    cmsAuth.resetEmail.mockResolvedValue({ error: new Error('email delivery unavailable') });
+    cmsAuth.getClient.mockReturnValue({ auth: { resetPasswordForEmail: cmsAuth.resetEmail } });
+    render(<LoginForm isDesktop />);
+    await user.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('email delivery unavailable');
+    expect(screen.getByRole('button', { name: 'Send reset link' })).toBeEnabled();
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+  });
+
+  it('validates an email recovery session and updates only the existing account password', async () => {
+    const user = userEvent.setup();
+    mocks.pathname = '/administration/content-management';
+    mocks.search = '?cmsRecovery=1';
+    cmsAuth.getUser.mockResolvedValue({
+      data: { user: { email: 'shihabshajib01@gmail.com' } }, error: null,
+    });
+    cmsAuth.updatePassword.mockResolvedValue({ error: null });
+    cmsAuth.signOut.mockResolvedValue({ error: null });
+    cmsAuth.getClient.mockReturnValue({ auth: {
+      getUser: cmsAuth.getUser, updateUser: cmsAuth.updatePassword, signOut: cmsAuth.signOut,
+    } });
+    render(<LoginForm isDesktop />);
+    await screen.findByLabelText('New password');
+    await user.type(screen.getByLabelText('New password'), 'an-excellent-new-password');
+    await user.type(screen.getByLabelText('Confirm new password'), 'an-excellent-new-password');
+    await user.click(screen.getByRole('button', { name: 'Update password' }));
+    await waitFor(() => expect(cmsAuth.updatePassword).toHaveBeenCalledWith({
+      password: 'an-excellent-new-password',
+    }));
+    expect(cmsAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(screen.getByRole('status')).toHaveTextContent('Your password has been changed');
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Back to sign in' }));
+    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management', { replace: true });
+  });
+
+  it('refuses expired recovery links and mismatched passwords without changing account credentials', async () => {
+    const user = userEvent.setup();
+    mocks.pathname = '/administration/content-management';
+    mocks.search = '?cmsRecovery=1';
+    cmsAuth.getUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+    cmsAuth.getClient.mockReturnValue({ auth: {
+      getUser: cmsAuth.getUser, updateUser: cmsAuth.updatePassword,
+    } });
+    const result = render(<LoginForm isDesktop />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('invalid or expired');
+    expect(cmsAuth.updatePassword).not.toHaveBeenCalled();
+    result.unmount();
+
+    cmsAuth.getUser.mockResolvedValue({ data: { user: { email: 'shihabshajib01@gmail.com' } }, error: null });
+    render(<LoginForm isDesktop />);
+    await screen.findByLabelText('New password');
+    await user.type(screen.getByLabelText('New password'), 'long-valid-password');
+    await user.type(screen.getByLabelText('Confirm new password'), 'different-password');
+    await user.click(screen.getByRole('button', { name: 'Update password' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('do not match');
+    expect(cmsAuth.updatePassword).not.toHaveBeenCalled();
+  });
+
 });
