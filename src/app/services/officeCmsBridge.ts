@@ -8,12 +8,54 @@ export const OFFICE_CMS_URL = 'https://ihbtabrvmyiwikqqbhrf.supabase.co';
 export const OFFICE_CMS_PUBLIC_KEY = 'sb_publishable_PyxzQzcf77wnlJQFepowrA_0MfhqGd5';
 export const OFFICE_CMS_PUBLISHER_UID = '3c62128a-8755-41e5-af1c-8e5848c95bc7';
 export const OFFICE_CMS_PUBLISHER_EMAIL = 'shihabshajib01@gmail.com';
+const OFFICE_AUTH_STORAGE_KEY = 'nbr-office-management-cms-session';
+const OFFICE_REMEMBER_KEY = 'nbr-office-management-remember-me';
 let officeClient: SupabaseClient | null = null;
+
+/** Remember me persists only the Supabase Auth session, never a password.
+ * Unchecked sessions live in sessionStorage and end when the tab session closes.
+ * Both storage locations are cleared on verified sign-out.
+ */
+export function readRememberOfficeSession(): boolean {
+  try { return window.localStorage.getItem(OFFICE_REMEMBER_KEY) === 'true'; }
+  catch { return false; }
+}
+
+const officeSessionStorage = {
+  getItem(key: string): string | null {
+    try {
+      return readRememberOfficeSession()
+        ? window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key)
+        : window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
+    } catch { return null; }
+  },
+  setItem(key: string, value: string): void {
+    if (readRememberOfficeSession()) {
+      window.localStorage.setItem(key, value);
+      window.sessionStorage.removeItem(key);
+    } else {
+      window.sessionStorage.setItem(key, value);
+      window.localStorage.removeItem(key);
+    }
+  },
+  removeItem(key: string): void {
+    try { window.localStorage.removeItem(key); } catch { /* blocked */ }
+    try { window.sessionStorage.removeItem(key); } catch { /* blocked */ }
+  },
+};
+
+export function setRememberOfficeSession(remember: boolean): void {
+  const previous = officeSessionStorage.getItem(OFFICE_AUTH_STORAGE_KEY);
+  try { window.localStorage.setItem(OFFICE_REMEMBER_KEY, remember ? 'true' : 'false'); }
+  catch { /* session-only fallback when local storage is unavailable */ }
+  if (previous) officeSessionStorage.setItem(OFFICE_AUTH_STORAGE_KEY, previous);
+}
+
 
 export function getOfficeCmsAuthClient():SupabaseClient {
   if (!officeClient) officeClient = createClient(OFFICE_CMS_URL,OFFICE_CMS_PUBLIC_KEY,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,
-      storageKey:'nbr-office-management-cms-session'},
+      storageKey:OFFICE_AUTH_STORAGE_KEY,storage:officeSessionStorage},
   });
   return officeClient;
 }
