@@ -6,6 +6,12 @@ on:
       - 'src/app/pages/administration-requests/ContentManagementPage*'
       - 'src/app/pages/administration-requests/ImageCropDialog*'
       - 'src/app/pages/administration-requests/SiteLogoPanel*'
+      - 'src/app/components/auth/LoginForm*'
+      - 'src/app/layouts/AppRoot*'
+      - 'src/app/services/taxpayCmsClient*'
+      - 'src/app/locales/en/auth.json'
+      - 'src/app/locales/bn/auth.json'
+      - 'scripts/verify-live-cms.mjs'
       - 'src/assets/korbritto-brand-locked.svg'
       - 'src/styles/content-management.css'
       - '.github/workflows/banner-cms-integration.yml'
@@ -23,7 +29,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Verify protected CMS and production crop contracts
-        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx src/app/components/auth/LoginForm.test.tsx src/app/pages/administration-requests/SiteLogoPanel.test.tsx src/app/pages/administration-requests/verifyPublicImage.test.ts
+        run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx src/app/components/auth/LoginForm.test.tsx src/app/layouts/AppRoot.test.tsx src/app/services/taxpayCmsClient.test.ts src/app/pages/administration-requests/SiteLogoPanel.test.tsx src/app/pages/administration-requests/verifyPublicImage.test.ts
       - name: Compile exact approved Office design
         run: npm run build
         env:

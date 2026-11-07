@@ -9,7 +9,7 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
-import { getTaxPayCmsClient } from "../services/taxpayCmsClient";
+import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
@@ -24,9 +24,9 @@ function clearEntry() {
 }
 
 /**
- * The Office prototype has a presentation-only login. In opt-in shared mode,
- * that marker cannot restore access: Supabase Auth and active Audit membership
- * must be reverified on reload. Signing out must also end the Auth session.
+ * Preserve the approved password-optional Office prototype for its other
+ * modules. Only the live TaxPay CMS route requires the verified publisher
+ * identity already established by the existing Office sign-in form.
  */
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
@@ -40,6 +40,8 @@ export function AppRoot() {
   const [restoring, setRestoring] = useState(
     () => sharedMode && storedEntry() === "officer",
   );
+  const cmsRoute = !sharedMode && pathname.startsWith("/administration/content-management");
+  const [cmsAccess, setCmsAccess] = useState<"checking" | "authorized" | "denied">("checking");
   const [signOutError, setSignOutError] = useState("");
   useAppearance();
 
@@ -92,6 +94,24 @@ export function AppRoot() {
     };
   }, [sharedMode]);
 
+  useEffect(() => {
+    if (!cmsRoute) {
+      // Recheck on the next CMS entry rather than trusting an old UI flag.
+      setCmsAccess("checking");
+      return;
+    }
+    let cancelled = false;
+    setCmsAccess("checking");
+    void hasVerifiedCmsPublisherSession()
+      .then(allowed => {
+        if (!cancelled) setCmsAccess(allowed ? "authorized" : "denied");
+      })
+      .catch(() => {
+        if (!cancelled) setCmsAccess("denied");
+      });
+    return () => { cancelled = true; };
+  }, [cmsRoute]);
+
   const handleSignOut = useCallback(async () => {
     setSignOutError("");
     if (sharedMode) {
@@ -117,6 +137,7 @@ export function AppRoot() {
       return;
     }
     clearEntry();
+    setCmsAccess("denied");
     setSignedOut(true);
   }, [sharedMode]);
 
@@ -125,6 +146,7 @@ export function AppRoot() {
       window.sessionStorage.setItem(OFFICE_ENTRY_KEY, sharedMode ? "officer" : "admin");
     } catch { /* The current tab can still navigate without persistence. */ }
     setSignOutError("");
+    if (cmsRoute) setCmsAccess("authorized");
     setSignedOut(false);
   };
 
@@ -138,9 +160,11 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
-      : signedOut && !openAuditPreview
-        ? <LoginPage onOfficeEnter={handleEnterOffice}/>
-        : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
+      : cmsRoute && !signedOut && cmsAccess === "checking"
+        ? <p role="status">Verifying TaxPay publishing access…</p>
+        : (signedOut || (cmsRoute && cmsAccess !== "authorized")) && !openAuditPreview
+          ? <LoginPage onOfficeEnter={handleEnterOffice}/>
+          : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
     <HelpDrawer/>
   </HelpProvider>;

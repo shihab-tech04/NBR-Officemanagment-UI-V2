@@ -114,3 +114,24 @@ export async function restorePreviouslyVerifiedCmsSession(): Promise<boolean> {
 
   return legacyRecovery;
 }
+
+
+/**
+ * Verified Office entry and CMS publishing use one server-validated identity.
+ * The local office_ui_entered marker is NEVER a publishing credential.
+ * A previously authenticated publisher can return without entering a password
+ * again, but a preview-only Office entry cannot be promoted to a publisher.
+ */
+export async function hasVerifiedCmsPublisherSession(): Promise<boolean> {
+  const cms = getTaxPayCmsClient();
+  if (!cms) return false;
+  const { data: { user }, error } = await cms.auth.getUser();
+  if (error || !user || user.is_anonymous) {
+    // Use only the prior CMS project's real Auth tokens, if still valid.
+    return restorePreviouslyVerifiedCmsSession();
+  }
+  const { data: permitted, error: permissionError } =
+    await cms.rpc('taxpay_is_verified_portal_admin');
+  if (permissionError) throw permissionError;
+  return permitted === true;
+}

@@ -9,6 +9,7 @@ const shared = vi.hoisted(() => ({
   checkAccess: vi.fn(),
   signOut: vi.fn(),
   cmsSignOut: vi.fn(),
+  hasVerified: vi.fn(),
   onAuthStateChange: vi.fn(),
 }));
 vi.mock("../pages/audit/auditSharedSql", () => ({
@@ -23,6 +24,7 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
 }));
 vi.mock("../services/taxpayCmsClient", () => ({
   getTaxPayCmsClient: () => ({ auth: { signOut: (...args: unknown[]) => shared.cmsSignOut(...args) } }),
+  hasVerifiedCmsPublisherSession: (...args: unknown[]) => shared.hasVerified(...args),
 }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
 vi.mock("react-router", () => ({ useLocation: () => ({ pathname: window.location.pathname }) }));
@@ -48,6 +50,7 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     clearPendingCmsPublish();
     shared.enabled = false;
     shared.cmsSignOut.mockResolvedValue({ error: null });
+    shared.hasVerified.mockResolvedValue(true);
     shared.checkAccess.mockResolvedValue({ userId: "verified-test-officer" });
     shared.signOut.mockResolvedValue({ error: null });
     shared.onAuthStateChange.mockReturnValue({
@@ -83,7 +86,7 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
   });
 
-  it("preserves demo-only admin entry and logout without Supabase access", async () => {
+  it("preserves the authorized Office shell and verified sign-out", async () => {
     const user = userEvent.setup();
     render(<AppRoot />);
     expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
@@ -108,6 +111,39 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
     expect(shared.cmsSignOut).not.toHaveBeenCalled();
     expect(shared.signOut).not.toHaveBeenCalled();
+  });
+
+  it("preserves the approved password-optional preview entry on other Office pages", async () => {
+    shared.hasVerified.mockResolvedValue(false);
+    window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/payments/transactions");
+    render(<AppRoot />);
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(shared.hasVerified).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
+  });
+
+  it("restores TaxPay CMS only after verifying the existing publisher session", async () => {
+    window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
+    render(<AppRoot />);
+    expect(screen.getByRole("status")).toHaveTextContent("Verifying TaxPay publishing access");
+    await waitFor(() => expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument());
+    expect(shared.hasVerified).toHaveBeenCalledOnce();
+  });
+
+  it("requires the existing Office sign-in for a preview-only CMS visitor", async () => {
+    shared.hasVerified.mockResolvedValue(false);
+    window.sessionStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
+    render(<AppRoot />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enter Office (admin)" }))
+      .toBeInTheDocument());
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // The owner can return to other approved Office preview routes without
+    // losing the existing Office entry marker or being globally logged out.
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
   });
 
   it("does not restore a prototype admin marker in shared mode", async () => {
