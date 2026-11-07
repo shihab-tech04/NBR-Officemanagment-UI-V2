@@ -55,8 +55,8 @@ export function AppSelectField({
     : normalizedRaw;
 
   const nonEmptyOptions = normalized.filter(option => option.value !== "");
-  const isSearchable = !onSelectOpenChange && selectOpen === undefined &&
-    nonEmptyOptions.length > (searchableAfter ?? 4);
+  const isSearchable = searchableAfter !== undefined && !onSelectOpenChange && selectOpen === undefined &&
+    nonEmptyOptions.length > searchableAfter;
   const grouped = nonEmptyOptions.some(option=>Boolean(option.group));
   const autocompleteOptions = grouped
     ? [...nonEmptyOptions].sort((a,b)=>(a.group??'').localeCompare(b.group??''))
