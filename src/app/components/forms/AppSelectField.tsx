@@ -86,6 +86,7 @@ export function AppSelectField({
         disabled={disabled}
         fullWidth
         autoHighlight
+        slotProps={{popper:{placement:'bottom-start',modifiers:[{name:'flip',enabled:false}]}}}
         ListboxProps={{style:{maxHeight:240,overscrollBehavior:"contain"}}}
         renderInput={(params) => (
           <TextField
