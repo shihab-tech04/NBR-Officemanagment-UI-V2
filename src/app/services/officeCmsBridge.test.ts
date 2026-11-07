@@ -37,6 +37,22 @@ describe('Office-issued identity for cross-project CMS publishing', () => {
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_public_key');
   });
 
+  it('authorizes the current recreated Office account, not the superseded account', async () => {
+    // The user was recreated on 7 November. Authorizing the previous UID locked out
+    // a valid Supabase sign-in; protect this current, verified publishing grant.
+    expect(OFFICE_CMS_PUBLISHER_UID).toBe('a05f8fc6-a134-4a43-9b94-54881d858783');
+    sdk.getUser.mockResolvedValueOnce({
+      data: { user: {
+        id: '3c62128a-8755-41e5-af1c-8e5848c95bc7',
+        email: 'shihabshajib01@gmail.com',
+        email_confirmed_at: '2026-11-07T06:11:20Z',
+        is_anonymous: false,
+      } }, error: null,
+    });
+    expect(await isVerifiedOfficeCmsPublisher()).toBe(false);
+    expect(await isVerifiedOfficeCmsPublisher()).toBe(true);
+  });
+
   it('authenticates only against the Office project, never TaxPay Auth', async () => {
     expect(await isVerifiedOfficeCmsPublisher()).toBe(true);
     getOfficeCmsAuthClient();
