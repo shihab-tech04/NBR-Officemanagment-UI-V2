@@ -1,8 +1,6 @@
--- Extend Office's existing synthetic-only transaction and notice projections
--- to the two explicitly approved November 7 fixture batches. Preserve every
--- existing payment field, pre-release exclusion, pagination and Travel Tax
--- masking. Future/unapproved fixture batches remain excluded (fail closed).
--- This does not create statutory payment evidence or a taxpayer authorization.
+-- Approved, synthetic fixture projection only. Unapproved batches excluded.
+-- Preserve the existing Office nonfixture release exclusion, pagination,
+-- and Travel Tax passport/note redaction. Not a certified payment ledger.
 -- Full travel passport references remain in private, RLS-protected SQL mirrors.
 -- The unauthenticated Office transaction feed must never return the raw value,
 -- including its legacy copy inside each receipt line's note.
@@ -20,56 +18,7 @@ begin
   and data->'details'->>'fixtureBatch' in (
     'TAXPAY-20261107-30-PROFILE-COVERAGE',
     'TAXPAY-20261107-ACTIVE-HEAD-CATALOGUE')
-  and data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)
- and not (
-   data->'details'->>'payerName'='Taxpayer / withholding agent'
-   and data->'details'->>'taxpayerTin'='123456789012'
-   and created_at<'2026-10-18 06:55:00+00'::timestamptz
- );
- select coalesce(jsonb_agg(jsonb_build_object(
-  'id',r.id,'service',r.service_code,'amountMinor',r.amount_minor,
-  'status',r.status,'createdAt',r.created_at,
-  'details',case when r.service_code='TRAVEL_TAX' then
-    (coalesce(r.data->'details','{}'::jsonb)-'passportNumber'-'lines') ||
-    jsonb_build_object(
-      'passportNumberMasked',case when length(coalesce(
-        nullif(r.data->'details'->>'passportNumber',''),
-        nullif(substring(r.data->'details'->'lines'->0->>'note' from 'Passport: ([^ |]+)'), 'Not')
-      ,''))>0 then
-        repeat('•',greatest(length(coalesce(
-          nullif(r.data->'details'->>'passportNumber',''),
-          nullif(substring(r.data->'details'->'lines'->0->>'note' from 'Passport: ([^ |]+)'), 'Not')
-        ,''))-3,0)) || right(coalesce(
-          nullif(r.data->'details'->>'passportNumber',''),
-          nullif(substring(r.data->'details'->'lines'->0->>'note' from 'Passport: ([^ |]+)'), 'Not')
-        ,''),3)
-        else null end,
-      'lines',(select coalesce(jsonb_agg(
-        case when jsonb_typeof(line)='object' then line-'note' else line end
-      ),'[]'::jsonb) from jsonb_array_elements(
-        case when jsonb_typeof(r.data->'details'->'lines')='array'
-          then r.data->'details'->'lines' else '[]'::jsonb end
-      ) as entries(line))
-    )
-  else r.data->'details' end
- ) order by r.created_at desc,r.id desc),'[]'::jsonb)
- into v_items from (
- select * from demo_payment.story_payments
- where data->>'origin'='TAXPAY_UI'
- and not (
-   data->'details'->>'payerName'='Taxpayer / withholding agent'
-   and data->'details'->>'taxpayerTin'='123456789012'
-   and created_at<'2026-10-18 06:55:00+00'::timestamptz
- )
- order by created_at desc,id desc
- limit p_per_page offset (p_page-1)*p_per_page
- ) r;
- return jsonb_build_object('items',v_items,'total',v_total,'page',p_page,'perPage',p_per_page);
-end;$fn$;
-
-revoke all on function public.demo_story1_office_page(integer,integer) from public;
-grant execute on function public.demo_story1_office_page(integer,integer) to anon,authenticated;
-))
+  and data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)$'))
  and not (
    data->'details'->>'payerName'='Taxpayer / withholding agent'
    and data->'details'->>'taxpayerTin'='123456789012'
@@ -109,21 +58,7 @@ grant execute on function public.demo_story1_office_page(integer,integer) to ano
   and data->'details'->>'fixtureBatch' in (
     'TAXPAY-20261107-30-PROFILE-COVERAGE',
     'TAXPAY-20261107-ACTIVE-HEAD-CATALOGUE')
-  and data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)
- and not (
-   data->'details'->>'payerName'='Taxpayer / withholding agent'
-   and data->'details'->>'taxpayerTin'='123456789012'
-   and created_at<'2026-10-18 06:55:00+00'::timestamptz
- )
- order by created_at desc,id desc
- limit p_per_page offset (p_page-1)*p_per_page
- ) r;
- return jsonb_build_object('items',v_items,'total',v_total,'page',p_page,'perPage',p_per_page);
-end;$fn$;
-
-revoke all on function public.demo_story1_office_page(integer,integer) from public;
-grant execute on function public.demo_story1_office_page(integer,integer) to anon,authenticated;
-))
+  and data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)$'))
  and not (
    data->'details'->>'payerName'='Taxpayer / withholding agent'
    and data->'details'->>'taxpayerTin'='123456789012'
@@ -139,7 +74,6 @@ revoke all on function public.demo_story1_office_page(integer,integer) from publ
 grant execute on function public.demo_story1_office_page(integer,integer) to anon,authenticated;
 
 
--- Keep Office notifications in parity with the payment list.
 CREATE OR REPLACE FUNCTION public.demo_story1_office_notices()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -156,13 +90,7 @@ begin
   and p.data->'details'->>'fixtureBatch' in (
     'TAXPAY-20261107-30-PROFILE-COVERAGE',
     'TAXPAY-20261107-ACTIVE-HEAD-CATALOGUE')
-  and p.data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)
- and not (p.data->'details'->>'payerName'='Taxpayer / withholding agent'
-   and p.data->'details'->>'taxpayerTin'='123456789012'
-   and p.created_at<'2026-10-18 06:55:00+00'::timestamptz)
- order by sn.id desc limit 100) n),'[]'::jsonb);
-end;$function$
-))
+  and p.data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)$'))
  and not (p.data->'details'->>'payerName'='Taxpayer / withholding agent'
    and p.data->'details'->>'taxpayerTin'='123456789012'
    and p.created_at<'2026-10-18 06:55:00+00'::timestamptz)
