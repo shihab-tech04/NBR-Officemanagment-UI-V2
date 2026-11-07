@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  */
 export const OFFICE_CMS_URL = 'https://ihbtabrvmyiwikqqbhrf.supabase.co';
 export const OFFICE_CMS_PUBLIC_KEY = 'sb_publishable_PyxzQzcf77wnlJQFepowrA_0MfhqGd5';
-export const OFFICE_CMS_PUBLISHER_UID = '3c62128a-8755-41e5-af1c-8e5848c95bc7';
+export const OFFICE_CMS_PUBLISHER_UID = 'a05f8fc6-a134-4a43-9b94-54881d858783';
 export const OFFICE_CMS_PUBLISHER_EMAIL = 'shihabshajib01@gmail.com';
 const OFFICE_AUTH_STORAGE_KEY = 'nbr-office-management-cms-session';
 const OFFICE_REMEMBER_KEY = 'nbr-office-management-remember-me';
