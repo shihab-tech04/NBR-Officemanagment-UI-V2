@@ -81,6 +81,20 @@ BEGIN
  END;
  IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=fn) IS DISTINCT FROM false
  THEN RAISE EXCEPTION 'ENGINE_ALTER_PROBE_CHANGED_FACADE_SECURITY'; END IF;
+ -- A runtime caller must not be able to redirect the SECURITY INVOKER wrapper's
+ -- pinned search_path. Check the stored configuration after the denied ALTER.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'ALTER FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) SET search_path TO public';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_CHANGED_FACADE_SEARCH_PATH';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=fn)
+    IS DISTINCT FROM ARRAY['search_path=pg_catalog, ws02_owner']::text[]
+    AND (SELECT replace(proconfig[1],' ','') FROM pg_catalog.pg_proc WHERE oid=fn)
+        IS DISTINCT FROM 'search_path=pg_catalog,ws02_owner'
+ THEN RAISE EXCEPTION 'ENGINE_ALTER_PROBE_CHANGED_FACADE_SEARCH_PATH'; END IF;
  -- Runtime EXECUTE permission must not permit delegating facade access to citizen roles.
  -- Test the GRANT operation itself and verify no ACL change survives the probe.
  BEGIN
