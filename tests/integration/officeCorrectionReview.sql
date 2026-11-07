@@ -1,44 +1,16 @@
 -- Disposable cross-app correction review contract. No production data or
--- financial tables are used; every fixture is rolled back.
+-- financial tables are used; every review fixture is rolled back.
+\ir officeCorrectionReviewFixture.sql
 BEGIN;
 
-CREATE SCHEMA auth;
-CREATE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql STABLE SET search_path TO ''
-AS $function$
-  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
-$function$;
-
-CREATE TABLE payment_sync.settings(singleton boolean PRIMARY KEY,origin text NOT NULL);
-CREATE TABLE payment_sync.officer_roles(
-  user_uid uuid NOT NULL,role text NOT NULL,active boolean NOT NULL,
-  PRIMARY KEY(user_uid,role)
-);
-CREATE TABLE payment_sync.control_outbox(
-  message_id uuid PRIMARY KEY,request_id uuid NOT NULL,target_origin text NOT NULL,
-  payload jsonb NOT NULL,delivery_state text NOT NULL DEFAULT 'PENDING',
-  attempts integer NOT NULL DEFAULT 0,
-  acknowledged_at timestamptz,last_error text,next_attempt_at timestamptz NOT NULL DEFAULT now(),
-  claim_token uuid
-);
-CREATE TABLE payment_sync.officer_decisions(
-  request_id uuid NOT NULL,officer_uid uuid NOT NULL,officer_role text NOT NULL,
-  action_code text NOT NULL,reason text NOT NULL,idempotency_key uuid NOT NULL,
-  message_id uuid NOT NULL,UNIQUE(request_id,officer_uid,idempotency_key)
-);
-INSERT INTO payment_sync.settings VALUES(true,'OFFICE_SQL');
-INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
-  ('80000000-0000-4000-8000-000000000011','MAKER',true),
-  ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
-  ('80000000-0000-4000-8000-000000000013','APPROVER',true);
-
+-- The fixture is idempotent for the existing Office SQL workflow as well as PG17.
 CREATE TEMP TABLE correction_test_state(
   stage text PRIMARY KEY,message_id uuid NOT NULL,claim_token uuid
 ) ON COMMIT DROP;
 GRANT SELECT,INSERT,UPDATE ON correction_test_state TO authenticated,service_role;
 
 DO $ingest$
-DECLARE v_event jsonb; v_result jsonb; v_payload jsonb;
+DECLARE v_event jsonb; v_result jsonb; v_payload jsonb; v_invalid jsonb; v_conflict jsonb;
 BEGIN
   v_event := pg_catalog.jsonb_build_object(
     'schemaVersion','1.0.0','eventId','80000000-0000-4000-8000-000000000001',
@@ -51,12 +23,33 @@ BEGIN
       'originalReceiptVerified',false,'mayChangeFinancialRecords',false,
       'changeKind','CIRCLE','oldValue','Circle A','newValue','Circle B',
       'createdAt','2026-10-29T17:00:00.000Z'));
+  v_invalid := pg_catalog.jsonb_set(v_event,'{eventId}',
+    pg_catalog.to_jsonb('80000000-0000-4000-8000-000000000003'::text));
+  v_invalid := pg_catalog.jsonb_set(v_invalid,'{payload}',(v_event->'payload')-'originalReference');
+  BEGIN
+    PERFORM public.payment_v1_internal_ingest_correction(v_invalid);
+    RAISE EXCEPTION 'Missing correction field was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Invalid or over-scoped correction payload' THEN RAISE; END IF;
+  END;
+  IF EXISTS (SELECT 1 FROM payment_sync.correction_inbox
+      WHERE event_id='80000000-0000-4000-8000-000000000003') THEN
+    RAISE EXCEPTION 'Invalid correction event was persisted';
+  END IF;
   v_result := public.payment_v1_internal_ingest_correction(v_event);
   IF v_result->>'stored'<>'true' OR v_result->>'duplicate'<>'false' THEN
     RAISE EXCEPTION 'Correction intake was not stored';
   END IF;
   v_result := public.payment_v1_internal_ingest_correction(v_event);
   IF v_result->>'duplicate'<>'true' THEN RAISE EXCEPTION 'Correction intake replay was not idempotent'; END IF;
+  v_conflict := pg_catalog.jsonb_set(v_event,'{payload,reason}',
+    pg_catalog.to_jsonb('Changed payload must not reuse an event identifier'::text));
+  BEGIN
+    PERFORM public.payment_v1_internal_ingest_correction(v_conflict);
+    RAISE EXCEPTION 'Conflicting correction event replay was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Conflicting correction event replay' THEN RAISE; END IF;
+  END;
   SELECT inquiry_payload INTO v_payload FROM payment_sync.correction_mirrors
     WHERE inquiry_id='80000000-0000-4000-8000-000000000002';
   IF v_payload IS NULL OR v_payload ? 'requesterUid' OR v_payload ? 'requester_uid'
@@ -72,10 +65,32 @@ END;
 $ingest$;
 
 SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000014',true);
+DO $unassigned_officer$
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_correction_queue(200);
+    RAISE EXCEPTION 'Unassigned user received correction queue access';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Active payment officer role required' THEN RAISE; END IF;
+  END;
+END;
+$unassigned_officer$;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $maker$
 DECLARE v_queue jsonb; v_action jsonb; v_repeat jsonb;
 BEGIN
+  BEGIN
+    PERFORM public.payment_v1_correction_officer_action(
+      '80000000-0000-4000-8000-000000000002','REVIEWER_VERIFY',
+      'Maker must not use a reviewer action','80000000-0000-4000-8000-000000000020');
+    RAISE EXCEPTION 'Incorrect officer role was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Officer role cannot perform this action' THEN RAISE; END IF;
+  END;
   v_queue := public.payment_v1_correction_queue(200);
   IF v_queue->>'role'<>'MAKER' OR
      v_queue->'items'->0->'availableActions'<>'["MAKER_ACKNOWLEDGE"]'::jsonb THEN
@@ -115,12 +130,77 @@ UPDATE correction_test_state SET claim_token='80000000-0000-4000-8000-0000000000
 UPDATE payment_sync.control_outbox o SET claim_token=s.claim_token,delivery_state='IN_FLIGHT',attempts=attempts+1
   FROM correction_test_state s WHERE s.stage='MAKER' AND o.message_id=s.message_id;
 SET LOCAL ROLE service_role;
-SELECT public.payment_v1_internal_ack_correction_command(
-  (SELECT message_id FROM correction_test_state WHERE stage='MAKER'),
-  (SELECT claim_token FROM correction_test_state WHERE stage='MAKER'),true,
-  'MAKER_ACKNOWLEDGED',NULL);
+DO $maker_ack_failure$
+DECLARE v_message uuid := (SELECT message_id FROM correction_test_state WHERE stage='MAKER');
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_internal_ack_correction_command(
+      v_message,'80000000-0000-4000-8000-000000000039',true,'MAKER_ACKNOWLEDGED',NULL);
+    RAISE EXCEPTION 'Stale correction command claim was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Unknown or stale correction command claim' THEN RAISE; END IF;
+  END;
+  PERFORM public.payment_v1_internal_ack_correction_command(
+    v_message,'80000000-0000-4000-8000-000000000031',false,'MAKER_ACKNOWLEDGED',
+    'synthetic TaxPay network failure');
+END;
+$maker_ack_failure$;
 
+RESET ROLE;
+DO $maker_failed_state$
+DECLARE v_state text; v_attempts integer; v_claim uuid; v_error text; v_retry timestamptz;
+BEGIN
+  SELECT delivery_state,attempts,claim_token,last_error,next_attempt_at
+    INTO v_state,v_attempts,v_claim,v_error,v_retry
+    FROM payment_sync.control_outbox
+    WHERE message_id=(SELECT message_id FROM correction_test_state WHERE stage='MAKER');
+  IF v_state IS DISTINCT FROM 'FAILED' OR v_attempts<>1 OR v_claim IS NOT NULL
+     OR v_error IS DISTINCT FROM 'synthetic TaxPay network failure' OR v_retry<=now()
+     OR (SELECT review_state FROM payment_sync.correction_mirrors
+         WHERE inquiry_id='80000000-0000-4000-8000-000000000002')
+         IS DISTINCT FROM 'PENDING_OFFICER' THEN
+    RAISE EXCEPTION 'Office did not durably hold the review stage after delivery failure';
+  END IF;
+END;
+$maker_failed_state$;
+UPDATE payment_sync.control_outbox
+SET delivery_state='IN_FLIGHT',attempts=attempts+1,next_attempt_at=now(),
+    claim_token='80000000-0000-4000-8000-000000000034'
+WHERE message_id=(SELECT message_id FROM correction_test_state WHERE stage='MAKER');
+
+SET LOCAL ROLE service_role;
+DO $maker_ack_retry$
+DECLARE v_message uuid := (SELECT message_id FROM correction_test_state WHERE stage='MAKER');
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_internal_ack_correction_command(
+      v_message,'80000000-0000-4000-8000-000000000031',true,'MAKER_ACKNOWLEDGED',NULL);
+    RAISE EXCEPTION 'Old correction claim was accepted after retry';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Unknown or stale correction command claim' THEN RAISE; END IF;
+  END;
+  PERFORM public.payment_v1_internal_ack_correction_command(
+    v_message,'80000000-0000-4000-8000-000000000034',true,'MAKER_ACKNOWLEDGED',NULL);
+END;
+$maker_ack_retry$;
+
+RESET ROLE;
 SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
+DO $stale_maker_stage$
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_correction_officer_action(
+      '80000000-0000-4000-8000-000000000002','MAKER_ACKNOWLEDGE',
+      'A stale Maker action must not be replayed as a new stage',
+      '80000000-0000-4000-8000-000000000040');
+    RAISE EXCEPTION 'Stale Maker stage was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Correction review sequence mismatch' THEN RAISE; END IF;
+  END;
+END;
+$stale_maker_stage$;
+
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000012',true);
 DO $reviewer$
 DECLARE v_queue jsonb; v_action jsonb;
