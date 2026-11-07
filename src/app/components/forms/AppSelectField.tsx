@@ -7,6 +7,9 @@ interface SelectOption {
   /** Per-option availability; optional so existing shared consumers are unchanged. */
   disabled?: boolean;
   title?: string;
+  /** Optional group label and secondary line for long searchable catalogues. */
+  group?: string;
+  secondary?: string;
   /** Optional menu-row class for a context-specific action. */
   className?: string;
 }
@@ -26,7 +29,7 @@ interface AppSelectFieldProps {
   ariaLabel?: string;
   /** Sort non-empty options alphabetically by their visible label. */
   sortOptions?: boolean;
-  /** Switch to a searchable autocomplete when non-empty options exceed this count. */
+  /** Searchable for more than four choices by default; Infinity retains the native menu. */
   searchableAfter?: number;
   /** Optional controlled menu state for a separate, accessible add action. */
   selectOpen?: boolean;
@@ -52,7 +55,12 @@ export function AppSelectField({
     : normalizedRaw;
 
   const nonEmptyOptions = normalized.filter(option => option.value !== "");
-  const isSearchable = searchableAfter !== undefined && nonEmptyOptions.length > searchableAfter;
+  const isSearchable = searchableAfter !== undefined && !onSelectOpenChange && selectOpen === undefined &&
+    nonEmptyOptions.length > searchableAfter;
+  const grouped = nonEmptyOptions.some(option=>Boolean(option.group));
+  const autocompleteOptions = grouped
+    ? [...nonEmptyOptions].sort((a,b)=>(a.group??'').localeCompare(b.group??''))
+    : nonEmptyOptions;
 
   if (isSearchable) {
     const selectedOption = nonEmptyOptions.find(option => option.value === value) ?? null;
@@ -60,15 +68,26 @@ export function AppSelectField({
     return (
       <Autocomplete
         id={id}
-        options={nonEmptyOptions}
+        options={autocompleteOptions}
+        groupBy={grouped ? option => option.group ?? "" : undefined}
         value={selectedOption}
         onChange={(_, option) => onChange(option?.value ?? "")}
         getOptionLabel={(option) => option.label}
+        renderOption={(props, option) => (
+          <li {...props} key={option.value} title={option.title} className={[props.className,option.className].filter(Boolean).join(' ')}>
+            <span className="block min-w-0">
+              <span className="block">{option.label}</span>
+              {option.secondary && <span className="block text-xs text-[var(--color-text-secondary)]">{option.secondary}</span>}
+            </span>
+          </li>
+        )}
         getOptionDisabled={(option) => !!option.disabled}
         isOptionEqualToValue={(option, selected) => option.value === selected.value}
         disabled={disabled}
         fullWidth
         autoHighlight
+        slotProps={{popper:{placement:'bottom-start',modifiers:[{name:'flip',enabled:false}]}}}
+        ListboxProps={{style:{maxHeight:240,overscrollBehavior:"contain"}}}
         renderInput={(params) => (
           <TextField
             {...params}
