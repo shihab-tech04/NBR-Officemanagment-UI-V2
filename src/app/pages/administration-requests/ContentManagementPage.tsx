@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getTaxPayCmsClient, getTaxPayCmsPublicClient, restorePreviouslyVerifiedCmsSession } from '../../services/taxpayCmsClient';
+import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { callOfficeCmsBridge, getOfficeCmsAuthClient, isVerifiedOfficeCmsPublisher } from '../../services/officeCmsBridge';
 import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
@@ -86,20 +87,14 @@ export function ContentManagementPage() {
   const [deleteRequested, setDeleteRequested] = useState(false);
 
   const refreshSession = useCallback(async () => {
-    if (!cms) { setAuthState('signed-out'); setAuthUid(null); return null; }
-    let { data: { session }, error: sessionError } = await cms.auth.getSession();
-    if (sessionError) throw sessionError;
-    if (!session && await restorePreviouslyVerifiedCmsSession()) {
-      // Recover an earlier valid publisher session without another login.
-      ({ data: { session }, error: sessionError } = await cms.auth.getSession());
-      if (sessionError) throw sessionError;
-    }
-    if (!session) { setAuthUid(null); setAuthState('signed-out'); return null; }
-    const { data: isAdmin, error: accessError } = await cms.rpc('taxpay_is_verified_portal_admin');
-    if (accessError) throw accessError;
-    setAuthUid(isAdmin ? session.user.id : null);
-    setAuthState(isAdmin ? 'authorized' : 'denied');
-    return isAdmin ? session.user.id : null;
+    // No TaxPay administrator sign-in. Server checks Office Auth independently.
+    const allowed = await isVerifiedOfficeCmsPublisher();
+    const { data: { session }, error } = await getOfficeCmsAuthClient().auth.getSession();
+    if (error) throw error;
+    const id = allowed ? (session?.user.id || null) : null;
+    setAuthUid(id);
+    setAuthState(id ? 'authorized' : session ? 'denied' : 'signed-out');
+    return id;
   }, []);
 
   useEffect(() => {
@@ -108,18 +103,23 @@ export function ContentManagementPage() {
       if (active) { setAuthUid(null); setAuthState('denied'); setMessage((error as Error).message); }
     }); };
     update();
-    const { data: { subscription } } = cms?.auth.onAuthStateChange(() => {
-      // Let the Supabase auth callback finish before checking RLS membership.
+    const { data: { subscription } } = getOfficeCmsAuthClient().auth.onAuthStateChange(() => {
       queueMicrotask(update);
-    }) ?? { data: { subscription: null } };
+    });
     return () => { active = false; subscription?.unsubscribe(); };
   }, [refreshSession]);
 
   const refresh = async (): Promise<Banner[]> => {
     if (!cms) { setBanners([]); setSelectedId(null); return []; }
-    const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
-    if (error) throw error;
-    const next = (data || []) as Banner[];
+    let next: Banner[];
+    if (authState === 'authorized') {
+      const result = await callOfficeCmsBridge<{banners:Banner[]}>('list-banners');
+      next = result.banners;
+    } else {
+      const { data, error } = await cms.from('taxpay_site_banners').select('*').order('sort_order').order('id');
+      if (error) throw error;
+      next = (data || []) as Banner[];
+    }
     setBanners(next);
     setSelectedId(id => id && (next.some(row => row.id === id) || newDraft?.id === id) ? id : next[0]?.id || null);
     return next;
@@ -234,33 +234,6 @@ export function ContentManagementPage() {
     setMessage('');
   }
 
-  async function uploadImage(file: File, bannerId: string, publisherUid: string): Promise<string> {
-    if (!cms || !publisherUid) throw new Error('Your Office session does not have content publishing permission.');
-    if (!IMAGE_FILE_ACCEPT.includes(file.type) || file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
-      throw new Error('Select a cropped PNG or JPEG image up to 5 MB.');
-    }
-    const ext = file.type === 'image/png' ? 'png' : 'jpg';
-    const key = `banners/${bannerId}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await cms.storage.from('taxpay-banners').upload(key, file, {
-      cacheControl: '3600', upsert: false, contentType: file.type,
-    });
-    if (error) throw error;
-    return key;
-  }
-
-  async function cleanupUnusedImages(paths: string[]) {
-    if (!cms || !paths.length) return;
-    const { data, error } = await cms.from('taxpay_site_banners')
-      .select('desktop_image_path, mobile_image_path');
-    if (error) throw error;
-    const unused = paths.filter(path => !(data || []).some(row =>
-      row.desktop_image_path === path || row.mobile_image_path === path,
-    ));
-    if (!unused.length) return;
-    const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(unused);
-    if (cleanupError) throw cleanupError;
-  }
-
   async function save(publisherUid: string) {
     if (!cms || !draft || !publisherUid || busy) return;
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
@@ -268,103 +241,69 @@ export function ContentManagementPage() {
       return;
     }
     setBusy(true); setMessage('');
-    const uploads: string[] = [];
     let committed = false;
-    let publicVerified = false;
     let committedRow: Banner | null = null;
     try {
-      let desktopPath = draft.desktop_image_path;
-      let mobilePath = draft.mobile_image_path;
-      if (desktopFile) { desktopPath = await uploadImage(desktopFile, draft.id, publisherUid); uploads.push(desktopPath); }
-      if (mobileFile) { mobilePath = await uploadImage(mobileFile, draft.id, publisherUid); uploads.push(mobilePath); }
-      // Validate freshly uploaded public images BEFORE a banner record references them.
-      const publicCms = getTaxPayCmsPublicClient();
-      if (!publicCms) throw new Error('Public TaxPay verification is not configured.');
-      for (const path of uploads) await verifyPublicImage(publicCms, 'taxpay-banners', path);
       const isNew = newDraft?.id === draft.id;
       const payload = {
-        id: draft.id,
-        service_code: draft.service_code,
-        heading_en: draft.heading_en,
-        heading_bn: draft.heading_bn,
-        description_en: draft.description_en,
-        description_bn: draft.description_bn,
-        mobile_heading_en: draft.mobile_heading_en,
-        mobile_heading_bn: draft.mobile_heading_bn,
-        mobile_description_en: draft.mobile_description_en,
-        mobile_description_bn: draft.mobile_description_bn,
-        action_en: draft.action_en,
-        action_bn: draft.action_bn,
-        desktop_image_path: desktopPath,
-        mobile_image_path: mobilePath,
-        published: draft.published,
+        id:draft.id, service_code:draft.service_code,
+        heading_en:draft.heading_en, heading_bn:draft.heading_bn,
+        description_en:draft.description_en, description_bn:draft.description_bn,
+        mobile_heading_en:draft.mobile_heading_en, mobile_heading_bn:draft.mobile_heading_bn,
+        mobile_description_en:draft.mobile_description_en, mobile_description_bn:draft.mobile_description_bn,
+        action_en:draft.action_en, action_bn:draft.action_bn,
+        desktop_image_path:draft.desktop_image_path, mobile_image_path:draft.mobile_image_path,
+        published:draft.published,
       };
-      const { data: saved, error } = await cms.rpc('taxpay_save_banner', {
-        p_banner: payload,
-        p_expected_version: isNew ? null : draft.version,
-        p_position: desiredPosition,
-      });
-      if (error) throw error;
-      // A successful RPC can have committed even if the follow-up read fails.
-      // Never delete uploaded assets or retry an already committed write.
+      const { banner:saved } = await callOfficeCmsBridge<{banner:Banner}>(
+        'publish-banner', {
+          banner:JSON.stringify(payload), expectedVersion:isNew?undefined:draft.version,
+          position:desiredPosition,
+        }, { desktop:desktopFile, mobile:mobileFile },
+      );
       committed = true;
-      committedRow = saved as Banner | null;
-      const matchesPayload = (value: Banner | null): value is Banner =>
-        !!value && Object.entries(payload).every(([key, expected]) =>
-          value[key as keyof Banner] === expected);
-      const result = saved as Banner | null;
-      if (!matchesPayload(result) || (!isNew && result.version <= draft.version)) {
+      committedRow = saved;
+      const matchesPayload = (value: Banner | null): value is Banner => !!value &&
+        Object.entries(payload).every(([key, expected]) =>
+          (key==='desktop_image_path' && desktopFile) || (key==='mobile_image_path' && mobileFile)
+            ? true : value[key as keyof Banner]===expected);
+      if (!matchesPayload(saved) || (!isNew && saved.version<=draft.version)) {
         throw new Error('SQL returned an unexpected banner. Refresh to verify before editing again.');
       }
-      // Independently read the committed row back through the same RLS-bound
-      // client. Do not claim a public publish from a successful RPC alone.
-      const persisted = (await refresh()).find(row => row.id === draft.id) || null;
-      if (!matchesPayload(persisted) || persisted.version !== result.version ||
-          persisted.sort_order !== desiredPosition - 1) {
+      const persisted = (await refresh()).find(row=>row.id===draft.id) || null;
+      if (!matchesPayload(persisted) || persisted.version!==saved.version ||
+          persisted.sort_order!==desiredPosition-1 ||
+          persisted.desktop_image_path!==saved.desktop_image_path ||
+          persisted.mobile_image_path!==saved.mobile_image_path) {
         throw new Error('SQL read-back did not match the published banner. Refresh to verify.');
       }
-      // Verify what an anonymous TaxPay visitor can read, not just Office RLS.
+      const publicCms=getTaxPayCmsPublicClient();
+      if(!publicCms) throw new Error('Public TaxPay verification is not configured.');
       const { data: publicRows, error: publicError } = await publicCms.from('taxpay_site_banners')
-        .select('*').eq('published', true).order('sort_order', { ascending: true });
-      if (publicError) throw new Error('Public TaxPay read-back failed: ' + publicError.message);
-      const publicRow = (publicRows || []).find(row => row.id === draft.id) || null;
+        .select('*').eq('published',true).order('sort_order',{ascending:true});
+      if(publicError) throw new Error('Public TaxPay read-back failed: '+publicError.message);
+      const publicRow=(publicRows||[]).find(row=>row.id===draft.id)||null;
       if (draft.published
-        ? !matchesPayload(publicRow as Banner | null) || publicRow?.version !== persisted.version ||
-          publicRow?.sort_order !== persisted.sort_order
-        : publicRow !== null) {
+        ? !matchesPayload(publicRow as Banner | null) || publicRow?.version!==persisted.version ||
+          publicRow?.sort_order!==persisted.sort_order ||
+          publicRow?.desktop_image_path!==saved.desktop_image_path ||
+          publicRow?.mobile_image_path!==saved.mobile_image_path
+        : publicRow!==null) {
         throw new Error('Public TaxPay visibility does not match the committed SQL banner.');
       }
       if (draft.published) {
-        // SQL path equality is not evidence that the public asset can load.
-        for (const path of new Set([desktopPath, mobilePath].filter((value): value is string => !!value))) {
-          await verifyPublicImage(publicCms, 'taxpay-banners', path);
-        }
+        for(const path of new Set([saved.desktop_image_path,saved.mobile_image_path].filter((p):p is string=>!!p)))
+          await verifyPublicImage(publicCms,'taxpay-banners',path);
       }
-      publicVerified = true;
       setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
-      const oldPaths = [draft.desktop_image_path, draft.mobile_image_path].filter(
-        (path): path is string => !!path && ![desktopPath, mobilePath].includes(path),
-      );
-      await cleanupUnusedImages(oldPaths);
-      setMessage(previous => previous || 'Saved to SQL; public TaxPay text and images verified.');
-    } catch (error) {
-      let cleanupFailed = false;
-      if (!committed && uploads.length) {
-        const { error: cleanupError } = await cms.storage.from('taxpay-banners').remove(uploads);
-        cleanupFailed = !!cleanupError;
+      setMessage('Saved to SQL; public TaxPay text and images verified.');
+    } catch(error) {
+      if(committedRow?.id) {
+        setDraft(committedRow); setSelectedId(committedRow.id);
+        setDesiredPosition(committedRow.sort_order+1); setNewDraft(null);
       }
-      // A committed version must replace the stale editor version before retry.
-      if (committedRow?.id) {
-        setDraft(committedRow);
-        setSelectedId(committedRow.id);
-        setDesiredPosition(committedRow.sort_order + 1);
-        setNewDraft(null);
-      }
-      setMessage(committed
-        ? (publicVerified ? 'Published and public read-back verified; image cleanup incomplete: ' :
-          'Saved in SQL, public verification incomplete: ') + (error as Error).message
-        : (cleanupFailed ? 'Save failed; uploaded asset cleanup incomplete: ' : 'Save not completed: ') +
-          (error as Error).message);
+      setMessage((committed?'Saved in SQL, public verification incomplete: ':'Save not completed: ')+
+        (error as Error).message);
     } finally { setBusy(false); }
   }
 
@@ -373,28 +312,23 @@ export function ContentManagementPage() {
     setBusy(true); setMessage('');
     let removed = false;
     try {
-      const { data, error } = await cms.from('taxpay_site_banners').delete()
-        .eq('id', draft.id).eq('version', draft.version).select('id').maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('This banner changed in another session. Reload before deleting.');
+      const { removed: confirmed } = await callOfficeCmsBridge<{removed:string}>(
+        'delete-banner', { bannerId:draft.id,expectedVersion:draft.version },
+      );
+      if (confirmed!==draft.id) throw new Error('Banner deletion was not confirmed.');
       removed = true;
-      const paths = [draft.desktop_image_path, draft.mobile_image_path].filter((path): path is string => !!path);
       setNewDraft(null); setEditing(false);
-      const remaining = await refresh();
-      if (remaining.some(row => row.id === draft.id)) {
-        throw new Error('Deleted banner remains visible in Office SQL read-back.');
-      }
-      const publicCms = getTaxPayCmsPublicClient();
-      if (!publicCms) throw new Error('Public TaxPay read-back is not configured.');
-      const { data: publicRow, error: publicError } = await publicCms.from('taxpay_site_banners')
-        .select('id').eq('published', true).eq('id', draft.id).maybeSingle();
-      if (publicError || publicRow) throw new Error('Public TaxPay still shows the removed banner.');
-      await cleanupUnusedImages(paths);
+      const remaining=await refresh();
+      if(remaining.some(row=>row.id===draft.id)) throw new Error('Deleted banner remains in Office read-back.');
+      const publicCms=getTaxPayCmsPublicClient();
+      if(!publicCms) throw new Error('Public TaxPay read-back is not configured.');
+      const { data:publicRow,error:publicError }=await publicCms.from('taxpay_site_banners')
+        .select('id').eq('published',true).eq('id',draft.id).maybeSingle();
+      if(publicError||publicRow) throw new Error('Public TaxPay still shows the removed banner.');
       setMessage('Banner deletion verified in Office SQL and public TaxPay.');
-    } catch (error) {
-      setMessage((removed
-        ? 'Banner deleted from SQL, but refresh or image cleanup failed: '
-        : 'Delete not completed: ') + (error as Error).message);
+    } catch(error) {
+      setMessage((removed?'Banner deleted from SQL, but public verification failed: ':'Delete not completed: ')+
+        (error as Error).message);
     } finally { setBusy(false); }
   }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
