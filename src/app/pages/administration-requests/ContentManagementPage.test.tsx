@@ -177,7 +177,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(deps.bridge).not.toHaveBeenCalledWith('publish-banner', expect.anything(), expect.anything());
   });
 
-  it('publishes an edited banner with one click through the existing verified SQL session', async () => {
+  it('does not claim image verification when publishing banner text without uploaded images', async () => {
     const { client, publicClient, rpc } = makeClient(true);
     deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
     const { ContentManagementPage } = await import('./ContentManagementPage');
@@ -190,7 +190,8 @@ describe('verified TaxPay banner CMS', () => {
     await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
       expect.objectContaining({ banner: expect.stringContaining('Single-click verified banner') }),
       expect.any(Object))); 
-    expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
+    expect(await screen.findByText(/public TaxPay text verified\. Both image slots still use the approved artwork fallback/)).toBeInTheDocument();
+    expect(screen.queryByText(/images verified/)).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
   });
 
@@ -216,10 +217,29 @@ describe('verified TaxPay banner CMS', () => {
       'banners/intro/desktop-00000000-0000-4000-8000-000000000001.png',
       'banners/intro/mobile-00000000-0000-4000-8000-000000000001.png',
     ];
-    expect(await screen.findByText(/Saved to SQL; public TaxPay text and images verified/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved to SQL; public TaxPay text and desktop\/mobile images verified/)).toBeInTheDocument();
     for (const path of paths) {
       expect(vi.mocked(verifyPublicImage)).toHaveBeenCalledWith(publicClient, 'taxpay-banners', path);
     }
+  });
+
+  it('reports a missing banner image slot when only one image was uploaded', async () => {
+    const { client, publicClient } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const input = container.querySelector('.cms-upload--desktop input[type=\"file\"]') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    await user.upload(input!, new File([new Uint8Array(256)], 'desktop.png', { type: 'image/png' }));
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
+      expect.objectContaining({ expectedVersion: 8, position: 1 }),
+      expect.objectContaining({ desktop: expect.any(File), mobile: null })));
+    expect(await screen.findByText(/public TaxPay text and the uploaded image verified\. The other slot still uses the approved artwork fallback/)).toBeInTheDocument();
+    expect(vi.mocked(verifyPublicImage)).toHaveBeenCalledTimes(1);
   });
 
   it('shows published data but does not expose write controls to a non-admin SQL session', async () => {
@@ -312,7 +332,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Publicly verified headline');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
+    expect(await screen.findByText(/public TaxPay text verified\. Both image slots still use the approved artwork fallback/)).toBeInTheDocument();
     expect(publicClient.from).toHaveBeenCalledWith('taxpay_site_banners');
     expect(deps.createClient).toHaveBeenCalledWith('https://cms.test.supabase.co', 'sb_publishable_test',
       expect.objectContaining({ auth: expect.objectContaining({ persistSession: false, autoRefreshToken: false }) }));

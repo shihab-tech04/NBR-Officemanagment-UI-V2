@@ -296,7 +296,15 @@ export function ContentManagementPage() {
           await verifyPublicImage(publicCms,'taxpay-banners',path);
       }
       setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
-      setMessage('Saved to SQL; public TaxPay text and images verified.');
+      const uploadedImageCount = [saved.desktop_image_path, saved.mobile_image_path]
+        .filter((path): path is string => !!path).length;
+      setMessage(!draft.published
+        ? 'Saved to SQL; banner remains unpublished.'
+        : uploadedImageCount === 2
+          ? 'Saved to SQL; public TaxPay text and desktop/mobile images verified.'
+          : uploadedImageCount === 1
+            ? 'Saved to SQL; public TaxPay text and the uploaded image verified. The other slot still uses the approved artwork fallback.'
+            : 'Saved to SQL; public TaxPay text verified. Both image slots still use the approved artwork fallback.');
     } catch(error) {
       if(committedRow?.id) {
         setDraft(committedRow); setSelectedId(committedRow.id);
