@@ -1,17 +1,45 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
-import { Globe } from "lucide-react";
+import { Eye, EyeOff, Globe } from "lucide-react";
+import { Checkbox, FormControlLabel, IconButton, InputAdornment } from "@mui/material";
 import svgPaths from "../../../imports/CompanyAdminLogin/svg-mhvw7bsa5p";
 import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
 import { hasVerifiedCmsPublisherSession } from "../../services/taxpayCmsClient";
-import { getOfficeCmsAuthClient } from "../../services/officeCmsBridge";
-import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
+import { getOfficeCmsAuthClient, readRememberOfficeSession, setRememberOfficeSession } from "../../services/officeCmsBridge";
+import { PRIMARY_ADMIN_EMAIL, PRIMARY_ADMIN_LOGIN_ID } from "../../utils/primaryAdminIdentity";
 
 type RecoveryMode = "request" | "complete";
+
+type PasswordFieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  autoComplete: string;
+  onKeyDown?: (event: React.KeyboardEvent) => void;
+};
+
+/** Standard accessible show/hide control; the password is never copied or stored by this control. */
+function PasswordField({ id, label, value, onChange, placeholder, autoComplete, onKeyDown }: PasswordFieldProps) {
+  const { t } = useTranslation("auth");
+  const [visible, setVisible] = useState(false);
+  return <AppTextField id={id} type={visible ? "text" : "password"} label={label}
+    placeholder={placeholder} value={value} onChange={onChange}
+    autoComplete={autoComplete} onKeyDown={onKeyDown}
+    endAdornment={<InputAdornment position="end">
+      <IconButton type="button" edge="end" size="small"
+        aria-label={t(visible ? "login.hidePassword" : "login.showPassword")}
+        aria-pressed={visible} onClick={() => setVisible(current => !current)}>
+        {visible ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+      </IconButton>
+    </InputAdornment>}
+  />;
+}
 
 /** Keep password recovery inside the approved Office sign-in card.
  * Only Supabase Auth can issue a reset link and accept a new password;
@@ -110,11 +138,11 @@ function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () 
           <p role="alert" className="text-[14px] text-[var(--color-error)]">{t("login.resetLinkInvalid")}</p>
           <button type="button" className="login-form-submit" onClick={onBack}>{t("login.resetBack")}</button>
         </> : <>
-          <AppTextField id="cms-recovery-password" type="password"
+          <PasswordField id="cms-recovery-password"
             label={t("login.newPassword")} placeholder={t("login.newPassword")}
             value={newPassword} autoComplete="new-password"
             onChange={value => { setNewPassword(value); setError(""); }} />
-          <AppTextField id="cms-recovery-confirm" type="password"
+          <PasswordField id="cms-recovery-confirm"
             label={t("login.confirmPassword")} placeholder={t("login.confirmPassword")}
             value={confirmPassword} autoComplete="new-password"
             onChange={value => { setConfirmPassword(value); setError(""); }} />
@@ -129,7 +157,7 @@ function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () 
 
 interface LoginFormProps {
   isDesktop: boolean;
-  onOfficeEnter?: () => void;
+  onOfficeEnter?: (remembered?: boolean) => void;
 }
 
 export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
@@ -141,6 +169,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const [userId, setUserId] = useState("");
   const [resetRequested, setResetRequested] = useState(false);
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => readRememberOfficeSession());
   const [entryError, setEntryError] = useState(false);
   const [sharedError, setSharedError] = useState("");
   const [sharedBusy, setSharedBusy] = useState(false);
@@ -183,7 +212,10 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
       }
       return;
     }
-    if (userId.trim().toLowerCase() !== "admin") { setEntryError(true); return; }
+    const identifier = userId.trim().toLowerCase();
+    const usingOfficeEmail = identifier === PRIMARY_ADMIN_EMAIL.toLowerCase();
+    const usingAdminAlias = identifier === PRIMARY_ADMIN_LOGIN_ID.toLowerCase();
+    if (!usingOfficeEmail && !usingAdminAlias) { setEntryError(true); return; }
     setEntryError(false);
     // The existing Office prototype remains password-optional everywhere
     // except its public-facing TaxPay publishing workspace. If a password
@@ -195,14 +227,17 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
         throw new Error("Office content service is unavailable. Publishing access cannot be verified.");
       }
       if (cms && password) {
+        const previousRemember = readRememberOfficeSession();
+        setRememberOfficeSession(rememberMe);
         const { data, error } = await cms.auth.signInWithPassword({
           email: PRIMARY_ADMIN_EMAIL, password,
         });
         if (error || !data?.session?.user?.id) {
-          throw new Error("Office sign-in failed. Check your password and try again.");
+          setRememberOfficeSession(previousRemember);
+          throw new Error("Office sign-in failed. Check your Office Supabase email/password and try again.");
         }
       }
-      if (password || cmsEntry) {
+      if (password || cmsEntry || usingOfficeEmail) {
         const mayPublish = await hasVerifiedCmsPublisherSession();
         if (!mayPublish) {
           if (password && cms) {
@@ -212,8 +247,10 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           throw new Error(translate("login.publisherPasswordRequired"));
         }
       }
+      // A cached verified Office session may be reused without another login.
+      if (!password && (cmsEntry || usingOfficeEmail)) setRememberOfficeSession(rememberMe);
       setPassword("");
-      onOfficeEnter?.();
+      onOfficeEnter?.(rememberMe && (Boolean(password) || cmsEntry || usingOfficeEmail));
       navigate(cmsEntry ? "/administration/content-management" : "/dashboard/dashboard-main");
     } catch (error) {
       setSharedError(error instanceof Error ? error.message : "Office sign-in could not be verified. Please retry.");
@@ -264,28 +301,35 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           {showRecovery ? <CmsPasswordRecovery mode={recovering ? "complete" : "request"} onBack={cancelRecovery} /> : <div className="flex flex-col gap-5">
             <AppTextField
               id="login-user-id"
-              label={sharedMode ? "Officer email" : translate("login.userId")}
+              label={sharedMode ? "Officer email" : cmsEntry ? translate("login.userIdOrEmail") : translate("login.userId")}
               value={userId}
               onChange={value => { setUserId(value); setEntryError(false); setSharedError(""); }}
               onKeyDown={handleKeyDown}
-              placeholder={sharedMode ? "Enter your authorized email" : translate("login.userIdPlaceholder")}
-              autoComplete={sharedMode ? "username" : "off"}
+              placeholder={sharedMode ? "Enter your authorized email" : translate(cmsEntry ? "login.userIdOrEmailPlaceholder" : "login.userIdPlaceholder")}
+              autoComplete="username"
               error={!sharedMode && entryError ? translate("login.adminOnly") : undefined}
             />
-            <AppTextField
+            <PasswordField
               id="login-password"
-              type="password"
               label={translate("login.password")}
               placeholder={sharedMode ? "Password" : translate(cmsEntry ? "login.passwordPlaceholder" : "login.passwordOptionalPlaceholder")}
               value={password}
               onChange={value => { setPassword(value); setSharedError(""); }}
               autoComplete="current-password"
             />
-            {cmsEntry && <button type="button"
-              className="self-end text-[14px] underline text-[var(--color-text-secondary)]"
-              onClick={() => { setSharedError(""); setResetRequested(true); }}>
-              {translate("login.forgotPassword")}
-            </button>}
+            {!sharedMode && <div className="flex items-center justify-between flex-wrap gap-2">
+              <FormControlLabel
+                sx={{ marginLeft: 0, marginRight: 0 }}
+                control={<Checkbox size="small" checked={rememberMe}
+                  onChange={(_, checked) => setRememberMe(checked)} />}
+                label={<span className="text-[14px] text-[var(--color-text-secondary)]">{translate("login.rememberMe")}</span>}
+              />
+              {cmsEntry && <button type="button"
+                className="text-[14px] underline text-[var(--color-text-secondary)]"
+                onClick={() => { setSharedError(""); setResetRequested(true); }}>
+                {translate("login.forgotPassword")}
+              </button>}
+            </div>}
             <button
               type="button"
               onClick={() => { void handleSignIn(); }}

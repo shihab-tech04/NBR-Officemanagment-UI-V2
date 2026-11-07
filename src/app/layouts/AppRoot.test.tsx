@@ -6,6 +6,7 @@ import { AppRoot } from "./AppRoot";
 
 const shared = vi.hoisted(() => ({
   enabled: false,
+  remembered: false,
   checkAccess: vi.fn(),
   signOut: vi.fn(),
   cmsSignOut: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
   }),
 }));
 vi.mock("../services/officeCmsBridge", () => ({
+  readRememberOfficeSession: () => shared.remembered,
   getOfficeCmsAuthClient: () => ({ auth: { signOut: (...args: unknown[]) => shared.cmsSignOut(...args) } }),
 }));
 vi.mock("../services/taxpayCmsClient", () => ({
@@ -47,6 +49,8 @@ vi.mock("../pages/auth/LoginPage", () => ({
 describe("Office UI entry and shared officer Auth lifecycle", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.localStorage.clear();
+    shared.remembered = false;
     window.history.replaceState(null, "", "/");
     vi.clearAllMocks();
     clearPendingCmsPublish();
@@ -213,6 +217,42 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
     expect(shared.hasVerified).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem("office_ui_entered")).toBe("admin");
+  });
+
+  it("restores Remember me only after server-verifying the Office publishing session", async () => {
+    shared.remembered = true;
+    window.localStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
+    shared.hasVerified.mockResolvedValue(true);
+    render(<AppRoot />);
+    expect(screen.getByRole("status")).toHaveTextContent("Verifying remembered Office access");
+    await waitFor(() => expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument());
+    expect(shared.hasVerified).toHaveBeenCalled();
+    expect(window.localStorage.getItem("office_ui_entered")).toBe("admin");
+  });
+
+  it("rejects a stale Remember me marker when Office Auth is revoked", async () => {
+    shared.remembered = true;
+    shared.hasVerified.mockResolvedValue(false);
+    window.localStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/administration/content-management");
+    render(<AppRoot />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument());
+    expect(window.localStorage.getItem("office_ui_entered")).toBeNull();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+  });
+
+  it("clears persistent and tab-local Office entry markers on sign-out", async () => {
+    const user = userEvent.setup();
+    shared.remembered = true;
+    window.localStorage.setItem("office_ui_entered", "admin");
+    window.history.replaceState(null, "", "/payments/transactions");
+    render(<AppRoot />);
+    await waitFor(() => expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument());
+    expect(window.localStorage.getItem("office_ui_entered")).toBeNull();
+    expect(window.sessionStorage.getItem("office_ui_entered")).toBeNull();
   });
 
 });

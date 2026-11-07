@@ -32,8 +32,17 @@ const cmsAuth = vi.hoisted(() => ({
   resetEmail: vi.fn(),
   getUser: vi.fn(),
   updatePassword: vi.fn(),
+  rememberPreference: false,
+  setRemember: vi.fn(),
 }));
-vi.mock('../../services/officeCmsBridge', () => ({ getOfficeCmsAuthClient: cmsAuth.getClient }));
+vi.mock('../../services/officeCmsBridge', () => ({
+  getOfficeCmsAuthClient: cmsAuth.getClient,
+  readRememberOfficeSession: () => cmsAuth.rememberPreference,
+  setRememberOfficeSession: (value: boolean) => {
+    cmsAuth.rememberPreference = value;
+    cmsAuth.setRemember(value);
+  },
+}));
 vi.mock('../../services/taxpayCmsClient', () => ({
   getTaxPayCmsClient: cmsAuth.getClient,
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => cmsAuth.hasVerified(...args),
@@ -71,6 +80,11 @@ vi.mock('react-i18next', () => ({
       'login.publisherPasswordRequired': 'Enter your authorized Office password to publish TaxPay content.',
       'login.userManual': 'Help & User Guide',
       'login.userId': 'User ID',
+      'login.userIdOrEmail': 'User ID or Office email',
+      'login.userIdOrEmailPlaceholder': 'Enter admin or your Office email',
+      'login.showPassword': 'Show password',
+      'login.hidePassword': 'Hide password',
+      'login.rememberMe': 'Remember me',
       'login.userIdPlaceholder': 'Enter your User ID',
       'login.signIn': 'Sign in',
       'login.needHelp': 'Demo workspace.',
@@ -93,6 +107,9 @@ describe('public Office re-entry after Sign Out', () => {
     mocks.search = "";
     cmsAuth.getClient.mockReturnValue(null);
     cmsAuth.hasVerified.mockResolvedValue(false);
+    cmsAuth.rememberPreference = false;
+    window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('uses the existing Office sign-in to authorize publishing without another login', async () => {
@@ -101,7 +118,7 @@ describe('public Office re-entry after Sign Out', () => {
     cmsAuth.hasVerified.mockResolvedValue(true);
     cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'existing-office-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -118,7 +135,7 @@ describe('public Office re-entry after Sign Out', () => {
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'anything');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('service is unavailable');
@@ -129,11 +146,11 @@ describe('public Office re-entry after Sign Out', () => {
   it('preserves the approved password-optional entry on other Office pages', async () => {
     const user = userEvent.setup();
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'officer');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'officer');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(screen.getByText('Enter admin to open the Office prototype.')).toBeInTheDocument();
-    await user.clear(screen.getByRole('textbox', { name: 'User ID' }));
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), ' admin ');
+    await user.clear(screen.getByRole('textbox', { name: /^User ID/ }));
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), ' admin ');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
     expect(cmsAuth.hasVerified).not.toHaveBeenCalled();
@@ -145,7 +162,7 @@ describe('public Office re-entry after Sign Out', () => {
     cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     const user = userEvent.setup();
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter your authorized Office password to publish TaxPay content');
     expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
@@ -160,7 +177,7 @@ describe('public Office re-entry after Sign Out', () => {
     cmsAuth.hasVerified.mockResolvedValue(true);
     cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'verified-publishing-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
@@ -177,7 +194,7 @@ describe('public Office re-entry after Sign Out', () => {
     cmsAuth.hasVerified.mockResolvedValue(true);
     cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
     expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
@@ -193,7 +210,7 @@ describe('public Office re-entry after Sign Out', () => {
       signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
     } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'incorrect-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Office sign-in failed');
@@ -211,7 +228,7 @@ describe('public Office re-entry after Sign Out', () => {
       signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn,
     } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'sql-account-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not have permission to publish TaxPay content');
@@ -228,7 +245,7 @@ describe('public Office re-entry after Sign Out', () => {
     cmsAuth.hasVerified.mockResolvedValue(false);
     cmsAuth.getClient.mockReturnValue({ auth: { signOut: cmsAuth.signOut, signInWithPassword: cmsAuth.signIn } });
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'revoked-session-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not have permission to publish TaxPay content');
@@ -241,7 +258,7 @@ describe('public Office re-entry after Sign Out', () => {
     const user = userEvent.setup();
     cmsAuth.getClient.mockReturnValue(null);
     render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
-    await user.type(screen.getByRole('textbox', { name: 'User ID' }), 'admin');
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
     await user.type(screen.getByLabelText('Password'), 'sql-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('service is unavailable');
@@ -379,6 +396,85 @@ describe('public Office re-entry after Sign Out', () => {
     await user.click(screen.getByRole('button', { name: 'Update password' }));
     expect(screen.getByRole('alert')).toHaveTextContent('do not match');
     expect(cmsAuth.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it('allows the new Office Supabase email to sign in and publish without typing admin', async () => {
+    mocks.pathname = '/administration/content-management';
+    const user = userEvent.setup();
+    cmsAuth.signIn.mockResolvedValue({ data: { session: { user: { id: 'new-office-user' } } }, error: null });
+    cmsAuth.hasVerified.mockResolvedValue(true);
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: 'User ID or Office email' }), 'SHIHABSHAJIB01@GMAIL.COM');
+    await user.type(screen.getByLabelText('Password'), 'registered-office-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledOnce());
+    expect(cmsAuth.signIn).toHaveBeenCalledWith({
+      email: 'shihabshajib01@gmail.com', password: 'registered-office-password',
+    });
+    expect(cmsAuth.hasVerified).toHaveBeenCalledOnce();
+    expect(mocks.navigate).toHaveBeenCalledWith('/administration/content-management');
+  });
+
+  it('rejects unknown email and wrong Office password without entering the workspace', async () => {
+    mocks.pathname = '/administration/content-management';
+    const user = userEvent.setup();
+    cmsAuth.signIn.mockResolvedValue({ data: { session: null }, error: new Error('Invalid login credentials') });
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    const id = screen.getByRole('textbox', { name: 'User ID or Office email' });
+    await user.type(id, 'other@example.com');
+    await user.type(screen.getByLabelText('Password'), 'some-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(screen.getByText('Enter admin to open the Office prototype.')).toBeInTheDocument();
+    expect(cmsAuth.signIn).not.toHaveBeenCalled();
+    await user.clear(id);
+    await user.type(id, 'shihabshajib01@gmail.com');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Office sign-in failed');
+    expect(cmsAuth.signIn).toHaveBeenCalledOnce();
+    expect(mocks.onOfficeEnter).not.toHaveBeenCalled();
+  });
+
+  it('offers the standard accessible password visibility toggle and never changes the password value', async () => {
+    const user = userEvent.setup();
+    render(<LoginForm isDesktop />);
+    const input = screen.getByLabelText('Password') as HTMLInputElement;
+    await user.type(input, 'office-secret-password');
+    expect(input.type).toBe('password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(input.type).toBe('text');
+    expect(input.value).toBe('office-secret-password');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(input.type).toBe('password');
+    expect(input.value).toBe('office-secret-password');
+  });
+
+  it('passes Remember me only for authenticated Office sessions, not password-free preview', async () => {
+    const user = userEvent.setup();
+    cmsAuth.signIn.mockResolvedValue({ data: { session: { user: { id: 'new-office-user' } } }, error: null });
+    cmsAuth.hasVerified.mockResolvedValue(true);
+    cmsAuth.getClient.mockReturnValue({ auth: { signInWithPassword: cmsAuth.signIn } });
+    render(<LoginForm isDesktop onOfficeEnter={mocks.onOfficeEnter} />);
+    await user.type(screen.getByRole('textbox', { name: /^User ID/ }), 'admin');
+    await user.click(screen.getByRole('checkbox', { name: 'Remember me' }));
+    expect(screen.getByRole('checkbox', { name: 'Remember me' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(mocks.onOfficeEnter).toHaveBeenCalledWith(false);
+    expect(cmsAuth.setRemember).not.toHaveBeenCalled();
+    mocks.onOfficeEnter.mockClear();
+    await user.type(screen.getByLabelText('Password'), 'valid-office-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(mocks.onOfficeEnter).toHaveBeenCalledWith(true));
+    expect(cmsAuth.setRemember).toHaveBeenCalledWith(true);
+    expect(cmsAuth.signIn).toHaveBeenCalledOnce();
+  });
+
+  it('does not expose Remember me on shared Audit officer sign-in', () => {
+    shared.enabled = true;
+    render(<LoginForm isDesktop />);
+    expect(screen.queryByRole('checkbox', { name: 'Remember me' })).not.toBeInTheDocument();
   });
 
 });
