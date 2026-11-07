@@ -197,14 +197,13 @@ export function BeneficiaryDirectoryPage(){
       </label>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-          <thead className="bg-slate-100"><tr><th className="p-3">{tr('Account','অ্যাকাউন্ট')}</th><th className="p-3">{tr('List','তালিকা')}</th><th className="p-3">{tr('TIN','টিআইএন')}</th><th className="p-3">{tr('Name','নাম')}</th><th className="p-3">{tr('Tag','ট্যাগ')}</th><th className="p-3">{tr('Relationship','সম্পর্ক')}</th></tr></thead>
+          <thead className="bg-slate-100"><tr><th className="p-3">{tr('Account','অ্যাকাউন্ট')}</th><th className="p-3">{tr('List','তালিকা')}</th><th className="p-3">{tr('TIN','টিআইএন')}</th><th className="p-3">{tr('Name','নাম')}</th><th className="p-3">{tr('Tag / relationship','ট্যাগ / সম্পর্ক')}</th></tr></thead>
           <tbody>{visible.map(person=><tr key={person.id} className="border-t border-slate-200">
             <td className="p-3 font-mono">{person.owner_uid.slice(0,8)}…</td>
             <td className="p-3">{names.get(person.list_id)??'—'}</td>
             <td className="p-3 font-mono">{person.tin||'—'}</td>
             <td className="p-3">{person.display_name||tr('Empty list','খালি তালিকা')}</td>
-            <td className="p-3">{person.tin?tagName(person.tag,null,bn,person.other_label):'—'}</td>
-            <td className="p-3">{person.tag==='friends_family'?tagName(person.tag,person.relationship,bn,person.other_label).split(' · ').slice(1).join(' · ')||'—':'—'}</td>
+            <td className="p-3">{person.tin?tagName(person.tag,person.relationship,bn,person.other_label):'—'}</td>
           </tr>)}</tbody>
         </table>
         {visible.length===0&&<p className="p-5 text-center text-slate-600">
