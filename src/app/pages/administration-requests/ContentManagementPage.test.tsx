@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyPublicImage } from './verifyPublicImage';
 
-const deps = vi.hoisted(() => ({ createClient: vi.fn() }));
+const deps = vi.hoisted(() => ({ createClient: vi.fn(), officeClient: vi.fn(), verified: vi.fn(), bridge: vi.fn() }));
+vi.mock('../../services/officeCmsBridge', () => ({
+  getOfficeCmsAuthClient: deps.officeClient,
+  isVerifiedOfficeCmsPublisher: deps.verified,
+  callOfficeCmsBridge: deps.bridge,
+}));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: deps.createClient }));
 // Isolate the page's upload/readback contract from the separately tested
@@ -71,6 +76,29 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
       remove: vi.fn(async () => ({ error: null })),
     })) },
   };
+  deps.officeClient.mockReturnValue(client);
+  deps.verified.mockResolvedValue(authorized && hasSession);
+  deps.bridge.mockImplementation(async (action:string, fields:Record<string,unknown> = {}, files:Record<string,File|null> = {}) => {
+    if (action === 'list-banners') return { banners: banners.map(b=>({...b})) };
+    if (action === 'status') return { authorized:true,officeUid:'verified-user' };
+    if (action === 'publish-banner') {
+      if (options.rejectWrite) throw new Error('SQL rejected banner write');
+      const changes = JSON.parse(String(fields.banner)) as Record<string,unknown>;
+      for (const device of ['desktop','mobile']) if (files[device]) {
+        changes[device+'_image_path'] = 'banners/'+changes.id+'/'+device+'-00000000-0000-4000-8000-000000000001.png';
+      }
+      const saved = { ...banners[0], ...changes,version:Number(banners[0].version)+1 };
+      if (!options.staleReadback) banners[0] = saved;
+      return { banner: saved };
+    }
+    if (action === 'delete-banner') {
+      const index = banners.findIndex(b=>b.id===fields.bannerId);
+      if (index===-1) throw new Error('Banner not found');
+      banners.splice(index,1);
+      return { removed:fields.bannerId };
+    }
+    throw new Error('Unexpected Office CMS bridge action: '+action);
+  });
   const publicQuery: Record<string, unknown> = {};
   publicQuery.eq = vi.fn(() => publicQuery);
   publicQuery.order = vi.fn(() => publicQuery);
@@ -83,6 +111,7 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
   };
   return { client, publicClient, rpc, upload, setSession(isActive: boolean) {
     sessionActive = isActive;
+    deps.verified.mockResolvedValue(authorized && isActive);
     onAuthChange?.();
   } };
 }
@@ -92,6 +121,9 @@ describe('verified TaxPay banner CMS', () => {
     // Reset queued constructor responses as well as call counts: a failed
     // render must not leak a public viewer mock into the next CMS test.
     deps.createClient.mockReset();
+    deps.officeClient.mockReset();
+    deps.verified.mockReset();
+    deps.bridge.mockReset();
     vi.mocked(verifyPublicImage).mockResolvedValue(undefined);
     vi.resetModules();
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_URL', 'https://cms.test.supabase.co');
@@ -125,7 +157,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Preview without publishing');
     expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
     expect(screen.getByText(/unpublished preview/i)).toBeInTheDocument();
-    expect(client.rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+    expect(deps.bridge).not.toHaveBeenCalledWith('publish-banner', expect.anything(), expect.anything());
   });
 
   it('does not request another login or lose the draft when the existing Office session lacks publishing access', async () => {
@@ -142,7 +174,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(await screen.findByText(/no verified TaxPay publishing access/)).toBeInTheDocument();
     expect(heading).toHaveValue('My cropped edits remain here');
     expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
-    expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+    expect(deps.bridge).not.toHaveBeenCalledWith('publish-banner', expect.anything(), expect.anything());
   });
 
   it('publishes an edited banner with one click through the existing verified SQL session', async () => {
@@ -155,8 +187,9 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Single-click verified banner');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
-      expect.objectContaining({ p_banner: expect.objectContaining({ heading_en: 'Single-click verified banner' }) })));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
+      expect.objectContaining({ banner: expect.stringContaining('Single-click verified banner') }),
+      expect.any(Object))); 
     expect(await screen.findByText(/public TaxPay text and images verified/)).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
   });
@@ -176,16 +209,13 @@ describe('verified TaxPay banner CMS', () => {
       expect(container.querySelector(`.cms-upload--${device}`)).toHaveTextContent('Cropped image ready');
     }
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
-    const paths = upload.mock.calls.map(args => args[0] as string);
-    expect(paths).toHaveLength(2);
-    for (const path of paths) expect(path).toMatch(/^banners\/intro\/[0-9a-f-]+\.png$/);
-    expect(paths[0]).not.toBe(paths[1]);
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
-      expect.objectContaining({ p_expected_version: 8, p_banner: expect.objectContaining({
-        desktop_image_path: paths[0], mobile_image_path: paths[1], published: true,
-      }) }),
-    ));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
+      expect.objectContaining({ expectedVersion: 8,position:1 }),
+      expect.objectContaining({ desktop:expect.any(File),mobile:expect.any(File) })));
+    const paths = [
+      'banners/intro/desktop-00000000-0000-4000-8000-000000000001.png',
+      'banners/intro/mobile-00000000-0000-4000-8000-000000000001.png',
+    ];
     expect(await screen.findByText(/Saved to SQL; public TaxPay text and images verified/)).toBeInTheDocument();
     for (const path of paths) {
       expect(vi.mocked(verifyPublicImage)).toHaveBeenCalledWith(publicClient, 'taxpay-banners', path);
@@ -198,13 +228,13 @@ describe('verified TaxPay banner CMS', () => {
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: /Tax payments, without the confusion/ });
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin'));
+    await waitFor(() => expect(deps.verified).toHaveBeenCalled());
     expect(screen.getByRole('button', { name: 'Edit banner' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add banner' })).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Edit banner' }));
     expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
-    expect(rpc).not.toHaveBeenCalledWith('taxpay_save_banner', expect.anything());
+    expect(deps.bridge).not.toHaveBeenCalledWith('publish-banner', expect.anything(), expect.anything());
   });
 
   it('preserves an unsaved banner draft and Cancel when an auth refresh reloads SQL rows', async () => {
@@ -251,7 +281,7 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(screen.getByLabelText('Desktop heading · English'));
     await user.type(screen.getByLabelText('Desktop heading · English'), 'Rejected edit');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner', expect.anything()));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',expect.anything(),expect.anything()));
     expect(await screen.findByText(/Save not completed: SQL rejected banner write/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     expect(screen.queryByText(/Saved to SQL\./)).not.toBeInTheDocument();
@@ -311,7 +341,7 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.getByText(/controls the Taxpayer homepage’s fixed left heading/)).toBeInTheDocument();
   });
 
-  it('reads the approved v9 preview and commits edits through atomic SQL RPC', async () => {
+  it('reads approved v9 preview and commits edits through versioned server bridge', async () => {
     const { client, rpc } = makeClient(true);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
@@ -326,13 +356,9 @@ describe('verified TaxPay banner CMS', () => {
     await user.clear(heading);
     await user.type(heading, 'Updated fixed headline');
     await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('taxpay_save_banner',
-      expect.objectContaining({
-        p_expected_version: 8,
-        p_position: 1,
-        p_banner: expect.objectContaining({ heading_en: 'Updated fixed headline', id: 'intro' }),
-      }),
-    ));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
+      expect.objectContaining({ expectedVersion:8,position:1,banner:expect.stringContaining('Updated fixed headline') }),
+      expect.anything()));
     expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
   });
 });
