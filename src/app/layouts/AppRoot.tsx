@@ -10,18 +10,25 @@ import { HelpProvider } from "../context/HelpContext";
 import { HelpDrawer } from "../components/help/HelpDrawer";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import { hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
-import { getOfficeCmsAuthClient } from "../services/officeCmsBridge";
+import { getOfficeCmsAuthClient, readRememberOfficeSession } from "../services/officeCmsBridge";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
 
+function hasRememberedOfficeEntry(): boolean {
+  try {
+    return readRememberOfficeSession() && window.localStorage.getItem(OFFICE_ENTRY_KEY) === "admin";
+  } catch { return false; }
+}
 function storedEntry(): string | null {
-  try { return window.sessionStorage.getItem(OFFICE_ENTRY_KEY); }
-  catch { return null; }
+  try {
+    return window.sessionStorage.getItem(OFFICE_ENTRY_KEY)
+      ?? (hasRememberedOfficeEntry() ? "admin" : null);
+  } catch { return null; }
 }
 
 function clearEntry() {
-  try { window.sessionStorage.removeItem(OFFICE_ENTRY_KEY); }
-  catch { /* Browser storage might be disabled. */ }
+  try { window.sessionStorage.removeItem(OFFICE_ENTRY_KEY); } catch { /* blocked */ }
+  try { window.localStorage.removeItem(OFFICE_ENTRY_KEY); } catch { /* blocked */ }
 }
 
 /**
@@ -41,11 +48,30 @@ export function AppRoot() {
   const [restoring, setRestoring] = useState(
     () => sharedMode && storedEntry() === "officer",
   );
+  const [restoringRemembered, setRestoringRemembered] = useState(
+    () => !sharedMode && hasRememberedOfficeEntry(),
+  );
   const cmsRoute = !sharedMode && pathname.startsWith("/administration/content-management");
   const cmsRecovery = cmsRoute && new URLSearchParams(search ?? "").get("cmsRecovery") === "1";
   const [cmsAccess, setCmsAccess] = useState<"checking" | "authorized" | "denied">("checking");
   const [signOutError, setSignOutError] = useState("");
   useAppearance();
+
+  useEffect(() => {
+    if (sharedMode || !restoringRemembered) return;
+    let active = true;
+    // Never trust the persistent UI entry marker without server-verified Office Auth.
+    void hasVerifiedCmsPublisherSession()
+      .then(allowed => {
+        if (!active) return;
+        if (!allowed) { clearEntry(); setSignedOut(true); setCmsAccess("denied"); }
+      })
+      .catch(() => {
+        if (active) { clearEntry(); setSignedOut(true); setCmsAccess("denied"); }
+      })
+      .finally(() => { if (active) setRestoringRemembered(false); });
+    return () => { active = false; };
+  }, [sharedMode, restoringRemembered]);
 
   useEffect(() => {
     if (!sharedMode) return;
@@ -143,9 +169,15 @@ export function AppRoot() {
     setSignedOut(true);
   }, [sharedMode]);
 
-  const handleEnterOffice = () => {
+  const handleEnterOffice = (remembered = false) => {
     try {
-      window.sessionStorage.setItem(OFFICE_ENTRY_KEY, sharedMode ? "officer" : "admin");
+      if (!sharedMode && remembered && readRememberOfficeSession()) {
+        window.localStorage.setItem(OFFICE_ENTRY_KEY, "admin");
+        window.sessionStorage.removeItem(OFFICE_ENTRY_KEY);
+      } else {
+        window.sessionStorage.setItem(OFFICE_ENTRY_KEY, sharedMode ? "officer" : "admin");
+        window.localStorage.removeItem(OFFICE_ENTRY_KEY);
+      }
     } catch { /* The current tab can still navigate without persistence. */ }
     setSignOutError("");
     if (cmsRoute) setCmsAccess("authorized");
@@ -162,6 +194,8 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
+      : restoringRemembered
+        ? <p role="status">Verifying remembered Office access…</p>
       : cmsRecovery
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
       : cmsRoute && !signedOut && cmsAccess === "checking"
