@@ -4,7 +4,7 @@ import {AppSelectField} from './AppSelectField';
 
 it('searches grouped choices and returns the original stored value',()=>{
   const onChange=vi.fn();
-  render(<AppSelectField id="office-tag" label="Tag" value="" onChange={onChange}
+  render(<AppSelectField id="office-tag" label="Tag" value="" searchableAfter={4} onChange={onChange}
     options={[
       {value:'',label:'Choose a tag'},
       {value:'clients',label:'Clients',group:'Business'},
