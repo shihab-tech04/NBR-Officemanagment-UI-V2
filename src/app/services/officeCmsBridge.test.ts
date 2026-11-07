@@ -37,6 +37,17 @@ describe('Office-issued identity for cross-project CMS publishing', () => {
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_public_key');
   });
 
+  it('authenticates only against the Office project, never TaxPay Auth', async () => {
+    expect(await isVerifiedOfficeCmsPublisher()).toBe(true);
+    getOfficeCmsAuthClient();
+    expect(sdk.createClient).toHaveBeenCalledWith(OFFICE_CMS_URL,
+      expect.stringMatching(/^sb_publishable_/), expect.objectContaining({
+        auth: expect.objectContaining({ storageKey: 'nbr-office-management-cms-session' }),
+      }));
+    expect(sdk.createClient).not.toHaveBeenCalledWith(
+      'https://eyqhoavnitkrajvyqvxn.supabase.co', expect.anything(), expect.anything());
+  });
+
   it('authorizes the current recreated Office account, not the superseded account', async () => {
     // The user was recreated on 7 November. Authorizing the previous UID locked out
     // a valid Supabase sign-in; protect this current, verified publishing grant.
@@ -51,17 +62,6 @@ describe('Office-issued identity for cross-project CMS publishing', () => {
     });
     expect(await isVerifiedOfficeCmsPublisher()).toBe(false);
     expect(await isVerifiedOfficeCmsPublisher()).toBe(true);
-  });
-
-  it('authenticates only against the Office project, never TaxPay Auth', async () => {
-    expect(await isVerifiedOfficeCmsPublisher()).toBe(true);
-    getOfficeCmsAuthClient();
-    expect(sdk.createClient).toHaveBeenCalledWith(OFFICE_CMS_URL,
-      expect.stringMatching(/^sb_publishable_/), expect.objectContaining({
-        auth: expect.objectContaining({ storageKey: 'nbr-office-management-cms-session' }),
-      }));
-    expect(sdk.createClient).not.toHaveBeenCalledWith(
-      'https://eyqhoavnitkrajvyqvxn.supabase.co', expect.anything(), expect.anything());
   });
 
   it('denies other Office identities, unconfirmed email, and anonymous sessions', async () => {
