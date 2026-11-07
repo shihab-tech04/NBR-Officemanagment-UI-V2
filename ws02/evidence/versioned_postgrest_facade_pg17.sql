@@ -62,7 +62,7 @@ BEGIN
 END $function_owner$;
 DO $verify$
 DECLARE fn oid := 'ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
-        actual_names text[]; definer boolean; configs text[]; body text;
+        actual_names text[]; definer boolean; configs text[]; body text; runtime_role name;
 BEGIN
  SELECT p.proargnames,p.prosecdef,p.proconfig,p.prosrc
  INTO actual_names,definer,configs,body FROM pg_catalog.pg_proc p WHERE p.oid=fn;
@@ -91,6 +91,19 @@ BEGIN
  END;
  IF to_regprocedure('ws02_versioned_api.ws02_shadow_endpoint_probe()') IS NOT NULL
  THEN RAISE EXCEPTION 'ENGINE_SHADOW_ENDPOINT_PROBE_LEFT_OBJECT'; END IF;
+ -- Citizen roles must not create shadow endpoints in the private facade schema.
+ -- Exercise CREATE directly; metadata-only USAGE/CREATE checks are insufficient.
+ FOREACH runtime_role IN ARRAY ARRAY['ws02_owner_auth','ws02_owner_anon'] LOOP
+  BEGIN
+   EXECUTE format('SET LOCAL ROLE %I',runtime_role);
+   EXECUTE format('CREATE FUNCTION ws02_versioned_api.ws02_citizen_shadow_probe() RETURNS boolean LANGUAGE sql AS %L','SELECT true');
+   RAISE EXCEPTION 'CITIZEN_ROLE_UNEXPECTEDLY_CREATED_FACADE_ENDPOINT_%',runtime_role;
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  EXECUTE 'RESET ROLE';
+  IF to_regprocedure('ws02_versioned_api.ws02_citizen_shadow_probe()') IS NOT NULL
+  THEN RAISE EXCEPTION 'CITIZEN_SHADOW_ENDPOINT_PROBE_LEFT_OBJECT_%',runtime_role; END IF;
+ END LOOP;
  -- The runtime engine must not be able to change the facade into SECURITY DEFINER.
  -- EXECUTE on a function does not confer ownership or ALTER FUNCTION rights.
  BEGIN
