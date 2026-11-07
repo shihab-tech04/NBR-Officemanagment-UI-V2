@@ -7,7 +7,8 @@ import imgNbrLogo from "../../../assets/logos/nbr-logo.png";
 import { AppTextField } from "../forms/AppTextField";
 import { useHelp } from "../../context/HelpContext";
 import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../../pages/audit/auditSharedSql";
-import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../../services/taxpayCmsClient";
+import { hasVerifiedCmsPublisherSession } from "../../services/taxpayCmsClient";
+import { getOfficeCmsAuthClient } from "../../services/officeCmsBridge";
 import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
 
 type RecoveryMode = "request" | "complete";
@@ -29,7 +30,7 @@ function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () 
   useEffect(() => {
     if (mode !== "complete") return;
     let active = true;
-    const cms = getTaxPayCmsClient();
+    const cms = getOfficeCmsAuthClient();
     if (!cms) { setValidity("invalid"); return; }
     // Supabase restores the recovery session from the email callback URL.
     // getUser performs a server-side identity check before password changes.
@@ -48,7 +49,7 @@ function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () 
     setBusy(true);
     setError("");
     try {
-      const cms = getTaxPayCmsClient();
+      const cms = getOfficeCmsAuthClient();
       if (!cms) throw new Error(t("login.resetUnavailable"));
       // Reuse the existing public CMS route; no extra page or auth gate.
       const base = new URL(import.meta.env.BASE_URL, window.location.origin);
@@ -70,7 +71,7 @@ function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () 
     if (newPassword !== confirmPassword) { setError(t("login.passwordMismatch")); return; }
     setBusy(true);
     try {
-      const cms = getTaxPayCmsClient();
+      const cms = getOfficeCmsAuthClient();
       if (!cms) throw new Error(t("login.resetUnavailable"));
       const { data: identity, error: identityError } = await cms.auth.getUser();
       if (identityError || identity.user?.email?.toLowerCase() !== PRIMARY_ADMIN_EMAIL.toLowerCase()) {
@@ -186,10 +187,10 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
     setEntryError(false);
     // The existing Office prototype remains password-optional everywhere
     // except its public-facing TaxPay publishing workspace. If a password
-    // is provided, the same original sign-in verifies the publisher session.
+    // is provided, the same original sign-in verifies the Office-owned publisher session.
     setSharedBusy(true);
     try {
-      const cms = getTaxPayCmsClient();
+      const cms = getOfficeCmsAuthClient();
       if (!cms && (password || cmsEntry)) {
         throw new Error("Office content service is unavailable. Publishing access cannot be verified.");
       }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getTaxPayCmsPublicClient, restorePreviouslyVerifiedCmsSession } from '../../services/taxpayCmsClient';
+import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
+import { callOfficeCmsBridge, isVerifiedOfficeCmsPublisher } from '../../services/officeCmsBridge';
 import { verifyPublicImage } from './verifyPublicImage';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 import { Pencil, RefreshCcw, Save, UploadCloud } from 'lucide-react';
@@ -80,26 +81,10 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
     publishInFlight.current = true;
     try {
       if (!cms) { setMessage('Logo not published: content service is unavailable.'); return; }
-      // Publish uses the Office session already on this browser, without a
-      // duplicate sign-in modal. Server-side Storage and SQL policies remain
-      // authoritative even if this local role label is stale.
-      if (!canPublish) {
-        let { data: { session }, error: sessionError } = await cms.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (!session && await restorePreviouslyVerifiedCmsSession()) {
-          ({ data: { session }, error: sessionError } = await cms.auth.getSession());
-          if (sessionError) throw sessionError;
-        }
-        if (!session) {
-          setMessage('Not published: this Office session has no active TaxPay publishing access. Your cropped logo is preserved.');
-          return;
-        }
-        const { data: allowed, error } = await cms.rpc('taxpay_is_verified_portal_admin');
-        if (error) throw error;
-        if (allowed !== true) {
-          setMessage('Not published: this Office account is not authorized for TaxPay publishing. Your cropped logo is preserved.');
-          return;
-        }
+      // Existing Office Auth is checked again on the server for EVERY write.
+      if (!canPublish && !(await isVerifiedOfficeCmsPublisher())) {
+        setMessage('Not published: this Office session has no active TaxPay publishing access. Your cropped logo is preserved.');
+        return;
       }
       await save();
     } catch (error) {
@@ -113,117 +98,64 @@ export function SiteLogoPanel({ cms, canPublish = false }: { cms: SupabaseClient
       setMessage('Only PNG, JPG or JPEG files up to 5 MB are accepted.');
       return;
     }
-    setBusy(true);
-    setMessage('');
+    setBusy(true); setMessage('');
     let committed = false;
-    let uploadedPath: string | null = null;
     try {
-      const ext = selected.file.type === 'image/png' ? 'png' : 'jpg';
-      // Matches the existing administrator-only Storage INSERT policy.
-      uploadedPath = `logos/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await cms.storage.from('taxpay-branding').upload(
-        uploadedPath, selected.file,
-        { upsert: false, cacheControl: '3600', contentType: selected.file.type },
+      const { logo: saved } = await callOfficeCmsBridge<{logo:SiteLogoRecord}>(
+        'publish-logo', { expectedVersion: record.version }, { image: selected.file },
       );
-      if (uploadError) throw uploadError;
-      // A successful Storage INSERT does not prove anonymous image delivery.
-      const publicCms = getTaxPayCmsPublicClient();
-      if (!publicCms) throw new Error('Public logo verification is not configured.');
-      await verifyPublicImage(publicCms, 'taxpay-branding', uploadedPath);
-
-      const { data: saved, error: writeError } = await cms.from('taxpay_site_logo')
-        .update({ image_path: uploadedPath, image_width: selected.width, image_height: selected.height })
-        .eq('id', 'primary').eq('version', record.version)
-        .select('id,image_path,image_width,image_height,version,updated_at').maybeSingle();
-      if (writeError) throw writeError;
-      if (!saved || saved.image_path !== uploadedPath || saved.version !== record.version + 1) {
-        throw new Error('Logo changed in another session or SQL publishing access was denied. Refresh before retrying.');
+      if (!saved || saved.version !== record.version + 1 || !saved.image_path ||
+          saved.image_width !== selected.width || saved.image_height !== selected.height) {
+        throw new Error('Server did not verify the exact uploaded logo and SQL version.');
       }
       committed = true;
-      // Read-back verifies that a successful HTTP write actually persisted to SQL.
-      const { data: confirmed, error: readError } = await cms.from('taxpay_site_logo')
-        .select('id,image_path,image_width,image_height,version,updated_at')
-        .eq('id', 'primary').single();
-      if (readError || !confirmed || confirmed.image_path !== uploadedPath ||
-          confirmed.version !== saved.version) {
-        setRecord(saved as SiteLogoRecord);
-        throw new Error('Logo was saved to SQL but read-back verification failed. Refresh to verify.');
-      }
-      // Verify with the same anonymous visibility as the public TaxPay logo.
+      const publicCms = getTaxPayCmsPublicClient();
+      if (!publicCms) throw new Error('Public logo verification is not configured.');
+      await verifyPublicImage(publicCms, 'taxpay-branding', saved.image_path);
       const { data: publicLogo, error: publicError } = await publicCms.from('taxpay_site_logo')
         .select('image_path,image_width,image_height,version').eq('id', 'primary').single();
-      if (publicError || !publicLogo || publicLogo.image_path !== uploadedPath ||
+      if (publicError || !publicLogo || publicLogo.image_path !== saved.image_path ||
           publicLogo.image_width !== selected.width || publicLogo.image_height !== selected.height ||
-          publicLogo.version !== confirmed.version) {
+          publicLogo.version !== saved.version) {
         throw new Error('Public TaxPay logo does not match the committed SQL version.');
       }
-      setRecord(confirmed as SiteLogoRecord);
-      setSelected(null);
-      setEditing(false);
-      const priorPath = record.image_path;
-      if (priorPath && priorPath !== uploadedPath) {
-        const { error: removeError } = await cms.storage.from('taxpay-branding').remove([priorPath]);
-        setMessage(removeError
-          ? 'Logo published and verified; previous image cleanup is incomplete.'
-          : 'Logo saved to SQL, verified in public TaxPay and previous image replaced.');
-      } else {
-        setMessage('Logo saved to SQL and verified in the public TaxPay logo feed.');
-      }
+      setRecord(saved);
+      setSelected(null); setEditing(false);
+      setMessage('Logo saved to SQL and verified in the public TaxPay logo feed.');
     } catch (error) {
-      if (!committed && uploadedPath) {
-        const { error: cleanupError } = await cms.storage.from('taxpay-branding').remove([uploadedPath]);
-        if (cleanupError) setMessage('Logo not published; uploaded image cleanup could not complete: ' + (error as Error).message);
-      }
       if (committed) void refresh().catch(() => {});
-      setMessage(current => current || (committed ? 'Logo saved to SQL; public verification incomplete: ' : 'Logo not published: ') +
+      setMessage((committed ? 'Logo saved to SQL; public verification incomplete: ' : 'Logo not published: ') +
         (error as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   async function restoreOriginal() {
     if (!cms || !record?.image_path || !canPublish || busy) return;
-    setRestoreRequested(false);
-    setBusy(true);
-    setMessage('');
+    setRestoreRequested(false); setBusy(true); setMessage('');
     let committed = false;
     try {
-      const oldPath = record.image_path;
-      const { data: saved, error: writeError } = await cms.from('taxpay_site_logo')
-        .update({ image_path: null, image_width: null, image_height: null })
-        .eq('id', 'primary').eq('version', record.version)
-        .select('id,image_path,image_width,image_height,version,updated_at').maybeSingle();
-      if (writeError) throw writeError;
-      if (!saved || saved.image_path !== null || saved.version !== record.version + 1)
-        throw new Error('Logo changed in another session. Refresh before restoring.');
+      const { logo: saved } = await callOfficeCmsBridge<{logo:SiteLogoRecord}>(
+        'restore-logo', { expectedVersion: record.version },
+      );
+      if (!saved || saved.image_path !== null || saved.version !== record.version + 1) {
+        throw new Error('Original logo was not restored to the expected version.');
+      }
       committed = true;
-      const { data: confirmed, error: readError } = await cms.from('taxpay_site_logo')
-        .select('id,image_path,image_width,image_height,version,updated_at')
-        .eq('id', 'primary').single();
       const publicCms = getTaxPayCmsPublicClient();
       if (!publicCms) throw new Error('Public logo verification is not configured.');
       const { data: publicLogo, error: publicError } = await publicCms.from('taxpay_site_logo')
-        .select('image_path,image_width,image_height,version').eq('id', 'primary').single();
-      if (readError || !confirmed || confirmed.image_path !== null ||
-          confirmed.version !== saved.version || publicError || !publicLogo ||
-          publicLogo.image_path !== null || publicLogo.version !== saved.version)
-        throw new Error('Public restore read-back is incomplete.');
-      setRecord(confirmed as SiteLogoRecord);
-      setSelected(null);
-      setEditing(false);
-      const { error: cleanupError } = await cms.storage.from('taxpay-branding').remove([oldPath]);
-      setMessage(cleanupError
-        ? 'Original Korbritto logo restored and verified; old image cleanup incomplete.'
-        : 'Original Korbritto logo restored and verified on public TaxPay.');
+        .select('image_path,version').eq('id', 'primary').single();
+      if (publicError || !publicLogo || publicLogo.image_path !== null ||
+          publicLogo.version !== saved.version) throw new Error('Public restore read-back is incomplete.');
+      setRecord(saved); setSelected(null); setEditing(false);
+      setMessage('Original Korbritto logo restored and verified on public TaxPay.');
     } catch (error) {
       if (committed) void refresh().catch(() => {});
       setMessage((committed ? 'Logo restored in SQL; public verification incomplete: ' : 'Logo not restored: ') +
         (error as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
+
   const currentUrl = record && cms ? liveLogoUrl(cms, record.image_path) : fallbackLogo;
   const displayUrl = editing && pendingUrl ? pendingUrl : currentUrl;
   const dimensions = editing && selected

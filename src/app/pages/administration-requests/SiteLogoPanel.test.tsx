@@ -6,214 +6,144 @@ import { SiteLogoPanel } from './SiteLogoPanel';
 import { getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { verifyPublicImage } from './verifyPublicImage';
 
-vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn(), restorePreviouslyVerifiedCmsSession: vi.fn(async () => false) }));
+const office = vi.hoisted(() => ({ verified: vi.fn(), call: vi.fn() }));
+vi.mock('../../services/officeCmsBridge', () => ({
+  isVerifiedOfficeCmsPublisher: office.verified,
+  callOfficeCmsBridge: office.call,
+}));
+vi.mock('../../services/taxpayCmsClient', () => ({ getTaxPayCmsPublicClient: vi.fn() }));
 vi.mock('./verifyPublicImage', () => ({ verifyPublicImage: vi.fn(async () => {}) }));
-
 vi.mock('./ImageCropDialog', () => ({
   ImageCropDialog: ({ onApply }: { onApply: (file: File) => void }) =>
-    <button type="button" onClick={() => onApply(new File([new Uint8Array([137, 80, 78, 71])], 'cropped.png', { type: 'image/png' }))}>
+    <button type="button" onClick={() => onApply(new File([new Uint8Array([137,80,78,71])], 'cropped.png', {type:'image/png'}))}>
       Apply test crop
     </button>,
 }));
 
-function logoCms(writeMode: 'ok' | 'reject' | 'conflict' | 'publicStale' = 'ok', sessionActive = false) {
-  let row = {
-    id: 'primary' as const, image_path: null as string | null,
-    image_width: null as number | null, image_height: null as number | null,
-    version: 9, updated_at: '2026-10-29T00:00:00Z',
-  };
-  const upload = vi.fn(async () => ({ error: null }));
-  const remove = vi.fn(async () => ({ error: null }));
-  const update = vi.fn((fields: { image_path: string; image_width: number; image_height: number }) => {
-    const chain = {
-      eq: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn(async () => {
-        if (writeMode === 'reject') return { data: null, error: new Error('RLS denied') };
-        if (writeMode === 'conflict') return { data: null, error: null };
-        row = { ...row, ...fields, version: row.version + 1 };
-        return { data: row, error: null };
-      }),
-    };
-    return chain;
+type Logo = { id:'primary';image_path:string|null;image_width:number|null;image_height:number|null;version:number;updated_at:string };
+function logoCms(mode:'ok'|'reject'|'conflict'|'publicStale'='ok', existingOfficeSession=false) {
+  let row: Logo = {id:'primary',image_path:null,image_width:null,image_height:null,version:9,updated_at:'2026-10-29T00:00:00Z'};
+  const from=vi.fn((name:string)=>{
+    if(name!=='taxpay_site_logo') throw new Error('Unexpected table: '+name);
+    return { select:vi.fn(()=>({eq:()=>({single:async()=>({data:row,error:null})})})) };
   });
-  const from = vi.fn((table: string) => {
-    if (table !== 'taxpay_site_logo') throw new Error('Unexpected table: ' + table);
-    return {
-      select: vi.fn(() => ({ eq: () => ({ single: async () => ({ data: row, error: null }) }) })),
-      update,
-    };
+  const client={
+    from,channel:()=>({on:vi.fn().mockReturnThis(),subscribe:vi.fn().mockReturnThis()}),
+    removeChannel:vi.fn(async()=>{}),
+    storage:{from:()=>({getPublicUrl:(path:string)=>({data:{publicUrl:'https://images.test/'+path}})})},
+  } as unknown as SupabaseClient;
+  const stalePublicClient={
+    from:()=>({select:()=>({eq:()=>({single:async()=>({data:{id:'primary',image_path:null,version:9,image_width:null,image_height:null},error:null})})})}),
+  } as unknown as SupabaseClient;
+  vi.mocked(getTaxPayCmsPublicClient).mockReturnValue(mode==='publicStale'?stalePublicClient:client);
+  office.verified.mockResolvedValue(existingOfficeSession);
+  office.call.mockImplementation(async (action:string,fields:{expectedVersion:number},files?:{image?:File})=>{
+    if(mode==='reject') throw new Error('RLS denied');
+    if(mode==='conflict') throw new Error('Logo changed in another session');
+    if(fields.expectedVersion!==row.version) throw new Error('Logo changed in another session');
+    if(action==='publish-logo') {
+      expect(files?.image).toBeInstanceOf(File);
+      row={...row,image_path:'logos/00000000-0000-4000-8000-000000000001.png',image_width:1469,image_height:496,version:row.version+1};
+      return {logo:row};
+    }
+    if(action==='restore-logo') {
+      row={...row,image_path:null,image_width:null,image_height:null,version:row.version+1};
+      return {logo:row};
+    }
+    throw new Error('Unexpected Office CMS action: '+action);
   });
-  const channel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
-  const storage = { from: vi.fn(() => ({
-    getPublicUrl: (path: string) => ({ data: { publicUrl: 'https://images.test/' + path } }),
-    upload, remove,
-  })) };
-  const rpc = vi.fn(async () => ({ data: true, error: null }));
-  const getSession = vi.fn(async () => ({ data: { session: sessionActive ? { user: { id: 'publisher' } } : null }, error: null }));
-  const client = {
-    from, channel: vi.fn(() => channel), removeChannel: vi.fn().mockResolvedValue('ok'),
-    storage, rpc, auth: { getSession },
-  } as unknown as SupabaseClient;
-  const stalePublicClient = {
-    from: vi.fn(() => ({ select: () => ({ eq: () => ({ single: async () => ({
-      data: { id: 'primary', image_path: null, version: 9, image_width: null, image_height: null },
-      error: null,
-    }) }) }) })),
-  } as unknown as SupabaseClient;
-  vi.mocked(getTaxPayCmsPublicClient).mockReturnValue(writeMode === 'publicStale' ? stalePublicClient : client);
-  return { client, upload, update, from, remove, rpc, getSession };
+  return {client,from};
+}
+async function prepareLogo(user:ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button',{name:'Edit logo'}));
+  await user.upload(screen.getByLabelText('Upload / replace logo'),
+    new File([new Uint8Array([137,80,78,71])],'logo.png',{type:'image/png'}));
+  await user.click(await screen.findByRole('button',{name:'Apply test crop'}));
 }
 
-async function prepareLogo(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Edit logo' }));
-  const file = new File([new Uint8Array([137, 80, 78, 71])], 'logo.png', { type: 'image/png' });
-  await user.upload(screen.getByLabelText('Upload / replace logo'), file);
-  await user.click(await screen.findByRole('button', { name: 'Apply test crop' }));
-}
-
-describe('Site Logo SQL editor and Korbritto parity', () => {
-  beforeEach(() => { vi.mocked(verifyPublicImage).mockResolvedValue(undefined); });
-  it('uses the exact current Korbritto fallback when SQL has no uploaded logo', async () => {
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} />);
-    await screen.findByRole('button', { name: 'Edit logo' });
-    expect(screen.getByRole('heading', { name: 'Current TaxPay logo' })).toBeInTheDocument();
+describe('Site Logo Office-authenticated publishing and Korbritto parity',()=>{
+  beforeEach(()=>{vi.clearAllMocks();vi.mocked(verifyPublicImage).mockResolvedValue(undefined);});
+  it('uses exact Korbritto fallback when SQL has no uploaded logo',async()=>{
+    const cms=logoCms();render(<SiteLogoPanel cms={cms.client}/>);
+    await screen.findByRole('button',{name:'Edit logo'});
+    expect(screen.getByRole('heading',{name:'Current TaxPay logo'})).toBeInTheDocument();
     expect(screen.getByText(/Current Korbritto brand/)).toBeInTheDocument();
-    const img = screen.getByAltText('Korbritto TaxPay logo preview');
-    expect(img.getAttribute('src')).not.toContain('amar-kor');
-    const source = img.getAttribute('src') || '';
-    expect(source.includes('korbritto-brand-locked') || source.startsWith('data:image/svg+xml')).toBe(true);
+    const src=screen.getByAltText('Korbritto TaxPay logo preview').getAttribute('src')||'';
+    expect(src).toMatch(/korbritto-brand-locked|data:image/);
+    expect(src).not.toContain('amar-kor');
     expect(cms.from).toHaveBeenCalledWith('taxpay_site_logo');
   });
-
-  it('falls back to the approved brand if the active preview image fails', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('falls back to approved brand on image-load error',async()=>{
+    const user=userEvent.setup();const cms=logoCms();render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     await screen.findByText(/verified in the public TaxPay logo feed/);
-    const logo = screen.getByAltText('Korbritto TaxPay logo preview');
-    fireEvent.error(logo);
-    await waitFor(() => expect(logo.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
+    const img=screen.getByAltText('Korbritto TaxPay logo preview');fireEvent.error(img);
+    await waitFor(()=>expect(img.getAttribute('src')).toMatch(/korbritto-brand-locked|data:image/));
   });
-
-  it('does not show another login or upload when the Office session has no publishing grant', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('preserves draft without publishing when Office account is unverified',async()=>{
+    const user=userEvent.setup();const cms=logoCms();render(<SiteLogoPanel cms={cms.client} canPublish={false}/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     expect(await screen.findByText(/no active TaxPay publishing access/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'New logo preview (not yet published)' })).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: /publishing/i })).not.toBeInTheDocument();
-    expect(cms.upload).not.toHaveBeenCalled();
-    expect(cms.update).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading',{name:'New logo preview (not yet published)'})).toBeInTheDocument();
+    expect(screen.queryByRole('dialog',{name:/publishing/i})).not.toBeInTheDocument();
+    expect(office.call).not.toHaveBeenCalled();
   });
-
-  it('publishes in one click through an existing verified CMS session with stale UI permission state', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms('ok', true);
-    render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('rechecks a stale Office permission state without a second login',async()=>{
+    const user=userEvent.setup();const cms=logoCms('ok',true);
+    render(<SiteLogoPanel cms={cms.client} canPublish={false}/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     expect(await screen.findByText(/verified in the public TaxPay logo feed/)).toBeInTheDocument();
-    expect(cms.getSession).toHaveBeenCalled();
-    expect(cms.rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
-    expect(cms.upload).toHaveBeenCalledOnce();
-    expect(cms.update).toHaveBeenCalledOnce();
+    expect(office.verified).toHaveBeenCalledOnce();
+    expect(office.call).toHaveBeenCalledWith('publish-logo',{expectedVersion:9},{image:expect.any(File)});
   });
-
-  it('allows a preview without publishing or changing SQL for ordinary Office access', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} canPublish={false} />);
-    await prepareLogo(user);
-    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Sign in to publish' })).not.toBeInTheDocument();
-    expect(cms.upload).not.toHaveBeenCalled();
-    expect(cms.update).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('button', { name: 'Edit logo' })).toBeInTheDocument();
+  it('allows ordinary Office users to crop and cancel without calling publishing API',async()=>{
+    const user=userEvent.setup();const cms=logoCms();render(<SiteLogoPanel cms={cms.client} canPublish={false}/>);
+    await prepareLogo(user);expect(screen.getByRole('button',{name:'Publish to TaxPay'})).toBeEnabled();
+    expect(office.call).not.toHaveBeenCalled();await user.click(screen.getByRole('button',{name:'Cancel'}));
+    expect(screen.getByRole('button',{name:'Edit logo'})).toBeInTheDocument();
   });
-
-  it('uploads a uniquely named asset, saves a versioned SQL row and checks read-back', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    await waitFor(() => expect(cms.upload).toHaveBeenCalledOnce());
-    expect(cms.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^logos\/[a-f0-9-]{36}\.png$/), expect.any(File),
-      expect.objectContaining({ contentType: 'image/png', upsert: false }),
-    );
-    await waitFor(() => expect(cms.update).toHaveBeenCalledWith(expect.objectContaining({
-      image_width: 1469, image_height: 496,
-      image_path: expect.stringMatching(/^logos\//),
-    })));
+  it('sends cropped artwork and exact SQL version to Office publishing bridge',async()=>{
+    const user=userEvent.setup();const cms=logoCms();render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
+    await waitFor(()=>expect(office.call).toHaveBeenCalledWith('publish-logo',{expectedVersion:9},{image:expect.any(File)}));
     expect(await screen.findByText(/Logo saved to SQL and verified in the public TaxPay logo feed/)).toBeInTheDocument();
     expect(screen.getByAltText('Korbritto TaxPay logo preview').getAttribute('src')).toMatch(/^https:\/\/images\.test\/logos\//);
-    expect(screen.getByRole('button', { name: 'Edit logo' })).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Edit logo'})).toBeInTheDocument();
   });
-
-  it('restores the original logo with a version-checked SQL write and anonymous read-back', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('restores original logo with Office-verified versioned server action',async()=>{
+    const user=userEvent.setup();const cms=logoCms();render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     await screen.findByText(/verified in the public TaxPay logo feed/);
-    await user.click(screen.getByRole('button', { name: 'Edit logo' }));
-    await user.click(screen.getByRole('button', { name: 'Restore original logo' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore original logo' }));
+    await user.click(screen.getByRole('button',{name:'Edit logo'}));
+    await user.click(screen.getByRole('button',{name:'Restore original logo'}));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Restore original logo'}));
     expect(await screen.findByText(/Original Korbritto logo restored and verified/)).toBeInTheDocument();
-    expect(cms.update).toHaveBeenCalledWith({
-      image_path: null, image_width: null, image_height: null,
-    });
-    expect(cms.remove).toHaveBeenCalledOnce();
+    expect(office.call).toHaveBeenCalledWith('restore-logo',{expectedVersion:10});
     expect(screen.getByText(/Current Korbritto brand/)).toBeVisible();
   });
-
-  it('does not change SQL when the uploaded logo cannot be delivered to public visitors', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms();
+  it('reports incomplete public image readback after SQL commit instead of claiming success',async()=>{
+    const user=userEvent.setup();const cms=logoCms();
     vi.mocked(verifyPublicImage).mockRejectedValueOnce(new Error('Public image cannot be decoded.'));
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
-    expect(await screen.findByText(/Logo not published: Public image cannot be decoded/)).toBeInTheDocument();
-    expect(cms.update).not.toHaveBeenCalled();
-    expect(cms.remove).toHaveBeenCalledOnce();
+    render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
+    expect(await screen.findByText(/Logo saved to SQL; public verification incomplete: Public image cannot be decoded/)).toBeInTheDocument();
+    expect(office.call).toHaveBeenCalledOnce();
   });
-
-  it('does not claim public publishing when only Office sees the updated logo', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms('publicStale');
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('does not claim public publish when anonymous logo SQL feed is stale',async()=>{
+    const user=userEvent.setup();const cms=logoCms('publicStale');render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     expect(await screen.findByText(/Public TaxPay logo does not match the committed SQL version/)).toBeInTheDocument();
     expect(screen.queryByText(/verified in the public TaxPay logo feed/)).not.toBeInTheDocument();
   });
-
-  it('does not claim a SQL publish on a rejected write', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms('reject');
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('preserves draft on authorization or SQL rejection',async()=>{
+    const user=userEvent.setup();const cms=logoCms('reject');render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     expect(await screen.findByText(/Logo not published: RLS denied/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Publish to TaxPay' })).toBeEnabled();
+    expect(screen.getByRole('button',{name:'Publish to TaxPay'})).toBeEnabled();
   });
-
-  it('rejects a stale version without replacing the current logo', async () => {
-    const user = userEvent.setup();
-    const cms = logoCms('conflict');
-    render(<SiteLogoPanel cms={cms.client} canPublish />);
-    await prepareLogo(user);
-    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+  it('blocks stale SQL versions without replacing published logo',async()=>{
+    const user=userEvent.setup();const cms=logoCms('conflict');render(<SiteLogoPanel cms={cms.client} canPublish/>);
+    await prepareLogo(user);await user.click(screen.getByRole('button',{name:'Publish to TaxPay'}));
     expect(await screen.findByText(/Logo changed in another session/)).toBeInTheDocument();
     expect(screen.getByAltText('Korbritto TaxPay logo preview').getAttribute('src')).not.toContain('https://images.test/logos/');
   });

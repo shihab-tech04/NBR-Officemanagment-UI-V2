@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const deps = vi.hoisted(() => ({ createClient: vi.fn() }));
+const deps = vi.hoisted(() => ({ createClient: vi.fn(),officeVerified:vi.fn() }));
+vi.mock('./officeCmsBridge', () => ({ isVerifiedOfficeCmsPublisher: deps.officeVerified }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: deps.createClient }));
 
 const oldKey = 'sb-cms-auth-token';
@@ -39,6 +40,7 @@ describe('historical Office CMS publisher session continuity', () => {
   beforeEach(() => {
     vi.resetModules();
     deps.createClient.mockReset();
+    deps.officeVerified.mockReset().mockResolvedValue(false);
     localStorage.clear();
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_URL', 'https://cms.test.supabase.co');
     vi.stubEnv('VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
@@ -116,39 +118,37 @@ describe('historical Office CMS publisher session continuity', () => {
     expect(await restorePreviouslyVerifiedCmsSession()).toBe(false);
     expect(auth.setSession).not.toHaveBeenCalled();
   });
-  it('recognizes a server-verified current publisher without another login', async () => {
+  it('accepts only a server-verified Office Management publisher', async () => {
     const { auth, rpc } = mockPublisherSession({ existing: true });
+    deps.officeVerified.mockResolvedValue(true);
     const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
     expect(await hasVerifiedCmsPublisherSession()).toBe(true);
-    expect(auth.getUser).toHaveBeenCalledOnce();
-    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
-    expect(auth.setSession).not.toHaveBeenCalled();
+    expect(deps.officeVerified).toHaveBeenCalledOnce();
+    expect(auth.getUser).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('rejects an existing signed-in user without the SQL CMS publisher role', async () => {
-    const { rpc } = mockPublisherSession({ existing: true, allowed: false });
+  it('denies a TaxPay user when the Office administrator identity is not verified', async () => {
+    const { rpc } = mockPublisherSession({ existing:true });
+    deps.officeVerified.mockResolvedValue(false);
     const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
     expect(await hasVerifiedCmsPublisherSession()).toBe(false);
-    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('rejects a password-free Office entry that has no Auth session', async () => {
-    const { auth, rpc } = mockPublisherSession();
-    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
+  it('never authorizes a password-optional Office preview without verified Office Auth',async()=>{
+    const { rpc }=mockPublisherSession();
+    const { hasVerifiedCmsPublisherSession }=await import('./taxpayCmsClient');
+    expect(await hasVerifiedCmsPublisherSession()).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not grant publishing through legacy TaxPay publisher tokens',async()=>{
+    const { auth, rpc }=mockPublisherSession();
+    localStorage.setItem(oldKey,JSON.stringify({access_token:'legacy-access',refresh_token:'legacy-refresh'}));
+    const { hasVerifiedCmsPublisherSession }=await import('./taxpayCmsClient');
     expect(await hasVerifiedCmsPublisherSession()).toBe(false);
     expect(auth.setSession).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
-
-  it('recovers a server-verified older publisher without a second login', async () => {
-    const { auth, rpc } = mockPublisherSession();
-    localStorage.setItem(oldKey, JSON.stringify({
-      access_token: 'legacy-access', refresh_token: 'legacy-refresh',
-    }));
-    const { hasVerifiedCmsPublisherSession } = await import('./taxpayCmsClient');
-    expect(await hasVerifiedCmsPublisherSession()).toBe(true);
-    expect(auth.setSession).toHaveBeenCalledOnce();
-    expect(rpc).toHaveBeenCalledWith('taxpay_is_verified_portal_admin');
-  });
-
 });

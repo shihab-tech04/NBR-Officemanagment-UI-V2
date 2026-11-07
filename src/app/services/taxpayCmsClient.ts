@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { isVerifiedOfficeCmsPublisher } from './officeCmsBridge';
 
 /**
  * One publishable-only CMS session shared by the existing Office sign-in
@@ -123,15 +124,7 @@ export async function restorePreviouslyVerifiedCmsSession(): Promise<boolean> {
  * again, but a preview-only Office entry cannot be promoted to a publisher.
  */
 export async function hasVerifiedCmsPublisherSession(): Promise<boolean> {
-  const cms = getTaxPayCmsClient();
-  if (!cms) return false;
-  const { data: { user }, error } = await cms.auth.getUser();
-  if (error || !user || user.is_anonymous) {
-    // Use only the prior CMS project's real Auth tokens, if still valid.
-    return restorePreviouslyVerifiedCmsSession();
-  }
-  const { data: permitted, error: permissionError } =
-    await cms.rpc('taxpay_is_verified_portal_admin');
-  if (permissionError) throw permissionError;
-  return permitted === true;
+  // This Office user's verified Auth identity controls access; TaxPay Auth
+  // sessions no longer grant Office publishing permission.
+  return isVerifiedOfficeCmsPublisher();
 }
