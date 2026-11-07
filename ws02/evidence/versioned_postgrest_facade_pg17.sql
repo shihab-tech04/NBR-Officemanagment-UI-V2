@@ -40,6 +40,26 @@ REVOKE ALL ON FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candid
  uuid,uuid,text,text,text,text,text,text,jsonb,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(
  uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_engine;
+-- A runtime role that owns (or can SET ROLE to the owner of) the wrapper
+-- could ALTER its search_path/SECURITY DEFINER flag despite the ACL denials.
+DO $function_owner$
+DECLARE function_owner oid; runtime_role name;
+BEGIN
+ SELECT proowner INTO STRICT function_owner FROM pg_catalog.pg_proc
+ WHERE oid='ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
+ FOREACH runtime_role IN ARRAY ARRAY[
+  'ws02_owner_anon','ws02_owner_auth','ws02_owner_engine',
+  'ws02_owner_rpc','ws02_owner_lock'
+ ] LOOP
+  IF function_owner=runtime_role::regrole::oid
+     OR pg_catalog.pg_has_role(runtime_role,function_owner,'MEMBER')
+     OR pg_catalog.pg_has_role(runtime_role,function_owner,'USAGE')
+     OR pg_catalog.pg_has_role(runtime_role,function_owner,'SET')
+  THEN RAISE EXCEPTION 'VERSIONED_FACADE_FUNCTION_OWNER_ESCALATION_%',runtime_role;
+  END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_FUNCTION_OWNER_BOUNDARY';
+END $function_owner$;
 DO $verify$
 DECLARE fn oid := 'ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure;
         actual_names text[]; definer boolean; configs text[]; body text;
