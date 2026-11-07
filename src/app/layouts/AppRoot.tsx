@@ -31,7 +31,7 @@ function clearEntry() {
 export function AppRoot() {
   const dispatch = useDispatch<AppDispatch>();
   const sharedMode = isSharedAuditMode();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Only the synthetic Audit UI is open; all CMS/payment/admin routes retain Office entry.
   const openAuditPreview = !sharedMode && (pathname === "/audit" || pathname.startsWith("/audit/"));
   const [signedOut, setSignedOut] = useState(
@@ -41,6 +41,7 @@ export function AppRoot() {
     () => sharedMode && storedEntry() === "officer",
   );
   const cmsRoute = !sharedMode && pathname.startsWith("/administration/content-management");
+  const cmsRecovery = cmsRoute && new URLSearchParams(search ?? "").get("cmsRecovery") === "1";
   const [cmsAccess, setCmsAccess] = useState<"checking" | "authorized" | "denied">("checking");
   const [signOutError, setSignOutError] = useState("");
   useAppearance();
@@ -95,7 +96,7 @@ export function AppRoot() {
   }, [sharedMode]);
 
   useEffect(() => {
-    if (!cmsRoute) {
+    if (!cmsRoute || cmsRecovery) {
       // Recheck on the next CMS entry rather than trusting an old UI flag.
       setCmsAccess("checking");
       return;
@@ -110,7 +111,7 @@ export function AppRoot() {
         if (!cancelled) setCmsAccess("denied");
       });
     return () => { cancelled = true; };
-  }, [cmsRoute]);
+  }, [cmsRoute, cmsRecovery]);
 
   const handleSignOut = useCallback(async () => {
     setSignOutError("");
@@ -160,6 +161,8 @@ export function AppRoot() {
   return <HelpProvider>
     {restoring
       ? <p role="status">Verifying Audit officer access…</p>
+      : cmsRecovery
+        ? <LoginPage onOfficeEnter={handleEnterOffice}/>
       : cmsRoute && !signedOut && cmsAccess === "checking"
         ? <p role="status">Verifying TaxPay publishing access…</p>
         : (signedOut || (cmsRoute && cmsAccess !== "authorized")) && !openAuditPreview

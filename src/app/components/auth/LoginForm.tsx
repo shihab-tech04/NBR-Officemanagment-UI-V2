@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { Globe } from "lucide-react";
@@ -10,6 +10,122 @@ import { checkAuditSqlAccess, getAuditSqlClient, isSharedAuditMode } from "../..
 import { getTaxPayCmsClient, hasVerifiedCmsPublisherSession } from "../../services/taxpayCmsClient";
 import { PRIMARY_ADMIN_EMAIL } from "../../utils/primaryAdminIdentity";
 
+type RecoveryMode = "request" | "complete";
+
+/** Keep password recovery inside the approved Office sign-in card.
+ * Only Supabase Auth can issue a reset link and accept a new password;
+ * this UI never changes SQL publishing roles or creates another account.
+ */
+function CmsPasswordRecovery({ mode, onBack }: { mode: RecoveryMode; onBack: () => void }) {
+  const { t } = useTranslation("auth");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [validity, setValidity] = useState<"checking" | "valid" | "invalid">("checking");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [updated, setUpdated] = useState(false);
+
+  useEffect(() => {
+    if (mode !== "complete") return;
+    let active = true;
+    const cms = getTaxPayCmsClient();
+    if (!cms) { setValidity("invalid"); return; }
+    // Supabase restores the recovery session from the email callback URL.
+    // getUser performs a server-side identity check before password changes.
+    void cms.auth.getUser()
+      .then(({ data, error }) => {
+        if (!active) return;
+        setValidity(!error && data.user?.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase()
+          ? "valid" : "invalid");
+      })
+      .catch(() => { if (active) setValidity("invalid"); });
+    return () => { active = false; };
+  }, [mode]);
+
+  const sendResetLink = async () => {
+    if (busy || sent) return;
+    setBusy(true);
+    setError("");
+    try {
+      const cms = getTaxPayCmsClient();
+      if (!cms) throw new Error(t("login.resetUnavailable"));
+      // Reuse the existing public CMS route; no extra page or auth gate.
+      const base = new URL(import.meta.env.BASE_URL, window.location.origin);
+      const redirectTo = new URL("administration/content-management?cmsRecovery=1", base).toString();
+      const { error } = await cms.auth.resetPasswordForEmail(PRIMARY_ADMIN_EMAIL, { redirectTo });
+      if (error) throw error;
+      setSent(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("login.resetUnavailable"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setPassword = async () => {
+    if (busy || validity !== "valid" || updated) return;
+    setError("");
+    if (newPassword.length < 12) { setError(t("login.newPasswordTooShort")); return; }
+    if (newPassword !== confirmPassword) { setError(t("login.passwordMismatch")); return; }
+    setBusy(true);
+    try {
+      const cms = getTaxPayCmsClient();
+      if (!cms) throw new Error(t("login.resetUnavailable"));
+      const { data: identity, error: identityError } = await cms.auth.getUser();
+      if (identityError || identity.user?.email?.toLowerCase() !== PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+        throw new Error(t("login.resetLinkInvalid"));
+      }
+      const { error } = await cms.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setUpdated(true);
+      setNewPassword("");
+      setConfirmPassword("");
+      // Recovery is not Office entry: the user must sign in normally after reset.
+      const { error: exitError } = await cms.auth.signOut({ scope: "local" });
+      if (exitError) setError(t("login.resetSignOutWarning"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("login.resetUnavailable"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <div className="flex flex-col gap-4">
+    {mode === "request" ? <>
+      <p className="text-[14px] text-[var(--color-text-secondary)]">{t("login.resetEmailHint")}</p>
+      {sent
+        ? <p role="status" className="text-[14px]">{t("login.resetEmailSent")}</p>
+        : <button type="button" className="login-form-submit" disabled={busy} onClick={() => void sendResetLink()}>
+            {busy ? t("login.resetSending") : t("login.resetSend")}
+          </button>}
+      <button type="button" className="text-[14px] underline" onClick={onBack}>{t("login.resetBack")}</button>
+    </> : updated ? <>
+      <p role="status" className="text-[14px]">{t("login.resetUpdated")}</p>
+      <button type="button" className="login-form-submit" onClick={onBack}>{t("login.resetBack")}</button>
+    </> : validity === "checking"
+      ? <p role="status">{t("login.resetChecking")}</p>
+      : validity === "invalid" ? <>
+          <p role="alert" className="text-[14px] text-[var(--color-error)]">{t("login.resetLinkInvalid")}</p>
+          <button type="button" className="login-form-submit" onClick={onBack}>{t("login.resetBack")}</button>
+        </> : <>
+          <AppTextField id="cms-recovery-password" type="password"
+            label={t("login.newPassword")} placeholder={t("login.newPassword")}
+            value={newPassword} autoComplete="new-password"
+            onChange={value => { setNewPassword(value); setError(""); }} />
+          <AppTextField id="cms-recovery-confirm" type="password"
+            label={t("login.confirmPassword")} placeholder={t("login.confirmPassword")}
+            value={confirmPassword} autoComplete="new-password"
+            onChange={value => { setConfirmPassword(value); setError(""); }} />
+          <button type="button" className="login-form-submit" disabled={busy}
+            onClick={() => void setPassword()}>
+            {busy ? t("login.resetUpdating") : t("login.resetUpdate")}
+          </button>
+        </>}
+    {error && <p role="alert" className="text-[14px] text-[var(--color-error)]">{error}</p>}
+  </div>;
+}
+
 interface LoginFormProps {
   isDesktop: boolean;
   onOfficeEnter?: () => void;
@@ -19,15 +135,22 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
   const { t: translate } = useTranslation("auth");
   const { openHelp } = useHelp();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   const [userId, setUserId] = useState("");
+  const [resetRequested, setResetRequested] = useState(false);
   const [password, setPassword] = useState("");
   const [entryError, setEntryError] = useState(false);
   const [sharedError, setSharedError] = useState("");
   const [sharedBusy, setSharedBusy] = useState(false);
   const sharedMode = isSharedAuditMode();
   const cmsEntry = !sharedMode && pathname.startsWith("/administration/content-management");
+  const recovering = cmsEntry && new URLSearchParams(search ?? "").get("cmsRecovery") === "1";
+  const showRecovery = recovering || (cmsEntry && resetRequested);
+  const cancelRecovery = () => {
+    setResetRequested(false);
+    if (recovering) navigate("/administration/content-management", { replace: true });
+  };
   const handleSignIn = async () => {
     if (sharedBusy) return;
     if (sharedMode) {
@@ -122,9 +245,9 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
               <h1 className="modal-form-header__title text-[30px] mb-1">
-                {translate("login.title")}
+                {translate(recovering ? "login.resetChooseTitle" : resetRequested ? "login.resetTitle" : "login.title")}
               </h1>
-              <p className="modal-form-header__subtitle">{translate(cmsEntry ? "login.publisherSubtitle" : "login.subtitle")}</p>
+              <p className="modal-form-header__subtitle">{translate(recovering ? "login.resetChooseSubtitle" : resetRequested ? "login.resetSubtitle" : cmsEntry ? "login.publisherSubtitle" : "login.subtitle")}</p>
             </div>
             <button type="button" className="login-form-manual-btn" onClick={openHelp}>
               <svg width="10" height="12" viewBox="0 0 10 12" fill="none">
@@ -137,7 +260,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
           </div>
 
           {/* Fields */}
-          <div className="flex flex-col gap-5">
+          {showRecovery ? <CmsPasswordRecovery mode={recovering ? "complete" : "request"} onBack={cancelRecovery} /> : <div className="flex flex-col gap-5">
             <AppTextField
               id="login-user-id"
               label={sharedMode ? "Officer email" : translate("login.userId")}
@@ -157,6 +280,11 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
               onChange={value => { setPassword(value); setSharedError(""); }}
               autoComplete="current-password"
             />
+            {cmsEntry && <button type="button"
+              className="self-end text-[14px] underline text-[var(--color-text-secondary)]"
+              onClick={() => { setSharedError(""); setResetRequested(true); }}>
+              {translate("login.forgotPassword")}
+            </button>}
             <button
               type="button"
               onClick={() => { void handleSignIn(); }}
@@ -170,7 +298,7 @@ export function LoginForm({ isDesktop, onOfficeEnter }: LoginFormProps) {
             {!sharedMode && <p className="text-[14px] text-center text-[var(--color-text-secondary)]">
               {translate("login.needHelp")}
             </p>}
-          </div>
+          </div>}
         </div>
       </div>
 
