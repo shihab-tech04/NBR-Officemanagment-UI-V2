@@ -2,14 +2,7 @@ import { FontPreviewText } from "./FontPreviewText";
 import { SelectedCheckmark } from "./SelectedCheckmark";
 import { useTranslation } from "react-i18next";
 
-type FontId = "poppins" | "noto-sans" | "google-sans";
-
-interface FontConfig {
-  id: FontId;
-  name: string;
-  family: string;
-  preview: string;
-}
+import type { FontId, FontConfig } from "../../data/fonts";
 
 interface FontOptionCardProps {
   font: FontConfig;
