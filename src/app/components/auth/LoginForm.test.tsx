@@ -33,6 +33,7 @@ const cmsAuth = vi.hoisted(() => ({
   getUser: vi.fn(),
   updatePassword: vi.fn(),
 }));
+vi.mock('../../services/officeCmsBridge', () => ({ getOfficeCmsAuthClient: cmsAuth.getClient }));
 vi.mock('../../services/taxpayCmsClient', () => ({
   getTaxPayCmsClient: cmsAuth.getClient,
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => cmsAuth.hasVerified(...args),
