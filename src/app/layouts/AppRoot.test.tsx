@@ -22,8 +22,10 @@ vi.mock("../pages/audit/auditSharedSql", () => ({
     },
   }),
 }));
+vi.mock("../services/officeCmsBridge", () => ({
+  getOfficeCmsAuthClient: () => ({ auth: { signOut: (...args: unknown[]) => shared.cmsSignOut(...args) } }),
+}));
 vi.mock("../services/taxpayCmsClient", () => ({
-  getTaxPayCmsClient: () => ({ auth: { signOut: (...args: unknown[]) => shared.cmsSignOut(...args) } }),
   hasVerifiedCmsPublisherSession: (...args: unknown[]) => shared.hasVerified(...args),
 }));
 vi.mock("react-redux", () => ({ useDispatch: () => vi.fn() }));
