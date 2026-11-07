@@ -1,5 +1,4 @@
-import { TextField, MenuItem } from "@mui/material";
-import { muiFieldSx } from "./muiFieldSx";
+import {AppSelectField} from "./AppSelectField";
 
 interface SSelectProps {
   id: string;
@@ -9,22 +8,8 @@ interface SSelectProps {
   label?: string;
 }
 
-export function SSelect({ id, value, onChange, options, label }: SSelectProps) {
-  return (
-    <TextField
-      id={id}
-      select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      label={label}
-      variant="outlined"
-      fullWidth
-      InputLabelProps={{ shrink: true }}
-      sx={muiFieldSx}
-    >
-      {options.map((o) => (
-        <MenuItem key={o} value={o}>{o}</MenuItem>
-      ))}
-    </TextField>
-  );
+/** Use the same compact dropdown/search interaction in Office legacy forms. */
+export function SSelect({id,value,onChange,options,label}:SSelectProps){
+  return <AppSelectField id={id} label={label??''} value={value}
+    onChange={onChange} options={options} searchableAfter={4}/>;
 }
