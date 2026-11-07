@@ -36,7 +36,11 @@ function isHead(value:unknown):value is PaymentHead{
 }
 const nonempty=(value:unknown)=>typeof value==='string'&&value.trim()?value.trim():undefined;
 const known=(value:unknown)=>nonempty(value)&&!['Taxpayer / withholding agent','GUEST','—'].includes(String(value))?String(value).trim():undefined;
-const demoTinFor=(id:string)=>id==='user10'?'1010101010101':id.replace('user','').repeat(13);
+const demoTinFor=(id:string)=>{
+  if(!/^user(?:[1-9]|[12][0-9]|30)$/.test(id))return '';
+  const n=Number(id.slice(4));
+  return n===10?'1010101010101':n<=9?String(n).repeat(13):'90000000'+String(n).padStart(5,'0');
+};
 const safeMinorTotal=(amounts:unknown[]):number|null=>{
   let sum=0;
   for(const amount of amounts){
@@ -84,7 +88,7 @@ export function storyGroup(key:string):string {
 export function toStoryPaymentRow(tx:StoryPayment){
   const d=tx.details??{};
   const allocations=Array.isArray(d.lines)?d.lines.filter(
-    line=>line&&typeof line==='object'&&!Array.isArray(line)&&typeof line.beneficiary==='string'&&/^user([1-9]|10)$/.test(line.beneficiary)
+    line=>line&&typeof line==='object'&&!Array.isArray(line)&&typeof line.beneficiary==='string'&&/^user(?:[1-9]|[12][0-9]|30)$/.test(line.beneficiary)
   ):[];
   const recipients=Array.from(new Set(allocations.map(line=>line.beneficiary!)));
   const explicit=Array.isArray(d.allocations)?d.allocations:[];
@@ -172,7 +176,7 @@ export function toStoryTaxpayerPaymentRow(tx:StoryPayment,tin:string,scopeYear='
   if(hasSyntheticLines&&explicit.length)return null;
   const yearMatches=(year:unknown)=>scopeYear==='all'||(typeof year==='string'&&year.replace('–','-')===scopeYear);
   if(hasSyntheticLines){
-    if(lines.some(line=>typeof line.beneficiary!=='string'||!/^user([1-9]|10)$/.test(line.beneficiary)))return null;
+    if(lines.some(line=>typeof line.beneficiary!=='string'||!/^user(?:[1-9]|[12][0-9]|30)$/.test(line.beneficiary)))return null;
     if(safeMinorTotal(lines.map(line=>line.amountMinor))!==tx.amountMinor)return null;
     const own=lines.filter(line=>demoTinFor(line.beneficiary!)===tin&&yearMatches(line.assessmentYear));
     if(!own.length)return null;
