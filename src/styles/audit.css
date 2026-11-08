@@ -2411,6 +2411,12 @@
   font-size: var(--fs-caption);
 }
 
+.audit-preview-selection-note {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
 .audit-preview-selectable-row > .MuiCheckbox-root {
   flex: none;
 }
