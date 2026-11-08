@@ -355,6 +355,31 @@ export function ContentManagementPage() {
         (error as Error).message);
     } finally { setBusy(false); }
   }
+  async function reAnalyzePublishedImage() {
+    if (!draft || busy || analyzingPalette) return;
+    const path = draft.desktop_image_path || draft.mobile_image_path;
+    const src = imageUrl(path);
+    if (!src) { setMessage('No published image is available to analyze. Upload an image first.'); return; }
+    const bannerId = draft.id;
+    setAnalyzingPalette(true);
+    setMessage('');
+    try {
+      // Read the PUBLIC, already published image without credentials or writes.
+      // This does not replace the image or publish colors until Save/Publish.
+      const response = await fetch(src, { mode: 'cors' });
+      if (!response.ok) throw new Error('Published artwork could not be loaded');
+      const bytes = await response.blob();
+      if (!bytes.type.startsWith('image/')) throw new Error('Published file is not an image');
+      const file = new File([bytes], 'existing-banner-artwork', {type:bytes.type});
+      const palette = await analyzeCroppedBanner(file);
+      setDraft(current => current?.id===bannerId?{...current,...palette}:current);
+      setPreviewDevice('desktop');
+      setPreviewOpen(true);
+      setMessage('Existing artwork re-analyzed. Review the colors and publish only when ready.');
+    } catch(error) {
+      setMessage('Cannot re-analyze this published image: '+(error as Error).message+'. Existing colors were not changed.');
+    } finally { setAnalyzingPalette(false); }
+  }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
   const hasImagePalette = !!draft && PALETTE_KEYS.every(key => !!draft[key]);
   const previewImage = draft ? (previewDevice === 'desktop'
@@ -423,7 +448,13 @@ export function ContentManagementPage() {
           <p className="cms-editor__note">TaxPay displays this banner’s own artwork, headings, body text and payment actions as the carousel rotates. Preview reflects the selected desktop/mobile text, image and colors.</p>
           <div className="cms-palette-heading">
             <h3>Image-matched banner colors</h3>
-            {editing && hasImagePalette && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, ...FALLBACK_PALETTE } : null)}>Use safe blue colors</button>}
+            <div className="cms-palette-heading__actions">
+              {editing && draft.desktop_image_path && <button type="button" className="cms-text-button"
+                disabled={busy || analyzingPalette} onClick={() => { void reAnalyzePublishedImage(); }}>
+                Match colors to current image
+              </button>}
+              {editing && hasImagePalette && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, ...FALLBACK_PALETTE } : null)}>Use safe blue colors</button>}
+            </div>
           </div>
           <p className="cms-editor__note">{analyzingPalette
             ? 'Analyzing your cropped image and checking text contrast…'
