@@ -855,21 +855,6 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
             </div>
           </FormSection>
 
-          <FormSection title={t("initiate.fields.selectionTrack")} icon={FileSearch}>
-            <div className="app-choice-grid app-choice-grid--fill-last">
-              {TRACKS.map((item) => (
-                <AppChoiceCard
-                  key={item.id}
-                  name="audit-track"
-                  value={item.id}
-                  title={t(item.titleKey)}
-                  description={t(item.descKey)}
-                  selected={track === item.id}
-                  onSelect={handleTrackSelect}
-                />
-              ))}
-            </div>
-          </FormSection>
         </div>
       );
     }
