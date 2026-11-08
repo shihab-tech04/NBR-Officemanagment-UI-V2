@@ -13,6 +13,58 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("candidate preview supports searched single and multi-select removal without touching existing audits", async ({ page }) => {
+  await page.goto("/audit/audit-candidates");
+  await page.getByRole("button", { name: "Initiate Audit" }).click();
+  const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
+  const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await next(); // Setup -> Risk criteria
+  await modal.getByRole("checkbox", { name: "Reconciliation gap" }).check();
+  await next(); // Risk criteria -> Screening
+  await modal.getByRole("button", { name: "Start screening" }).click();
+  await modal.getByRole("button", { name: "Continue to Candidate preview" }).click();
+
+  const search = modal.getByRole("searchbox", { name: "Search candidates" });
+  await expect(search).toBeVisible();
+  const selectable = modal.locator(".audit-preview-candidate-list .audit-preview-selectable-row")
+    .filter({ has: page.locator('input[type="checkbox"]:not(:disabled)') }).first();
+  await expect(selectable).toBeVisible();
+  const removedName = await selectable.locator(".audit-preview-candidate__main > strong").innerText();
+  await search.fill(removedName);
+  await modal.getByRole("checkbox", { name: `Select ${removedName}` }).check();
+  await expect(modal.getByRole("button", { name: "Remove from audit" })).toBeVisible();
+
+  // Checkbox state must survive switching from the list to the comparison display.
+  await modal.getByRole("tab", { name: "Comparison" }).click();
+  await expect(modal.getByRole("checkbox", { name: `Select ${removedName}` })).toBeChecked();
+  await modal.getByRole("button", { name: "Remove from audit" }).click();
+  await expect(modal.getByRole("button", { name: "Remove from audit" })).toHaveCount(0);
+  await search.fill("");
+  await modal.getByRole("tab", { name: "List" }).click();
+  await expect(modal.locator(".audit-preview-candidate-list")).not.toContainText(removedName);
+
+  // The excluded taxpayer cannot be reintroduced by the funnel/final confirmation.
+  await next(); // Preview -> Funnel
+  await next(); // Funnel -> Final list
+  await expect(modal.locator(".app-selection-stack")).not.toContainText(removedName);
+  await modal.getByRole("button", { name: "Back" }).click(); // Final -> Funnel
+  await modal.getByRole("button", { name: "Back" }).click(); // Funnel -> Preview
+
+  // Bulk selection applies to available candidates on the visible page only.
+  const selectPage = modal.getByRole("checkbox", { name: "Select available on this page" });
+  await expect(selectPage).toBeEnabled();
+  await selectPage.check();
+  await expect(modal.getByText(/selected/, { exact: false }).first()).toBeVisible();
+  await modal.getByRole("button", { name: "Remove from audit" }).click();
+  await expect(modal.getByRole("button", { name: "Remove from audit" })).toHaveCount(0);
+  // Already-in-audit records are retained and their checkboxes cannot remove them.
+  const locked = modal.locator(".audit-preview-candidate--locked").first();
+  if (await locked.count()) {
+    await expect(locked.locator("..").getByRole("checkbox")).toBeDisabled();
+  }
+});
+
 test("create Audit, run R-A1 screening, confirm, review, refresh, and recover trail", async ({ page }) => {
   await page.goto("/audit/audit-candidates");
   await expect(page.locator(".audit-candidates-page")).toBeVisible();
