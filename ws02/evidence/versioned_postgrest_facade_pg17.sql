@@ -94,7 +94,7 @@ BEGIN
  -- The exception subtransaction restores the original role after each denied attempt.
  FOREACH runtime_role IN ARRAY ARRAY['ws02_owner_auth','ws02_owner_anon'] LOOP
   BEGIN
-   EXECUTE format('SET LOCAL ROLE %I',runtime_role);
+   EXECUTE format('SET SESSION AUTHORIZATION %I',runtime_role);
    EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
    RAISE EXCEPTION 'CITIZEN_UNEXPECTEDLY_SWITCHED_TO_ENGINE_%',runtime_role;
   EXCEPTION WHEN insufficient_privilege THEN NULL;
