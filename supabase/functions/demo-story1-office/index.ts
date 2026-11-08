@@ -17,10 +17,16 @@ Deno.serve(async(req)=>{
       // Use the source SQL read-back, never an unverified caller snapshot.
       const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/payments/"
          +encodeURIComponent(incoming.id)+"?sessionId="+encodeURIComponent(incoming.sessionId);
-      const source=await fetch(sourceUrl,{signal:AbortSignal.timeout(10000)});
+      // Forward TaxPay's short-lived, payment+session-bound proof to TaxPay.
+      // Never trust the caller's payment snapshot or store the proof in Office.
+      const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
+      const source=await fetch(sourceUrl,{
+        headers:mirrorProof?{"x-taxpay-office-mirror-proof":mirrorProof}:undefined,
+        signal:AbortSignal.timeout(10000)});
       if(!source.ok)return respond({success:false,error:"SOURCE_RECORD_NOT_FOUND"},424);
       const sourceResponse=await source.json();
-      if(!sourceResponse?.success||sourceResponse.data?.status!=="SIMULATED_SUCCESS")
+      if(!sourceResponse?.success||sourceResponse.simulationOnly!==true||
+         sourceResponse.data?.id!==incoming.id||sourceResponse.data?.status!=="SIMULATED_SUCCESS")
         return respond({success:false,error:"SOURCE_RECORD_NOT_READY"},424);
       const record=sourceResponse.data;
       rpc="demo_story1_mirror";
