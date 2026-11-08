@@ -128,6 +128,18 @@ BEGIN
     AND (SELECT replace(proconfig[1],' ','') FROM pg_catalog.pg_proc WHERE oid=fn)
         IS DISTINCT FROM 'search_path=pg_catalog,ws02_owner'
  THEN RAISE EXCEPTION 'ENGINE_ALTER_PROBE_CHANGED_FACADE_SEARCH_PATH'; END IF;
+ -- An EXECUTE-only runtime must not replace the private facade implementation.
+ -- This probes CREATE OR REPLACE independently of ALTER FUNCTION permissions.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'CREATE OR REPLACE FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_REPLACED_FACADE';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF (SELECT prosrc FROM pg_catalog.pg_proc WHERE oid=fn)
+    NOT LIKE '%ws02_owner.nbr_commit_evaluation_versioned_candidate(%'
+ THEN RAISE EXCEPTION 'ENGINE_REPLACE_PROBE_CHANGED_FACADE_BODY'; END IF;
  -- Runtime EXECUTE permission must not permit delegating facade access to citizen roles.
  -- Test the GRANT operation itself and verify no ACL change survives the probe.
  BEGIN
