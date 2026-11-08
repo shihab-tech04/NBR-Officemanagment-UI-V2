@@ -253,7 +253,22 @@ test("setup starts directly in the risk-based audit flow without a track selecto
   await expect(modal.locator('input[name="audit-track"]')).toHaveCount(0);
   await expect(modal.getByRole("combobox", { name: /Assessment Year/ })).toBeVisible();
   await expect(stepper).toHaveCount(0);
+  await expect(modal.locator(".app-wizard-aside")).toHaveCount(0);
+  await expect(modal.locator(".app-wizard-layout")).toHaveCount(0);
+  const yearSection = modal.locator(".audit-year-setup");
+  await expect(yearSection).toBeVisible();
+  // The Assessment Year card spans the available modal body; it must not
+  // reserve the previous 300px summary column or produce an empty panel.
+  const initialGeometry = await modal.evaluate((dialog) => {
+    const body = dialog.querySelector(".app-modal-body")!.getBoundingClientRect();
+    const section = dialog.querySelector(".audit-year-setup")!.getBoundingClientRect();
+    return { widthGap: body.width - section.width, height: dialog.getBoundingClientRect().height };
+  });
+  expect(initialGeometry.widthGap).toBeLessThanOrEqual(42);
+  expect(initialGeometry.height).toBeLessThan(450);
   await modal.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(modal.locator(".app-wizard-aside")).toBeVisible();
+  await expect(modal.locator(".app-wizard-layout")).toBeVisible();
   await expect(stepper.locator(".app-stepper__item")).toHaveCount(5);
   await expect(stepper).not.toContainText("Selection setup");
   await expect(stepper).not.toContainText("Data readiness");
@@ -263,8 +278,11 @@ test("setup starts directly in the risk-based audit flow without a track selecto
   await expect(modal.getByRole("checkbox", { name: "Zero income + declared asset" })).toBeVisible();
   await modal.getByRole("button", { name: "Back", exact: true }).click();
   await expect(stepper).toHaveCount(0);
+  await expect(modal.locator(".app-wizard-aside")).toHaveCount(0);
+  await expect(modal.locator(".audit-year-setup")).toBeVisible();
   await expect(modal.getByRole("combobox", { name: /Assessment Year/ })).toBeVisible();
   await modal.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(modal.locator(".app-wizard-aside")).toBeVisible();
   await expect(stepper.locator(".app-stepper__item")).toHaveCount(5);
 });
 
