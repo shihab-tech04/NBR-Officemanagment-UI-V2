@@ -90,16 +90,25 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       const high = Math.max(r, g, b), low = Math.min(r, g, b), delta = high - low;
       const light = (high + low) / 2;
       const sat = delta === 0 ? 0 : delta / (1 - Math.abs(2 * light - 1));
-      // Ignore paper whites, black outlines, gray architecture, and tiny neutrals.
-      if (sat < .18 || light < .13 || light > .94) continue;
+      // The TaxPay artworks are panoramic ink-and-watercolor illustrations:
+      // the left half is deliberately pale for text, while the painted
+      // subject and its real theme are concentrated on the right.
+      // Older extraction favored beige paper pixels and often selected brown
+      // for blue-water/airport artwork. Include soft watercolor blues/teals
+      // but exclude paper/black outlines and near-neutral tint.
+      if (sat < .12 || light < .13 || light > .92) continue;
       colored++;
       let hue = 0;
       if (high === r) hue = ((g - b) / delta) % 6;
       else if (high === g) hue = (b - r) / delta + 2;
       else hue = (r - g) / delta + 4;
       hue = (hue * 60 + 360) % 360;
-      // Representation matters more than a rare, highly saturated flower.
-      const weight = (.5 + sat * .5) * (x < width * .6 ? 1.12 : 1);
+      // Weight the illustrated half rather than the blank paper behind
+      // the text. Favor a substantial painted wash over a tiny sharp accent;
+      // no service-specific hardcoded hue or brand color is inferred.
+      const motifWeight = x < width * .42 ? .18 : 1.9;
+      const chromaWeight = .55 + sat * .45 + Math.min(delta, .45);
+      const weight = motifWeight * chromaWeight;
       const bin = bins[Math.floor(hue / 15) % bins.length];
       bin.weight += weight;
       bin.sin += Math.sin(hue * Math.PI / 180) * weight;
