@@ -881,7 +881,9 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     </FormSection>
   );
 
-  const stepperSteps = activeSteps.map((id) => ({
+  // Assessment Year is a prerequisite, not a numbered audit step.
+  // Preserve the existing internal step indexes for screening and persistence.
+  const stepperSteps = activeSteps.slice(1).map((id) => ({
     id,
     label: t(`initiate.stepLabels.${id}`),
   }));
@@ -1959,13 +1961,15 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
       footer={modalFooter}
     >
       <div className="form-stack">
-        <AppStepper
-          steps={stepperSteps}
-          currentStep={step}
-          onStepChange={setStep}
-          ariaLabel={t("initiate.progressLabel")}
-          allowCompletedNavigation={screeningRunStatus !== "processing"}
-        />
+        {step > 0 && (
+          <AppStepper
+            steps={stepperSteps}
+            currentStep={step - 1}
+            onStepChange={(index) => setStep(index + 1)}
+            ariaLabel={t("initiate.progressLabel")}
+            allowCompletedNavigation={screeningRunStatus !== "processing"}
+          />
+        )}
 
         <div className="app-wizard-layout">
           <div className="app-wizard-main">

@@ -75,11 +75,15 @@ test("create Audit, run R-A1 screening, confirm, review, refresh, and recover tr
   const next = () => modal.getByRole("button", { name: "Continue", exact: true }).click();
 
   const stepper = modal.locator(".app-stepper");
+  await expect(stepper).toHaveCount(0); // Assessment Year is outside the progress indicator.
+
+  await next(); // Assessment Year -> Risk criteria, with full AY population
   await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
   await expect(stepper.getByRole("button", { name: "Data readiness", exact: true })).toHaveCount(0);
-  await expect(stepper.locator(".app-stepper__item")).toHaveCount(6);
-
-  await next(); // Selection setup -> Risk criteria, with full AY population
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(5);
+  await expect(stepper.locator(".app-stepper__label")).toHaveText([
+    "Risk criteria", "Screening run", "Candidate preview", "Funnel", "Final list & confirm",
+  ]);
   await expect(stepper.getByRole("button", { name: "Risk criteria", exact: true }))
     .toHaveAttribute("aria-current", "step");
   await expect(modal.getByRole("combobox", { name: "Zone", exact: true })).toHaveCount(0);
@@ -248,13 +252,20 @@ test("setup starts directly in the risk-based audit flow without a track selecto
   await expect(modal.getByText("Selection track", { exact: true })).toHaveCount(0);
   await expect(modal.locator('input[name="audit-track"]')).toHaveCount(0);
   await expect(modal.getByRole("combobox", { name: /Assessment Year/ })).toBeVisible();
-  await expect(stepper.locator(".app-stepper__item")).toHaveCount(6);
+  await expect(stepper).toHaveCount(0);
+  await modal.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(5);
+  await expect(stepper).not.toContainText("Selection setup");
   await expect(stepper).not.toContainText("Data readiness");
   await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
-  await modal.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(stepper.getByRole("button", { name: "Risk criteria", exact: true }))
     .toHaveAttribute("aria-current", "step");
   await expect(modal.getByRole("checkbox", { name: "Zero income + declared asset" })).toBeVisible();
+  await modal.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(stepper).toHaveCount(0);
+  await expect(modal.getByRole("combobox", { name: /Assessment Year/ })).toBeVisible();
+  await modal.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(5);
 });
 
 test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
@@ -315,7 +326,7 @@ test("exhausted risk preview recovers to remaining taxpayers without duplicating
   await recover.click(); // Explicit change to Population selection, not a silent override
 
   const stepper = modal.locator(".app-stepper");
-  await expect(stepper.locator(".app-stepper__item")).toHaveCount(4);
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(3);
   await expect(stepper.getByRole("button", { name: "Candidate preview" }))
     .toHaveAttribute("aria-current", "step");
   await expect(modal.locator(".audit-preview-eligibility-summary"))
