@@ -363,10 +363,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
 
   // Search, sorting and pagination retain selection; changed risk criteria do not.
   useEffect(() => {
-    const eligible = new Set(previewRows.filter((row) =>
-      String(row.audit_state ?? "Not Started") === "Not Started"
-      && !selectedReturnKeys.has(String(row.assessment_year) + "|" + String(row.return_id)))
-      .map((row) => String(row.return_id)));
+    const eligible = new Set(previewRows.map((row) => String(row.return_id)));
     setSelectedPreviewIds((current) => {
       const remaining = current.filter((id) => eligible.has(id));
       return remaining.length === current.length ? current : remaining;
@@ -480,7 +477,6 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
 
   // Exclusions affect only this draft Audit batch; existing Audit records are protected.
   const previewPageSelectableIds = previewPageRows
-    .filter((row) => !isAlreadySelected(row))
     .map((row) => String(row.return_id));
   const selectedPreviewCount = selectedPreviewIds.length;
   const selectedOnPage = previewPageSelectableIds.filter((id) => selectedPreviewIds.includes(id)).length;
@@ -496,8 +492,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
       : current.filter((value) => !pageIds.has(value)));
   };
   const removeSelectedFromAudit = () => {
-    const selectable = new Set(previewRows.filter((row) => !isAlreadySelected(row))
-      .map((row) => String(row.return_id)));
+    const selectable = new Set(previewRows.map((row) => String(row.return_id)));
     const ids = selectedPreviewIds.filter((id) => selectable.has(id));
     if (!ids.length) return;
     setExcludedReturnIds((current) => Array.from(new Set([...current, ...ids])));
@@ -1542,6 +1537,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                   {selectedPreviewCount > 0 && (
                     <div className="audit-preview-selection-toolbar__actions" role="status">
                       <span>{t("initiate.previewDecision.selectedCount", { count: selectedPreviewCount })}</span>
+                      <span className="audit-preview-selection-note">{t("initiate.previewDecision.selectionOnlyNote")}</span>
                       <SecondaryButton size="sm" onClick={removeSelectedFromAudit}>
                         {t("initiate.previewDecision.removeFromAudit")}
                       </SecondaryButton>
@@ -1633,8 +1629,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                         <div className="audit-preview-selectable-row" key={String(row.return_id)}>
                           <AppCheckbox
                             ariaLabel={t("initiate.previewDecision.selectCandidate", { name: String(row.taxpayer_name) })}
-                            checked={!alreadyInAudit && selectedPreviewIds.includes(String(row.return_id))}
-                            disabled={alreadyInAudit}
+                            checked={selectedPreviewIds.includes(String(row.return_id))}
                             onChange={(checked) => togglePreviewCandidate(String(row.return_id), checked)}
                           />
                         <button
@@ -1680,8 +1675,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                       <div className="audit-preview-selectable-row" key={id}>
                         <AppCheckbox
                           ariaLabel={t("initiate.previewDecision.selectCandidate", { name: String(row.taxpayer_name) })}
-                          checked={!alreadyInAudit && selectedPreviewIds.includes(id)}
-                          disabled={alreadyInAudit}
+                          checked={selectedPreviewIds.includes(id)}
                           onChange={(checked) => togglePreviewCandidate(id, checked)}
                         />
                         <div

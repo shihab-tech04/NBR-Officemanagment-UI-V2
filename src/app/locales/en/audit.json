@@ -600,6 +600,7 @@
       "searchLabel": "Search Risk Signals",
       "searchPlaceholder": "Search signals",
       "selectedCount": "{{count}} selected",
+      "selectionOnlyNote": "Current selection only — existing audits remain unchanged.",
       "noResults": "No Risk Signals match this search."
     },
     "funnel": {
@@ -645,11 +646,11 @@
       "filteredList": "{{filtered}} of {{total}} matched candidates"
     },
     "previewDecision": {
-      "selectPage": "Select available on this page",
+      "selectPage": "Select all candidates on this page",
       "selectCandidate": "Select {{name}}",
       "selectedCount": "{{count}} selected",
       "removeFromAudit": "Remove from audit",
-      "removedCount": "{{count}} candidate(s) removed from this audit",
+      "removedCount": "{{count}} candidate(s) excluded from this selection. Existing audits remain unchanged.",
       "allMatchingRemoved": "All matching candidates were removed from this audit. Change the criteria or return to review your selection.",
       "search": "Search candidates",
       "sortLabel": "Sort candidates",
