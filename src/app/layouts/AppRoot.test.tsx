@@ -73,6 +73,39 @@ describe("Office UI entry and shared officer Auth lifecycle", () => {
     expect(shared.checkAccess).not.toHaveBeenCalled();
   });
 
+  it("honors explicit Sign Out on public Audit routes and across a tab refresh", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/audit/audit-overview");
+    const screenOne = render(<AppRoot />);
+    // Fresh Audit preview remains accessible without introducing officer authentication.
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument());
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    expect(window.sessionStorage.getItem("office_ui_signed_out")).toBe("1");
+    expect(shared.cmsSignOut).toHaveBeenCalledWith({ scope: "local" });
+
+    // Refreshing or revisiting Audit within this tab must not undo the explicit exit.
+    screenOne.unmount();
+    render(<AppRoot />);
+    expect(screen.getByRole("button", { name: "Enter Office (admin)" })).toBeInTheDocument();
+    expect(screen.queryByTestId("office-demo-shell")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Enter Office (admin)" }));
+    expect(window.sessionStorage.getItem("office_ui_signed_out")).toBeNull();
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+  });
+
+  it("keeps the Audit UI active when the CMS Auth sign-out cannot be verified", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/audit/audit-overview");
+    shared.cmsSignOut.mockResolvedValue({ error: new Error("network issue") });
+    render(<AppRoot />);
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be verified");
+    expect(screen.getByTestId("office-demo-shell")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("office_ui_signed_out")).toBeNull();
+  });
+
   it("keeps CMS and payment routes behind the existing Office entry", () => {
     window.history.replaceState(null, "", "/administration/content-management");
     const cms = render(<AppRoot />);
