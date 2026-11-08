@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getTaxPayCmsClient, getTaxPayCmsPublicClient } from '../../services/taxpayCmsClient';
 import { callOfficeCmsBridge, getOfficeCmsAuthClient, isVerifiedOfficeCmsPublisher } from '../../services/officeCmsBridge';
-import { ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
+import { Eye, ImagePlus, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
+import { AppModal } from '../../components/modals/AppModal';
+import { BannerFullPreview } from './BannerFullPreview';
+import { analyzeCroppedBanner, EMPTY_PALETTE, FALLBACK_PALETTE, PALETTE_KEYS, validateBannerPalette, type BannerPalette } from './bannerPalette';
 import '../../../styles/content-management.css';
 import { SiteLogoPanel } from './SiteLogoPanel';
 import { ImageCropDialog } from './ImageCropDialog';
@@ -10,7 +13,7 @@ import { verifyPublicImage } from './verifyPublicImage';
 import { useImagePreview } from './useImagePreview';
 import { SConfirmModal } from '../../components/modals/SConfirmModal';
 
-type Banner = {
+type Banner = BannerPalette & {
   id: string; service_code: string | null; sort_order: number; published: boolean;
   heading_en: string; heading_bn: string; description_en: string; description_bn: string;
   mobile_heading_en: string; mobile_heading_bn: string;
@@ -85,6 +88,10 @@ export function ContentManagementPage() {
   const [authState, setAuthState] = useState<'checking' | 'signed-out' | 'denied' | 'authorized'>('checking');
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [deleteRequested, setDeleteRequested] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLanguage, setPreviewLanguage] = useState<'en' | 'bn'>('en');
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [analyzingPalette, setAnalyzingPalette] = useState(false);
 
   const refreshSession = useCallback(async () => {
     // No TaxPay administrator sign-in. Server checks Office Auth independently.
@@ -184,7 +191,7 @@ export function ContentManagementPage() {
       heading_en: '', heading_bn: '', description_en: '', description_bn: '',
       mobile_heading_en: '', mobile_heading_bn: '',
       mobile_description_en: '', mobile_description_bn: '', action_en: '', action_bn: '',
-      desktop_image_path: null, mobile_image_path: null, version: 1,
+      desktop_image_path: null, mobile_image_path: null, ...EMPTY_PALETTE, version: 1,
       updated_at: new Date().toISOString(), updated_by: null,
     };
     setNewDraft(blank);
@@ -197,7 +204,9 @@ export function ContentManagementPage() {
   }
 
   async function publish() {
-    if (!draft || busy) return;
+    if (!draft || busy || analyzingPalette) return;
+    const paletteError = validateBannerPalette(draft);
+    if (paletteError) { setMessage('Not published: ' + paletteError); return; }
     if (fields.some(field => !draft[field.key].trim() ||
         (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete English and Bangla fields within the mobile character limits.');
@@ -230,12 +239,15 @@ export function ContentManagementPage() {
     setDesktopFile(null);
     setMobileFile(null);
     setCropTask(null);
+    setPreviewOpen(false);
     setEditing(false);
     setMessage('');
   }
 
   async function save(publisherUid: string) {
-    if (!cms || !draft || !publisherUid || busy) return;
+    if (!cms || !draft || !publisherUid || busy || analyzingPalette) return;
+    const paletteError = validateBannerPalette(draft);
+    if (paletteError) { setMessage('Save not completed: ' + paletteError); return; }
     if (fields.some(field => !draft[field.key].trim() || (field.max && Array.from(draft[field.key]).length > field.max))) {
       setMessage('Complete English and Bangla fields within the mobile character limits.');
       return;
@@ -253,6 +265,8 @@ export function ContentManagementPage() {
         mobile_description_en:draft.mobile_description_en, mobile_description_bn:draft.mobile_description_bn,
         action_en:draft.action_en, action_bn:draft.action_bn,
         desktop_image_path:draft.desktop_image_path, mobile_image_path:draft.mobile_image_path,
+        background_color:draft.background_color, heading_color:draft.heading_color,
+        body_color:draft.body_color, outline_color:draft.outline_color,
         published:draft.published,
       };
       const { banner:saved } = await callOfficeCmsBridge<{banner:Banner}>(
@@ -295,16 +309,18 @@ export function ContentManagementPage() {
         for(const path of new Set([saved.desktop_image_path,saved.mobile_image_path].filter((p):p is string=>!!p)))
           await verifyPublicImage(publicCms,'taxpay-banners',path);
       }
-      setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null);
+      setNewDraft(null); setEditing(false); setDesktopFile(null); setMobileFile(null); setPreviewOpen(false);
       const uploadedImageCount = [saved.desktop_image_path, saved.mobile_image_path]
         .filter((path): path is string => !!path).length;
-      setMessage(!draft.published
+      const colorsVerified = !!saved.background_color && !!saved.heading_color && !!saved.body_color && !!saved.outline_color;
+      setMessage((!draft.published
         ? 'Saved to SQL; banner remains unpublished.'
         : uploadedImageCount === 2
           ? 'Saved to SQL; public TaxPay text and desktop/mobile images verified.'
           : uploadedImageCount === 1
             ? 'Saved to SQL; public TaxPay text and the uploaded image verified. The other slot still uses the approved artwork fallback.'
-            : 'Saved to SQL; public TaxPay text verified. Both image slots still use the approved artwork fallback.');
+            : 'Saved to SQL; public TaxPay text verified. Both image slots still use the approved artwork fallback.') +
+          (colorsVerified ? ' Published colors verified in SQL.' : ''));
     } catch(error) {
       if(committedRow?.id) {
         setDraft(committedRow); setSelectedId(committedRow.id);
@@ -340,6 +356,11 @@ export function ContentManagementPage() {
     } finally { setBusy(false); }
   }
   const isNewBanner = !!draft && newDraft?.id === draft.id;
+  const hasImagePalette = !!draft && PALETTE_KEYS.every(key => !!draft[key]);
+  const previewImage = draft ? (previewDevice === 'desktop'
+    ? (desktopPreview || imageUrl(draft.desktop_image_path) || originalImageUrl(defaultBannerImageId(draft.service_code)))
+    : (mobilePreview || imageUrl(draft.mobile_image_path) || desktopPreview ||
+      imageUrl(draft.desktop_image_path) || originalImageUrl(defaultBannerImageId(draft.service_code)))) : null;
   const publishedCount = banners.filter(row => row.published).length;
 
   return <main className="cms-page">
@@ -368,7 +389,7 @@ export function ContentManagementPage() {
           {isNewBanner && <div className="cms-banner-item is-selected"><span><strong>New banner</strong><small>Unsaved · Serial {desiredPosition}</small></span><span className="cms-status">Draft</span></div>}
         </section>
         {draft && <section className="cms-panel cms-editor" aria-label="Banner details">
-          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
+          <div className="cms-panel__heading"><div><h2>{isNewBanner ? 'New Banner' : draft.service_code ? 'Service Banner' : 'Main Banner'}</h2><p>{draft.heading_en || 'Set banner images and bilingual content'}</p></div><div className="cms-editor__header-actions">{!isNewBanner && <span className="cms-status">v{draft.version}</span>}<button type="button" className="cms-edit-button" onClick={() => setPreviewOpen(true)}><Eye size={16}/> Full banner preview</button>{!editing && <button type="button" className="cms-edit-button" onClick={() => { setEditing(true); setMessage(''); }}><Pencil size={16}/> Edit banner</button>}</div></div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-category">Banner category</label><small>Choose a main banner or a linked tax service</small></div>{editing && draft.id !== 'intro' ? <select id="cms-banner-category" value={draft.service_code || ''} onChange={event => setDraft(current => current ? { ...current, service_code: event.target.value || null } : null)}>{bannerCategories.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <strong>{draft.id === 'intro' ? 'Main banner (fixed)' : (bannerCategories.find(option => option.value === (draft.service_code || ''))?.label || 'Main banner')}</strong>}</div>
           <div className="cms-order-field"><div><label htmlFor="cms-banner-order">Banner serial</label><small>Published order in TaxPay</small></div>{editing ? <select id="cms-banner-order" value={desiredPosition} onChange={event => setDesiredPosition(Number(event.target.value))}>{Array.from({ length: banners.length + (isNewBanner ? 1 : 0) }, (_, index) => <option value={index + 1} key={index + 1}>#{index + 1}</option>)}</select> : <strong>#{desiredPosition}</strong>}</div>
           <div className="cms-image-grid">
@@ -391,7 +412,7 @@ export function ContentManagementPage() {
                   }} />
                 </label>}
                 {editing && (path || file) && <button type="button" className="cms-text-button" onClick={() => {
-                  setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null } : null);
+                  setDraft(current => current ? { ...current, [device === 'desktop' ? 'desktop_image_path' : 'mobile_image_path']: null, ...EMPTY_PALETTE } : null);
                   if (device === 'desktop') setDesktopFile(null);
                   else setMobileFile(null);
                 }}>Remove image</button>}
@@ -399,11 +420,29 @@ export function ContentManagementPage() {
               </div>;
             })}
           </div>
-          <p className="cms-editor__note">{draft.service_code
-            ? 'Taxpayer displays this service artwork while the visible left heading and payment actions remain fixed. This service heading and description are announced for accessibility. Only the Travel Tax action label changes the second visible button.'
-            : draft.id === 'intro'
-              ? 'This banner controls the Taxpayer homepage’s fixed left heading, description and primary payment button. The right illustration changes as other banners rotate.'
-              : 'Only the original Main banner controls Taxpayer’s visible left copy. This additional uncategorized record rotates its illustration but does not replace the original Main heading.'}</p>
+          <p className="cms-editor__note">TaxPay displays this banner’s own artwork, headings, body text and payment actions as the carousel rotates. Preview reflects the selected desktop/mobile text, image and colors.</p>
+          <div className="cms-palette-heading">
+            <h3>Image-matched banner colors</h3>
+            {editing && hasImagePalette && <button type="button" className="cms-text-button" onClick={() => setDraft(current => current ? { ...current, ...FALLBACK_PALETTE } : null)}>Use safe blue colors</button>}
+          </div>
+          <p className="cms-editor__note">{analyzingPalette
+            ? 'Analyzing your cropped image and checking text contrast…'
+            : hasImagePalette
+              ? 'These four colors were selected from the uploaded artwork. Adjust any swatch before publishing; colors are stored with this banner.'
+              : 'Using the existing TaxPay service colors. Upload and apply an image crop to generate matching colors automatically.'}</p>
+          {hasImagePalette && <div className="cms-palette-samples">
+            {PALETTE_KEYS.map(key => {
+              const label = ({background_color:'Light background',heading_color:'Dark heading',body_color:'Dark body',outline_color:'Outlined button'} as const)[key];
+              return <div className="cms-palette-sample" key={key}>
+                {editing ? <input type="color" className="cms-palette-sample__color" aria-label={label+' color'}
+                  value={draft[key] || '#FFFFFF'} disabled={busy || analyzingPalette}
+                  onChange={event => setDraft(current => current ? {...current,[key]:event.target.value.toUpperCase()}:null)} /> :
+                  <span className="cms-palette-sample__color" style={{backgroundColor:draft[key] || '#FFFFFF'}}/>}
+                <span className="cms-palette-sample__details"><label>{label}</label><code>{draft[key]}</code></span>
+              </div>;
+            })}
+          </div>}
+          {hasImagePalette && validateBannerPalette(draft) && <p className="cms-crop__error" role="alert">{validateBannerPalette(draft)}</p>}
           <div className="cms-fields">{fields.map(field => <div className="cms-field" key={field.key}><label htmlFor={`cms-${field.key}`}>{field.label}</label>
             {editing ? (field.key.includes('description') ? <textarea id={`cms-${field.key}`} rows={2} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} /> :
               <input id={`cms-${field.key}`} maxLength={field.max} value={draft[field.key]} onChange={event => update(field.key, event.target.value)} />) :
@@ -417,11 +456,31 @@ export function ContentManagementPage() {
           {editing && <div className="cms-actions">
             <div className="cms-actions__secondary"><div className="cms-publish-control"><span>Publish</span><button type="button" role="switch" aria-label="Publish banner" aria-checked={draft.published} className={`cms-switch${draft.published ? ' is-on' : ''}`} disabled={busy || draft.id === 'intro' || (draft.published && !isNewBanner && publishedCount <= 1)} onClick={() => setDraft(current => current ? { ...current, published: !current.published } : null)}><span/></button><strong>{draft.published ? 'Published' : 'Unpublished'}</strong></div>
               {!isNewBanner && draft.id !== 'intro' && <button type="button" className="cms-danger" disabled={busy || banners.length <= 1 || (draft.published && publishedCount <= 1)} onClick={() => setDeleteRequested(true)}><Trash2 size={16}/> Remove banner</button>}</div>
-            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy} onClick={publish}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
+            <div className="cms-actions__main"><button type="button" className="cms-primary" disabled={busy || analyzingPalette} onClick={publish}><Save size={16}/> {busy ? 'Publishing…' : 'Publish to TaxPay'}</button><button type="button" disabled={busy} onClick={cancelEdit}>Cancel</button></div>
           </div>}
         </section>}
       </div>}
     {message && <p className="cms-message" role="status">{message}</p>}
+    {draft && <AppModal open={previewOpen} title="Full banner preview — not yet published"
+      onClose={() => setPreviewOpen(false)} size="xxxl"
+      footer={<button type="button" className="cms-primary" onClick={() => setPreviewOpen(false)}>Return to editor</button>}>
+      <div className="cms-theme-preview-controls" role="group" aria-label="Banner preview settings">
+        {(['desktop','mobile'] as const).map(device => <button type="button" key={device}
+          aria-pressed={previewDevice===device} onClick={() => setPreviewDevice(device)}>
+          {device==='desktop'?'Desktop':'Mobile'}
+        </button>)}
+        {(['en','bn'] as const).map(lang => <button type="button" key={lang}
+          aria-pressed={previewLanguage===lang} onClick={() => setPreviewLanguage(lang)}>
+          {lang==='en'?'English':'বাংলা'}
+        </button>)}
+      </div>
+      <BannerFullPreview banner={draft} imageSrc={previewImage} device={previewDevice}
+        language={previewLanguage} travelAction={
+          previewLanguage==='bn' ? (banners.find(row => row.service_code==='TRAVEL_TAX')?.action_bn || 'ভ্রমণ কর পরিশোধ')
+            : (banners.find(row => row.service_code==='TRAVEL_TAX')?.action_en || 'Pay Travel Tax')
+        } />
+      <p className="cms-palette-note">Preview only. Image, text and colors become public only after Publish to TaxPay succeeds.</p>
+    </AppModal>}
     {deleteRequested && draft && <SConfirmModal
       title="Remove banner"
       message={`Delete “${draft.heading_en}” from shared SQL and public TaxPay? This cannot be undone.`}
@@ -433,9 +492,23 @@ export function ContentManagementPage() {
     {cropTask && <ImageCropDialog key={`${cropTask.device}-${cropTask.file.name}-${cropTask.file.lastModified}`} file={cropTask.file}
       title={`${cropTask.device} banner`} outputWidth={cropTask.device === 'desktop' ? 2172 : 768}
       outputHeight={cropTask.device === 'desktop' ? 724 : 520} onCancel={() => setCropTask(null)} onApply={cropped => {
-        if (cropTask.device === 'desktop') setDesktopFile(cropped);
+        const bannerId = draft?.id;
+        const device = cropTask.device;
+        if (device === 'desktop') setDesktopFile(cropped);
         else setMobileFile(cropped);
         setCropTask(null);
+        setAnalyzingPalette(true);
+        void analyzeCroppedBanner(cropped).then(palette => {
+          setDraft(current => current?.id === bannerId ? { ...current, ...palette } : current);
+          setPreviewDevice(device);
+          setPreviewOpen(true);
+          setMessage('Cropped image analyzed. Review the complete banner and colors before publishing.');
+        }).catch(() => {
+          setDraft(current => current?.id === bannerId ? { ...current, ...FALLBACK_PALETTE } : current);
+          setPreviewDevice(device);
+          setPreviewOpen(true);
+          setMessage('Color analysis was unavailable. Safe TaxPay blue colors are in the preview; you can adjust them before publishing.');
+        }).finally(() => setAnalyzingPalette(false));
       }} />}
   </main>;
 }
