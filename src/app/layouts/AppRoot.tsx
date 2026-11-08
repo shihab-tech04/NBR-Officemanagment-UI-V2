@@ -13,6 +13,12 @@ import { hasVerifiedCmsPublisherSession } from "../services/taxpayCmsClient";
 import { getOfficeCmsAuthClient, readRememberOfficeSession } from "../services/officeCmsBridge";
 
 const OFFICE_ENTRY_KEY = "office_ui_entered";
+const OFFICE_EXPLICIT_SIGN_OUT_KEY = "office_ui_signed_out";
+
+function wasExplicitlySignedOut(): boolean {
+  try { return window.sessionStorage.getItem(OFFICE_EXPLICIT_SIGN_OUT_KEY) === "1"; }
+  catch { return false; }
+}
 
 function hasRememberedOfficeEntry(): boolean {
   try {
@@ -43,8 +49,9 @@ export function AppRoot() {
   // Only the synthetic Audit UI is open; all CMS/payment/admin routes retain Office entry.
   const openAuditPreview = !sharedMode && (pathname === "/audit" || pathname.startsWith("/audit/"));
   const [signedOut, setSignedOut] = useState(
-    () => sharedMode || storedEntry() !== "admin",
+    () => sharedMode || storedEntry() !== "admin" || wasExplicitlySignedOut(),
   );
+  const [explicitlySignedOut, setExplicitlySignedOut] = useState(wasExplicitlySignedOut);
   const [restoring, setRestoring] = useState(
     () => sharedMode && storedEntry() === "officer",
   );
@@ -165,6 +172,10 @@ export function AppRoot() {
       return;
     }
     clearEntry();
+    // Audit is available as an unsigned preview on a fresh visit, but an
+    // intentional Sign Out must not immediately reopen that preview.
+    try { window.sessionStorage.setItem(OFFICE_EXPLICIT_SIGN_OUT_KEY, "1"); } catch { /* tab-only fallback */ }
+    setExplicitlySignedOut(true);
     setCmsAccess("denied");
     setSignedOut(true);
   }, [sharedMode]);
@@ -179,6 +190,8 @@ export function AppRoot() {
         window.localStorage.removeItem(OFFICE_ENTRY_KEY);
       }
     } catch { /* The current tab can still navigate without persistence. */ }
+    try { window.sessionStorage.removeItem(OFFICE_EXPLICIT_SIGN_OUT_KEY); } catch { /* state still resets */ }
+    setExplicitlySignedOut(false);
     setSignOutError("");
     if (cmsRoute) setCmsAccess("authorized");
     setSignedOut(false);
@@ -200,7 +213,7 @@ export function AppRoot() {
         ? <LoginPage onOfficeEnter={handleEnterOffice}/>
       : cmsRoute && !signedOut && cmsAccess === "checking"
         ? <p role="status">Verifying TaxPay publishing access…</p>
-        : (signedOut || (cmsRoute && cmsAccess !== "authorized")) && !openAuditPreview
+        : (signedOut || (cmsRoute && cmsAccess !== "authorized")) && (!openAuditPreview || explicitlySignedOut)
           ? <LoginPage onOfficeEnter={handleEnterOffice}/>
           : <AppShell onSignedOut={() => { void handleSignOut(); }}/>}
     {signOutError && <p role="alert" className="form-error">{signOutError}</p>}
