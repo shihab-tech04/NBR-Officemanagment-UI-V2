@@ -104,6 +104,18 @@ BEGIN
   END IF;
  END LOOP;
  RAISE NOTICE 'PASS_VERSIONED_FACADE_CITIZEN_ENGINE_ROLE_ISOLATION';
+ -- An EXECUTE-only engine must not grant its own role membership to citizens.
+ -- A successful GRANT would bypass function/schema ACLs through SET ROLE.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT ws02_owner_engine TO ws02_owner_auth';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','MEMBER')
+ OR pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','SET')
+ THEN RAISE EXCEPTION 'ENGINE_ROLE_MEMBERSHIP_GRANT_PROBE_ESCALATED_CITIZEN'; END IF;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_ENGINE_CANNOT_DELEGATE_ROLE';
  -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
  -- This is an executable permission probe, not merely an ACL metadata check.
  BEGIN
