@@ -28,7 +28,7 @@ test("candidate preview supports searched single and multi-select removal withou
   const search = modal.getByRole("searchbox", { name: "Search candidates" });
   await expect(search).toBeVisible();
   const selectable = modal.locator(".audit-preview-candidate-list .audit-preview-selectable-row")
-    .filter({ has: page.locator('input[type="checkbox"]:not(:disabled)') }).first();
+    .filter({ has: page.locator(".audit-preview-candidate:not(.audit-preview-candidate--locked)") }).first();
   await expect(selectable).toBeVisible();
   const removedName = await selectable.locator(".audit-preview-candidate__main > strong").innerText();
   await search.fill(removedName);
@@ -52,17 +52,26 @@ test("candidate preview supports searched single and multi-select removal withou
   await modal.getByRole("button", { name: "Back" }).click(); // Funnel -> Preview
 
   // Bulk selection applies to available candidates on the visible page only.
-  const selectPage = modal.getByRole("checkbox", { name: "Select available on this page" });
+  const selectPage = modal.getByRole("checkbox", { name: "Select all candidates on this page" });
   await expect(selectPage).toBeEnabled();
   await selectPage.check();
   await expect(modal.getByText(/selected/, { exact: false }).first()).toBeVisible();
   await modal.getByRole("button", { name: "Remove from audit" }).click();
   await expect(modal.getByRole("button", { name: "Remove from audit" })).toHaveCount(0);
-  // Already-in-audit records are retained and their checkboxes cannot remove them.
+  // Existing Audit records are visible and selectable for exclusion from this preview,
+  // but their saved audit status and history must not be modified.
   const locked = modal.locator(".audit-preview-candidate--locked").first();
-  if (await locked.count()) {
-    await expect(locked.locator("..").getByRole("checkbox")).toBeDisabled();
-  }
+  await expect(locked).toBeVisible();
+  const lockedName = await locked.locator(".audit-preview-candidate__main > strong").innerText();
+  const savedRegistry = await page.evaluate(() => localStorage.getItem("nbr-audit-candidates-v3"));
+  const lockedCheckbox = locked.locator("..").getByRole("checkbox", { name: `Select ${lockedName}` });
+  await expect(lockedCheckbox).toBeEnabled();
+  await lockedCheckbox.check();
+  await expect(lockedCheckbox).toBeChecked();
+  await expect(modal.getByRole("button", { name: "Remove from audit" })).toBeVisible();
+  await modal.getByRole("button", { name: "Remove from audit" }).click();
+  await expect(modal.locator(".audit-preview-candidate-list")).not.toContainText(lockedName);
+  expect(await page.evaluate(() => localStorage.getItem("nbr-audit-candidates-v3"))).toBe(savedRegistry);
 });
 
 test("create Audit, run R-A1 screening, confirm, review, refresh, and recover trail", async ({ page }) => {
