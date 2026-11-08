@@ -10,6 +10,7 @@ import { TaxZoneSelectField } from "../../components/forms/TaxZoneSelectField";
 import { AppNumberField } from "../../components/forms/AppNumberField";
 import { AppChoiceCard } from "../../components/forms/AppChoiceCard";
 import { AppSelectionRow } from "../../components/forms/AppSelectionRow";
+import { AppCheckbox } from "../../components/forms/AppCheckbox";
 import { FormSection } from "../../components/forms/FormSection";
 import { CollapsibleFormSection } from "../../components/forms/CollapsibleFormSection";
 import { AppStepper } from "../../components/shared/AppStepper";
@@ -191,6 +192,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   const [previewSignalFilter, setPreviewSignalFilter] = useState("all");
   const [previewSort, setPreviewSort] = useState("mismatch-desc");
   const [previewView, setPreviewView] = useState<"list" | "comparison">("list");
+  const [selectedPreviewIds, setSelectedPreviewIds] = useState<string[]>([]);
+  const [excludedReturnIds, setExcludedReturnIds] = useState<string[]>([]);
   const [screeningRun, setScreeningRun] = useState<ScreeningRunRecord | null>(null);
   const [screeningClock, setScreeningClock] = useState(() => Date.now());
   const [reviewPage, setReviewPage] = useState(1);
@@ -301,6 +304,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   // screening. Only the explicitly chosen track criteria narrow candidates.
   const readinessRows = populationRows;
 
+  const excludedReturnKeys = useMemo(() => new Set(excludedReturnIds), [excludedReturnIds]);
+
   const selectedReturnKeys = useMemo(() => new Set(
     getAuditCandidates().map(item => item.assessment_year + "|" + item.return_id)
   ), [assessmentYear]);
@@ -311,8 +316,9 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   const alreadyInAuditRows = useMemo(() => readinessRows.filter(isAlreadySelected),
     [readinessRows, selectedReturnKeys]);
 
-  const selectableRows = useMemo(() => readinessRows.filter((row) => !isAlreadySelected(row)),
-    [readinessRows, selectedReturnKeys]);
+  const selectableRows = useMemo(() => readinessRows.filter((row) =>
+    !isAlreadySelected(row) && !excludedReturnKeys.has(String(row.return_id))),
+    [readinessRows, selectedReturnKeys, excludedReturnKeys]);
 
   const modeledPopulationCount = populationRows.length;
   const modelFromRepresentative = (recordCount: number) => recordCount;
@@ -342,8 +348,9 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   }), [readinessRows, track, riskLevels, signals, manualReturnIds]);
 
   const matchedRows = useMemo(
-    () => criteriaMatchedRows.filter((row) => !isAlreadySelected(row)),
-    [criteriaMatchedRows, selectedReturnKeys],
+    () => criteriaMatchedRows.filter((row) =>
+      !isAlreadySelected(row) && !excludedReturnKeys.has(String(row.return_id))),
+    [criteriaMatchedRows, selectedReturnKeys, excludedReturnKeys],
   );
 
   const matchedAlreadyInAuditRows = useMemo(
@@ -351,7 +358,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     [criteriaMatchedRows, selectedReturnKeys],
   );
 
-  const previewRows = criteriaMatchedRows;
+  const previewRows = useMemo(() => criteriaMatchedRows.filter((row) =>
+    !excludedReturnKeys.has(String(row.return_id))), [criteriaMatchedRows, excludedReturnKeys]);
 
   const screeningRunSignature = useMemo(() => JSON.stringify({
     assessmentYear,
@@ -458,6 +466,35 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     safePreviewPage * previewPerPage,
   );
 
+  // Exclusions affect only this draft Audit batch; existing Audit records are protected.
+  const previewPageSelectableIds = previewPageRows
+    .filter((row) => !isAlreadySelected(row))
+    .map((row) => String(row.return_id));
+  const selectedPreviewCount = selectedPreviewIds.length;
+  const selectedOnPage = previewPageSelectableIds.filter((id) => selectedPreviewIds.includes(id)).length;
+
+  const togglePreviewCandidate = (id: string, checked: boolean) => {
+    setSelectedPreviewIds((current) =>
+      checked ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id));
+  };
+  const togglePreviewPage = (checked: boolean) => {
+    const pageIds = new Set(previewPageSelectableIds);
+    setSelectedPreviewIds((current) => checked
+      ? Array.from(new Set([...current, ...previewPageSelectableIds]))
+      : current.filter((value) => !pageIds.has(value)));
+  };
+  const removeSelectedFromAudit = () => {
+    const selectable = new Set(previewRows.filter((row) => !isAlreadySelected(row))
+      .map((row) => String(row.return_id)));
+    const ids = selectedPreviewIds.filter((id) => selectable.has(id));
+    if (!ids.length) return;
+    setExcludedReturnIds((current) => Array.from(new Set([...current, ...ids])));
+    setSelectedPreviewIds([]);
+    setPreviewPage(1);
+    setReviewPage(1);
+    toast.success(t("initiate.previewDecision.removedCount", { count: ids.length }));
+  };
+
   const funnelTargetCount = useMemo(() => {
     const available = matchedRows.length;
     if (available === 0 || funnelMode === "all") return available;
@@ -562,6 +599,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   };
 
   const closeFreshSession = () => {
+    setSelectedPreviewIds([]);
+    setExcludedReturnIds([]);
     setScreeningRun(null);
     setExplanation(null);
     try {
@@ -640,6 +679,8 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
     if (nextTrack === track) return;
 
     setTrack(nextTrack);
+    setSelectedPreviewIds([]);
+    setExcludedReturnIds([]);
     setStep(0);
     setMaxCompletedStep(-1);
     setRiskLevels([]);
@@ -846,7 +887,11 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                 id="audit-assessment-year"
                 label={t("initiate.fields.assessmentYear")}
                 value={assessmentYear}
-                onChange={setAssessmentYear}
+                onChange={(value) => {
+                   setAssessmentYear(value);
+                   setSelectedPreviewIds([]);
+                   setExcludedReturnIds([]);
+                 }}
                 options={assessmentYears}
                 sortOptions
                 searchableAfter={AUDIT_DROPDOWN_SEARCH_THRESHOLD}
@@ -1435,7 +1480,9 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                   </div>
                   {matchedRows.length === 0 && (
                     <p className="form-helper" role="status">
-                      {selectableRows.length === 0
+                      {excludedReturnIds.length > 0 && criteriaMatchedRows.some((row) => excludedReturnKeys.has(String(row.return_id)))
+                         ? t("initiate.previewDecision.allMatchingRemoved")
+                         : selectableRows.length === 0
                         ? t("initiate.previewDecision.noRemainingCandidates")
                         : matchedAlreadyInAuditRows.length > 0
                           ? t("initiate.previewDecision.noNewCandidates", {
@@ -1482,6 +1529,27 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                   ]}
                 />
               </div>
+
+              {(previewPageSelectableIds.length > 0 || selectedPreviewCount > 0) && (
+                <div className="audit-preview-selection-toolbar">
+                  <AppCheckbox
+                    label={t("initiate.previewDecision.selectPage")}
+                    checked={previewPageSelectableIds.length > 0
+                      && selectedOnPage === previewPageSelectableIds.length}
+                    indeterminate={selectedOnPage > 0 && selectedOnPage < previewPageSelectableIds.length}
+                    disabled={previewPageSelectableIds.length === 0}
+                    onChange={togglePreviewPage}
+                  />
+                  {selectedPreviewCount > 0 && (
+                    <div className="audit-preview-selection-toolbar__actions" role="status">
+                      <span>{t("initiate.previewDecision.selectedCount", { count: selectedPreviewCount })}</span>
+                      <SecondaryButton size="sm" onClick={removeSelectedFromAudit}>
+                        {t("initiate.previewDecision.removeFromAudit")}
+                      </SecondaryButton>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="audit-preview-switches" aria-label={t("initiate.previewDecision.signalSwitchLabel")}>
                 <button
@@ -1563,9 +1631,15 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                       const detailRow = { ...row };
 
                       return (
+                        <div className="audit-preview-selectable-row" key={String(row.return_id)}>
+                          <AppCheckbox
+                            ariaLabel={t("initiate.previewDecision.selectCandidate", { name: String(row.taxpayer_name) })}
+                            checked={!alreadyInAudit && selectedPreviewIds.includes(String(row.return_id))}
+                            disabled={alreadyInAudit}
+                            onChange={(checked) => togglePreviewCandidate(String(row.return_id), checked)}
+                          />
                         <button
                           type="button"
-                          key={String(row.return_id)}
                           className={alreadyInAudit
                             ? "audit-preview-ranking__row audit-preview-ranking__row--locked"
                             : "audit-preview-ranking__row"}
@@ -1588,6 +1662,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                             {t("initiate.previewDecision.signalCountShort", { count:rowSignals.length })}
                           </span>
                         </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1603,12 +1678,18 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                     const alreadyInAudit = isAlreadySelected(row);
                     const detailRow = { ...row };
                     return (
-                      <div
-                        className={alreadyInAudit
-                          ? "audit-preview-candidate audit-preview-candidate--locked"
-                          : "audit-preview-candidate"}
-                        key={id}
-                      >
+                      <div className="audit-preview-selectable-row" key={id}>
+                        <AppCheckbox
+                          ariaLabel={t("initiate.previewDecision.selectCandidate", { name: String(row.taxpayer_name) })}
+                          checked={!alreadyInAudit && selectedPreviewIds.includes(id)}
+                          disabled={alreadyInAudit}
+                          onChange={(checked) => togglePreviewCandidate(id, checked)}
+                        />
+                        <div
+                          className={alreadyInAudit
+                            ? "audit-preview-candidate audit-preview-candidate--locked"
+                            : "audit-preview-candidate"}
+                        >
                         <div className="audit-preview-candidate__main">
                           <strong>{String(row.taxpayer_name)}</strong>
                           <span>
@@ -1655,6 +1736,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
                           </button>
                         </div>
                       </div>
+                    </div>
                     );
                   })}
                 </div>
