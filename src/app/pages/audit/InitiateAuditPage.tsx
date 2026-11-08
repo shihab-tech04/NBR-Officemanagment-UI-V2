@@ -1965,7 +1965,7 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
           />
         )}
 
-        <div className="app-wizard-layout">
+        <div className={activeStepId === "setup" ? "audit-year-setup" : "app-wizard-layout"}>
           <div className="app-wizard-main">
             {renderStep()}
 
@@ -1975,9 +1975,11 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
             )}
           </div>
 
-          <aside className="app-wizard-aside" aria-label={t("initiate.impact.title")}>
-            {selectionImpactPanel}
-          </aside>
+          {activeStepId !== "setup" && (
+            <aside className="app-wizard-aside" aria-label={t("initiate.impact.title")}>
+              {selectionImpactPanel}
+            </aside>
+          )}
         </div>
 
         <AuditExplainerDrawer explanation={explanation} onClose={() => setExplanation(null)} />
