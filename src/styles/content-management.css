@@ -149,3 +149,7 @@
 .cms-palette-note {margin:8px 0 0;font-size:12px;color:var(--color-text-secondary);}
 @media(max-width:950px){.cms-palette-samples {grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:550px){.cms-palette-samples {grid-template-columns:1fr 1fr;}.cms-theme-preview:not(.cms-theme-preview--mobile){height:250px;}.cms-theme-preview:not(.cms-theme-preview--mobile) .cms-theme-preview__copy h3 {font-size:20px;}.cms-theme-preview:not(.cms-theme-preview--mobile) .cms-theme-preview__copy p {font-size:12px;}}
+
+/* Match the existing Office action spacing without creating another button pattern. */
+.cms-palette-heading__actions { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+.cms-palette-heading__actions .cms-text-button { margin-left:0;min-height:40px; }
