@@ -81,6 +81,16 @@ BEGIN
  OR has_function_privilege('ws02_owner_anon',fn,'EXECUTE')
  OR NOT has_function_privilege('ws02_owner_engine',fn,'EXECUTE')
  THEN RAISE EXCEPTION 'VERSIONED_FACADE_ACL_BOUNDARY_DRIFT'; END IF;
+ -- A citizen must not inherit or SET ROLE to the only facade-executable engine role.
+ -- Otherwise denied direct EXECUTE can be bypassed by role switching.
+ IF pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','MEMBER')
+ OR pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','USAGE')
+ OR pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','SET')
+ OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','MEMBER')
+ OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','USAGE')
+ OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','SET')
+ THEN RAISE EXCEPTION 'CITIZEN_ENGINE_ROLE_ESCALATION'; END IF;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_CITIZEN_ENGINE_ROLE_ISOLATION';
  -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
  -- This is an executable permission probe, not merely an ACL metadata check.
  BEGIN
