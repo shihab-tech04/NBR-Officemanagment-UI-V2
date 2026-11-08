@@ -90,6 +90,19 @@ BEGIN
  OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','USAGE')
  OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','SET')
  THEN RAISE EXCEPTION 'CITIZEN_ENGINE_ROLE_ESCALATION'; END IF;
+ -- Verify actual SET ROLE denial, not only role-membership catalog state.
+ -- The exception subtransaction restores the original role after each denied attempt.
+ FOREACH runtime_role IN ARRAY ARRAY['ws02_owner_auth','ws02_owner_anon'] LOOP
+  BEGIN
+   EXECUTE format('SET LOCAL ROLE %I',runtime_role);
+   EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+   RAISE EXCEPTION 'CITIZEN_UNEXPECTEDLY_SWITCHED_TO_ENGINE_%',runtime_role;
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  IF current_user <> session_user THEN
+   RAISE EXCEPTION 'CITIZEN_ENGINE_SWITCH_PROBE_NOT_RESTORED_%',runtime_role;
+  END IF;
+ END LOOP;
  RAISE NOTICE 'PASS_VERSIONED_FACADE_CITIZEN_ENGINE_ROLE_ISOLATION';
  -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
  -- This is an executable permission probe, not merely an ACL metadata check.
