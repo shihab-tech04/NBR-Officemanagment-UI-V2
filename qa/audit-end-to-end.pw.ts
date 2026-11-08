@@ -240,22 +240,21 @@ test("confirmed selection cannot be inserted a second time for its assessment ye
   expect(result.unique).toBe(result.total);
 });
 
-test("population selection uses all 70 taxpayers without population or readiness steps", async ({ page }) => {
+test("setup starts directly in the risk-based audit flow without a track selector", async ({ page }) => {
   await page.goto("/audit/audit-candidates");
   await page.getByRole("button", { name: "Initiate Audit" }).click();
   const modal = page.getByRole("dialog", { name: "Select Audit Candidates" });
   const stepper = modal.locator(".app-stepper");
-  await modal.locator(".app-choice-card").filter({ hasText: "Population / Circle-based Audit" }).click();
-  await expect(modal.getByRole("radio", { name: /Population \/ Circle-based Audit/ })).toBeChecked();
-  await expect(stepper.locator(".app-stepper__item")).toHaveCount(4);
+  await expect(modal.getByText("Selection track", { exact: true })).toHaveCount(0);
+  await expect(modal.locator('input[name="audit-track"]')).toHaveCount(0);
+  await expect(modal.getByRole("combobox", { name: /Assessment Year/ })).toBeVisible();
+  await expect(stepper.locator(".app-stepper__item")).toHaveCount(6);
   await expect(stepper).not.toContainText("Data readiness");
   await expect(stepper.getByRole("button", { name: "Population", exact: true })).toHaveCount(0);
   await modal.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(stepper.getByRole("button", { name: "Candidate preview" }))
+  await expect(stepper.getByRole("button", { name: "Risk criteria", exact: true }))
     .toHaveAttribute("aria-current", "step");
-  // The 70-record AY includes every data quality and coverage category:
-  // no invisible readiness filter excludes incomplete or invalid profiles.
-  await expect(modal).toContainText("Representative preview · 70 records");
+  await expect(modal.getByRole("checkbox", { name: "Zero income + declared asset" })).toBeVisible();
 });
 
 test("exhausted risk preview recovers to remaining taxpayers without duplicating existing audits", async ({ page }) => {
