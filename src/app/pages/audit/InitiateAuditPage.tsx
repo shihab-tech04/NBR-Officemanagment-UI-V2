@@ -361,6 +361,18 @@ export function InitiateAuditModal({ open, onClose, onConfirmed }: InitiateAudit
   const previewRows = useMemo(() => criteriaMatchedRows.filter((row) =>
     !excludedReturnKeys.has(String(row.return_id))), [criteriaMatchedRows, excludedReturnKeys]);
 
+  // Search, sorting and pagination retain selection; changed risk criteria do not.
+  useEffect(() => {
+    const eligible = new Set(previewRows.filter((row) =>
+      String(row.audit_state ?? "Not Started") === "Not Started"
+      && !selectedReturnKeys.has(String(row.assessment_year) + "|" + String(row.return_id)))
+      .map((row) => String(row.return_id)));
+    setSelectedPreviewIds((current) => {
+      const remaining = current.filter((id) => eligible.has(id));
+      return remaining.length === current.length ? current : remaining;
+    });
+  }, [previewRows, selectedReturnKeys]);
+
   const screeningRunSignature = useMemo(() => JSON.stringify({
     assessmentYear,
     track,
