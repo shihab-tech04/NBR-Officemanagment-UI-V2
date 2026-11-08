@@ -358,7 +358,7 @@ describe('verified TaxPay banner CMS', () => {
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: 'Edit banner' });
-    expect(screen.getByText(/controls the Taxpayer homepage’s fixed left heading/)).toBeInTheDocument();
+    expect(screen.getByText(/displays this banner’s own artwork, headings, body text and payment actions/)).toBeInTheDocument();
   });
 
   it('reads approved v9 preview and commits edits through versioned server bridge', async () => {
