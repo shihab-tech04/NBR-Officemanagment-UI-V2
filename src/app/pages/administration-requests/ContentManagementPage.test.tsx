@@ -352,13 +352,13 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
   });
 
-  it('explains that service text is announced while fixed Taxpayer copy stays unchanged', async () => {
+  it('explains that each slide owns its Taxpayer copy without changing service actions', async () => {
     const { client } = makeClient(true);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: 'Edit banner' });
-    expect(screen.getByText(/controls the Taxpayer homepage’s fixed left heading/)).toBeInTheDocument();
+    expect(screen.getByText(/displays this banner’s own artwork, headings, body text and payment actions/)).toBeInTheDocument();
   });
 
   it('reads approved v9 preview and commits edits through versioned server bridge', async () => {
@@ -380,5 +380,31 @@ describe('verified TaxPay banner CMS', () => {
       expect.objectContaining({ expectedVersion:8,position:1,banner:expect.stringContaining('Updated fixed headline') }),
       expect.anything()));
     expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
+  });
+
+  it('previews the cropped artwork with generated colors before a single Office publish', async () => {
+    const { client, publicClient } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name: 'Edit banner' }));
+    const input = container.querySelector('.cms-upload--desktop input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array(256)], 'new-banner.png', { type: 'image/png' }));
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    const dialog = await screen.findByRole('dialog', { name: /Full banner preview/ });
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
+    await user.click(screen.getByRole('button', { name: 'Mobile' }));
+    await user.click(screen.getByRole('button', { name: 'বাংলা' }));
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('কর দিন');
+    await user.click(screen.getByRole('button', { name: 'Return to editor' }));
+    expect(screen.getByLabelText('Light background color')).toHaveValue('#eaf2ff');
+    expect(screen.getByLabelText('Dark heading color')).toHaveValue('#1e4484');
+    expect(deps.bridge).not.toHaveBeenCalledWith('publish-banner',expect.anything(),expect.anything());
+    await user.click(screen.getByRole('button', { name: 'Publish to TaxPay' }));
+    await waitFor(() => expect(deps.bridge).toHaveBeenCalledWith('publish-banner',
+      expect.objectContaining({ banner: expect.stringContaining('"background_color":"#EAF2FF"') }),
+      expect.objectContaining({ desktop:expect.any(File) })));
+    expect(await screen.findByText(/Published colors verified in SQL/)).toBeInTheDocument();
   });
 });
