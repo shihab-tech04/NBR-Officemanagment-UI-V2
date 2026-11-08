@@ -645,6 +645,12 @@
       "filteredList": "{{filtered}} of {{total}} matched candidates"
     },
     "previewDecision": {
+      "selectPage": "Select available on this page",
+      "selectCandidate": "Select {{name}}",
+      "selectedCount": "{{count}} selected",
+      "removeFromAudit": "Remove from audit",
+      "removedCount": "{{count}} candidate(s) removed from this audit",
+      "allMatchingRemoved": "All matching candidates were removed from this audit. Change the criteria or return to review your selection.",
       "search": "Search candidates",
       "sortLabel": "Sort candidates",
       "sortMismatch": "Mismatch — high to low",
