@@ -150,6 +150,17 @@ BEGIN
  IF (SELECT prosrc FROM pg_catalog.pg_proc WHERE oid=fn)
     NOT LIKE '%ws02_owner.nbr_commit_evaluation_versioned_candidate(%'
  THEN RAISE EXCEPTION 'ENGINE_REPLACE_PROBE_CHANGED_FACADE_BODY'; END IF;
+ -- EXECUTE-only engine must not transfer facade ownership to a citizen role.
+ -- An ownership transfer would allow future ALTER/DROP and privilege delegation.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'ALTER FUNCTION ws02_versioned_api.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) OWNER TO ws02_owner_auth';
+  RAISE EXCEPTION 'ENGINE_ROLE_UNEXPECTEDLY_TRANSFERRED_FACADE_OWNERSHIP';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=fn) = 'ws02_owner_auth'::regrole::oid
+ THEN RAISE EXCEPTION 'ENGINE_OWNER_TRANSFER_PROBE_CHANGED_FACADE_OWNER'; END IF;
  -- EXECUTE-only engine role must not DROP the facade function, even with CASCADE.
  -- DROP is a separate ownership attack path from ALTER and CREATE OR REPLACE.
  BEGIN
