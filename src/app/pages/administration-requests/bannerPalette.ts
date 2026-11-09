@@ -46,6 +46,23 @@ export function contrastRatio(a: string, b: string): number {
   const x = luminance(a), y = luminance(b);
   return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
 }
+/** Match the tint and the readable ink to one color family, not just AA. */
+export function paletteHue(hex: string): number | null {
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
+  const [r,g,b]=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
+  const max=Math.max(r,g,b),min=Math.min(r,g,b),delta=max-min;
+  if(delta<.025) return null; // near-neutral paper has no reliable hue
+  let h=0;
+  if(max===r) h=((g-b)/delta)%6;
+  else if(max===g) h=(b-r)/delta+2;
+  else h=(r-g)/delta+4;
+  return ((h*60)%360+360)%360;
+}
+export function paletteHueDistance(a:string,b:string):number|null {
+  const x=paletteHue(a),y=paletteHue(b);
+  return x===null||y===null?null:Math.min(Math.abs(x-y),360-Math.abs(x-y));
+}
+
 export function validateBannerPalette(palette: BannerPalette): string | null {
   const values = PALETTE_KEYS.map(key => palette[key]);
   if (values.every(value => value == null)) return null; // historical banners
@@ -55,6 +72,17 @@ export function validateBannerPalette(palette: BannerPalette): string | null {
   if (luminance(background) < .72) return 'The banner background must be a light shade.';
   if (PALETTE_KEYS.slice(1).some(key => contrastRatio(background, palette[key]!) < 4.5))
     return 'The heading, body, and outlined button need at least 4.5:1 contrast.';
+  const heading=palette.heading_color!;
+  // The light backdrop may be virtually neutral paper, which has no reliable
+  // hue. Chromatic backdrops and all colored ink must be one visual family.
+  const visualColors=[heading,palette.body_color!,palette.outline_color!];
+  if(visualColors.some(color => {
+    const distance=paletteHueDistance(heading,color);
+    return distance!==null && distance>32;
+  }) || visualColors.some(color => {
+    const distance=paletteHueDistance(background,color);
+    return distance!==null && distance>35;
+  })) return 'The background, heading, body, and button must share one color family.';
   return null;
 }
 
