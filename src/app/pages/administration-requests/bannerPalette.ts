@@ -144,6 +144,7 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // details over the lavender/blue sky in real published banners.
   const washBins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
   let washSamples = 0;
+  let washRightmostX = -1;
   let sampled = 0;
   let colored = 0;
   for (let y = 0; y < height; y += 2) {
@@ -171,6 +172,7 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
         washBin.sin += Math.sin(washHue * Math.PI / 180) * washWeight;
         washBin.cos += Math.cos(washHue * Math.PI / 180) * washWeight;
         washSamples++;
+        washRightmostX = Math.max(washRightmostX, x);
       }
       // The TaxPay artworks are panoramic ink-and-watercolor illustrations:
       // the left half is deliberately pale for text, while the painted
@@ -216,7 +218,7 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   const washDominant = washFamilies.reduce((best, item) => item.weight > best.weight ? item : best, washFamilies[0]);
   // If the image has no usable sky/background wash (e.g. a flat dark photo),
   // retain the original whole-artwork dominant-hue algorithm.
-  const dominant = washSamples >= 8 && washDominant.weight > 0
+  const dominant = washSamples >= 8 && washRightmostX >= width * .60 && washDominant.weight > 0
     ? washDominant
     : families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
   if (dominant.weight <= 0) return FALLBACK_PALETTE;
