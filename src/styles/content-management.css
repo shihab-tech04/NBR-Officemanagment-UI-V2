@@ -164,3 +164,39 @@
 .cms-theme-preview--mobile[data-payment-service] .cms-theme-preview__outline {max-width:100%;width:100%;white-space:normal;overflow-wrap:anywhere;}
 .cms-theme-preview--mobile .cms-theme-preview__copy h3,
 .cms-theme-preview--mobile .cms-theme-preview__copy p {white-space:normal;overflow-wrap:anywhere;}
+
+/* The public Main banner retains a locked, equal-width two-action layout.
+ * Reproduce it in Office preview instead of allowing the two buttons to wrap
+ * independently. No TaxPay CSS, sizing or action behavior is changed. */
+.cms-theme-preview:not([data-payment-service]) .cms-theme-preview__actions {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.35rem;
+  width:100%;
+  margin-top:.7rem;
+  align-items:stretch;
+}
+.cms-theme-preview:not([data-payment-service]) .cms-theme-preview__actions span {
+  width:100%;
+  min-width:0;
+  min-height:46px;
+  padding:.4rem .3rem;
+  gap:.25rem;
+  font-size:14px;
+  line-height:1.15;
+  white-space:normal;
+  border-radius:.55rem;
+}
+.cms-theme-preview:not([data-payment-service]) .cms-theme-preview__outline {
+  background:rgb(255 255 255 / 58%);
+}
+.cms-theme-preview--mobile:not([data-payment-service]) .cms-theme-preview__actions {
+  width:100%;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.35rem;
+}
+.cms-theme-preview--mobile:not([data-payment-service]) .cms-theme-preview__actions span {
+  min-height:48px;
+  font-size:12px;
+  overflow-wrap:anywhere;
+}
