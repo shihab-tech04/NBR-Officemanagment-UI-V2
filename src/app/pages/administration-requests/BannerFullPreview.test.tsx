@@ -38,6 +38,20 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(screen.getByText('রিটার্নের কর')).toBeInTheDocument();
     expect(screen.getAllByText('রিটার্নের কর দিন').length).toBeGreaterThan(0);
   });
+  it('keeps the main banner primary and outlined actions paired in desktop and mobile previews', () => {
+    const intro={...slide,service_code:null,action_en:'Pay Tax',action_bn:'কর দিন'};
+    for(const device of ['desktop','mobile'] as const) {
+      const {container,unmount}=render(<BannerFullPreview banner={intro} imageSrc="/intro.png"
+        device={device} language="en" travelAction="Pay Travel Tax" />);
+      const preview=container.querySelector('.cms-theme-preview')!;
+      expect(preview).not.toHaveAttribute('data-payment-service');
+      expect(preview.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+      expect(preview.querySelector('.cms-theme-preview__primary')).toHaveTextContent('Pay Tax');
+      expect(preview.querySelector('.cms-theme-preview__outline')).toHaveTextContent('Pay Travel Tax');
+      expect(preview.querySelector('.cms-theme-preview__media img')?.getAttribute('src')).toBe('/intro.png');
+      unmount();
+    }
+  });
   it('matches TaxPay service tokens when no custom palette was published', () => {
     const withoutPalette={...slide,background_color:null,heading_color:null,body_color:null,outline_color:null};
     const { container }=render(<BannerFullPreview banner={withoutPalette} imageSrc={null} device="desktop"
