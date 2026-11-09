@@ -86,8 +86,8 @@ export function validateBannerPalette(palette: BannerPalette): string | null {
   return null;
 }
 
-function fromHue(hue: number): BannerPalette {
-  const background_color = hslToHex(hue, 45, 96);
+function fromHue(hue: number, backgroundOverride?: string): BannerPalette {
+  const background_color = backgroundOverride || hslToHex(hue, 45, 96);
   function dark(saturation: number, start: number): string {
     for (let light = start; light >= 8; light -= 2) {
       const candidate = hslToHex(hue, saturation, light);
@@ -167,6 +167,12 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // spread a cohesive blue/teal wash over adjacent fine hue bins while a
   // concentrated brown object wins any single narrow 15-degree bin.
   const bins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
+  // A panoramic banner's softly colored sky/landscape wash covers much more
+  // visual space than an isolated tree, flower, notebook or calculator.
+  // Count the distributed upper/middle wash separately, so foreground accent
+  // pigment cannot accidentally choose the entire banner's color family.
+  const washBins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
+  let washPixels = 0;
   let sampled = 0;
   let colored = 0;
   for (let y = 0; y < height; y += 2) {
@@ -178,41 +184,49 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       const high = Math.max(r, g, b), low = Math.min(r, g, b), delta = high - low;
       const light = (high + low) / 2;
       const sat = delta === 0 ? 0 : delta / (1 - Math.abs(2 * light - 1));
-      // The TaxPay artworks are panoramic ink-and-watercolor illustrations:
-      // the left half is deliberately pale for text, while the painted
-      // subject and its real theme are concentrated on the right.
-      // Older extraction favored beige paper pixels and often selected brown
-      // for blue-water/airport artwork. Include soft watercolor blues/teals
-      // but exclude paper/black outlines and near-neutral tint.
-      if (sat < .12 || light < .13 || light > .92 ||
-          (light > .80 && delta < .16)) continue;
-      colored++;
+      // Very light lavender, blue sky and warm paper can be meaningful
+      // watercolor washes. Do not throw these away just because they have
+      // less chroma than a small saturated object.
+      if (sat < .065 || light < .13 || light > .99 || delta < .018) continue;
       let hue = 0;
       if (high === r) hue = ((g - b) / delta) % 6;
       else if (high === g) hue = (b - r) / delta + 2;
       else hue = (r - g) / delta + 4;
       hue = (hue * 60 + 360) % 360;
-      // Weight the illustrated half rather than the blank paper behind
-      // the text. Favor a substantial painted wash over a tiny sharp accent;
-      // no service-specific hardcoded hue or brand color is inferred.
+      const binIndex = Math.floor(hue / 30) % bins.length;
+      const radians = hue * Math.PI / 180;
+      // On a 3:1 hero, the upper-middle image conveys the broad color wash;
+      // the bottom/right foreground contains contrasting small objects.
+      // This is based on pixel position/coverage, never a service or hue name.
+      if (x > width * .18 && x < width * .86 && y < height * .72 &&
+          light > .45 && light < .985 && sat > .08 && delta > .045) {
+        washPixels++;
+        const washWeight = Math.sqrt(sat);
+        const wash = washBins[binIndex];
+        wash.weight += washWeight;
+        wash.sin += Math.sin(radians) * washWeight;
+        wash.cos += Math.cos(radians) * washWeight;
+      }
+      // Preserve existing whole-image fallback for images without a
+      // distributed watercolor wash (e.g. photographs and solid graphics).
+      if (sat < .12 || light > .92 || (light > .80 && delta < .16)) continue;
+      colored++;
       const motifWeight = x < width * .42 ? .18 : 1.9;
-      // Ink/paper neutrals may cover much more area than painted water and
-      // sky. Weight by actual pigment chroma without hardcoding a preferred
-      // hue, so an amber painting still produces an amber banner.
       const chromaWeight = Math.pow(delta, 1.2) * (.65 + sat * .35);
       const weight = motifWeight * chromaWeight;
-      const bin = bins[Math.floor(hue / 30) % bins.length];
+      const bin = bins[binIndex];
       bin.weight += weight;
-      bin.sin += Math.sin(hue * Math.PI / 180) * weight;
-      bin.cos += Math.cos(hue * Math.PI / 180) * weight;
+      bin.sin += Math.sin(radians) * weight;
+      bin.cos += Math.cos(radians) * weight;
     }
   }
-  if (colored < Math.max(4, sampled * .012)) return FALLBACK_PALETTE;
-  // Two neighboring sectors form a 60-degree palette family. This captures
-  // a blue/teal watercolor wash spread between hues 170–220 without making a
-  // small isolated orange accent the whole banner's theme.
-  const families = bins.map((item, index) => {
-    const next = bins[(index + 1) % bins.length];
+  const useWash = washPixels >= Math.max(6, Math.ceil(sampled * .04));
+  if (!useWash && colored < Math.max(4, sampled * .012)) return FALLBACK_PALETTE;
+  // Neighboring 30° sectors form one continuous 60° watercolor color family.
+  // The broad wash wins when available; otherwise use the entire illustration.
+  const selectedBins = useWash ? washBins : bins;
+  const families = selectedBins.map((item, index) => {
+    const next = selectedBins[(index + 1) % selectedBins.length];
     return { weight: item.weight + next.weight, sin: item.sin + next.sin, cos: item.cos + next.cos };
   });
   const dominant = families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
@@ -224,7 +238,10 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // unrelated light tint from the colored objects on the right.
   const leftEdge = backgroundFromArtworkLeft(pixels, width, height);
   const background_color = harmonizedBannerBackground(leftEdge, hue, huePalette.background_color);
-  const palette={...huePalette,background_color};
+  // Recalculate all dark ink values AGAINST the final background. A softly
+  // tinted real watercolor paper can be darker than the generated fallback,
+  // otherwise an outline at the original lightness may fail AA and force blue.
+  const palette=fromHue(hue,background_color);
   return validateBannerPalette(palette) ? FALLBACK_PALETTE : palette;
 }
 

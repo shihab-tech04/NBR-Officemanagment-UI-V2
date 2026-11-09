@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { BannerFullPreview, TAXPAY_BANNER_FALLBACK_THEMES } from './BannerFullPreview';
@@ -14,6 +16,16 @@ const slide = {
 };
 
 describe('CMS preview is faithful to the TaxPay persisted palette', () => {
+  it('keeps the uploaded panorama full-bleed across the desktop preview, like TaxPay', () => {
+    // Protect the geometry itself: DOM-only tests cannot catch image scaling
+    // when the preview shows a 50%-width media frame.
+    const css=readFileSync(resolve(process.cwd(),'src/styles/content-management.css'),'utf8');
+    expect(css).toMatch(/\.cms-theme-preview__media\s*\{[^}]*inset:\s*0;/);
+    expect(css).toMatch(/\.cms-theme-preview__media img\s*\{[^}]*width:100%;height:100%;object-fit:contain/);
+    expect(css).toMatch(/\.cms-theme-preview--mobile \.cms-theme-preview__media\s*\{[^}]*position:relative;inset:auto/);
+    expect(css).not.toContain('inset:0 0 0 50%');
+  });
+
   it('uses all four saved colors on the full desktop banner, rather than fixed service colors', () => {
     const { container } = render(<BannerFullPreview banner={slide} imageSrc="/cropped-art.png" device="desktop"
       language="en" travelAction="Pay Travel Tax" />);
