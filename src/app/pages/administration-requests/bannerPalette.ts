@@ -78,7 +78,10 @@ function fromHue(hue: number): BannerPalette {
 /** Exported pure function also permits tests without Canvas or a browser. */
 export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, height: number): BannerPalette {
   if (width <= 0 || height <= 0 || pixels.length < width * height * 4) return FALLBACK_PALETTE;
-  const bins = Array.from({ length: 24 }, () => ({ weight: 0, sin: 0, cos: 0 }));
+  // Use broad, overlapping hue families. Highly detailed watercolors often
+  // spread a cohesive blue/teal wash over adjacent fine hue bins while a
+  // concentrated brown object wins any single narrow 15-degree bin.
+  const bins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
   let sampled = 0;
   let colored = 0;
   for (let y = 0; y < height; y += 2) {
@@ -96,7 +99,8 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       // Older extraction favored beige paper pixels and often selected brown
       // for blue-water/airport artwork. Include soft watercolor blues/teals
       // but exclude paper/black outlines and near-neutral tint.
-      if (sat < .12 || light < .13 || light > .92) continue;
+      if (sat < .12 || light < .13 || light > .92 ||
+          (light > .80 && delta < .16)) continue;
       colored++;
       let hue = 0;
       if (high === r) hue = ((g - b) / delta) % 6;
@@ -107,16 +111,26 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       // the text. Favor a substantial painted wash over a tiny sharp accent;
       // no service-specific hardcoded hue or brand color is inferred.
       const motifWeight = x < width * .42 ? .18 : 1.9;
-      const chromaWeight = .55 + sat * .45 + Math.min(delta, .45);
+      // Ink/paper neutrals may cover much more area than painted water and
+      // sky. Weight by actual pigment chroma without hardcoding a preferred
+      // hue, so an amber painting still produces an amber banner.
+      const chromaWeight = Math.pow(delta, 1.2) * (.65 + sat * .35);
       const weight = motifWeight * chromaWeight;
-      const bin = bins[Math.floor(hue / 15) % bins.length];
+      const bin = bins[Math.floor(hue / 30) % bins.length];
       bin.weight += weight;
       bin.sin += Math.sin(hue * Math.PI / 180) * weight;
       bin.cos += Math.cos(hue * Math.PI / 180) * weight;
     }
   }
   if (colored < Math.max(4, sampled * .012)) return FALLBACK_PALETTE;
-  const dominant = bins.reduce((best, item) => item.weight > best.weight ? item : best, bins[0]);
+  // Two neighboring sectors form a 60-degree palette family. This captures
+  // a blue/teal watercolor wash spread between hues 170–220 without making a
+  // small isolated orange accent the whole banner's theme.
+  const families = bins.map((item, index) => {
+    const next = bins[(index + 1) % bins.length];
+    return { weight: item.weight + next.weight, sin: item.sin + next.sin, cos: item.cos + next.cos };
+  });
+  const dominant = families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
   if (dominant.weight <= 0) return FALLBACK_PALETTE;
   const hue = (Math.atan2(dominant.sin, dominant.cos) * 180 / Math.PI + 360) % 360;
   const palette = fromHue(hue);
