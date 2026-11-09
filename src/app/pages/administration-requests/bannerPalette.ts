@@ -75,6 +75,40 @@ function fromHue(hue: number): BannerPalette {
   };
 }
 
+/**
+ * The canvas used by TaxPay is a panoramic illustration with space for copy
+ * on the left. Matching the backdrop to those actual light pixels avoids
+ * a visible strip/seam between the painting and the CSS color blend.
+ *
+ * Dark ink/objects and transparent pixels are ignored. Images without a
+ * usable light edge retain the pre-existing hue-derived fallback.
+ */
+export function backgroundFromArtworkLeft(pixels: Uint8ClampedArray, width: number, height: number): string | null {
+  if (width<=0 || height<=0 || pixels.length<width*height*4) return null;
+  const edgeWidth=Math.max(1,Math.round(width*.14));
+  let red=0, green=0, blue=0, samples=0;
+  for(let y=0;y<height;y+=2) {
+    for(let x=0;x<edgeWidth;x++) {
+      const i=(y*width+x)*4;
+      if(pixels[i+3]<210)continue;
+      const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      // The paper/sky wash is bright; exclude foreground ink and landmarks.
+      if((max+min)/2<190)continue;
+      red+=r;green+=g;blue+=b;samples++;
+    }
+  }
+  if(samples<Math.max(4,Math.ceil(height/2)*edgeWidth*.16))return null;
+  let r=red/samples,g=green/samples,b=blue/samples;
+  // Keep the original hue, brighten only when necessary for safe dark copy.
+  let hex='#'+toHex(r)+toHex(g)+toHex(b);
+  for(let step=0;step<16 && luminance(hex)<.72;step++){
+    r=r*.90+255*.10;g=g*.90+255*.10;b=b*.90+255*.10;
+    hex='#'+toHex(r)+toHex(g)+toHex(b);
+  }
+  return luminance(hex)>=.72?hex:null;
+}
+
 /** Exported pure function also permits tests without Canvas or a browser. */
 export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, height: number): BannerPalette {
   if (width <= 0 || height <= 0 || pixels.length < width * height * 4) return FALLBACK_PALETTE;
@@ -133,7 +167,12 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   const dominant = families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
   if (dominant.weight <= 0) return FALLBACK_PALETTE;
   const hue = (Math.atan2(dominant.sin, dominant.cos) * 180 / Math.PI + 360) % 360;
-  const palette = fromHue(hue);
+  const huePalette = fromHue(hue);
+  // Source-painted light left edge and dark motif hue serve different roles.
+  // Use the actual artwork surface behind the copy rather than generating an
+  // unrelated light tint from the colored objects on the right.
+  const background_color = backgroundFromArtworkLeft(pixels, width, height) || huePalette.background_color;
+  const palette={...huePalette,background_color};
   return validateBannerPalette(palette) ? FALLBACK_PALETTE : palette;
 }
 
