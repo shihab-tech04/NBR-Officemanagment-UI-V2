@@ -30,13 +30,15 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction}
   travelAction:string;
 }) {
   const fallback=TAXPAY_BANNER_FALLBACK_THEMES[banner.service_code || 'intro'] || TAXPAY_BANNER_FALLBACK_THEMES.intro;
+  const isMain=!banner.service_code;
+  const customPalette=Boolean(banner.background_color && banner.heading_color && banner.body_color && banner.outline_color);
   const theme={
     '--preview-bg':banner.background_color || fallback[0],
     '--preview-heading':banner.heading_color || fallback[1],
     '--preview-body':banner.body_color || fallback[2],
     '--preview-outline':banner.outline_color || fallback[3],
+    '--preview-outline-text':customPalette ? banner.outline_color : (isMain ? '#1E4484' : fallback[1]),
   } as CSSProperties;
-  const isMain=!banner.service_code;
   const isMobile=device==='mobile';
   const bn=language==='bn';
   const title=isMobile?(bn?banner.mobile_heading_bn:banner.mobile_heading_en):(bn?banner.heading_bn:banner.heading_en);
@@ -44,7 +46,7 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction}
   const action=bn?banner.action_bn:banner.action_en;
   return <section className={"cms-theme-preview cms-theme-preview--"+device}
     data-payment-service={banner.service_code || undefined}
-    data-preview-palette={banner.background_color && banner.heading_color && banner.body_color && banner.outline_color ? 'image' : 'fallback'}
+    data-preview-palette={customPalette ? 'image' : 'fallback'}
     style={theme} role="img" aria-label={"Unpublished "+device+" banner preview: "+title}>
     <div className="cms-theme-preview__copy">
       <h3>{title}</h3>
