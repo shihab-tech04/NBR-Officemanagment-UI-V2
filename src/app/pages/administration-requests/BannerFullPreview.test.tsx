@@ -34,6 +34,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
       language="bn" travelAction="ভ্রমণ কর পরিশোধ" />);
     expect(screen.getByRole('img',{name:/Unpublished mobile banner preview/}).getAttribute('style')).toContain('--preview-bg: #F1F6FA');
     expect(container.querySelector('.cms-theme-preview--mobile')).toBeInTheDocument();
+    expect(container.querySelector('.cms-theme-preview__media img')?.getAttribute('src')).toBe('/cropped-art.png');
     expect(screen.getByText('রিটার্নের কর')).toBeInTheDocument();
     expect(screen.getAllByText('রিটার্নের কর দিন').length).toBeGreaterThan(0);
   });
