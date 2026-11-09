@@ -1,0 +1,31 @@
+name: Published TaxPay banner image pixel evidence
+on:
+  push:
+    paths:
+      - .github/workflows/banner-artwork-evidence.yml
+      - scripts/audit-published-banner-artwork.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-image-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deterministic image decoder
+        run: python -m pip install "Pillow==11.3.0"
+      - name: Sample published Supabase artwork pixels (read only)
+        run: python scripts/audit-published-banner-artwork.py
+      - name: Preserve published artwork and pixel-derived theme report
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-banner-pixel-evidence
+          path: test-results/banner-image-pixel-evidence/
+          retention-days: 7
+          if-no-files-found: error

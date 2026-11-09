@@ -139,6 +139,12 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // spread a cohesive blue/teal wash over adjacent fine hue bins while a
   // concentrated brown object wins any single narrow 15-degree bin.
   const bins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
+  // Wide pastel washes are the artwork's visual identity. The older
+  // full-image chroma vote accidentally selected tiny yellow trees and brown
+  // details over the lavender/blue sky in real published banners.
+  const washBins = Array.from({ length: 12 }, () => ({ weight: 0, sin: 0, cos: 0 }));
+  let washSamples = 0;
+  let washRightmostX = -1;
   let sampled = 0;
   let colored = 0;
   for (let y = 0; y < height; y += 2) {
@@ -150,6 +156,24 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       const high = Math.max(r, g, b), low = Math.min(r, g, b), delta = high - low;
       const light = (high + low) / 2;
       const sat = delta === 0 ? 0 : delta / (1 - Math.abs(2 * light - 1));
+      // Favor broad painted atmosphere in the central/top scene rather than
+      // small highly saturated foreground objects. This remains image-driven:
+      // there are no service codes, fixed hues, or manually selected colors.
+      if (x >= width * .15 && x < width * .68 && y < height * .48 &&
+          sat >= .055 && sat <= .65 && light >= .55 && light <= .96) {
+        let washHue = 0;
+        if (high === r) washHue = ((g - b) / delta) % 6;
+        else if (high === g) washHue = (b - r) / delta + 2;
+        else washHue = (r - g) / delta + 4;
+        washHue = (washHue * 60 + 360) % 360;
+        const washWeight = Math.pow(1 - sat, 1.2) * Math.sqrt(light - .5);
+        const washBin = washBins[Math.floor(washHue / 30) % washBins.length];
+        washBin.weight += washWeight;
+        washBin.sin += Math.sin(washHue * Math.PI / 180) * washWeight;
+        washBin.cos += Math.cos(washHue * Math.PI / 180) * washWeight;
+        washSamples++;
+        washRightmostX = Math.max(washRightmostX, x);
+      }
       // The TaxPay artworks are panoramic ink-and-watercolor illustrations:
       // the left half is deliberately pale for text, while the painted
       // subject and its real theme are concentrated on the right.
@@ -187,7 +211,16 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
     const next = bins[(index + 1) % bins.length];
     return { weight: item.weight + next.weight, sin: item.sin + next.sin, cos: item.cos + next.cos };
   });
-  const dominant = families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
+  const washFamilies = washBins.map((item, index) => {
+    const next = washBins[(index + 1) % washBins.length];
+    return { weight: item.weight + next.weight, sin: item.sin + next.sin, cos: item.cos + next.cos };
+  });
+  const washDominant = washFamilies.reduce((best, item) => item.weight > best.weight ? item : best, washFamilies[0]);
+  // If the image has no usable sky/background wash (e.g. a flat dark photo),
+  // retain the original whole-artwork dominant-hue algorithm.
+  const dominant = washSamples >= 8 && washRightmostX >= width * .60 && washDominant.weight > 0
+    ? washDominant
+    : families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
   if (dominant.weight <= 0) return FALLBACK_PALETTE;
   const hue = (Math.atan2(dominant.sin, dominant.cos) * 180 / Math.PI + 360) % 360;
   const huePalette = fromHue(hue);
