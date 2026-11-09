@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FALLBACK_PALETTE, backgroundFromArtworkLeft, harmonizedBannerBackground, contrastRatio, paletteFromPixels, validateBannerPalette } from './bannerPalette';
+import { FALLBACK_PALETTE, backgroundFromArtworkLeft, harmonizedBannerBackground, contrastRatio, paletteHueDistance, paletteFromPixels, validateBannerPalette } from './bannerPalette';
 
 function pixels(colors: [number, number, number][]): Uint8ClampedArray {
   return new Uint8ClampedArray(colors.flatMap(c => [...c, 255]));
@@ -80,6 +80,14 @@ describe('cropped banner palette extraction', () => {
   it('falls back to approved colors for a colorless or unreadable image', () => {
     expect(paletteFromPixels(pixels(Array.from({length:400},()=>[241,241,241])),20,20))
       .toEqual(FALLBACK_PALETTE);
+  });
+  it('rejects unrelated manually selected hues even when their contrast is accessible', () => {
+    const mismatched={background_color:'#F2EAD7', heading_color:'#164D7A',
+      body_color:'#285B82',outline_color:'#164D7A'};
+    expect(validateBannerPalette(mismatched)).toMatch(/one color family/);
+    expect(paletteHueDistance('#F2EAD7','#164D7A')).toBeGreaterThan(35);
+    const coordinated={...mismatched,background_color:'#E8F3FB'};
+    expect(validateBannerPalette(coordinated)).toBeNull();
   });
   it('rejects dark backgrounds, incomplete palettes, and invisible manual overrides', () => {
     expect(validateBannerPalette({...FALLBACK_PALETTE,background_color:'#111111'})).toMatch(/light/);
