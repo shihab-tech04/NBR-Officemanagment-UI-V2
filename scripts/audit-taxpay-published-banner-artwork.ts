@@ -6,7 +6,7 @@
  */
 import { chromium } from '@playwright/test';
 import { createHash } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import {
   backgroundFromArtworkLeft, paletteFromPixels, paletteHueDistance, validateBannerPalette,
   type BannerPalette,
@@ -25,6 +25,7 @@ const banners=await response.json() as BannerRow[];
 if(banners.length!==5) throw Error('Expected five currently published banners; received '+banners.length);
 const browser=await chromium.launch({headless:true});
 const report=[];
+await mkdir('banner-audit-images',{recursive:true});
 try {
   const page=await browser.newPage();
   for(const row of banners) {
@@ -35,6 +36,8 @@ try {
     const bin=Buffer.from(await asset.arrayBuffer());
     const mime=asset.headers.get('content-type')?.split(';')[0]||
       (row.desktop_image_path.endsWith('.png')?'image/png':'image/jpeg');
+    // Audit-only copies of these already public images allow exact pixel analysis.
+    await writeFile('banner-audit-images/'+row.id+(mime==='image/png'?'.png':'.jpg'),bin);
     const decoded=await page.evaluate(async({base64,mime})=>{
       const img=new Image();
       img.src='data:'+mime+';base64,'+base64;
