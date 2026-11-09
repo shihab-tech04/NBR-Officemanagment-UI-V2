@@ -32,5 +32,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: five-banner-published-image-palette-audit
-          path: banner-palette-live-audit.json
+          path: |
+            banner-palette-live-audit.json
+            banner-audit-images/
           retention-days: 30
