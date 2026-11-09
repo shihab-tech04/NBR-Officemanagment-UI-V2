@@ -86,8 +86,8 @@ export function validateBannerPalette(palette: BannerPalette): string | null {
   return null;
 }
 
-function fromHue(hue: number): BannerPalette {
-  const background_color = hslToHex(hue, 45, 96);
+function fromHue(hue: number, backgroundOverride?: string): BannerPalette {
+  const background_color = backgroundOverride || hslToHex(hue, 45, 96);
   function dark(saturation: number, start: number): string {
     for (let light = start; light >= 8; light -= 2) {
       const candidate = hslToHex(hue, saturation, light);
@@ -238,7 +238,10 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // unrelated light tint from the colored objects on the right.
   const leftEdge = backgroundFromArtworkLeft(pixels, width, height);
   const background_color = harmonizedBannerBackground(leftEdge, hue, huePalette.background_color);
-  const palette={...huePalette,background_color};
+  // Recalculate all dark ink values AGAINST the final background. A softly
+  // tinted real watercolor paper can be darker than the generated fallback,
+  // otherwise an outline at the original lightness may fail AA and force blue.
+  const palette=fromHue(hue,background_color);
   return validateBannerPalette(palette) ? FALLBACK_PALETTE : palette;
 }
 
