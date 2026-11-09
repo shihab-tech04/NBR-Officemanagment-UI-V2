@@ -89,4 +89,71 @@ await writeFile('banner-palette-live-audit.json',JSON.stringify({
 },null,2)+'\n');
 if(report.some(row=>row.publishedValidation||row.generatedValidation))
  throw Error('At least one palette failed current accessibility/hue validation');
+
+/**
+ * Verify real computed public TaxPay colors, not merely SQL or CSS variables.
+ * Read-only. No sign-in, payment, publishing, or UI state modification.
+ */
+const liveBrowser=await chromium.launch({headless:true});
+const verifiedScreens=[];
+try{
+  const page=await liveBrowser.newPage({viewport:{width:1280,height:820}});
+  await page.goto('https://shihab-tech04.github.io/nbr-taxpay/?action=landing',
+    {waitUntil:'domcontentloaded',timeout:45000});
+  await page.waitForFunction(()=>
+    document.querySelectorAll('.public-hero-carousel__slide[data-banner-palette="image"]').length===5,
+    {timeout:45000});
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:820});
+    const observed=await page.evaluate(()=>{
+      const slides=[...document.querySelectorAll('.public-hero-carousel__slide')] as HTMLElement[];
+      return slides.map(slide=>{
+        const heading=slide.querySelector('h1,h2') as HTMLElement | null;
+        const body=slide.querySelector('.citizen-public-hero__copy > p') as HTMLElement | null;
+        const button=slide.querySelector(
+          slide.dataset.bannerKind==='intro' ? '.public-hero-carousel__travel' : '.citizen-public-primary'
+        ) as HTMLElement | null;
+        const art=slide.querySelector('img') as HTMLElement | null;
+        return {
+          id:slide.dataset.bannerService,
+          background:getComputedStyle(slide).backgroundColor,
+          heading:heading?getComputedStyle(heading).color:null,
+          body:body?getComputedStyle(body).color:null,
+          outline:border(button),
+          buttonText:button?getComputedStyle(button).color:null,
+          imageFit:art?getComputedStyle(art).objectFit:null,
+          palette:slide.dataset.bannerPalette,
+        };
+        function border(node:HTMLElement|null){return node?getComputedStyle(node).borderTopColor:null;}
+      });
+    });
+    if(observed.length!==banners.length)throw Error('Unexpected live carousel count at '+width);
+    const toRgb=(hex:string|null)=>{
+      if(!hex)return null;
+      const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+      return 'rgb('+v.join(', ')+')';
+    };
+    for(const row of banners){
+      const live=observed.find(z=>z.id===row.id);
+      if(!live)throw Error(row.id+' missing in live DOM at '+width);
+      const expected={
+        background:toRgb(row.background_color),heading:toRgb(row.heading_color),
+        body:toRgb(row.body_color),outline:toRgb(row.outline_color),
+      };
+      for(const [key,value] of Object.entries(expected)){
+        const actual=live[key as keyof typeof expected];
+        if(actual!==value)throw Error(row.id+' '+width+'px '+key+' CSS mismatch: '+actual+' vs SQL '+value);
+      }
+      if(live.buttonText!==expected.outline||live.imageFit!=='contain'||live.palette!=='image')
+        throw Error(row.id+' '+width+'px CTA or image fit mismatch: '+JSON.stringify(live));
+    }
+    console.log('LIVE_TAXPAY_COMPUTED_COLORS_PASS '+width+'px '+banners.length+' banners');
+    verifiedScreens.push({width,banners:observed});
+  }
+}finally {await liveBrowser.close();}
+await writeFile('banner-live-dom-color-readback.json',JSON.stringify({
+  checkedAt:new Date().toISOString(),website:'https://shihab-tech04.github.io/nbr-taxpay/',
+  matchingPublishedSql:true,screens:verifiedScreens,
+},null,2)+'\n');
+
 console.log('READ_ONLY_AUDIT_COMPLETED '+report.length+' banners, all saved and derived palettes valid');
