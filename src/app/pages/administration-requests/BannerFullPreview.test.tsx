@@ -24,6 +24,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(preview.getAttribute('style')).toContain('--preview-heading: #234868');
     expect(preview.getAttribute('style')).toContain('--preview-body: #375977');
     expect(preview.getAttribute('style')).toContain('--preview-outline: #265D79');
+    expect(preview.getAttribute('style')).toContain('--preview-outline-text: #265D79');
     expect(container.querySelector('img')?.getAttribute('src')).toBe('/cropped-art.png');
     expect(screen.getByText('Tax with Return')).toBeInTheDocument();
     expect(screen.getByText('Pay Tax with Return')).toBeInTheDocument();
@@ -46,6 +47,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(preview.getAttribute('style')).toContain('--preview-bg: '+fallback[0]);
     expect(preview.getAttribute('style')).toContain('--preview-heading: '+fallback[1]);
     expect(preview.getAttribute('style')).toContain('--preview-outline: '+fallback[3]);
+    expect(preview.getAttribute('style')).toContain('--preview-outline-text: '+fallback[1]);
     expect(TAXPAY_BANNER_FALLBACK_THEMES.ADVANCE_TAX[3]).toBe('#A65B19');
     expect(TAXPAY_BANNER_FALLBACK_THEMES.SOURCE_TAX_DEPOSIT[3]).toBe('#6D4BA8');
     expect(TAXPAY_BANNER_FALLBACK_THEMES.TRAVEL_TAX[3]).toBe('#0C6D8D');
