@@ -1,0 +1,36 @@
+name: Published TaxPay Banner Image-Color Audit
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/audit-taxpay-published-banner-artwork.ts'
+      - '.github/workflows/banner-published-color-audit.yml'
+      - 'src/app/pages/administration-requests/bannerPalette.ts'
+      - 'src/styles/content-management.css'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-public-artwork:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund @playwright/test@1.64.1
+      - run: npx playwright install --with-deps chromium
+      - name: Analyze public live image pixels against published SQL palettes
+        run: npx tsx scripts/audit-taxpay-published-banner-artwork.ts
+        env:
+          TAXPAY_PUBLIC_KEY: sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id
+      - name: Preserve exact public image/palette evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: five-banner-published-image-palette-audit
+          path: banner-palette-live-audit.json
+          retention-days: 30
