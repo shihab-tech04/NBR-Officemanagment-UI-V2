@@ -69,6 +69,24 @@ describe('cropped banner palette extraction', () => {
     // The two neighboring cool bands beat the isolated warm subject.
     expect(parseInt(heading.slice(5,7),16)).toBeGreaterThan(parseInt(heading.slice(1,3),16));
   });
+  it('selects broad lavender watercolor sky over small yellow foreground details', () => {
+    const image:[number,number,number][]=[];
+    for(let y=0;y<30;y++)for(let x=0;x<70;x++)
+      image.push(y<14 && x>=11 && x<49 ? [195,169,229] : [218,177,65]);
+    const p=paletteFromPixels(pixels(image),70,30);
+    expect(validateBannerPalette(p)).toBeNull();
+    const heading=p.heading_color!;
+    expect(parseInt(heading.slice(5,7),16)).toBeGreaterThan(parseInt(heading.slice(1,3),16));
+  });
+  it('selects blue atmospheric wash rather than saturated brown terminal details', () => {
+    const image:[number,number,number][]=[];
+    for(let y=0;y<30;y++)for(let x=0;x<70;x++)
+      image.push(y<14 && x>=11 && x<49 ? [151,210,226] : [177,125,67]);
+    const p=paletteFromPixels(pixels(image),70,30);
+    expect(validateBannerPalette(p)).toBeNull();
+    expect(parseInt(p.heading_color!.slice(5,7),16)).toBeGreaterThan(parseInt(p.heading_color!.slice(1,3),16));
+    expect(parseInt(p.background_color!.slice(5,7),16)).toBeGreaterThan(parseInt(p.background_color!.slice(1,3),16));
+  });
   it('keeps the intended warm hue when the painted motif really is amber', () => {
     const colors: [number,number,number][]=[];
     for(let y=0;y<20;y++)for(let x=0;x<50;x++) colors.push(x<23?[229,226,212]:[182,113,40]);
