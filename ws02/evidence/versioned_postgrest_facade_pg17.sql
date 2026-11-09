@@ -115,6 +115,18 @@ BEGIN
  IF pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','MEMBER')
  OR pg_catalog.pg_has_role('ws02_owner_auth','ws02_owner_engine','SET')
  THEN RAISE EXCEPTION 'ENGINE_ROLE_MEMBERSHIP_GRANT_PROBE_ESCALATED_CITIZEN'; END IF;
+ -- Anonymous-role membership delegation is an independent escalation path.
+ -- PostgreSQL can warn instead of erroring on an unauthorized role GRANT.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT ws02_owner_engine TO ws02_owner_anon';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','MEMBER')
+ OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','SET')
+ THEN RAISE EXCEPTION 'ENGINE_ROLE_MEMBERSHIP_GRANT_PROBE_ESCALATED_ANON'; END IF;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_ENGINE_CANNOT_DELEGATE_TO_ANON';
  RAISE NOTICE 'PASS_VERSIONED_FACADE_ENGINE_CANNOT_DELEGATE_ROLE';
  -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
  -- This is an executable permission probe, not merely an ACL metadata check.
