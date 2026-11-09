@@ -109,6 +109,29 @@ export function backgroundFromArtworkLeft(pixels: Uint8ClampedArray, width: numb
   return luminance(hex)>=.72?hex:null;
 }
 
+/**
+ * A light surface and its dark heading must belong to the SAME image hue.
+ * An exact pale left edge is used only when it belongs to the motif's hue
+ * family. An unrelated watercolor-paper hue should not produce a mismatched
+ * blue background with amber text (or vice versa).
+ */
+export function harmonizedBannerBackground(
+  sampledEdge: string | null, motifHue: number, generatedBackground: string
+): string {
+  if (!sampledEdge) return generatedBackground;
+  const c=[1,3,5].map(i=>parseInt(sampledEdge.slice(i,i+2),16)/255);
+  const high=Math.max(...c),low=Math.min(...c),delta=high-low;
+  if(delta<0.055) return generatedBackground;
+  let edgeHue=0;
+  if(high===c[0]) edgeHue=((c[1]-c[2])/delta)%6;
+  else if(high===c[1]) edgeHue=(c[2]-c[0])/delta+2;
+  else edgeHue=(c[0]-c[1])/delta+4;
+  edgeHue=(edgeHue*60+360)%360;
+  const diff=Math.abs(edgeHue-motifHue);
+  // Only accept a close hue match; otherwise retain the motif-derived tint.
+  return Math.min(diff,360-diff)<=24 ? sampledEdge : generatedBackground;
+}
+
 /** Exported pure function also permits tests without Canvas or a browser. */
 export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, height: number): BannerPalette {
   if (width <= 0 || height <= 0 || pixels.length < width * height * 4) return FALLBACK_PALETTE;
@@ -171,7 +194,8 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   // Source-painted light left edge and dark motif hue serve different roles.
   // Use the actual artwork surface behind the copy rather than generating an
   // unrelated light tint from the colored objects on the right.
-  const background_color = backgroundFromArtworkLeft(pixels, width, height) || huePalette.background_color;
+  const leftEdge = backgroundFromArtworkLeft(pixels, width, height);
+  const background_color = harmonizedBannerBackground(leftEdge, hue, huePalette.background_color);
   const palette={...huePalette,background_color};
   return validateBannerPalette(palette) ? FALLBACK_PALETTE : palette;
 }
