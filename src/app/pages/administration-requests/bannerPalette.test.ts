@@ -31,6 +31,30 @@ describe('cropped banner palette extraction', () => {
     for(let y=0;y<20;y++) for(let x=0;x<50;x++) colors.push(x<10?[33,33,33]:[65,141,183]);
     expect(backgroundFromArtworkLeft(pixels(colors),50,20)).toBeNull();
   });
+  it('takes a broad pale purple watercolor wash instead of small strong olive props', () => {
+    const colors: [number,number,number][] = [];
+    for(let y=0;y<40;y++) for(let x=0;x<120;x++) {
+      const purpleSky=x>22 && x<103 && y<28;
+      colors.push(purpleSky ? [222,192,232] : [147,125,48]);
+    }
+    const theme=paletteFromPixels(pixels(colors),120,40);
+    expect(validateBannerPalette(theme)).toBeNull();
+    // Purple/blue ink is darker and more prominent than the green/yellow accent.
+    const text=theme.heading_color!;
+    expect(parseInt(text.slice(5,7),16)).toBeGreaterThan(parseInt(text.slice(3,5),16));
+    expect(parseInt(text.slice(1,3),16)).toBeGreaterThan(parseInt(text.slice(3,5),16));
+  });
+  it('picks a broad warm travel watercolor even when it has small teal details', () => {
+    const colors:[number,number,number][]=[];
+    for(let y=0;y<40;y++)for(let x=0;x<120;x++) {
+      const warmSky=x>22 && x<103 && y<28;
+      colors.push(warmSky?[243,227,195]:[31,137,166]);
+    }
+    const theme=paletteFromPixels(pixels(colors),120,40);
+    expect(validateBannerPalette(theme)).toBeNull();
+    expect(parseInt(theme.heading_color!.slice(1,3),16))
+      .toBeGreaterThan(parseInt(theme.heading_color!.slice(5,7),16));
+  });
   it('uses a dominant purple hue but produces a light surface and AA-dark text', () => {
     const colors: [number,number,number][] = [];
     for(let i=0;i<400;i++) colors.push(i<340?[168,116,206]:[32,187,99]);
