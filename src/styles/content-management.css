@@ -134,7 +134,7 @@
 .cms-theme-preview__actions {display:flex;gap:8px;max-width:100%;flex-wrap:wrap;}
 .cms-theme-preview__actions span {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:8px 12px;border-radius:10px;font-family:Poppins,'Noto Sans Bengali',sans-serif;font-size:13px;line-height:1.3;font-weight:700;text-align:center;}
 .cms-theme-preview__primary {background:#2C5EAD;border:1px solid #2C5EAD;color:#fff;}
-.cms-theme-preview__outline {background:rgb(255 255 255 / 52%);border:1px solid var(--preview-outline);color:var(--preview-outline);}
+.cms-theme-preview__outline {background:rgb(255 255 255 / 52%);border:1px solid var(--preview-outline);color:var(--preview-outline-text);}
 .cms-theme-preview__media {position:absolute;inset:0;z-index:0;pointer-events:none;}
 .cms-theme-preview__media img {display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:right center;transform:none;}
 /* Exact same fade stops and per-device direction as the public carousel. */
