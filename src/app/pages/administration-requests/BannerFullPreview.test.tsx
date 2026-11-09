@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { BannerFullPreview, TAXPAY_BANNER_FALLBACK_THEMES } from './BannerFullPreview';
@@ -18,7 +19,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
   it('keeps the uploaded panorama full-bleed across the desktop preview, like TaxPay', () => {
     // Protect the geometry itself: DOM-only tests cannot catch image scaling
     // when the preview shows a 50%-width media frame.
-    const css=readFileSync(new URL('../../../styles/content-management.css', import.meta.url),'utf8');
+    const css=readFileSync(resolve(process.cwd(),'src/styles/content-management.css'),'utf8');
     expect(css).toMatch(/\.cms-theme-preview__media\s*\{[^}]*inset:\s*0;/);
     expect(css).toMatch(/\.cms-theme-preview__media img\s*\{[^}]*width:100%;height:100%;object-fit:contain/);
     expect(css).toMatch(/\.cms-theme-preview--mobile \.cms-theme-preview__media\s*\{[^}]*position:relative;inset:auto/);
