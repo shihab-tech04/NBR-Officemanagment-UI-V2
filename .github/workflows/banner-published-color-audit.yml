@@ -34,5 +34,6 @@ jobs:
           name: five-banner-published-image-palette-audit
           path: |
             banner-palette-live-audit.json
+            banner-live-dom-color-readback.json
             banner-audit-images/
           retention-days: 30
