@@ -126,6 +126,21 @@ BEGIN
  IF pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','MEMBER')
  OR pg_catalog.pg_has_role('ws02_owner_anon','ws02_owner_engine','SET')
  THEN RAISE EXCEPTION 'ENGINE_ROLE_MEMBERSHIP_GRANT_PROBE_ESCALATED_ANON'; END IF;
+ -- Citizen roles must not self-grant membership in the private engine role.
+ -- Use actual citizen session authorization so superuser membership cannot mask a denial.
+ FOREACH runtime_role IN ARRAY ARRAY['ws02_owner_auth','ws02_owner_anon'] LOOP
+  BEGIN
+   EXECUTE format('SET SESSION AUTHORIZATION %I',runtime_role);
+   EXECUTE format('GRANT ws02_owner_engine TO %I',runtime_role);
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  IF pg_catalog.pg_has_role(runtime_role,'ws02_owner_engine','MEMBER')
+     OR pg_catalog.pg_has_role(runtime_role,'ws02_owner_engine','SET')
+  THEN RAISE EXCEPTION 'CITIZEN_SELF_GRANT_ENGINE_MEMBERSHIP_%',runtime_role; END IF;
+  IF current_user <> session_user
+  THEN RAISE EXCEPTION 'CITIZEN_SELF_GRANT_PROBE_NOT_RESTORED_%',runtime_role; END IF;
+ END LOOP;
+ RAISE NOTICE 'PASS_VERSIONED_FACADE_CITIZEN_SELF_GRANT_DENIED';
  RAISE NOTICE 'PASS_VERSIONED_FACADE_ENGINE_CANNOT_DELEGATE_TO_ANON';
  RAISE NOTICE 'PASS_VERSIONED_FACADE_ENGINE_CANNOT_DELEGATE_ROLE';
  -- A runtime engine role must not be able to publish a shadow endpoint in the facade schema.
