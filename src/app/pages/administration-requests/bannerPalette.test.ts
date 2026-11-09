@@ -29,6 +29,20 @@ describe('cropped banner palette extraction', () => {
     expect(b).toBeGreaterThan(r);
     expect(parseInt(dark.slice(5,7),16)).toBeGreaterThan(parseInt(dark.slice(1,3),16));
   });
+  it('selects a distributed blue-teal illustration instead of a concentrated small brown accent', () => {
+    const colors: [number, number, number][] = [];
+    for(let y=0;y<24;y++)for(let x=0;x<60;x++) {
+      if(x<27) colors.push([239,236,230]);
+      else if(x<38) colors.push([174,124,70]); // narrow brown motif
+      else if(x<48) colors.push([75,153,184]); // blue wash
+      else colors.push([78,165,153]); // teal wash
+    }
+    const p=paletteFromPixels(pixels(colors),60,24);
+    expect(validateBannerPalette(p)).toBeNull();
+    const heading=p.heading_color!;
+    // The two neighboring cool bands beat the isolated warm subject.
+    expect(parseInt(heading.slice(5,7),16)).toBeGreaterThan(parseInt(heading.slice(1,3),16));
+  });
   it('keeps the intended warm hue when the painted motif really is amber', () => {
     const colors: [number,number,number][]=[];
     for(let y=0;y<20;y++)for(let x=0;x<50;x++) colors.push(x<23?[229,226,212]:[182,113,40]);
