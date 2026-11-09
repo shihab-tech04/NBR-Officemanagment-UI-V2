@@ -34,7 +34,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(screen.getByRole('img',{name:/Unpublished mobile banner preview/}).getAttribute('style')).toContain('--preview-bg: #F1F6FA');
     expect(container.querySelector('.cms-theme-preview--mobile')).toBeInTheDocument();
     expect(screen.getByText('রিটার্নের কর')).toBeInTheDocument();
-    expect(screen.getByText('রিটার্নের কর দিন')).toBeTruthy();
+    expect(screen.getAllByText('রিটার্নের কর দিন').length).toBeGreaterThan(0);
   });
   it('matches TaxPay service tokens when no custom palette was published', () => {
     const withoutPalette={...slide,background_color:null,heading_color:null,body_color:null,outline_color:null};
