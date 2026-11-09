@@ -93,6 +93,15 @@ describe('cropped banner palette extraction', () => {
     // The two neighboring cool bands beat the isolated warm subject.
     expect(parseInt(heading.slice(5,7),16)).toBeGreaterThan(parseInt(heading.slice(1,3),16));
   });
+  it('darkens outlined ink on real pale paper rather than abandoning the image hue', () => {
+    const colors:[number,number,number][]=[];
+    for(let y=0;y<20;y++) for(let x=0;x<50;x++)
+      colors.push(x<23?[229,226,212]:[182,113,40]);
+    const palette=paletteFromPixels(pixels(colors),50,20);
+    expect(palette).not.toEqual(FALLBACK_PALETTE);
+    expect(validateBannerPalette(palette)).toBeNull();
+    expect(contrastRatio(palette.background_color!,palette.outline_color!)).toBeGreaterThanOrEqual(4.5);
+  });
   it('keeps the intended warm hue when the painted motif really is amber', () => {
     const colors: [number,number,number][]=[];
     for(let y=0;y<20;y++)for(let x=0;x<50;x++) colors.push(x<23?[229,226,212]:[182,113,40]);
