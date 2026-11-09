@@ -1,22 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { FALLBACK_PALETTE, backgroundFromArtworkLeft, contrastRatio, paletteFromPixels, validateBannerPalette } from './bannerPalette';
+import { FALLBACK_PALETTE, backgroundFromArtworkLeft, harmonizedBannerBackground, contrastRatio, paletteFromPixels, validateBannerPalette } from './bannerPalette';
 
 function pixels(colors: [number, number, number][]): Uint8ClampedArray {
   return new Uint8ClampedArray(colors.flatMap(c => [...c, 255]));
 }
 describe('cropped banner palette extraction', () => {
-  it('matches the real pale left side while choosing a different dominant illustration hue', () => {
+  it('does not mix a cool paper backdrop with an unrelated warm illustrated theme', () => {
     const colors:[number,number,number][]=[];
     for(let y=0;y<30;y++) for(let x=0;x<70;x++) {
       colors.push(x<15 ? [225,238,247] : [180,105,44]);
     }
     const bytes=pixels(colors),palette=paletteFromPixels(bytes,70,30);
     expect(backgroundFromArtworkLeft(bytes,70,30)).toBe('#E1EEF7');
-    expect(palette.background_color).toBe('#E1EEF7');
+    expect(palette.background_color).not.toBe('#E1EEF7');
+    // Both light surface and dark text belong to the dominant amber motif.
+    expect(parseInt(palette.background_color!.slice(1,3),16)).toBeGreaterThan(
+      parseInt(palette.background_color!.slice(5,7),16));
     // Amber illustrated motif retains darker warm colors: no hard-coded blue.
     expect(parseInt(palette.heading_color!.slice(1,3),16)).toBeGreaterThan(
       parseInt(palette.heading_color!.slice(5,7),16));
     expect(validateBannerPalette(palette)).toBeNull();
+  });
+  it('keeps the exact pale image edge when its hue agrees with the motif', () => {
+    expect(harmonizedBannerBackground('#E0F1F6',190,'#EFF9FA')).toBe('#E0F1F6');
+    expect(harmonizedBannerBackground('#F2DFB8',190,'#EFF9FA')).toBe('#EFF9FA');
+    expect(harmonizedBannerBackground(null,190,'#EFF9FA')).toBe('#EFF9FA');
   });
   it('ignores left-side dark ink and transparent pixels rather than tinting from them', () => {
     const colors:[number,number,number][]=[];
