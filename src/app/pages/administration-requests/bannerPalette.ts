@@ -199,7 +199,7 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
       // the bottom/right foreground contains contrasting small objects.
       // This is based on pixel position/coverage, never a service or hue name.
       if (x > width * .18 && x < width * .86 && y < height * .72 &&
-          light > .45 && light < .985 && sat > .08 && delta > .025) {
+          light > .45 && light < .985 && sat > .08 && delta > .045) {
         washPixels++;
         const washWeight = Math.sqrt(sat);
         const wash = washBins[binIndex];
