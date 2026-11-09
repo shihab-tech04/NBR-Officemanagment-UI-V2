@@ -33,9 +33,12 @@ function row() {
   };
 }
 
-function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean; stalePublicReadback?: boolean } = {}) {
+function makeClient(authorized: boolean, hasSession = authorized, options: { rejectWrite?: boolean; staleReadback?: boolean; stalePublicReadback?: boolean; versionConflictOnce?: boolean; deleteConflictOnce?: boolean; extraBanner?: boolean } = {}) {
   const banners: Record<string, unknown>[] = [row()];
+  if (options.extraBanner) banners.push({ ...row(), id:'service-1', service_code:'SOURCE_TAX', sort_order:1, published:false, heading_en:'Withholding tax banner', version:4 });
   const upload = vi.fn(async () => ({ error: null }));
+  let conflictPending = options.versionConflictOnce === true;
+  let deleteConflictPending = options.deleteConflictOnce === true;
   let sessionActive = hasSession;
   let onAuthChange: (() => void) | null = null;
   const query: Record<string, unknown> = {};
@@ -84,6 +87,11 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
     if (action === 'publish-banner') {
       if (options.rejectWrite) throw new Error('SQL rejected banner write');
       const changes = JSON.parse(String(fields.banner)) as Record<string,unknown>;
+      if (conflictPending) {
+        conflictPending = false;
+        banners[0] = { ...banners[0], heading_en:'Latest saved headline', version:Number(banners[0].version)+1 };
+        throw new Error('BANNER_VERSION_CONFLICT');
+      }
       for (const device of ['desktop','mobile']) if (files[device]) {
         changes[device+'_image_path'] = 'banners/'+changes.id+'/'+device+'-00000000-0000-4000-8000-000000000001.png';
       }
@@ -94,6 +102,11 @@ function makeClient(authorized: boolean, hasSession = authorized, options: { rej
     if (action === 'delete-banner') {
       const index = banners.findIndex(b=>b.id===fields.bannerId);
       if (index===-1) throw new Error('Banner not found');
+      if (deleteConflictPending) {
+        deleteConflictPending = false;
+        banners[index] = { ...banners[index], heading_en:'Latest saved service headline', version:Number(banners[index].version)+1 };
+        throw new Error('BANNER_VERSION_CONFLICT');
+      }
       banners.splice(index,1);
       return { removed:fields.bannerId };
     }
@@ -380,6 +393,123 @@ describe('verified TaxPay banner CMS', () => {
       expect.objectContaining({ expectedVersion:8,position:1,banner:expect.stringContaining('Updated fixed headline') }),
       expect.anything()));
     expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
+  });
+
+  it('keeps the local edit and crop on a stale version, then deliberately reloads before publishing again', async () => {
+    const { client, publicClient } = makeClient(true, true, { versionConflictOnce:true });
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const heading = screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading, 'My local change must remain');
+    const input = container.querySelector('.cms-upload--desktop input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array(256)], 'conflicted-crop.png', { type:'image/png' }));
+    await user.click(screen.getByRole('button', { name:'Apply crop' }));
+
+    await user.click(screen.getByRole('button', { name:'Publish to TaxPay' }));
+    expect(await screen.findByText(/latest saved version is v9/i)).toBeInTheDocument();
+    expect(heading).toHaveValue('My local change must remain');
+    expect(container.querySelector('.cms-upload--desktop')).toHaveTextContent('Cropped image ready');
+    expect(screen.getByRole('button', { name:'Refresh before publishing' })).toBeDisabled();
+    expect(deps.bridge.mock.calls.filter(([action]) => action === 'publish-banner')).toHaveLength(1);
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(screen.getByRole('button', { name:'Refresh' }));
+    await waitFor(() => expect(screen.getByRole('button', { name:'Edit banner' })).toBeEnabled());
+    expect(container.querySelector('.cms-upload--desktop')).not.toHaveTextContent('Cropped image ready');
+    await user.click(screen.getByRole('button', { name:'Edit banner' }));
+    const reloadedHeading = screen.getByLabelText('Desktop heading · English');
+    expect(reloadedHeading).toHaveValue('Latest saved headline');
+    await user.clear(reloadedHeading);
+    await user.type(reloadedHeading, 'Resubmitted after refresh');
+    await user.click(screen.getByRole('button', { name:'Publish to TaxPay' }));
+    expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
+    const publishCalls = deps.bridge.mock.calls.filter(([action]) => action === 'publish-banner');
+    expect(publishCalls).toHaveLength(2);
+    expect(publishCalls[1][1]).toEqual(
+      expect.objectContaining({ expectedVersion:9, banner:expect.stringContaining('Resubmitted after refresh') }),
+    );
+    confirm.mockRestore();
+  });
+
+  it('allows only one banner save when Publish is clicked repeatedly during authorization', async () => {
+    const { client, publicClient } = makeClient(true);
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    await user.clear(screen.getByLabelText('Desktop heading · English'));
+    await user.type(screen.getByLabelText('Desktop heading · English'), 'One guarded submission');
+    let resolveAuthorization!: (allowed:boolean)=>void;
+    const authorization = new Promise<boolean>(resolve => { resolveAuthorization = resolve; });
+    deps.verified.mockReturnValue(authorization);
+
+    await user.dblClick(screen.getByRole('button', { name:'Publish to TaxPay' }));
+    expect(screen.getByRole('button', { name:'Publishing…' })).toBeDisabled();
+    expect(deps.bridge.mock.calls.filter(([action]) => action === 'publish-banner')).toHaveLength(0);
+    await act(async () => { resolveAuthorization(true); await authorization; });
+    expect(await screen.findByText(/Saved to SQL/)).toBeInTheDocument();
+    expect(deps.bridge.mock.calls.filter(([action]) => action === 'publish-banner')).toHaveLength(1);
+  });
+
+  it('does not delete a banner on a stale delete and requires refresh before further action', async () => {
+    const { client } = makeClient(true, true, { extraBanner:true, deleteConflictOnce:true });
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:/Withholding tax banner/ }));
+    await user.click(screen.getByRole('button', { name:'Edit banner' }));
+    await user.click(screen.getByRole('button', { name:'Remove banner' }));
+    await user.click(screen.getByRole('button', { name:'Delete banner' }));
+    expect(await screen.findByText(/latest saved version is v5/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name:/Latest saved service headline/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name:'Remove banner' })).toBeDisabled();
+    expect(deps.bridge.mock.calls.filter(([action]) => action === 'delete-banner')).toHaveLength(1);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(screen.getByRole('button', { name:'Refresh' }));
+    await waitFor(() => expect(screen.getByRole('button', { name:'Edit banner' })).toBeEnabled());
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    expect(screen.getByLabelText('Desktop heading · English')).toHaveValue('Latest saved service headline');
+    expect(deps.bridge.mock.calls.filter(([action]) => action === 'delete-banner')).toHaveLength(1);
+    confirm.mockRestore();
+  });
+
+  it('keeps edits and cropped files when refreshing fails', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    const { container } = render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const heading = screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading, 'Keep this while refresh fails');
+    const input = container.querySelector('.cms-upload--desktop input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array(256)], 'preserve-crop.png', { type:'image/png' }));
+    await user.click(screen.getByRole('button', { name:'Apply crop' }));
+
+    const bridge = deps.bridge.getMockImplementation();
+    if (!bridge) throw new Error('Expected banner bridge mock');
+    let failNextList = true;
+    deps.bridge.mockImplementation(async (action:string, fields:Record<string,unknown> = {}, files:Record<string,File|null> = {}) => {
+      if (failNextList && action === 'list-banners') {
+        failNextList = false;
+        throw new Error('Banner read-back unavailable');
+      }
+      return bridge(action, fields, files);
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(screen.getByRole('button', { name:'Refresh' }));
+    expect(await screen.findByText(/Refresh not completed.*Banner read-back unavailable/)).toBeInTheDocument();
+    expect(heading).toHaveValue('Keep this while refresh fails');
+    expect(container.querySelector('.cms-upload--desktop')).toHaveTextContent('Cropped image ready');
+    expect(screen.getByRole('button', { name:'Publish to TaxPay' })).toBeEnabled();
+    confirm.mockRestore();
   });
 
   it('previews the cropped artwork with generated colors before a single Office publish', async () => {
