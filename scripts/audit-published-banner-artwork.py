@@ -82,6 +82,8 @@ for row in banners:
     width,height=small.size
     data=list(small.getdata())
     bins=[dict(weight=0.,sin=0.,cos=0.) for _ in range(12)]
+    wash_bins=[dict(weight=0.,sin=0.,cos=0.) for _ in range(12)]
+    wash_samples=0
     colored=sampled=0
     for y in range(0,height,2):
         for x in range(0,width,2):
@@ -93,6 +95,14 @@ for row in banners:
             d=hi-low
             light=(hi+low)/2
             sat=0 if d==0 else d/(1-abs(2*light-1))
+            if .15*width<=x<.68*width and y<.48*height and .055<=sat<=.65 and .55<=light<=.96:
+                wash_hue=colorsys.rgb_to_hsv(rf,gf,bf)[0]*360
+                wash_weight=(1-sat)**1.2*math.sqrt(light-.5)
+                wash_bin=wash_bins[int(wash_hue//30)%12]
+                wash_bin["weight"]+=wash_weight
+                wash_bin["sin"]+=math.sin(math.radians(wash_hue))*wash_weight
+                wash_bin["cos"]+=math.cos(math.radians(wash_hue))*wash_weight
+                wash_samples+=1
             if sat<.12 or light<.13 or light>.92 or (light>.80 and d<.16):
                 continue
             colored+=1
@@ -108,7 +118,11 @@ for row in banners:
     families=[dict(weight=b["weight"]+bins[(i+1)%12]["weight"],
                   sin=b["sin"]+bins[(i+1)%12]["sin"],
                   cos=b["cos"]+bins[(i+1)%12]["cos"]) for i,b in enumerate(bins)]
-    dominant=max(families,key=lambda z:z["weight"])
+    wash_families=[dict(weight=b["weight"]+wash_bins[(i+1)%12]["weight"],
+                     sin=b["sin"]+wash_bins[(i+1)%12]["sin"],
+                     cos=b["cos"]+wash_bins[(i+1)%12]["cos"]) for i,b in enumerate(wash_bins)]
+    wash_dominant=max(wash_families,key=lambda z:z["weight"])
+    dominant=wash_dominant if wash_samples>=8 and wash_dominant["weight"]>0 else max(families,key=lambda z:z["weight"])
     if dominant["weight"]<=0:
         raise RuntimeError(f"No usable hue in {row['id']} image")
     motif_hue=math.degrees(math.atan2(dominant["sin"],dominant["cos"]))%360
