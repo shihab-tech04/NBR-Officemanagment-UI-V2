@@ -116,6 +116,20 @@ describe('cropped banner palette extraction', () => {
     expect(validateBannerPalette(palette)).toBeNull();
     expect(contrastRatio(palette.background_color!,palette.outline_color!)).toBeGreaterThanOrEqual(4.5);
   });
+  it('selects a broad blue watercolor scene instead of warm paper when both are significant', () => {
+    const colors:[number,number,number][]=[];
+    for(let y=0;y<40;y++)for(let x=0;x<120;x++){
+      if(x<24)colors.push([239,232,213]);
+      else if(y<29 && x<82)colors.push([230,207,172]); // warm broad paper wash
+      else if(y<29 && x<116)colors.push([134,185,206]); // continuous blue sky
+      else colors.push([237,236,224]); // nearly neutral foreground
+    }
+    const result=paletteFromPixels(pixels(colors),120,40);
+    expect(validateBannerPalette(result)).toBeNull();
+    const dark=result.heading_color!;
+    // Actual blue-gray sky supplies the readable ink; paper doesn't turn it brown.
+    expect(parseInt(dark.slice(5,7),16)).toBeGreaterThan(parseInt(dark.slice(1,3),16));
+  });
   it('keeps the intended warm hue when the painted motif really is amber', () => {
     const colors: [number,number,number][]=[];
     for(let y=0;y<20;y++)for(let x=0;x<50;x++) colors.push(x<23?[229,226,212]:[182,113,40]);
