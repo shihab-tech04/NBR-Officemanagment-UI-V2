@@ -183,6 +183,29 @@ test('ownership revoked between requests cannot reuse a previously authorized pr
   assert.equal(h.seen.privilegedReads, 0);
 });
 
+// A previously successful ownership response must not be cached across requests.
+// Simulated source-of-truth outage after an earlier authorization is a 503,
+// never a reused grant. No real Auth, taxpayer data or SQL is involved.
+test('owner RPC outage after prior approval fails closed without replay reservation', async () => {
+  let calls = 0;
+  const h = harness({
+    ownerData: () => ++calls === 1 ? true : null,
+    reservationError: { message: 'synthetic stop after first owner approval' },
+  });
+  const first = await h.request();
+  assert.equal(first.status, 503);
+  assert.equal(first.body.code, 'REPLAY_GATE_UNAVAILABLE');
+  assert.equal(h.seen.ownerCalls, 1);
+  assert.equal(h.seen.reserveCalls, 1);
+  const second = await h.request();
+  assert.equal(second.status, 503);
+  assert.equal(second.body.code, 'OWNERSHIP_GATE_UNAVAILABLE');
+  assert.equal(h.seen.authCalls, 2);
+  assert.equal(h.seen.ownerCalls, 2);
+  assert.equal(h.seen.reserveCalls, 1);
+  assert.equal(h.seen.privilegedReads, 0);
+});
+
 test('malformed mock Auth principal never becomes an owner or reservation actor', async () => {
   // This verifies handler input integrity, NOT a real signed JWT.
   for (const actorId of ['not-a-uuid', 42, '00000000-0000-0000-0000-000000000000']) {
