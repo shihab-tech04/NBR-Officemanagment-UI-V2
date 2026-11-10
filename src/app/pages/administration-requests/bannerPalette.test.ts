@@ -13,17 +13,30 @@ describe('cropped banner palette extraction', () => {
     const bytes=pixels(colors),palette=paletteFromPixels(bytes,70,30);
     expect(backgroundFromArtworkLeft(bytes,70,30)).toBe('#E1EEF7');
     expect(palette.background_color).not.toBe('#E1EEF7');
-    // Both light surface and dark text belong to the dominant amber motif.
-    expect(parseInt(palette.background_color!.slice(1,3),16)).toBeGreaterThan(
-      parseInt(palette.background_color!.slice(5,7),16));
+    // A pale near-neutral paper surface bridges the cool left edge and warm
+    // illustrated motif without creating a visibly different colored panel.
+    const channels=[1,3,5].map(i=>parseInt(palette.background_color!.slice(i,i+2),16));
+    expect(Math.max(...channels)-Math.min(...channels)).toBeLessThanOrEqual(6);
     // Amber illustrated motif retains darker warm colors: no hard-coded blue.
     expect(parseInt(palette.heading_color!.slice(1,3),16)).toBeGreaterThan(
       parseInt(palette.heading_color!.slice(5,7),16));
     expect(validateBannerPalette(palette)).toBeNull();
   });
+  it('neutralizes the measured cream edge behind a blue image motif without changing ink', () => {
+    const neutral=harmonizedBannerBackground('#F9F0E4',199.5,'#F0F6F9');
+    expect(neutral).toBe('#F1EFED');
+    const palette={background_color:neutral,heading_color:'#1B4D65',body_color:'#315A6D',outline_color:'#1F5D7A'};
+    expect(validateBannerPalette(palette)).toBeNull();
+    for(const ink of [palette.heading_color,palette.body_color,palette.outline_color]) {
+      expect(contrastRatio(neutral,ink)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
   it('keeps the exact pale image edge when its hue agrees with the motif', () => {
     expect(harmonizedBannerBackground('#E0F1F6',190,'#EFF9FA')).toBe('#E0F1F6');
-    expect(harmonizedBannerBackground('#F2DFB8',190,'#EFF9FA')).toBe('#EFF9FA');
+    const neutral=harmonizedBannerBackground('#F2DFB8',190,'#EFF9FA');
+    const rgb=[1,3,5].map(i=>parseInt(neutral.slice(i,i+2),16));
+    expect(Math.max(...rgb)-Math.min(...rgb)).toBeLessThanOrEqual(6);
+    expect(neutral).not.toBe('#EFF9FA');
     expect(harmonizedBannerBackground(null,190,'#EFF9FA')).toBe('#EFF9FA');
   });
   it('ignores left-side dark ink and transparent pixels rather than tinting from them', () => {
@@ -72,11 +85,12 @@ describe('cropped banner palette extraction', () => {
     }
     const palette=paletteFromPixels(pixels(colors),50,20);
     expect(validateBannerPalette(palette)).toBeNull();
-    // Blue/teal hues produce visibly cool dark text and a pale cyan surface.
+    // Blue/teal motifs keep dark teal ink, but beige paper becomes a neutral
+    // bridge instead of an unrelated visible panel.
     const background=palette.background_color!;
     const dark=palette.heading_color!;
-    const b=parseInt(background.slice(5,7),16),r=parseInt(background.slice(1,3),16);
-    expect(b).toBeGreaterThan(r);
+    const rgb=[1,3,5].map(i=>parseInt(background.slice(i,i+2),16));
+    expect(Math.max(...rgb)-Math.min(...rgb)).toBeLessThanOrEqual(6);
     expect(parseInt(dark.slice(5,7),16)).toBeGreaterThan(parseInt(dark.slice(1,3),16));
   });
   it('selects a distributed blue-teal illustration instead of a concentrated small brown accent', () => {
