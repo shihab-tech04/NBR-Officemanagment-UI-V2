@@ -167,7 +167,14 @@ export function harmonizedBannerBackground(
   // Cap the remaining chroma to about five RGB levels even for deeply warm
   // paper. Gentle edges keep more of the original color for a closer seam.
   const keep=Math.min(.2, .018 / delta);
-  const neutral='#'+c.map(value=>toHex((mean*(1-keep)+value*keep)*255)).join('');
+  let rgb=c.map(value=>(mean*(1-keep)+value*keep)*255);
+  let neutral='#'+rgb.map(toHex).join('');
+  // A darker watercolor-paper edge needs lightening for WCAG AA; retain its
+  // near-neutral chroma instead of reverting to the mismatching motif tint.
+  for(let i=0;i<16 && luminance(neutral)<.72;i++) {
+    rgb=rgb.map(value=>value*.85+255*.15);
+    neutral='#'+rgb.map(toHex).join('');
+  }
   return luminance(neutral)>=.72 ? neutral : generatedBackground;
 }
 
