@@ -218,6 +218,9 @@ test('missing, malformed and errored owner RPC all fail closed', async () => {
   for (const options of [
     { ownerData: null },
     { ownerData: 'true' },
+    { ownerData: [true] },
+    { ownerData: { authorized: true } },
+    { ownerData: 1 },
     { ownerData: true, ownerError: { message: 'RPC unavailable' } },
   ]) {
     const h = harness(options);
