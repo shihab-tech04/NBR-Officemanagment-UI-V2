@@ -36,7 +36,7 @@ function isHead(value:unknown):value is PaymentHead{
 }
 const nonempty=(value:unknown)=>typeof value==='string'&&value.trim()?value.trim():undefined;
 const known=(value:unknown)=>nonempty(value)&&!['Taxpayer / withholding agent','GUEST','—'].includes(String(value))?String(value).trim():undefined;
-const demoTinFor=(id:string)=>{
+export const demoTinFor=(id:string)=>{
   if(!/^user(?:[1-9]|[12][0-9]|30)$/.test(id))return '';
   const n=Number(id.slice(4));
   return n===10?'1010101010101':n<=9?String(n).repeat(13):'90000000'+String(n).padStart(5,'0');
