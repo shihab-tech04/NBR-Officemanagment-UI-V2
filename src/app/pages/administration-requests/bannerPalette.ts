@@ -156,8 +156,16 @@ export function harmonizedBannerBackground(
   else edgeHue=(c[0]-c[1])/delta+4;
   edgeHue=(edgeHue*60+360)%360;
   const diff=Math.abs(edgeHue-motifHue);
-  // Only accept a close hue match; otherwise retain the motif-derived tint.
-  return Math.min(diff,360-diff)<=24 ? sampledEdge : generatedBackground;
+  if(Math.min(diff,360-diff)<=24) return sampledEdge;
+  // Mixed-hue panoramas often have neutral warm paper behind a blue motif.
+  // Previously we forced a blue left panel, creating a visible join with the
+  // actual cream image edge. Preserve its measured luminance but remove hue,
+  // so the panel blends into the artwork without fighting the dark motif ink.
+  // Near-neutral surfaces intentionally bypass hue-family checks; all three
+  // dark ink colors still remain in the original image-derived hue family.
+  const mean=c.reduce((sum,value)=>sum+value,0)/3;
+  const neutral='#'+c.map(value=>toHex((mean*.8+value*.2)*255)).join('');
+  return luminance(neutral)>=.72 ? neutral : generatedBackground;
 }
 
 /** Exported pure function also permits tests without Canvas or a browser. */
