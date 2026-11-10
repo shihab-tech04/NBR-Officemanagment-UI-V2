@@ -122,7 +122,10 @@ export function backgroundFromArtworkLeft(pixels: Uint8ClampedArray, width: numb
       const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
       const max=Math.max(r,g,b), min=Math.min(r,g,b);
       // The paper/sky wash is bright; exclude foreground ink and landmarks.
-      if((max+min)/2<190)continue;
+      // Mid-light warm watercolor paper also needs seamless blending.
+      // The later neutralization step raises its luminance for text safety;
+      // do not discard it and revert to a conflicting cool background.
+      if((max+min)/2<170)continue;
       red+=r;green+=g;blue+=b;samples++;
     }
   }
@@ -156,8 +159,26 @@ export function harmonizedBannerBackground(
   else edgeHue=(c[0]-c[1])/delta+4;
   edgeHue=(edgeHue*60+360)%360;
   const diff=Math.abs(edgeHue-motifHue);
-  // Only accept a close hue match; otherwise retain the motif-derived tint.
-  return Math.min(diff,360-diff)<=24 ? sampledEdge : generatedBackground;
+  if(Math.min(diff,360-diff)<=24) return sampledEdge;
+  // Mixed-hue panoramas often have neutral warm paper behind a blue motif.
+  // Previously we forced a blue left panel, creating a visible join with the
+  // actual cream image edge. Preserve its measured luminance but remove hue,
+  // so the panel blends into the artwork without fighting the dark motif ink.
+  // Near-neutral surfaces intentionally bypass hue-family checks; all three
+  // dark ink colors still remain in the original image-derived hue family.
+  const mean=c.reduce((sum,value)=>sum+value,0)/3;
+  // Cap the remaining chroma to about five RGB levels even for deeply warm
+  // paper. Gentle edges keep more of the original color for a closer seam.
+  const keep=Math.min(.2, .018 / delta);
+  let rgb=c.map(value=>(mean*(1-keep)+value*keep)*255);
+  let neutral='#'+rgb.map(toHex).join('');
+  // A darker watercolor-paper edge needs lightening for WCAG AA; retain its
+  // near-neutral chroma instead of reverting to the mismatching motif tint.
+  for(let i=0;i<16 && luminance(neutral)<.72;i++) {
+    rgb=rgb.map(value=>value*.85+255*.15);
+    neutral='#'+rgb.map(toHex).join('');
+  }
+  return luminance(neutral)>=.72 ? neutral : generatedBackground;
 }
 
 /** Exported pure function also permits tests without Canvas or a browser. */
