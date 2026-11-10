@@ -395,7 +395,7 @@ console.log("HOLD: review-only producer candidate, not installed in W5 or privat
 // The digest is valid and the JSONB value matches; size alone must deny.
 for (const [name, payload] of [
   ["ascii_over_limit", "x".repeat(262145)],
-  ["multibyte_over_limit", "বাংলা".repeat(15000)],
+  ["multibyte_over_limit", "বাংলা".repeat(20000)],
 ]) {
   const trace = { evidence: payload };
   const bytes = canonical(trace);
