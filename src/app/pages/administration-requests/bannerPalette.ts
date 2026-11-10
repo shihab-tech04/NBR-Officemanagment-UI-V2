@@ -122,7 +122,10 @@ export function backgroundFromArtworkLeft(pixels: Uint8ClampedArray, width: numb
       const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
       const max=Math.max(r,g,b), min=Math.min(r,g,b);
       // The paper/sky wash is bright; exclude foreground ink and landmarks.
-      if((max+min)/2<190)continue;
+      // Mid-light warm watercolor paper also needs seamless blending.
+      // The later neutralization step raises its luminance for text safety;
+      // do not discard it and revert to a conflicting cool background.
+      if((max+min)/2<170)continue;
       red+=r;green+=g;blue+=b;samples++;
     }
   }
