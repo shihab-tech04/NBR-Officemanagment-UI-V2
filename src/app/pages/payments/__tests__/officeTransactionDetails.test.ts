@@ -56,6 +56,22 @@ describe('Office-native transaction record and receipt', () => {
     ]);
   });
 
+  it('attributes all 30 synthetic taxpayers using the existing shared TIN mapping',()=>{
+    for (let id=1;id<=30;id++) {
+      const user='user'+id;
+      const payment:StoryPayment={...transaction,amountMinor:100,
+        details:{lines:[{beneficiary:user,category:'ADVANCE_TAX',assessmentYear:'2026-27',amountMinor:100}]}};
+      const items=getOfficePaymentItems(payment);
+      expect(items).toHaveLength(1);
+      expect(items[0].taxpayerTin).toMatch(/^\d{12,13}$/);
+      expect(getOfficePaymentItems(payment,{taxpayerTin:items[0].taxpayerTin!})).toHaveLength(1);
+      expect(getOfficePaymentItems(payment,{taxpayerTin:'999999999999'})).toEqual([]);
+    }
+    const person11={...transaction,amountMinor:100,details:{lines:[
+      {beneficiary:'user11',category:'PENALTY',assessmentYear:'2025-26',amountMinor:100}]}};
+    expect(getOfficePaymentItems(person11).map(x=>x.taxpayerTin)).toEqual(['9000000000011']);
+  });
+
   it('exports exactly the visible shared-modal receipt paper, not a duplicate receipt template', () => {
     const paper = document.createElement('article');
     paper.className = 'office-receipt__paper';

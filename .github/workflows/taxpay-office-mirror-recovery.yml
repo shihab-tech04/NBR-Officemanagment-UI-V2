@@ -1,0 +1,40 @@
+name: Office payment mirror pre-release recovery
+on:
+  push:
+    branches: [fix/taxpay-office-mirror-combined-20261110]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bundle-and-restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Exact pre-release commit bundle and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=f9ec31d5e01d0aafb6cd834b237e171ebfe21832
+          TREE=61a24f8afa102f63683feea726a5245a52a72a0e
+          test "$(git rev-parse "${BASE}^{tree}")" = "$TREE"
+          mkdir -p "$RUNNER_TEMP/office-recovery"
+          git bundle create "$RUNNER_TEMP/office-recovery/full-git-history.bundle" HEAD
+          git bundle verify "$RUNNER_TEMP/office-recovery/full-git-history.bundle"
+          git archive --format=tar "$BASE" | gzip -n > "$RUNNER_TEMP/office-recovery/source.tar.gz"
+          git init -q "$RUNNER_TEMP/office-restore"
+          git -C "$RUNNER_TEMP/office-restore" fetch -q "$RUNNER_TEMP/office-recovery/full-git-history.bundle" HEAD
+          test "$(git -C "$RUNNER_TEMP/office-restore" rev-parse "${BASE}^{tree}")" = "$TREE"
+          mkdir -p "$RUNNER_TEMP/restore-source" "$RUNNER_TEMP/restore-archive"
+          git -C "$RUNNER_TEMP/office-restore" archive "$BASE" | tar -x -C "$RUNNER_TEMP/restore-source"
+          tar -xzf "$RUNNER_TEMP/office-recovery/source.tar.gz" -C "$RUNNER_TEMP/restore-archive"
+          diff -qr "$RUNNER_TEMP/restore-archive" "$RUNNER_TEMP/restore-source"
+          (cd "$RUNNER_TEMP/office-recovery" && sha256sum full-git-history.bundle source.tar.gz > SHA256SUMS.txt)
+          printf 'BASE_SHA=%s\nBASE_TREE=%s\nRESTORE_TEST=PASS\n' "$BASE" "$TREE" > "$RUNNER_TEMP/office-recovery/RESTORE_CHECK.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nbr-office-mirror-pre-release-source
+          path: ${{ runner.temp }}/office-recovery/*
+          retention-days: 14
+          if-no-files-found: error

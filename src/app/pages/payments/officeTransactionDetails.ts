@@ -1,5 +1,5 @@
 import type { StoryPayment } from './story1OfficeApi';
-import { paymentServiceName } from './story1PaymentPresentation';
+import { demoTinFor, paymentServiceName } from './story1PaymentPresentation';
 
 export type OfficePaymentItem = {
   taxpayer: string;
@@ -55,8 +55,8 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
     if (lines.some(line => typeof line?.beneficiary !== 'string' || !validAmount(line.amountMinor))) return [];
     items = lines.map(line => ({
       taxpayer: human(line.beneficiary),
-      ...(typeof line.beneficiary === 'string' && /^user([1-9]|10)$/.test(line.beneficiary)
-        ? {taxpayerTin:line.beneficiary==='user10'?'1010101010101':line.beneficiary.slice(4).repeat(13)}
+      ...(typeof line.beneficiary === 'string' && demoTinFor(line.beneficiary)
+        ? {taxpayerTin: demoTinFor(line.beneficiary)}
         : {}),
       service: paymentServiceName[human(line.category)] ?? human(line.category),
       assessmentYear: human(line.assessmentYear),
