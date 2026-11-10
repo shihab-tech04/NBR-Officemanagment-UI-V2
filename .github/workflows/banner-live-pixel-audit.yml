@@ -26,5 +26,7 @@ jobs:
         if: always()
         with:
           name: live-banner-pixel-audit
-          path: banner-live-pixel-audit.json
+          path: |
+            banner-live-pixel-audit.json
+            banner-*.png
           if-no-files-found: warn
