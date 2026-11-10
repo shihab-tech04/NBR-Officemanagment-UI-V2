@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -c 'create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;'
-          test "$(find supabase/migrations -name '*.sql' | wc -l)" = 8
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" = 9
           for sql in supabase/migrations/*.sql; do
             echo "Applying $sql"
             psql -X -v ON_ERROR_STOP=1 -f "$sql"
