@@ -317,6 +317,27 @@ BEGIN
     'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure,
     'EXECUTE')
  THEN RAISE EXCEPTION 'ENGINE_PRIVATE_RPC_PUBLIC_GRANT_PROBE_ESCALATED'; END IF;
+ -- The engine's private RPC EXECUTE permission must not permit it to
+ -- delegate private-schema USAGE. Test both citizen and PUBLIC grants:
+ -- PostgreSQL may emit only a warning for an unauthorized GRANT.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT USAGE ON SCHEMA ws02_owner TO ws02_owner_auth';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE')
+ THEN RAISE EXCEPTION 'ENGINE_PRIVATE_SCHEMA_GRANT_ESCALATED_CITIZEN'; END IF;
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT USAGE ON SCHEMA ws02_owner TO PUBLIC';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_schema_privilege('ws02_owner_auth','ws02_owner','USAGE')
+ OR has_schema_privilege('ws02_owner_anon','ws02_owner','USAGE')
+ THEN RAISE EXCEPTION 'ENGINE_PRIVATE_SCHEMA_PUBLIC_GRANT_ESCALATED'; END IF;
+ RAISE NOTICE 'PASS_VERSIONED_PRIVATE_SCHEMA_DELEGATION_DENIED';
  RAISE NOTICE 'PASS_VERSIONED_PRIVATE_RPC_DELEGATION_DENIED';
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
