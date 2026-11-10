@@ -290,6 +290,34 @@ BEGIN
  IF has_schema_privilege('ws02_owner_auth','ws02_versioned_api','CREATE')
  OR has_schema_privilege('ws02_owner_anon','ws02_versioned_api','CREATE')
  THEN RAISE EXCEPTION 'ENGINE_PUBLIC_SCHEMA_CREATE_GRANT_PROBE_CHANGED_FACADE_ACL'; END IF;
+ -- The engine role must not be able to grant the underlying private RPC
+ -- directly to citizens, bypassing the invoker facade entirely. PostgreSQL
+ -- may warn rather than throw on an unauthorized GRANT; inspect effective ACL.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO ws02_owner_auth';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_function_privilege('ws02_owner_auth',
+    'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure,
+    'EXECUTE')
+ THEN RAISE EXCEPTION 'ENGINE_PRIVATE_RPC_GRANT_PROBE_ESCALATED_CITIZEN'; END IF;
+ -- PUBLIC is independently dangerous because it grants future principals too.
+ BEGIN
+  EXECUTE 'SET LOCAL ROLE ws02_owner_engine';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text) TO PUBLIC';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ EXECUTE 'RESET ROLE';
+ IF has_function_privilege('ws02_owner_auth',
+    'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure,
+    'EXECUTE')
+ OR has_function_privilege('ws02_owner_anon',
+    'ws02_owner.nbr_commit_evaluation_versioned_candidate(uuid,uuid,text,text,text,text,text,text,jsonb,text,text)'::regprocedure,
+    'EXECUTE')
+ THEN RAISE EXCEPTION 'ENGINE_PRIVATE_RPC_PUBLIC_GRANT_PROBE_ESCALATED'; END IF;
+ RAISE NOTICE 'PASS_VERSIONED_PRIVATE_RPC_DELEGATION_DENIED';
  -- Denied callers must not be able to invoke the wrapper even with a valid signature.
  BEGIN
   EXECUTE 'SET LOCAL ROLE ws02_owner_auth';
