@@ -19,6 +19,8 @@ for(const [id,path,bg,heading,body,outline] of artwork){
   const response=await fetch(BUCKET+path,{signal:AbortSignal.timeout(45000)});
   if(!response.ok)throw Error('Cannot download published '+id+': '+response.status);
   const bytes=Buffer.from(await response.arrayBuffer());
+  // Human visual review of the same real artwork, without altering source.
+  await sharp(bytes).resize({width:1086}).png().toFile('banner-'+id+'.png');
   const info=await sharp(bytes).metadata();
   const sampleHeight=Math.max(1,Math.min(144,Math.round(144*info.height/info.width)));
   const {data,info:rawInfo}=await sharp(bytes).resize(144,sampleHeight,{fit:'fill'}).removeAlpha().ensureAlpha().raw().toBuffer({resolveWithObject:true});
