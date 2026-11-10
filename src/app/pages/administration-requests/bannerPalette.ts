@@ -164,7 +164,10 @@ export function harmonizedBannerBackground(
   // Near-neutral surfaces intentionally bypass hue-family checks; all three
   // dark ink colors still remain in the original image-derived hue family.
   const mean=c.reduce((sum,value)=>sum+value,0)/3;
-  const neutral='#'+c.map(value=>toHex((mean*.8+value*.2)*255)).join('');
+  // Cap the remaining chroma to about five RGB levels even for deeply warm
+  // paper. Gentle edges keep more of the original color for a closer seam.
+  const keep=Math.min(.2, .018 / delta);
+  const neutral='#'+c.map(value=>toHex((mean*(1-keep)+value*keep)*255)).join('');
   return luminance(neutral)>=.72 ? neutral : generatedBackground;
 }
 
