@@ -389,3 +389,20 @@ for (const { name, trace } of strictProducerNegatives) {
 }
 console.log("PASS_SCOPED_STRICT_WS04_PRODUCER_JSON_VALUE_NEGATIVES_PG17_ONLY");
 console.log("HOLD: review-only producer candidate, not installed in W5 or private RPC; no signed Auth/owner model or tax certification.");
+
+// Isolated PG17 regression: the envelope limit is UTF-8 BYTES, not JS
+// characters. A caller cannot bypass 256 KiB by supplying multibyte text.
+// The digest is valid and the JSONB value matches; size alone must deny.
+for (const [name, payload] of [
+  ["ascii_over_limit", "x".repeat(262145)],
+  ["multibyte_over_limit", "বাংলা".repeat(15000)],
+]) {
+  const trace = { evidence: payload };
+  const bytes = canonical(trace);
+  assert.ok(Buffer.byteLength(bytes, "utf8") > 262144,
+    name + " fixture did not exceed byte limit");
+  assert.equal(verifyEnvelope(JSON.stringify(trace), bytes, hash(bytes),
+    ENVELOPE_VERSION), false,
+    name + " accepted valid-digest oversized UTF-8 envelope");
+}
+console.log("PASS_SCOPED_PG17_ENVELOPE_UTF8_BYTE_LIMIT_NEGATIVES_ONLY");
