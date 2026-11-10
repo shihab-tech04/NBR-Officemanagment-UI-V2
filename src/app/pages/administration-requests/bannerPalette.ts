@@ -252,12 +252,28 @@ export function paletteFromPixels(pixels: Uint8ClampedArray, width: number, heig
   });
   const dominant = families.reduce((best, item) => item.weight > best.weight ? item : best, families[0]);
   if (dominant.weight <= 0) return FALLBACK_PALETTE;
-  const hue = (Math.atan2(dominant.sin, dominant.cos) * 180 / Math.PI + 360) % 360;
+  const familyHue = (family: typeof dominant): number =>
+    (Math.atan2(family.sin, family.cos) * 180 / Math.PI + 360) % 360;
+  const leftEdge = backgroundFromArtworkLeft(pixels, width, height);
+  const edgeHue = leftEdge ? paletteHue(leftEdge) : null;
+  let hue = familyHue(dominant);
+  const angularDistance = (a:number,b:number) => Math.min(Math.abs(a-b),360-Math.abs(a-b));
+  // Some paintings use a broad warm PAPER wash behind a different substantial
+  // colored subject (e.g. blue airport sky/water). Do not choose the paper as
+  // the entire banner theme when an independently broad second family exists.
+  // Require >=20% of the leading family's spatial wash coverage; a small
+  // saturated flower, tree or notebook must never override the whole artwork.
+  if (useWash && edgeHue !== null && angularDistance(hue, edgeHue) <= 32) {
+    const alternatives = families
+      .filter(candidate => candidate.weight >= dominant.weight * .20 &&
+        angularDistance(familyHue(candidate), hue) >= 70)
+      .sort((a,b)=>b.weight-a.weight);
+    if (alternatives.length) hue=familyHue(alternatives[0]);
+  }
   const huePalette = fromHue(hue);
   // Source-painted light left edge and dark motif hue serve different roles.
   // Use the actual artwork surface behind the copy rather than generating an
   // unrelated light tint from the colored objects on the right.
-  const leftEdge = backgroundFromArtworkLeft(pixels, width, height);
   const background_color = harmonizedBannerBackground(leftEdge, hue, huePalette.background_color);
   // Recalculate all dark ink values AGAINST the final background. A softly
   // tinted real watercolor paper can be darker than the generated fallback,
