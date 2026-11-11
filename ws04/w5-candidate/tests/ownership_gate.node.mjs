@@ -1124,3 +1124,27 @@ test('negative-zero and overprecision evidence cannot reserve a replay slot', as
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+
+// Caller-supplied Unicode digits and explicit positive signs are not canonical
+// ASCII fixed-decimal transport. They must be rejected before ownership and
+// replay-slot access; this is an isolated synthetic handler regression only.
+test('Unicode digits and plus-prefixed money fail before owner and replay gates', async () => {
+  const cases = [
+    { returnData: { incomeHeads: { employment: '１２３' } } },
+    { returnData: { incomeHeads: { employment: '+123' } } },
+    { returnData: { incomeHeads: { employment: '0' }, taxRebates: { investment: '١٢' } } },
+    { paymentRuleIds: ['PAY-SYN-001'], paymentEvents: {
+      'PAY-SYN-001': { eventDate: '2026-06-30', amount: '+2.00' },
+    } },
+  ];
+  for (const bodyOverrides of cases) {
+    const h = harness({ reservationError: { message: 'noncanonical money must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
