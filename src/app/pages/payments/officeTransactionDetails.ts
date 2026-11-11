@@ -72,10 +72,18 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
     if (lines.some((line, index) => !explicit[index] || line?.headId !== explicit[index].headId)) return [];
     items = explicit.map((a, index) => {
       const head = lines[index];
+      // Historical records may omit a separate head-description line for
+      // additional allocations of the same head. Reuse only an unambiguous
+      // display label; do not invent economic codes or positional fields.
+      const historicalNames = !head
+        ? [...new Set(lines.filter(line => line?.headId === a.headId)
+          .map(line => human(line?.headNameEn)).filter(name => name !== '—'))]
+        : [];
+      const historicalName = historicalNames.length === 1 ? historicalNames[0] : undefined;
       return {
         taxpayer: human(a.taxpayerName) !== '—' ? human(a.taxpayerName) + ' · ' + a.taxpayerTin : 'TIN ' + a.taxpayerTin,
         taxpayerTin:a.taxpayerTin,
-        service: human(head?.headNameEn) !== '—' ? human(head?.headNameEn) : paymentServiceName[payment.service] ?? payment.service,
+        service: human(head?.headNameEn) !== '—' ? human(head?.headNameEn) : historicalName ?? paymentServiceName[payment.service] ?? payment.service,
         assessmentYear: human(a.assessmentYear),
         amountMinor: a.amountMinor!,
         ...(human(head?.economicCode) !== '—' ? { economicCode: human(head?.economicCode) } : {}),
