@@ -66,8 +66,12 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   } else if (explicit.length) {
     if (explicit.some(a => !a || typeof a.taxpayerTin !== 'string' || !/^\d{12,13}$/.test(a.taxpayerTin) ||
       !Number.isSafeInteger(a.headId) || !validAmount(a.amountMinor) || !human(a.assessmentYear) || a.assessmentYear === undefined)) return [];
-    items = explicit.map(a => {
-      const head = lines.find(line => line?.headId === a.headId);
+    // A head may repeat for different taxpayers or years. Matching by head ID
+    // alone selects the first occurrence and misattributes later allocations.
+    // Preserve the immutable SQL line/allocation order; fail closed on mismatches.
+    if (lines.some((line, index) => !explicit[index] || line?.headId !== explicit[index].headId)) return [];
+    items = explicit.map((a, index) => {
+      const head = lines[index];
       return {
         taxpayer: human(a.taxpayerName) !== '—' ? human(a.taxpayerName) + ' · ' + a.taxpayerTin : 'TIN ' + a.taxpayerTin,
         taxpayerTin:a.taxpayerTin,
