@@ -56,6 +56,33 @@ describe('Office-native transaction record and receipt', () => {
     ]);
   });
 
+  it('attributes repeated head metadata to its own allocation, never first same-ID head', () => {
+    const payment: StoryPayment = { ...transaction, amountMinor: 5000, details: {
+      lines: [
+        { headId: 122, headNameEn: 'Advance Tax', economicCode: '68A' },
+        { headId: 122, headNameEn: 'Advance Tax', economicCode: '68A-SECOND' },
+      ],
+      allocations: [
+        { taxpayerTin: '123456789012', headId: 122, amountMinor: 1500, assessmentYear: '2026-27' },
+        { taxpayerTin: '234567890123', headId: 122, amountMinor: 3500, assessmentYear: '2025-26' },
+      ],
+    }};
+    const items=getOfficePaymentItems(payment);
+    expect(items).toHaveLength(2);
+    expect(items.map(item=>item.economicCode)).toEqual(['68A','68A-SECOND']);
+    expect(items.map(item=>item.amountMinor)).toEqual([1500,3500]);
+    expect(getOfficePaymentItems(payment,{taxpayerTin:'234567890123'}))
+      .toMatchObject([{economicCode:'68A-SECOND',amountMinor:3500,assessmentYear:'2025-26'}]);
+  });
+
+  it('fails closed when line order cannot be reconciled to the explicit allocation heads', () => {
+    const record: StoryPayment={ ...transaction,amountMinor:5000,details:{
+      lines:[{headId:123,headNameEn:'Different tax head',economicCode:'73A'}],
+      allocations:[{taxpayerTin:'123456789012',headId:122,amountMinor:5000,assessmentYear:'2026-27'}],
+    }};
+    expect(getOfficePaymentItems(record)).toEqual([]);
+  });
+
   it('attributes all 30 synthetic taxpayers using the existing shared TIN mapping',()=>{
     for (let id=1;id<=30;id++) {
       const user='user'+id;
