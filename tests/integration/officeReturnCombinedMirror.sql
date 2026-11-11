@@ -15,6 +15,11 @@ BEGIN
      position('THEN 800000 ELSE 16000' IN v_fn)=0 THEN
     RAISE EXCEPTION 'OFFICE_RETURN_COMBINED_CONTRACT_MISSING';
   END IF;
+  -- The source-readback RPC must be inaccessible directly to anon and users.
+  IF has_function_privilege('anon','public.demo_story1_mirror(jsonb)','EXECUTE') OR
+     has_function_privilege('authenticated','public.demo_story1_mirror(jsonb)','EXECUTE') OR
+     NOT has_function_privilege('service_role','public.demo_story1_mirror(jsonb)','EXECUTE')
+  THEN RAISE EXCEPTION 'OFFICE_MIRROR_DIRECT_DATA_API_BYPASS'; END IF;
   -- 30KB combined Return mirrors without splitting its SQL row / challan.
   v_input := jsonb_build_object(
     'id',gen_random_uuid(),'sessionId',gen_random_uuid(),
