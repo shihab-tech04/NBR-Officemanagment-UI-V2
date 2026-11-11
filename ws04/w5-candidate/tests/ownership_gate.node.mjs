@@ -1171,3 +1171,26 @@ test('whitespace-padded monetary evidence fails closed before owner and replay',
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+
+// Structured rule facts can carry amounts even without a transaction event.
+// Reject noncanonical evidence before owner lookup or replay-slot reservation.
+// This is a synthetic handler test, not legal-rule or signed-JWT certification.
+test('malformed structured rule-fact amounts fail before owner and replay gates', async () => {
+  const cases = [
+    { ruleFacts: { 'R-SYN-001': { baseAmount: '+10' } } },
+    { ruleFacts: { 'R-SYN-001': { quantity: '01' } } },
+    { ruleFacts: { 'R-SYN-001': { baseAmount: '1.00000000000' } } },
+    { ruleFacts: { 'R-SYN-001': { quantity: ' 2' } } },
+  ];
+  for (const bodyOverrides of cases) {
+    const h = harness({ reservationError: { message: 'invalid rule facts must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
