@@ -1098,3 +1098,29 @@ test('noncanonical leading-zero decimals must not reserve an owner-bound slot', 
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+// Regression: fixed-decimal transport cannot round or normalize caller evidence
+// before owner-bound replay reservation. Synthetic handler only; no tax amounts.
+test('negative-zero and overprecision evidence cannot reserve a replay slot', async () => {
+  const cases = [
+    { bodyOverrides: { returnData: { incomeHeads: { employment: '-0' } } }, invalidPath: 'incomeHeads.employment' },
+    { bodyOverrides: { returnData: { incomeHeads: { employment: '1.00000000000' } } }, invalidPath: 'incomeHeads.employment' },
+    { bodyOverrides: { transactionRuleIds: ['WH-R4-04'], transactions: {
+      'WH-R4-04': { eventDate: '2026-06-30', grossBill: '2.00000000001' },
+    } }, invalidPath: 'transactions.WH-R4-04.grossBill' },
+    { bodyOverrides: { paymentRuleIds: ['PAY-SYN-001'], paymentEvents: {
+      'PAY-SYN-001': { eventDate: '2026-06-30', amount: '-0.00' },
+    } }, invalidPath: 'paymentEvents.PAY-SYN-001.amount' },
+  ];
+  for (const { bodyOverrides, invalidPath } of cases) {
+    const h = harness({ reservationError: { message: 'invalid precision must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.ok(r.body.invalidFacts?.includes(invalidPath), invalidPath);
+    assert.equal(h.seen.authCalls, 1);
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
