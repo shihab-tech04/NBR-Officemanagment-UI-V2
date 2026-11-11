@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -c 'create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;'
-          test "$(find supabase/migrations -name '*.sql' | wc -l)" = 9
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" = 12
           for sql in supabase/migrations/*.sql; do
             echo "Applying $sql"
             psql -X -v ON_ERROR_STOP=1 -f "$sql"
@@ -70,3 +70,5 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1ApprovedFixtureRead.sql
       - name: Verify TaxPay correction intake, Office roles, decision outbox and readback
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
+      - name: Verify Return-only combined 30KB Office mirror, retry and legacy limits (rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeReturnCombinedMirror.sql

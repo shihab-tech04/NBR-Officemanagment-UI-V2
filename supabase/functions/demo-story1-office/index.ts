@@ -8,6 +8,9 @@ Deno.serve(async(req)=>{
  const url=Deno.env.get("SUPABASE_URL");
  if(!key||!url)return respond({success:false,error:"BACKEND_UNAVAILABLE"},503);
  const client=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ // Direct Data API callers may NOT mirror synthetic payments. Only this Edge
+ // verifies TaxPay's short-lived server-signed proof and then uses service_role.
+ let rpcClient=client;
  try{
    let rpc:string;let args:Record<string,unknown>={};
    if(req.method==="POST"&&path==="/mirror"){
@@ -29,6 +32,13 @@ Deno.serve(async(req)=>{
          sourceResponse.data?.id!==incoming.id||sourceResponse.data?.status!=="SIMULATED_SUCCESS")
         return respond({success:false,error:"SOURCE_RECORD_NOT_READY"},424);
       const record=sourceResponse.data;
+      const serverKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??(()=>{
+        const raw=Deno.env.get("SUPABASE_SECRET_KEYS");if(!raw)return null;
+        try{const value=(JSON.parse(raw) as Record<string,string>).default;
+          return typeof value==="string"&&value?value:null;}catch{return null;}
+      })();
+      if(!serverKey)return respond({success:false,error:"BACKEND_UNAVAILABLE"},503);
+      rpcClient=createClient(url,serverKey,{auth:{persistSession:false,autoRefreshToken:false}});
       rpc="demo_story1_mirror";
       args={p_input:{id:record.id,sessionId:incoming.sessionId,
          service:record.data.service,amountMinor:record.data.amountMinor,
@@ -54,7 +64,7 @@ Deno.serve(async(req)=>{
    }
    else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
    else return respond({success:false,error:"NOT_FOUND"},404);
-   const {data,error}=await client.rpc(rpc,args);
+   const {data,error}=await rpcClient.rpc(rpc,args);
    if(error){console.error("office story1",error.code,error.message);return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);}
    return respond({success:true,data,simulationOnly:true});
  }catch(e){console.error("office story1 request",e);return respond({success:false,error:"INVALID_INPUT"},400)}
