@@ -30,6 +30,8 @@ import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
+import {getOfficeTaxpayerRegistrations,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
+import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
@@ -166,6 +168,20 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const [selectedTin,setSelectedTin] = useState<string>(taxpayerTin??'');
   useEffect(()=>{setSelectedTin(taxpayerTin??'');},[taxpayerTin]);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
+  const [registrationProfiles,setRegistrationProfiles] = useState<TaxpayerRegistrationProfile[]>([]);
+  const [registrationLoading,setRegistrationLoading] = useState(false);
+  const [registrationError,setRegistrationError] = useState('');
+  useEffect(()=>{
+    if(current!=='taxpayer-360'){setRegistrationProfiles([]);setRegistrationError('');return;}
+    let active=true;
+    setRegistrationLoading(true);setRegistrationProfiles([]);setRegistrationError('');
+    getOfficeTaxpayerRegistrations().then(items=>{
+      if(active){setRegistrationProfiles(items);setRegistrationError('');}
+    }).catch(error=>{
+      if(active){setRegistrationProfiles([]);setRegistrationError(error instanceof Error?error.message:'Profile source unavailable');}
+    }).finally(()=>{if(active)setRegistrationLoading(false);});
+    return()=>{active=false;};
+  },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
@@ -293,6 +309,16 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     }
     return Array.from(accounts.values()).sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
   })();
+  for(const record of registrationProfiles){
+    const previous=taxpayerAccounts.find(item=>item.tin===record.tin);
+    if(!previous)taxpayerAccounts.push({
+      key:record.tin,tin:record.tin,
+      taxpayer_name:record.profile.taxpayerName||record.accountId,
+      records:0,last_activity:'—',
+    });
+  }
+  taxpayerAccounts.sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
+  const registrationProfile=registrationProfiles.find(p=>p.tin===selectedTin);
   const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
   const taxP=connectedTaxpayer?{
     name:connectedTaxpayer.taxpayer_name,tin:selectedTin,
@@ -300,6 +326,14 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   }:[...demoProfiles,...referenceTaxpayers].find(p=>p.tin===selectedTin)??{
     name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'—',status:'Not verified'
   };
+  if(registrationProfile){
+    taxP.name=registrationProfile.profile.taxpayerName||registrationProfile.accountId;
+    taxP.zone=registrationProfile.profile.taxesZone||'—';
+    taxP.circle=registrationProfile.profile.taxesCircle||'—';
+    taxP.type=registrationProfile.profile.tinType||'—';
+    taxP.phone=registrationProfile.profile.mobileNumber||'—';
+    taxP.status=registrationProfile.profile.taxpayerStatus||'—';
+  }
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
     .filter((row):row is NonNullable<typeof row>=>row!==null);
@@ -429,6 +463,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <p className="table-page__desc">{t('taxpayerRegisterScope')}</p>
     {storyLoading && <p role="status" className="table-page__desc">{t('loadingTaxpayers')}</p>}
     {storyError && <p role="alert" className="table-page__desc">{storyError}</p>}
+    {registrationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'প্রোফাইল লোড হচ্ছে…':'Loading taxpayer profiles…'}</p>}
+    {registrationError&&<p role="alert" className="table-page__desc">{registrationError}</p>}
     <PaymentRecordList kind="taxpayers" title={t('taxpayerRegister')} rows={taxpayerAccounts}
       columns={[
         {type:'col',col:{key:'taxpayer_name',label:t('name'),truncate:'normal'}},
@@ -454,7 +490,10 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       formatCount={displayNumber} formatDate={displayEventDate}
       onOpen={row=>view(row,t('transactions'))}/>}
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
-    {taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
+    {taxpayerTab==='identity' && registrationProfile
+      ? <OfficeTaxpayerRegistrationDetails record={registrationProfile}
+          language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}/>
+      : taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
       {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
     </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <>
       {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
