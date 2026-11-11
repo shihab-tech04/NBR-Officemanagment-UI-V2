@@ -1148,3 +1148,26 @@ test('Unicode digits and plus-prefixed money fail before owner and replay gates'
     assert.equal(h.seen.privilegedReads, 0);
   }
 });
+
+
+// Whitespace is not part of the canonical fixed-decimal wire contract.
+// Reject without normalization, before the ownership or replay gates.
+test('whitespace-padded monetary evidence fails closed before owner and replay', async () => {
+  const cases = [
+    { returnData: { incomeHeads: { employment: ' 123' } } },
+    { returnData: { incomeHeads: { employment: '123 ' } } },
+    { returnData: { incomeHeads: { employment: '0' }, taxRebates: { investment: '\t2.00' } } },
+    { paymentRuleIds: ['PAY-SYN-001'], paymentEvents: {
+      'PAY-SYN-001': { eventDate: '2026-06-30', amount: '2.00\n' },
+    } },
+  ];
+  for (const bodyOverrides of cases) {
+    const h = harness({ reservationError: { message: 'whitespace money must not reserve' } });
+    const r = await h.request({ bodyOverrides });
+    assert.equal(r.status, 422, JSON.stringify(bodyOverrides));
+    assert.equal(r.body.status, 'FAIL_CLOSED');
+    assert.equal(h.seen.ownerCalls, 0);
+    assert.equal(h.seen.reserveCalls, 0);
+    assert.equal(h.seen.privilegedReads, 0);
+  }
+});
