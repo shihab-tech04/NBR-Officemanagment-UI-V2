@@ -24,7 +24,7 @@ function check(value:unknown):TaxpayerRegistrationProfile{
  if(profile.tin!==row.tin||REGISTRATION_FIELDS.some(key=>!(key in profile)||
      !(profile[key]===null||typeof profile[key]==='string')))
    throw Error('Incomplete taxpayer registration record');
- return row as TaxpayerRegistrationProfile;
+ return row as unknown as TaxpayerRegistrationProfile;
 }
 async function token():Promise<string>{
  const client=getAuditSqlClient();
