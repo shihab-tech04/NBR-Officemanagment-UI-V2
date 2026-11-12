@@ -40,6 +40,46 @@ describe('image crop dialog', () => {
     expect(cancel).not.toHaveBeenCalled();
   });
 
+  it('compresses an opaque PNG banner as JPEG without altering its exact crop size', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(), drawImage, fillRect: vi.fn(), imageSmoothingQuality: 'high',
+      getImageData: vi.fn(() => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) })),
+    } as unknown as CanvasRenderingContext2D);
+    const encoding = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation((callback, type, quality) => {
+        const size = (quality ?? 1) >= 0.80 ? 900_000 : 280_000;
+        callback(new Blob([new Uint8Array(size)], { type: type || 'image/png' }));
+      });
+    const apply = vi.fn();
+    const user = userEvent.setup();
+    render(<ImageCropDialog file={new File(['png'], 'opaque-artwork.png', { type: 'image/png' })}
+      title="desktop banner" outputWidth={2172} outputHeight={724} onApply={apply} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /save as/i })).toHaveValue('image/jpeg'));
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    const image = apply.mock.calls[0][0] as File;
+    expect(image.type).toBe('image/jpeg');
+    expect(image.name).toBe('opaque-artwork-cropped.jpg');
+    expect(image.size).toBeLessThanOrEqual(512 * 1024);
+    expect(encoding.mock.calls.some(([, type, quality]) => type === 'image/jpeg' && (quality ?? 0) < 0.80)).toBe(true);
+    expect(screen.getByText(/2172 × 724 px/)).toBeInTheDocument();
+  });
+
+  it('retains PNG for a transparent banner instead of flattening its artwork', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(), drawImage, fillRect: vi.fn(), imageSmoothingQuality: 'high',
+      getImageData: vi.fn(() => ({ data: new Uint8ClampedArray([255, 255, 255, 0]) })),
+    } as unknown as CanvasRenderingContext2D);
+    const apply = vi.fn();
+    const user = userEvent.setup();
+    render(<ImageCropDialog file={new File(['png'], 'transparent-artwork.png', { type: 'image/png' })}
+      title="mobile banner" outputWidth={768} outputHeight={520} onApply={apply} onCancel={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /save as/i })).toHaveValue('image/png'));
+    await user.click(screen.getByRole('button', { name: 'Apply crop' }));
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    expect((apply.mock.calls[0][0] as File).type).toBe('image/png');
+  });
+
   it('uses the separately approved 768 × 520 mobile crop instead of stretching desktop', async () => {
     const apply = vi.fn();
     const cancel = vi.fn();
