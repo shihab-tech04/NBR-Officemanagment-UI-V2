@@ -8,6 +8,8 @@ export type CorrectionReviewAction =
 
 export type OfficeCorrectionInquiry = {
   requestId: string;
+  sourcePaymentId: string | null;
+  sourcePaymentKind: "TAXPAY_STORY_PAYMENT" | null;
   originalReference: string;
   reason: string;
   requestedOutcome: string;
@@ -54,6 +56,18 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
         !Array.isArray(row.availableActions)) {
       throw new Error("Incomplete correction review item");
     }
+    const rawParentId = row.sourcePaymentId;
+    const rawParentKind = row.sourcePaymentKind;
+    const parentIdMissing = rawParentId === undefined || rawParentId === null;
+    const parentKindMissing = rawParentKind === undefined || rawParentKind === null;
+    if (parentIdMissing !== parentKindMissing ||
+        (!parentIdMissing && (typeof rawParentId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawParentId) ||
+          rawParentKind !== "TAXPAY_STORY_PAYMENT"))) {
+      throw new Error("Invalid correction source payment parent");
+    }
+    const sourcePaymentId = parentIdMissing ? null : rawParentId as string;
+    const sourcePaymentKind = parentKindMissing ? null : "TAXPAY_STORY_PAYMENT" as const;
     const actions = row.availableActions.filter((action): action is CorrectionReviewAction =>
       typeof action === "string" && validActions.has(action as CorrectionReviewAction));
     if (actions.length !== row.availableActions.length) {
@@ -61,6 +75,8 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
     }
     return {
       requestId: row.requestId as string,
+      sourcePaymentId,
+      sourcePaymentKind,
       originalReference: row.originalReference as string,
       reason: row.reason as string,
       requestedOutcome: row.requestedOutcome as string,
