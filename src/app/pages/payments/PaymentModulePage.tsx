@@ -509,7 +509,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       formatCount={displayNumber} formatDate={displayEventDate}
       onOpen={row=>view(row,t('transactions'))}/>}
     <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
-    {taxpayerTab==='identity' && registrationProfile
+    {taxpayerTab==='identity' && (registrationLoading||registrationError)
+      ? null // Loading/error is displayed above; never show unverified fallback identity.
+      : taxpayerTab==='identity' && registrationProfile
       ? <OfficeTaxpayerRegistrationDetails record={registrationProfile}
           language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}/>
       : taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
