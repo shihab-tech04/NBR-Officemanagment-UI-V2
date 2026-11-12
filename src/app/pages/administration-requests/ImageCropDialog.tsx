@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Crop, RotateCcw } from 'lucide-react';
 import { AppModal } from '../../components/modals/AppModal';
-import { cropWindow, MAX_IMAGE_BYTES, validateImageFile } from './imageCrop';
+import { BANNER_JPEG_TARGET_BYTES, canvasHasTransparency, cropWindow, isBannerImageCrop, MAX_IMAGE_BYTES, validateImageFile } from './imageCrop';
 
 type ImageCropDialogProps = {
   file: File;
@@ -20,7 +20,8 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
   const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
-  const [outputType, setOutputType] = useState(file.type);
+  const [outputType, setOutputType] = useState<'image/png'|'image/jpeg'>(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png');
+  const manuallySelectedFormat = useRef(false);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,13 +39,28 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
         if (loaded.width * loaded.height > 40_000_000 || loaded.width < 100 || loaded.height < 100) {
           throw new Error('Use an image at least 100 × 100 px and no larger than 40 megapixels.');
         }
-        if (!cancelled) setBitmap(loaded);
+        if (!cancelled) {
+          // An opaque PNG banner can use JPEG; transparent artwork retains PNG.
+          // Logo crops and all existing image geometry remain unchanged.
+          if (file.type === 'image/png' && isBannerImageCrop(outputWidth, outputHeight) && !manuallySelectedFormat.current) {
+            const probe = document.createElement('canvas');
+            probe.width = Math.min(256, outputWidth);
+            probe.height = Math.max(1, Math.round(probe.width * outputHeight / outputWidth));
+            const probeCtx = probe.getContext('2d');
+            if (probeCtx) {
+              const { sx, sy, sw, sh } = cropWindow(loaded.width, loaded.height, aspect, 1, 0, 0);
+              probeCtx.drawImage(loaded, sx, sy, sw, sh, 0, 0, probe.width, probe.height);
+              if (!canvasHasTransparency(probeCtx, probe.width, probe.height)) setOutputType('image/jpeg');
+            }
+          }
+          setBitmap(loaded);
+        }
       } catch (reason) {
         if (!cancelled) setError((reason as Error).message || 'Unable to read this image.');
       }
     })();
     return () => { cancelled = true; loaded?.close(); };
-  }, [file]);
+  }, [file, outputWidth, outputHeight, aspect]);
 
   useEffect(() => {
     if (!bitmap || !canvasRef.current) return;
@@ -82,18 +98,41 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
       canvas.height = outputHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Your browser cannot export cropped images.');
-      if (outputType === 'image/jpeg') {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, outputWidth, outputHeight);
-      }
       const { sx, sy, sw, sh } = cropWindow(bitmap.width, bitmap.height, aspect, zoom, panX, panY);
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error('Could not export cropped image.')), outputType, 0.9));
+      const hasAlpha = canvasHasTransparency(ctx, outputWidth, outputHeight);
+      const exportType = outputType === 'image/jpeg' && file.type === 'image/png'
+        && !manuallySelectedFormat.current && hasAlpha ? 'image/png' : outputType;
+      let exportCanvas = canvas;
+      if (exportType === 'image/jpeg' && hasAlpha) {
+        // Flatten only when JPEG was intentionally selected or is inherently safe.
+        const white = document.createElement('canvas');
+        white.width = outputWidth;
+        white.height = outputHeight;
+        const whiteCtx = white.getContext('2d');
+        if (!whiteCtx) throw new Error('Your browser cannot export this image.');
+        whiteCtx.fillStyle = '#ffffff';
+        whiteCtx.fillRect(0, 0, outputWidth, outputHeight);
+        whiteCtx.drawImage(canvas, 0, 0);
+        exportCanvas = white;
+      }
+      const encode = (quality: number) => new Promise<Blob>((resolve, reject) =>
+        exportCanvas.toBlob(result => result ? resolve(result) : reject(new Error('Could not export cropped image.')), exportType, quality));
+      let blob = await encode(0.88);
+      if (exportType === 'image/jpeg' && isBannerImageCrop(outputWidth, outputHeight)) {
+        // Avoid sending multi-megabyte PNG-like photos to every mobile visitor.
+        // Never change the crop coordinates, dimensions, Office permissions or CMS palette.
+        for (const quality of [0.82, 0.76, 0.70, 0.64, 0.58]) {
+          if (blob.size <= BANNER_JPEG_TARGET_BYTES) break;
+          const candidate = await encode(quality);
+          if (candidate.size < blob.size) blob = candidate;
+        }
+      }
       if (blob.size > MAX_IMAGE_BYTES) throw new Error('The crop is larger than 5 MB. Try JPEG output or choose a less detailed image.');
-      const extension = outputType === 'image/png' ? 'png' : 'jpg';
+      const extension = exportType === 'image/png' ? 'png' : 'jpg';
       const name = `${file.name.replace(/\.(png|jpe?g)$/i, '')}-cropped.${extension}`;
-      onApply(new File([blob], name, { type: outputType }));
+      onApply(new File([blob], name, { type: exportType }));
     } catch (reason) { setError((reason as Error).message); }
     finally { setProcessing(false); }
   }
@@ -123,7 +162,7 @@ export function ImageCropDialog({ file, title, outputWidth, outputHeight, onAppl
       <label>Zoom <input type="range" min="1" max="3" step="0.05" value={zoom} onChange={event => setZoom(Number(event.target.value))} disabled={!bitmap}/><span>{Math.round(zoom * 100)}%</span></label>
       <label>Horizontal <input type="range" min="-1" max="1" step="0.01" value={panX} onChange={event => setPanX(Number(event.target.value))} disabled={!bitmap}/></label>
       <label>Vertical <input type="range" min="-1" max="1" step="0.01" value={panY} onChange={event => setPanY(Number(event.target.value))} disabled={!bitmap}/></label>
-      <label>Save as <select value={outputType} onChange={event => setOutputType(event.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPG / JPEG</option></select></label>
+      <label>Save as <select value={outputType} onChange={event => { manuallySelectedFormat.current = true; setOutputType(event.target.value as 'image/png'|'image/jpeg'); }}><option value="image/png">PNG</option><option value="image/jpeg">JPG / JPEG</option></select></label>
     </div>
     {error && <p className="cms-crop__error" role="alert">{error}</p>}
   </AppModal>;
