@@ -1,0 +1,77 @@
+name: Office correction payment parent - disposable PostgreSQL 17
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261029170000_office_correction_review.sql'
+      - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'src/app/pages/payments/correctionReviewApi.ts'
+      - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - '.github/workflows/office-correction-payment-parent.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261029170000_office_correction_review.sql'
+      - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'src/app/pages/payments/correctionReviewApi.ts'
+      - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - '.github/workflows/office-correction-payment-parent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  office-correction-parent-contract:
+    name: Correction parent parity on disposable PostgreSQL 17
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: correction_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d correction_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Load synthetic correction prerequisites
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParentFixture.sql
+      - name: Apply real Office correction migrations
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029170000_office_correction_review.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112210000_office_correction_payment_parent.sql
+      - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
