@@ -279,3 +279,40 @@ BEGIN
  THEN RAISE EXCEPTION 'FACADE_EXECUTE_REVOCATION_ROLLBACK_FAILED'; END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_FUNCTION_EXECUTE_REVOCATION_NO_PARTIAL_RECEIPT_ROLLBACK';
 END $rollback_readback$;
+
+-- Separate disposable transaction: USAGE on the facade schema must never
+-- confer CREATE. Otherwise an invoker could plant a shadow RPC/object.
+-- Synthetic privilege boundary only; no public schema or hosted changes.
+BEGIN;
+CREATE SCHEMA ws02_api;
+REVOKE ALL ON SCHEMA ws02_api FROM PUBLIC;
+GRANT USAGE ON SCHEMA ws02_api TO ws02_owner_engine;
+DO $acl$
+BEGIN
+ IF NOT pg_catalog.has_schema_privilege('ws02_owner_engine','ws02_api','USAGE')
+ OR pg_catalog.has_schema_privilege('ws02_owner_engine','ws02_api','CREATE')
+ THEN RAISE EXCEPTION 'FACADE_SCHEMA_CREATE_PRIVILEGE_LEAK'; END IF;
+END $acl$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $shadow$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  EXECUTE 'CREATE FUNCTION ws02_api.nbr_shadow_probe() RETURNS boolean LANGUAGE sql AS ''SELECT true''';
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'FACADE_SHADOW_FUNCTION_CREATION_ALLOWED'; END IF;
+END $shadow$;
+RESET ROLE;
+DO $readback$
+BEGIN
+ IF pg_catalog.to_regprocedure('ws02_api.nbr_shadow_probe()') IS NOT NULL
+ THEN RAISE EXCEPTION 'FACADE_SHADOW_FUNCTION_PERSISTED'; END IF;
+END $readback$;
+ROLLBACK;
+DO $rollback$
+BEGIN
+ IF pg_catalog.to_regnamespace('ws02_api') IS NOT NULL
+ THEN RAISE EXCEPTION 'FACADE_SHADOW_PROBE_ROLLBACK_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_CREATE_DENIAL_AND_ROLLBACK';
+END $rollback$;
