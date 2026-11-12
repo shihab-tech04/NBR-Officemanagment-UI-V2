@@ -21,11 +21,32 @@ describe('Office registration view 1:1 field parity',()=>{
      expect(rows.length).toBe(1);
    }
    expect(screen.queryByText(/Income sources|Assessment years|Representative mandate/)).toBeNull();
+   const keys=Array.from(screen.getByTestId('office-taxpayer-registration-profile').querySelectorAll('[data-registration-field]'))
+     .map(node=>node.getAttribute('data-registration-field'));
+   expect(keys).toHaveLength(24);
+   expect(new Set(keys).size).toBe(24);
+   expect(keys).toEqual([
+     'taxpayerName','tin','tinType','registeredOn','previousTin',
+     'taxpayerStatus','tinSubtype','userType','localTaxpayer',
+     'taxesCircle','taxesZone','taxesRange','district','country',
+     'mobileNumber','emailAddress','registeredAddress','currentAddress',
+     'certificateIssuedOn','certificateLastUpdatedOn','issuingOfficer','taxOfficeAddress','taxOfficePhone',
+     'lastLoginAt'
+   ]);
+   expect(screen.getByText('Taxpayer status')).toBeTruthy();
+   const jurisdiction=screen.getByText('TIN registration and jurisdiction').closest('section')!;
+   expect(jurisdiction.textContent).toContain('Taxes circle');
+   expect(jurisdiction.textContent).toContain('Taxes zone');
+   expect(jurisdiction.textContent).toContain('Taxes range');
+   expect(jurisdiction.textContent).not.toContain('Previous TIN');
  });
  it('retains same data in Bangla without discarding fields',()=>{
    render(<OfficeTaxpayerRegistrationDetails record={record} language="bn"/>);
    expect(screen.getByText('সনদের তথ্য')).toBeTruthy();
    expect(screen.getByText('সর্বশেষ লগইন')).toBeTruthy();
    expect(screen.getByText('577935451798')).toBeTruthy();
+   expect(screen.getByText('করদাতার অবস্থা')).toBeTruthy();
+   expect(screen.getByText('পূর্ববর্তী টিআইএন')).toBeTruthy();
+   expect(screen.getByText('কর সার্কেল')).toBeTruthy();
  });
 });
