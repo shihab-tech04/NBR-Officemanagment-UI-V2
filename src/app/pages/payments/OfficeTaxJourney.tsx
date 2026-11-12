@@ -21,7 +21,9 @@ export function OfficeTaxJourney({entries,language,onOpen}:{
     const groups=new Map<string,OfficeJourneyEntry[]>();
     for(const entry of rows){
       const time=Date.parse(entry.occurredAt);
-      const year=Number.isFinite(time)?new Date(time).getUTCFullYear().toString():tr('Date unavailable','তারিখ পাওয়া যায়নি');
+      const year=Number.isFinite(time)
+        ?new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Dhaka'}).format(time)
+        :tr('Date unavailable','তারিখ পাওয়া যায়নি');
       groups.set(year,[...(groups.get(year)??[]),entry]);
     }
     return [...groups.entries()];
