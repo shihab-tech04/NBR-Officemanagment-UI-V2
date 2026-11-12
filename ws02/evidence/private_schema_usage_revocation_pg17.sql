@@ -316,3 +316,46 @@ BEGIN
  THEN RAISE EXCEPTION 'FACADE_SHADOW_PROBE_ROLLBACK_FAILED'; END IF;
  RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_CREATE_DENIAL_AND_ROLLBACK';
 END $rollback$;
+
+-- Disposable schema-USAGE revocation: EXECUTE alone must not permit invoking
+-- a facade RPC after schema access is removed. No production exposure.
+BEGIN;
+CREATE SCHEMA ws02_api;
+REVOKE ALL ON SCHEMA ws02_api FROM PUBLIC;
+CREATE FUNCTION ws02_api.nbr_schema_gate_probe()
+RETURNS boolean LANGUAGE sql SECURITY INVOKER
+SET search_path=pg_catalog AS $probe$ SELECT true $probe$;
+REVOKE ALL ON FUNCTION ws02_api.nbr_schema_gate_probe() FROM PUBLIC;
+GRANT USAGE ON SCHEMA ws02_api TO ws02_owner_engine;
+GRANT EXECUTE ON FUNCTION ws02_api.nbr_schema_gate_probe() TO ws02_owner_engine;
+DO $before$
+BEGIN
+ IF NOT pg_catalog.has_schema_privilege('ws02_owner_engine','ws02_api','USAGE')
+ OR NOT pg_catalog.has_function_privilege('ws02_owner_engine','ws02_api.nbr_schema_gate_probe()','EXECUTE')
+ THEN RAISE EXCEPTION 'FACADE_SCHEMA_GATE_FIXTURE_INVALID'; END IF;
+END $before$;
+REVOKE USAGE ON SCHEMA ws02_api FROM ws02_owner_engine;
+DO $acl$
+BEGIN
+ IF pg_catalog.has_schema_privilege('ws02_owner_engine','ws02_api','USAGE')
+ OR NOT pg_catalog.has_function_privilege('ws02_owner_engine','ws02_api.nbr_schema_gate_probe()','EXECUTE')
+ THEN RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_REVOCATION_NOT_ISOLATED'; END IF;
+END $acl$;
+SET LOCAL ROLE ws02_owner_engine;
+DO $attempt$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM ws02_api.nbr_schema_gate_probe();
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_REVOCATION_BYPASSED'; END IF;
+END $attempt$;
+RESET ROLE;
+ROLLBACK;
+DO $rollback$
+BEGIN
+ IF pg_catalog.to_regnamespace('ws02_api') IS NOT NULL
+ THEN RAISE EXCEPTION 'FACADE_SCHEMA_USAGE_REVOCATION_ROLLBACK_FAILED'; END IF;
+ RAISE NOTICE 'PASS_SCOPED_FACADE_SCHEMA_USAGE_REVOCATION_AND_ROLLBACK';
+END $rollback$;
