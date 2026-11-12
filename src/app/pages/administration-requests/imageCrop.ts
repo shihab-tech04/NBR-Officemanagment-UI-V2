@@ -1,6 +1,26 @@
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const IMAGE_FILE_ACCEPT = '.png,.jpg,.jpeg,image/png,image/jpeg';
 
+/** Keep the approved banner crop dimensions; optimize bytes, not visual framing. */
+export const BANNER_JPEG_TARGET_BYTES = 512 * 1024;
+export function isBannerImageCrop(width: number, height: number): boolean {
+  return (width === 2172 && height === 724) || (width === 768 && height === 520);
+}
+
+/** When pixel inspection is unavailable, preserve PNG transparency rather than flatten artwork. */
+export function canvasHasTransparency(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
+  if (typeof ctx.getImageData !== 'function') return true;
+  try {
+    const pixels = ctx.getImageData(0, 0, width, height).data;
+    for (let index = 3; index < pixels.length; index += 4) {
+      if (pixels[index] < 255) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export type CropWindow = { sx: number; sy: number; sw: number; sh: number };
 
 export function isSupportedImageType(file: Pick<File, 'type' | 'size'>): boolean {
