@@ -17,12 +17,19 @@ export type TaxpayerRegistrationProfile={
 function check(value:unknown):TaxpayerRegistrationProfile{
  if(!value||typeof value!=='object')throw Error('Invalid taxpayer profile record');
  const row=value as Record<string,unknown>;
- if(typeof row.accountId!=='string'||typeof row.tin!=='string'||!/^\d{12}$/.test(row.tin)||
-    !Number.isSafeInteger(row.revision)||!row.profile||typeof row.profile!=='object')
+ if(typeof row.accountId!=='string'||!row.accountId.trim()||row.accountId.length>100||
+    typeof row.tin!=='string'||!/^\d{12}$/.test(row.tin)||
+    !Number.isSafeInteger(row.revision)||Number(row.revision)<1||
+    typeof row.updatedAt!=='string'||!Number.isFinite(Date.parse(row.updatedAt))||
+    !row.profile||typeof row.profile!=='object'||Array.isArray(row.profile))
    throw Error('Invalid taxpayer registration identity');
  const profile=row.profile as Record<string,unknown>;
- if(profile.tin!==row.tin||REGISTRATION_FIELDS.some(key=>!(key in profile)||
-     !(profile[key]===null||typeof profile[key]==='string')))
+ if(profile.tin!==row.tin||
+    !['NBR_TIN','REVIEWED_CERTIFICATE','SYNTHETIC'].includes(String(profile.source))||
+    typeof profile.sourceUpdatedAt!=='string'||!Number.isFinite(Date.parse(profile.sourceUpdatedAt))||
+    Object.keys(profile).length!==REGISTRATION_FIELDS.length+2||
+    REGISTRATION_FIELDS.some(key=>!Object.prototype.hasOwnProperty.call(profile,key)||
+      !(profile[key]===null||typeof profile[key]==='string')))
    throw Error('Incomplete taxpayer registration record');
  return row as unknown as TaxpayerRegistrationProfile;
 }

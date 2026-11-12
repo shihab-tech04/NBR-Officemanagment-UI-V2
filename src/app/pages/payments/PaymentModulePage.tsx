@@ -173,14 +173,31 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const [registrationError,setRegistrationError] = useState('');
   useEffect(()=>{
     if(current!=='taxpayer-360'){setRegistrationProfiles([]);setRegistrationError('');return;}
-    let active=true;
+    let active=true,inFlight=false;
     setRegistrationLoading(true);setRegistrationProfiles([]);setRegistrationError('');
-    getOfficeTaxpayerRegistrations().then(items=>{
-      if(active){setRegistrationProfiles(items);setRegistrationError('');}
-    }).catch(error=>{
-      if(active){setRegistrationProfiles([]);setRegistrationError(error instanceof Error?error.message:'Profile source unavailable');}
-    }).finally(()=>{if(active)setRegistrationLoading(false);});
-    return()=>{active=false;};
+    const refresh=async()=>{
+      if(!active||inFlight||document.visibilityState==='hidden')return;
+      inFlight=true;
+      try{
+        const items=await getOfficeTaxpayerRegistrations();
+        if(active){setRegistrationProfiles(items);setRegistrationError('');}
+      }catch(error){
+        if(active){
+          setRegistrationProfiles([]);
+          setRegistrationError(error instanceof Error?error.message:'Profile source unavailable');
+        }
+      }finally{
+        inFlight=false;
+        if(active)setRegistrationLoading(false);
+      }
+    };
+    const onFocus=()=>{void refresh();};
+    const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
+    void refresh();
+    const timer=window.setInterval(()=>{void refresh();},30000);
+    window.addEventListener('focus',onFocus);
+    document.addEventListener('visibilitychange',onVisible);
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};
   },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
@@ -477,6 +494,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     <SecondaryButton size="sm" onClick={()=>navigate('/payments/taxpayer-360')}>{t('backToTaxpayers')}</SecondaryButton>
     {toolbar(t('taxpayer360'))}
     <p className="table-page__desc">{t('taxpayerDetailScope')}</p>
+    {registrationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'প্রোফাইল লোড হচ্ছে…':'Loading taxpayer profiles…'}</p>}
+    {registrationError&&<p role="alert" className="table-page__desc">{registrationError}</p>}
     <div className="payment-module__year-control">{yearSelect}</div>
     <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
