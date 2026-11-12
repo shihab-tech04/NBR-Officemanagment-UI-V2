@@ -365,13 +365,13 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
   });
 
-  it('explains that each slide owns its Taxpayer copy without changing service actions', async () => {
+  it('explains that public copy and payment actions stay fixed across artwork slides', async () => {
     const { client } = makeClient(true);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: 'Edit banner' });
-    expect(screen.getByText(/displays this banner’s own artwork, headings, body text and payment actions/)).toBeInTheDocument();
+    expect(screen.getByText(/keeps the main banner’s heading, description and Pay Tax label, plus the Travel Tax label, fixed/)).toBeInTheDocument();
   });
 
   it('reads approved v9 preview and commits edits through versioned server bridge', async () => {
@@ -536,5 +536,24 @@ describe('verified TaxPay banner CMS', () => {
       expect.objectContaining({ banner: expect.stringContaining('"background_color":"#EAF2FF"') }),
       expect.objectContaining({ desktop:expect.any(File) })));
     expect(await screen.findByText(/Published colors verified in SQL/)).toBeInTheDocument();
+  });
+
+  it('keeps the published intro copy and both payment actions on a service artwork preview', async () => {
+    const { client, publicClient } = makeClient(false, false, { extraBanner:true });
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:/Withholding tax banner/ }));
+    await user.click(screen.getByRole('button', { name:'Full banner preview' }));
+    const dialog=await screen.findByRole('dialog', { name:/Full banner preview/ });
+    const preview=dialog.querySelector('.cms-theme-preview')!;
+    expect(preview).toHaveAttribute('data-payment-service','SOURCE_TAX');
+    expect(preview).toHaveAttribute('data-fixed-left','true');
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).not.toHaveTextContent('Withholding tax banner');
+    expect(dialog.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(dialog.querySelector('.cms-theme-preview__primary')).toHaveTextContent('Pay Tax');
+    expect(dialog.querySelector('.cms-theme-preview__outline')).toHaveTextContent('Pay Travel Tax');
   });
 });
