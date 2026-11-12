@@ -20,6 +20,13 @@ describe('Office taxpayer Tax Journey',()=>{
     expect(html).toContain('Tax credit not verified');
     expect(html).not.toContain('Treasury settled');
   });
+  it('groups the event in the same Dhaka calendar year shown in its displayed date',()=>{
+    const html=renderToStaticMarkup(<OfficeTaxJourney language="en" onOpen={()=>{}}
+      entries={[{record:newerRow,occurredAt:'2026-12-31T18:30:00Z'}]}/>);
+    expect(html).toContain('aria-label="2027"');
+    expect(html).not.toContain('aria-label="2026"');
+    expect(html).toContain('1 Jan 2027');
+  });
   it('does not invent an event when no taxpayer payment matches',()=>{
     const html=renderToStaticMarkup(<OfficeTaxJourney entries={[]} language="bn" onOpen={()=>{}}/>);
     expect(html).toContain('কোনো পেমেন্ট রেকর্ড নেই');
