@@ -80,6 +80,18 @@ BEGIN
         'createdAt',m.inquiry_payload->>'createdAt',
         'reviewState',m.review_state,'reviewRevision',m.review_revision,
         'reviewUpdatedAt',m.review_updated_at,
+        'decisionHistory',coalesce((
+          SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+            'messageId',d.message_id,
+            'action',d.action_code,
+            'role',d.officer_role,
+            'occurredAt',d.created_at,
+            'deliveryState',o_decision.delivery_state
+          ) ORDER BY d.created_at,d.message_id)
+          FROM payment_sync.officer_decisions d
+          JOIN payment_sync.control_outbox o_decision ON o_decision.message_id=d.message_id
+          WHERE d.request_id=m.inquiry_id AND o_decision.delivery_state='ACKNOWLEDGED'
+        ),'[]'::jsonb),
         'pendingDelivery',(o.delivery_state IS NOT NULL AND o.delivery_state<>'ACKNOWLEDGED'),
         'deliveryState',o.delivery_state,'lastDeliveryError',o.last_error,
         'availableActions',CASE
