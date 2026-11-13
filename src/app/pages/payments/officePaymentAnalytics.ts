@@ -1,5 +1,6 @@
 import type { StoryPayment } from './story1OfficeApi';
 import { paymentServiceName, toStoryPaymentRow } from './story1PaymentPresentation';
+import { getOfficePaymentItems } from './officeTransactionDetails';
 
 export type OfficeAnalyticsSummary={
   total:number; saved:number; failed:number; pending:number; other:number;
@@ -13,13 +14,39 @@ const methodLabels:Record<string,string>={
   MASTERCARD:'Mastercard',BANK_BRANCH:'Bank branch',NOW:'Pay online',OTC:'Bank branch',
 };
 const add=(map:Map<string,number>,key:string)=>map.set(key,(map.get(key)||0)+1);
-const sorted=(map:Map<string,number>):Array<[string,number]>=>
+const sorted=(map:Map<string,number>):Array<[string,number]> =>
   [...map.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+const normalizeYear=(value:string)=>value.trim().replace('–','-');
+const paymentYears=(payment:StoryPayment)=>toStoryPaymentRow(payment).assessment_year
+  .split(', ').map(normalizeYear).filter(value=>value&&value!=='—');
+
+/** Return the amount allocated to the selected year, or null when the source
+ * record cannot be reconciled. A parent spanning years is never counted in
+ * full in each year's amount. */
+function amountForYear(payment:StoryPayment,year:string):number|null{
+  const years=paymentYears(payment);
+  const hasAllocationEvidence=(payment.details?.lines?.length??0)>0||
+    (payment.details?.allocations?.length??0)>0;
+  const items=getOfficePaymentItems(payment);
+  if(items.length){
+    let total=0;
+    for(const item of items){
+      if(normalizeYear(item.assessmentYear)!==year)continue;
+      total+=item.amountMinor;
+      if(!Number.isSafeInteger(total))return null;
+    }
+    return total>0?total:null;
+  }
+  // A lone recorded assessment year safely scopes a legacy parent amount.
+  // If allocation detail exists but cannot be reconciled, fail closed.
+  if(hasAllocationEvidence||years.length!==1||years[0]!==year)return null;
+  return payment.amountMinor;
+}
+
 /** Summaries of complete read-only recorded activity; no invented gateway success rates.
  * Any invalid or non-saved payment makes the amount unreportable rather than guessing. */
 export function officePaymentAnalytics(records:readonly StoryPayment[],year='all'):OfficeAnalyticsSummary{
-  const scoped=records.filter(p=>year==='all'||toStoryPaymentRow(p).assessment_year
-    .split(', ').some(value=>value.trim().replace('–','-')===year));
+  const scoped=records.filter(p=>year==='all'||paymentYears(p).includes(normalizeYear(year)));
   let saved=0,failed=0,pending=0,other=0;
   let amountMinor:number|null=0;
   const methods=new Map<string,number>();
@@ -31,8 +58,11 @@ export function officePaymentAnalytics(records:readonly StoryPayment[],year='all
     else if(/PEND|PROCESS|INITIAT|CREATED/.test(status))pending++;
     else other++;
     if(amountMinor!==null){
-      const next=amountMinor+p.amountMinor;
-      amountMinor=(status==='SIMULATED_SUCCESS'&&Number.isSafeInteger(p.amountMinor)&&p.amountMinor>0&&Number.isSafeInteger(next))?next:null;
+      const scopedAmount=year==='all'?p.amountMinor:amountForYear(p,normalizeYear(year));
+      const next=scopedAmount===null?NaN:amountMinor+scopedAmount;
+      amountMinor=(status==='SIMULATED_SUCCESS'&&Number.isSafeInteger(p.amountMinor)&&p.amountMinor>0&&
+        scopedAmount!==null&&Number.isSafeInteger(scopedAmount)&&scopedAmount>0&&Number.isSafeInteger(next))
+        ?next:null;
     }
     const rawMethod=p.details?.paymentMethod||p.details?.paymentChannel;
     const method=typeof rawMethod==='string'&&rawMethod.trim()
