@@ -635,4 +635,51 @@ describe('verified TaxPay banner CMS', () => {
     expect(dialog.querySelector('.cms-theme-preview__primary')).toHaveTextContent('Pay Tax');
     expect(dialog.querySelector('.cms-theme-preview__outline')).toHaveTextContent('Pay Travel Tax');
   });
+
+  it('keeps a non-publisher preview as a local draft and does not call the publish bridge', async () => {
+    const { client } = makeClient(false);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const headline = screen.getByLabelText('Desktop heading · English');
+    await user.clear(headline);
+    await user.type(headline, 'Local preview only');
+    await user.click(screen.getByRole('button', { name:'Full banner preview' }));
+    const preview=await screen.findByRole('dialog', { name:/Full banner preview/ });
+    expect(preview.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Local preview only');
+    await user.click(screen.getByRole('button', { name:'Return to editor' }));
+    await user.click(screen.getByRole('button', { name:'Publish to TaxPay' }));
+    expect(await screen.findByText(/Not published: this Office session has no verified TaxPay publishing access/)).toBeInTheDocument();
+    expect(headline).toHaveValue('Local preview only');
+    expect(deps.bridge.mock.calls.filter(([action])=>action==='publish-banner')).toHaveLength(0);
+  });
+
+  it('cancels the unpublished full preview and restores the saved fixed-left content without a write', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const heading=screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading,'Temporary headline not for publishing');
+    await user.click(screen.getByRole('button',{name:'Full banner preview'}));
+    const unpublished=await screen.findByRole('dialog',{name:/Full banner preview/});
+    expect(unpublished.querySelector('.cms-theme-preview__copy h3'))
+      .toHaveTextContent('Temporary headline not for publishing');
+    await user.click(screen.getByRole('button',{name:'Return to editor'}));
+    await user.click(screen.getByRole('button',{name:'Cancel'}));
+    await user.click(screen.getByRole('button',{name:'Full banner preview'}));
+    const restored=await screen.findByRole('dialog',{name:/Full banner preview/});
+    expect(restored.querySelector('.cms-theme-preview__copy h3'))
+      .toHaveTextContent('Tax payments, without the confusion');
+    expect(restored.querySelector('.cms-theme-preview__copy h3'))
+      .not.toHaveTextContent('Temporary headline not for publishing');
+    expect(restored.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(deps.bridge.mock.calls.filter(([action])=>action==='publish-banner')).toHaveLength(0);
+  });
+
 });
