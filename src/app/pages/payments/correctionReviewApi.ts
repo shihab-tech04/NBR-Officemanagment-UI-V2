@@ -16,6 +16,8 @@ export type OfficeCorrectionDecisionEvent = {
 
 export type OfficeCorrectionInquiry = {
   requestId: string;
+  sourceEventId: string;
+  sourceEventType: "CORRECTION_SUBMITTED";
   sourcePaymentId: string | null;
   sourcePaymentKind: "TAXPAY_STORY_PAYMENT" | null;
   originalReference: string;
@@ -77,14 +79,18 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
   const items = response.items.map((item): OfficeCorrectionInquiry => {
     if (!item || typeof item !== "object") throw new Error("Invalid correction review item");
     const row = item as Record<string, unknown>;
-    const stringFields = ["requestId", "originalReference", "reason", "requestedOutcome",
-      "createdAt", "reviewState", "reviewUpdatedAt"];
+    const stringFields = ["requestId", "sourceEventId", "sourceEventType", "originalReference", "reason",
+      "requestedOutcome", "createdAt", "reviewState", "reviewUpdatedAt"];
     if (stringFields.some((key) => typeof row[key] !== "string") ||
         row.evidenceState !== "PENDING_EVIDENCE" ||
         typeof row.reviewRevision !== "number" ||
         typeof row.pendingDelivery !== "boolean" ||
         !Array.isArray(row.availableActions)) {
       throw new Error("Incomplete correction review item");
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(row.sourceEventId)) ||
+        row.sourceEventType !== "CORRECTION_SUBMITTED") {
+      throw new Error("Invalid correction source event identity");
     }
     const rawParentId = row.sourcePaymentId;
     const rawParentKind = row.sourcePaymentKind;
@@ -128,6 +134,8 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
     }
     return {
       requestId: row.requestId as string,
+      sourceEventId: row.sourceEventId as string,
+      sourceEventType: "CORRECTION_SUBMITTED",
       sourcePaymentId,
       sourcePaymentKind,
       originalReference: row.originalReference as string,

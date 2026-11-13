@@ -248,6 +248,14 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     };
     setOfficeCorrectionLoading(true);
     void refresh();
+    const journeyOnly=current==='taxpayer-360'&&taxpayerTab==='taxJourney';
+    if(journeyOnly){
+      const onFocus=()=>void refresh();
+      const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
+      window.addEventListener('focus',onFocus);
+      document.addEventListener('visibilitychange',onVisible);
+      return()=>{active=false;window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};
+    }
     const timer=window.setInterval(()=>void refresh(),15000);
     return()=>{active=false;window.clearInterval(timer);};
   },[current,correctionRefreshKey,selectedTin,taxpayerTab]);
@@ -356,10 +364,14 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
     .filter((row):row is NonNullable<typeof row>=>row!==null);
+  const taxpayerJourneyPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,'all'))
+    .filter((row):row is NonNullable<typeof row>=>row!==null);
   const journeySourceById=new Map(storyPayments.map(payment=>[payment.id,payment.createdAt]));
-  const taxpayerJourneyEntries=taxPayments.map(record=>({record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''}));
+  const taxpayerJourneyEntries=taxpayerJourneyPayments.map(record=>({
+    record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''
+  }));
   const linkedJourneyCorrections=officeCorrectionQueue.enabled && !storyLoading && !storyError
-    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear):[];
+    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,'all'):[];
   const taxpayerJourneyEvidenceEvents=[
     ...registrationHistoryEvents(registrationProfile),
     ...correctionHistoryEvents(linkedJourneyCorrections),
@@ -393,7 +405,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
-  const taxpayerCorrectionIds=new Set(linkedJourneyCorrections.map(item=>item.inquiry.requestId));
+  const taxpayerCorrectionIds=new Set(linkedJourneyCorrections
+    .filter(item=>toStoryTaxpayerPaymentRow(item.payment,selectedTin,scopeYear)!==null)
+    .map(item=>item.inquiry.requestId));
   const taxpayerCorrectionRows=officeCorrectionRows.filter(row=>taxpayerCorrectionIds.has(String(row.__correctionInquiryId)));
   // Never interleave illustrative cases with an operational correction queue.
   const corrRows=[...localRecords.corrections,...officeCorrectionRows];

@@ -93,8 +93,8 @@ export function OfficeTaxJourney({
       )}</p>}
     {sourceReadsComplete && entries.length === 0 && evidenceEvents.length === 0
       ? <p role="status" className="table-page__desc">{tr(
-          "No payment records for this taxpayer and assessment year; no verified registration or correction events are available.",
-          "এই করদাতা ও করবর্ষের কোনো পেমেন্ট রেকর্ড নেই; যাচাইকৃত নিবন্ধন বা সংশোধনের ঘটনাও নেই।",
+          "No payment records for this taxpayer; no verified registration or correction events are available.",
+          "এই করদাতার কোনো পেমেন্ট রেকর্ড নেই; যাচাইকৃত নিবন্ধন বা সংশোধনের ঘটনাও নেই।",
         )}</p>
       : <div className="space-y-6">
           {grouped.map(([year, items]) => <section key={year} aria-label={year}>
@@ -120,6 +120,10 @@ export function OfficeTaxJourney({
                       </span>
                       <span className="mt-1 block break-words text-xs text-slate-600">
                         {tr("AY ", "করবর্ষ ")}{String(record.assessment_year ?? "—")} · {String(record.financial_receipt_status ?? "—")}
+                      </span>
+                      <span className="mt-1 block break-words text-xs text-slate-600">
+                        {tr("Recorded payer: ", "নথিভুক্ত পরিশোধকারী: ")}{String(record.payer_name ?? "—")} ·
+                        {tr(" paid for ", " যার জন্য পরিশোধ: ")}{String(record.taxpayer_name ?? "—")}
                       </span>
                       <span className="mt-1 block break-all text-xs text-slate-500">
                         Office SQL mirror · immutable payment parent {parentId} · {tr("Tax credit not verified", "কর ক্রেডিট যাচাই হয়নি")}

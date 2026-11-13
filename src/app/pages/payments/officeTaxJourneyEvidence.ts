@@ -85,10 +85,20 @@ export function correctionHistoryEvents(
     const requestId = inquiry.requestId;
     const parentId = linked.payment.id;
     if (!requestId || !parentId) continue;
-    const caseSourceEn = "Office SQL correction case " + requestId +
+    const caseSourceEn = "Taxpayer SQL source event " + inquiry.sourceEventId +
+      " (" + inquiry.sourceEventType + ") · Office SQL correction case " + requestId +
       " · immutable Taxpayer SQL payment parent " + parentId;
-    const caseSourceBn = "অফিস SQL সংশোধন কেস " + requestId +
+    const caseSourceBn = "করদাতা SQL উৎস ঘটনা " + inquiry.sourceEventId +
+      " (" + inquiry.sourceEventType + ") · অফিস SQL সংশোধন কেস " + requestId +
       " · অপরিবর্তনীয় করদাতা SQL পেমেন্ট প্যারেন্ট " + parentId;
+    const requestedChange = inquiry.changeKind
+      ? " · submitted request values (not verified as a completed change): " + inquiry.changeKind +
+        " · old " + (inquiry.oldValue ?? "—") + " → new " + (inquiry.newValue ?? "—")
+      : "";
+    const requestedChangeBn = inquiry.changeKind
+      ? " · জমা দেওয়া অনুরোধের মান (সম্পন্ন পরিবর্তন হিসেবে যাচাইকৃত নয়): " + inquiry.changeKind +
+        " · পুরোনো " + (inquiry.oldValue ?? "—") + " → নতুন " + (inquiry.newValue ?? "—")
+      : "";
     const createdAt = eventTime(inquiry.createdAt);
     const requestEventId = "correction-request:" + requestId;
     if (createdAt && !seen.has(requestEventId)) {
@@ -98,8 +108,8 @@ export function correctionHistoryEvents(
         occurredAt: createdAt,
         titleEn: "Correction request recorded",
         titleBn: "সংশোধনের আবেদন নথিভুক্ত",
-        detailEn: "Original payment remains unchanged; case " + requestId + ".",
-        detailBn: "মূল পেমেন্ট অপরিবর্তিত; কেস " + requestId + "।",
+        detailEn: "Original payment remains unchanged; case " + requestId + "." + requestedChange,
+        detailBn: "মূল পেমেন্ট অপরিবর্তিত; কেস " + requestId + "।" + requestedChangeBn,
         provenanceEn: caseSourceEn,
         provenanceBn: caseSourceBn,
       });

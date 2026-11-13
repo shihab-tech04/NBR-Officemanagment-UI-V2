@@ -10,6 +10,8 @@ vi.mock("../../audit/auditSharedSql", () => ({
 const user = { id: "office-officer-1", is_anonymous: false };
 const correction = {
   requestId: "80000000-0000-4000-8000-000000000001",
+  sourceEventId: "80000000-0000-4000-8000-000000000011",
+  sourceEventType: "CORRECTION_SUBMITTED",
   originalReference: "SYN-REF-003",
   reason: "A synthetic correction request",
   requestedOutcome: "Review the payment attribution",

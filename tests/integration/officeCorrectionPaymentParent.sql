@@ -181,6 +181,10 @@ BEGIN
     RAISE EXCEPTION 'Correction page two returned a duplicate or skipped case';
   END IF;
   SELECT value INTO v_item FROM jsonb_array_elements(v_page_two->'items') AS item(value);
+  IF v_item->>'sourceEventId'<>'80000000-0000-4000-8000-000000000001'
+     OR v_item->>'sourceEventType'<>'CORRECTION_SUBMITTED' THEN
+    RAISE EXCEPTION 'Paged correction history lost the original Taxpayer SQL source event identity';
+  END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
      OR v_item->'decisionHistory'->0->>'action'<>'MAKER_ACKNOWLEDGE'
      OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY' THEN

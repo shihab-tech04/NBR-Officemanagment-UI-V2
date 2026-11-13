@@ -30,6 +30,11 @@ const taxpayerProfile = (source: string) => ({
 const linkedCorrection = [{
   inquiry: {
     requestId: "80000000-0000-4000-8000-000000000041",
+    sourceEventId: "80000000-0000-4000-8000-000000000050",
+    sourceEventType: "CORRECTION_SUBMITTED",
+    changeKind: "CIRCLE",
+    oldValue: "Circle A",
+    newValue: "Circle B",
     createdAt: "2026-11-10T09:00:00.000Z",
     decisionHistory: [
       { messageId: "80000000-0000-4000-8000-000000000051",
@@ -56,6 +61,8 @@ describe("Office taxpayer Tax Journey", () => {
     expect(html.indexOf("new-sql-id")).toBeLessThan(html.indexOf("old-sql-id"));
     expect(html).toContain("Tax credit not verified");
     expect(html).toContain("Office SQL mirror");
+    expect(html).toContain("Recorded payer:");
+    expect(html).toContain("paid for");
     expect(html).not.toContain("Treasury settled");
   });
 
@@ -75,13 +82,15 @@ describe("Office taxpayer Tax Journey", () => {
     expect(registrationHistoryEvents(taxpayerProfile("SYNTHETIC"))).toEqual([]);
   });
 
-  it("includes correction submissions and only acknowledged Office decisions with immutable provenance", () => {
+  it("includes source IDs, request values as unverified, and only acknowledged decisions", () => {
     const events = correctionHistoryEvents(linkedCorrection);
     expect(events).toHaveLength(2);
     expect(events.some(event => event.id.includes("correction-request:"))).toBe(true);
     expect(events.some(event => event.id.includes("correction-decision:80000000-0000-4000-8000-000000000051"))).toBe(true);
+    expect(events.every(event => event.provenanceEn.includes("Taxpayer SQL source event"))).toBe(true);
     expect(events.every(event => event.provenanceEn.includes("Office SQL correction case"))).toBe(true);
     expect(events.every(event => event.provenanceEn.includes("immutable Taxpayer SQL payment parent"))).toBe(true);
+    expect(events[0].detailEn).toContain("not verified as a completed change");
     expect(events.some(event => event.provenanceEn.includes("000000000052"))).toBe(false);
   });
 
