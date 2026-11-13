@@ -13,11 +13,8 @@ const multiYear:StoryPayment={id:'p-multi',service:'OTHER_TAX_PAYMENT',status:'S
       {taxpayerTin:'234567890123',taxpayerName:'Taxpayer B',headId:68,amountMinor:2000,assessmentYear:'2025-26'},
       {taxpayerTin:'123456789012',taxpayerName:'Taxpayer A',headId:68,amountMinor:3000,assessmentYear:'2026-27'},
     ],
-    lines:[
-      {headId:68,headNameEn:'Advance Tax',amountMinor:1000},
-      {headId:68,headNameEn:'Advance Tax',amountMinor:2000},
-      {headId:68,headNameEn:'Advance Tax',amountMinor:3000},
-    ],
+    // One recorded head description can serve repeated allocation lines.
+    lines:[{headId:68,headNameEn:'Advance Tax'}],
   }};
 
 describe('Office Payments Analytics: source-backed metrics',()=>{
