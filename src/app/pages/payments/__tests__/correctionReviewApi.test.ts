@@ -54,10 +54,39 @@ describe("Office correction review SQL adapter", () => {
   it("requires the existing verified Office session and returns the server role and queue", async () => {
     const client = setupClient();
     await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
-      enabled: true, role: "MAKER", items: [{ requestId: correction.requestId }],
+      enabled: true, role: "MAKER", items: [{ requestId: correction.requestId, decisionHistory: [] }],
     });
     expect(client.auth.getUser).toHaveBeenCalledOnce();
     expect(client.rpc).toHaveBeenCalledWith("payment_v1_correction_queue", { p_limit: 200 });
+  });
+
+  it("preserves only validated, TaxPay-acknowledged decision history", async () => {
+    const decisionHistory = [
+      { messageId: "90000000-0000-4000-8000-000000000011",
+        action: "MAKER_ACKNOWLEDGE", role: "MAKER",
+        occurredAt: "2026-10-29T17:05:00.000Z", deliveryState: "ACKNOWLEDGED" },
+      { messageId: "90000000-0000-4000-8000-000000000012",
+        action: "REVIEWER_VERIFY", role: "REVIEWER",
+        occurredAt: "2026-10-29T17:06:00.000Z", deliveryState: "ACKNOWLEDGED" },
+    ];
+    setupClient({ data: { role: "MAKER", items: [{ ...correction, decisionHistory }] }, error: null });
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ decisionHistory }],
+    });
+  });
+
+  it("rejects unacknowledged or malformed correction decision history", async () => {
+    setupClient({ data: { role: "MAKER", items: [{
+      ...correction,
+      decisionHistory: [{
+        messageId: "90000000-0000-4000-8000-000000000013",
+        action: "APPROVER_CLOSE", role: "APPROVER",
+        occurredAt: "2026-10-29T17:07:00.000Z", deliveryState: "PENDING",
+      }],
+    }] }, error: null });
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow(
+      "Invalid or unacknowledged correction decision event",
+    );
   });
 
   it("does not call queue RPC when the current Office session is absent", async () => {
