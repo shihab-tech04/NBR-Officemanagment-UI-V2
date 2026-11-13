@@ -96,11 +96,12 @@ INSERT INTO payment_sync.officer_decisions(
   ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000012',
    'REVIEWER','REVIEWER_VERIFY','Synthetic accepted reviewer event',
    '80000000-0000-4000-8000-000000000032','80000000-0000-4000-8000-000000000022','2026-11-12T17:03:00Z'),
-  ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000011',
+  ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000013',
    'APPROVER','APPROVER_CLOSE','Synthetic pending attempt',
    '80000000-0000-4000-8000-000000000033','80000000-0000-4000-8000-000000000023','2026-11-12T17:04:00Z');
 UPDATE payment_sync.correction_mirrors
-SET review_state='REVIEWER_VERIFIED',review_revision=3,review_updated_at='2026-11-12T17:03:00Z'
+SET review_state='REVIEWER_VERIFIED',review_revision=3,review_updated_at='2026-11-12T17:03:00Z',
+    pending_message_id='80000000-0000-4000-8000-000000000023'
 WHERE inquiry_id='80000000-0000-4000-8000-000000000002';
 
 SET LOCAL ROLE authenticated;
@@ -126,6 +127,9 @@ BEGIN
      OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY'
      OR v_item->'decisionHistory'->1->>'deliveryState'<>'ACKNOWLEDGED' THEN
     RAISE EXCEPTION 'Office correction queue omitted ordered acknowledged decision history';
+  END IF;
+  IF v_item->>'pendingDelivery'<>'true' OR v_item->>'deliveryState'<>'PENDING' THEN
+    RAISE EXCEPTION 'Correction queue did not preserve pending decision delivery state';
   END IF;
   IF EXISTS (
     SELECT 1 FROM jsonb_array_elements(v_item->'decisionHistory') AS h(value)
