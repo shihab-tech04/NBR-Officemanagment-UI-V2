@@ -95,7 +95,7 @@ Deno.serve(async(req)=>{
             perPage=Number(u.searchParams.get("perPage")??"100");
       if(!Number.isSafeInteger(page)||!Number.isSafeInteger(perPage)||page<1||perPage<1||perPage>100)
         return respond({success:false,error:"INVALID_PAGINATION"},400);
-      rpc="demo_story1_office_page";args={p_page:page,p_per_page:perPage};
+      rpc="demo_story1_office_payment_page";args={p_page:page,p_per_page:perPage};
    }
    else if(req.method==="GET"&&path==="/notifications/page"){
       const u=new URL(req.url),afterId=u.searchParams.get("afterId")??"0",
