@@ -155,7 +155,7 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
 
 /** Group by source identities and split amounts by reconciled allocation lines.
  * Parent counts are distinct within each group; amount totals sum the line shares.
- * Missing identity uses a per-line key, avoiding false merges by display name. */
+ * Missing payer identity is parent-scoped; other missing identities stay line-scoped. */
 export function groupOfficePaymentReport(
   rows:readonly OfficePaymentReportLine[],dimension:OfficePaymentReportDimension
 ):OfficePaymentReportGroup[]{
@@ -169,14 +169,19 @@ export function groupOfficePaymentReport(
       if(row.headId!==null)identity=String(row.headId);
       label=row.head||'Head not recorded';
     }else if(dimension==='payer'){
-      if(row.payerId)identity=row.payerId;
-      label=row.payerName||row.payerId||'Payer identity unavailable';
+      if(row.payerId){
+        identity=row.payerId;
+        label=row.payerName||row.payerId;
+      }else{
+        // Keep missing payer identity explicit and scoped to its immutable parent.
+        label='Payer not verified · '+row.parentId;
+      }
     }else{
       if(row.beneficiaryTin)identity=row.beneficiaryTin;
       label=row.beneficiary||row.beneficiaryTin||'Beneficiary not recorded';
     }
     const key=identity===null
-      ?'unverified:'+row.parentId+':'+String(row.allocationIndex)
+      ?dimension==='payer'?'unverified:payer:'+row.parentId:'unverified:'+row.parentId+':'+String(row.allocationIndex)
       :dimension+':'+identity;
     const group=groups.get(key)??{label,parents:new Set<string>(),lineCount:0,amountMinor:0};
     group.parents.add(row.parentId);group.lineCount++;

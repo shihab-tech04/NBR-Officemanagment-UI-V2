@@ -103,7 +103,11 @@ describe('allocation-backed report grouping',()=>{
     expect(issues.filter(issue=>issue.reason==='PAYER_ID_MISSING')).toHaveLength(2);
     const payers=groupOfficePaymentReport(rows,'payer');
     expect(payers).toHaveLength(2);
-    expect(payers.map(group=>group.parentCount)).toEqual([1,1]);
+    expect(payers.map(({label,parentCount,lineCount,amountMinor})=>({label,parentCount,lineCount,amountMinor})))
+      .toEqual([
+        {label:'Payer not verified · p-one',parentCount:1,lineCount:3,amountMinor:6000},
+        {label:'Payer not verified · p-two',parentCount:1,lineCount:3,amountMinor:6000},
+      ]);
   });
   it('fails closed on an allocation mismatch instead of publishing a guessed report amount',()=>{
     const {rows,issues}=projectOfficePaymentReport([{...reportingPayment,amountMinor:6001}]);
