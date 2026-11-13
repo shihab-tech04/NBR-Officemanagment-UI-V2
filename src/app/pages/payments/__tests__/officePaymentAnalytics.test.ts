@@ -97,8 +97,8 @@ describe('allocation-backed report grouping',()=>{
   });
   it('does not merge two unverified payer names into one payer identity',()=>{
     const {rows,issues}=projectOfficePaymentReport([
-      {...reportingPayment,id:'p-one'},
-      {...reportingPayment,id:'p-two'},
+      {...reportingPayment,id:'p-one',details:{...multiYear.details,payerName:'Payer Example'}},
+      {...reportingPayment,id:'p-two',details:{...multiYear.details,payerName:'Payer Example'}},
     ]);
     expect(issues.filter(issue=>issue.reason==='PAYER_ID_MISSING')).toHaveLength(2);
     const payers=groupOfficePaymentReport(rows,'payer');
