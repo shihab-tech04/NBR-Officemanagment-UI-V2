@@ -2,8 +2,8 @@
 -- financial tables are used; every fixture is rolled back.
 BEGIN;
 
-CREATE SCHEMA auth;
-CREATE FUNCTION auth.uid() RETURNS uuid
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
 LANGUAGE sql STABLE SET search_path TO ''
 AS $function$
   SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
