@@ -63,12 +63,13 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction,
   const title=isMobile?(bn?fixedCopy.mobile_heading_bn:fixedCopy.mobile_heading_en):(bn?fixedCopy.heading_bn:fixedCopy.heading_en);
   const body=isMobile?(bn?fixedCopy.mobile_description_bn:fixedCopy.mobile_description_en):(bn?fixedCopy.description_bn:fixedCopy.description_en);
   const action=bn?fixedCopy.action_bn:fixedCopy.action_en;
+  const announcedTitle=/[.!?।]$/u.test(title) ? title : title+(bn?'।':'.');
   return <section className={"cms-theme-preview cms-theme-preview--"+device}
     data-payment-service={banner.service_code || undefined}
     data-fixed-left="true"
     data-preview-palette={customPalette ? 'image' : 'fallback'}
     style={theme} role="img" aria-label={
-      "Unpublished "+device+" banner preview. "+title+". "+body+" Actions shown: "+action+"; "+travelAction+"."
+      "Unpublished "+device+" banner preview. "+announcedTitle+" "+body+" Actions shown: "+action+"; "+travelAction+"."
     }>
     <div className="cms-theme-preview__copy">
       <h3>{title}</h3>

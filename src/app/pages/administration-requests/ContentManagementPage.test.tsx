@@ -523,10 +523,27 @@ describe('verified TaxPay banner CMS', () => {
     await user.upload(input, new File([new Uint8Array(256)], 'new-banner.png', { type: 'image/png' }));
     await user.click(screen.getByRole('button', { name: 'Apply crop' }));
     const dialog = await screen.findByRole('dialog', { name: /Full banner preview/ });
-    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
-    await user.click(screen.getByRole('button', { name: 'Mobile' }));
+    const preview = dialog.querySelector('.cms-theme-preview')!;
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. Tax payments, without the confusion. Choose a tax payment. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
+    expect(preview.querySelector('.cms-theme-preview__actions')).toHaveAttribute('aria-hidden', 'true');
+    expect(preview.querySelector('.cms-theme-preview__media')).toHaveAttribute('aria-hidden', 'true');
+    expect(preview.querySelector('button, a, input, select, textarea, [tabindex]')).toBeNull();
+
     await user.click(screen.getByRole('button', { name: 'বাংলা' }));
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. কর পরিশোধে আর বিভ্রান্তি নয়। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('কর দিন');
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. কর দিন। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. Pay tax. Choose and pay. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
     await user.click(screen.getByRole('button', { name: 'Return to editor' }));
     expect(screen.getByLabelText('Light background color')).toHaveValue('#eaf2ff');
     expect(screen.getByLabelText('Dark heading color')).toHaveValue('#1e4484');

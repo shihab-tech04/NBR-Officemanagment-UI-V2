@@ -59,7 +59,7 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
       language="bn" travelAction="ভ্রমণ কর পরিশোধ" fixedCopy={fixedCopy} />);
     const preview=screen.getByRole('img',{name:/Unpublished mobile banner preview/});
     expect(preview).toHaveAccessibleName(
-      'Unpublished mobile banner preview. কর পরিশোধ সহজ করুন. কর দিন, পেমেন্টের তথ্য রাখুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+      'Unpublished mobile banner preview. কর পরিশোধ সহজ করুন। কর দিন, পেমেন্টের তথ্য রাখুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
     );
     expect(preview.getAttribute('style')).toContain('--preview-bg: #F1F6FA');
     expect(container.querySelector('.cms-theme-preview--mobile')).toBeInTheDocument();
