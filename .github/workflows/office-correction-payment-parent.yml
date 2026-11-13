@@ -6,18 +6,26 @@ on:
     paths:
       - 'supabase/migrations/20261029170000_office_correction_review.sql'
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/functions/demo-story1-office/index.ts'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
       - '.github/workflows/office-correction-payment-parent.yml'
   push:
     branches: [main]
     paths:
       - 'supabase/migrations/20261029170000_office_correction_review.sql'
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/functions/demo-story1-office/index.ts'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
       - '.github/workflows/office-correction-payment-parent.yml'
   workflow_dispatch:
 
@@ -75,3 +83,27 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
+      - name: Load disposable Office notice mirror schema
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecoveryFixture.sql
+      - name: Apply Office notice cursor migration
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+      - name: Verify cursor pagination, replay, filtering, exact payment links and RLS
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecovery.sql

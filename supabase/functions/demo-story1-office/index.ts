@@ -1,6 +1,40 @@
 import {createClient} from "npm:@supabase/supabase-js@2.57.0";
 const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,apikey","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json","Cache-Control":"no-store"};
 const respond=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
+const PG_BIGINT_MAX=9223372036854775807n;
+const validDate=(value:unknown)=>typeof value==="string"&&Number.isFinite(Date.parse(value));
+const validUuid=(value:unknown)=>typeof value==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const validNoticePage=(data:unknown,afterId:bigint,limit:number):boolean=>{
+ if(!data||typeof data!=="object"||Array.isArray(data))return false;
+ const page=data as {items?:unknown;nextAfterId?:unknown;hasMore?:unknown};
+ if(!Array.isArray(page.items)||typeof page.nextAfterId!=="string"||
+    typeof page.hasMore!=="boolean"||page.items.length>limit)return false;
+ if(!/^(0|[1-9][0-9]*)$/.test(page.nextAfterId)||page.nextAfterId.length>19)return false;
+ const next=BigInt(page.nextAfterId);
+ if(next>PG_BIGINT_MAX||next<afterId)return false;
+ let previous=afterId;
+ for(const value of page.items){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const item=value as Record<string,unknown>;
+  if(typeof item.id!=="string"||item.id.length>19||
+     !/^[1-9][0-9]*$/.test(item.id)||!validUuid(item.paymentId)||
+     typeof item.type!=="string"||!item.type||!validDate(item.createdAt))return false;
+  const id=BigInt(item.id);
+  if(id<=previous||id>PG_BIGINT_MAX)return false;
+  previous=id;
+  const payment=item.payment;
+  if(!payment||typeof payment!=="object"||Array.isArray(payment))return false;
+  const record=payment as Record<string,unknown>;
+  if(record.id!==item.paymentId||typeof record.service!=="string"||!record.service||
+     typeof record.amountMinor!=="string"||!/^[1-9][0-9]*$/.test(record.amountMinor)||
+     record.amountMinor.length>19||BigInt(record.amountMinor)>PG_BIGINT_MAX||
+     record.status!=="SIMULATED_SUCCESS"||!validDate(record.createdAt))return false;
+ }
+ const expected=page.items.length?String(previous):String(afterId);
+ if(page.nextAfterId!==expected)return false;
+ if(page.hasMore&&(page.items.length!==limit||previous<=afterId))return false;
+ return true;
+};
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
  const path=new URL(req.url).pathname.replace(/^\/demo-story1-office/,"");
@@ -13,6 +47,7 @@ Deno.serve(async(req)=>{
  let rpcClient=client;
  try{
    let rpc:string;let args:Record<string,unknown>={};
+   let noticePageCheck:{afterId:bigint;limit:number}|null=null;
    if(req.method==="POST"&&path==="/mirror"){
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
@@ -62,10 +97,23 @@ Deno.serve(async(req)=>{
         return respond({success:false,error:"INVALID_PAGINATION"},400);
       rpc="demo_story1_office_page";args={p_page:page,p_per_page:perPage};
    }
-   else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
+   else if(req.method==="GET"&&path==="/notifications/page"){
+      const u=new URL(req.url),afterId=u.searchParams.get("afterId")??"0",
+            limitRaw=u.searchParams.get("limit")??"100";
+      if(afterId.length>19||!/^(0|[1-9][0-9]*)$/.test(afterId)||!/^[1-9][0-9]{0,2}$/.test(limitRaw))
+        return respond({success:false,error:"INVALID_PAGINATION"},400);
+      const afterIdValue=BigInt(afterId),limit=Number(limitRaw);
+      if(afterIdValue>PG_BIGINT_MAX||!Number.isSafeInteger(limit)||limit<1||limit>100)
+        return respond({success:false,error:"INVALID_PAGINATION"},400);
+      noticePageCheck={afterId:afterIdValue,limit};
+      rpc="demo_story1_office_notice_page";args={p_after_id:afterId,p_limit:limit};
+   }else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
    else return respond({success:false,error:"NOT_FOUND"},404);
    const {data,error}=await rpcClient.rpc(rpc,args);
    if(error){console.error("office story1",error.code,error.message);return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);}
+   if(rpc==="demo_story1_office_notice_page"&&noticePageCheck&&
+      !validNoticePage(data,noticePageCheck.afterId,noticePageCheck.limit))
+     return respond({success:false,error:"INVALID_NOTIFICATION_PAGE"},502);
    return respond({success:true,data,simulationOnly:true});
  }catch(e){console.error("office story1 request",e);return respond({success:false,error:"INVALID_INPUT"},400)}
 });
