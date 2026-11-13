@@ -46,12 +46,33 @@ const validActions = new Set<CorrectionReviewAction>([
   "MAKER_ACKNOWLEDGE", "REVIEWER_VERIFY", "APPROVER_CLOSE", "REJECT",
 ]);
 
-function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
+type CorrectionQueueCursor = { receivedAt: string; requestId: string };
+type CorrectionQueuePage = {
+  role: NonNullable<OfficeCorrectionQueue["role"]>;
+  items: OfficeCorrectionInquiry[];
+  nextCursor: CorrectionQueueCursor | null;
+};
+
+function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
   if (!value || typeof value !== "object") throw new Error("Invalid correction review response");
   const response = value as Record<string, unknown>;
   if (!Array.isArray(response.items) ||
-      !["MAKER", "REVIEWER", "APPROVER"].includes(String(response.role))) {
-    throw new Error("Invalid correction review queue");
+      !["MAKER", "REVIEWER", "APPROVER"].includes(String(response.role)) ||
+      !Object.prototype.hasOwnProperty.call(response, "nextCursor")) {
+    throw new Error("Invalid correction review queue page");
+  }
+  let nextCursor: CorrectionQueueCursor | null = null;
+  if (response.nextCursor !== null) {
+    if (!response.nextCursor || typeof response.nextCursor !== "object" || Array.isArray(response.nextCursor)) {
+      throw new Error("Invalid correction queue cursor");
+    }
+    const cursor = response.nextCursor as Record<string, unknown>;
+    if (typeof cursor.receivedAt !== "string" || !Number.isFinite(Date.parse(cursor.receivedAt)) ||
+        typeof cursor.requestId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor.requestId)) {
+      throw new Error("Invalid correction queue cursor");
+    }
+    nextCursor = { receivedAt: cursor.receivedAt, requestId: cursor.requestId };
   }
   const items = response.items.map((item): OfficeCorrectionInquiry => {
     if (!item || typeof item !== "object") throw new Error("Invalid correction review item");
@@ -127,7 +148,7 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
       availableActions: actions,
     };
   });
-  return { enabled: true, role: response.role as OfficeCorrectionQueue["role"], items };
+  return { role: response.role as CorrectionQueuePage["role"], items, nextCursor };
 }
 
 async function authenticatedClient() {
@@ -142,9 +163,41 @@ async function authenticatedClient() {
 export async function listOfficeCorrectionInquiries(): Promise<OfficeCorrectionQueue> {
   if (!isSharedAuditMode()) return { enabled: false, role: null, items: [] };
   const db = await authenticatedClient();
-  const { data, error } = await db.rpc("payment_v1_correction_queue", { p_limit: 200 });
-  if (error) throw new Error(`Office correction queue failed: ${error.message}`);
-  return asCorrectionQueue(data);
+  const pageSize = 200;
+  const maxPages = 2000;
+  const seenCursors = new Set<string>();
+  const seenCases = new Set<string>();
+  const items: OfficeCorrectionInquiry[] = [];
+  let cursor: CorrectionQueueCursor | null = null;
+  let role: OfficeCorrectionQueue["role"] = null;
+  for (let pageNumber = 0; pageNumber < maxPages; pageNumber++) {
+    const { data, error } = await db.rpc("payment_v1_correction_queue_page", {
+      p_limit: pageSize,
+      p_after_received_at: cursor?.receivedAt ?? null,
+      p_after_request_id: cursor?.requestId ?? null,
+    });
+    if (error) throw new Error(`Office correction queue failed: ${error.message}`);
+    const page = asCorrectionQueuePage(data);
+    if (role !== null && role !== page.role) {
+      throw new Error("Office correction role changed during history pagination; retry");
+    }
+    role = page.role;
+    for (const item of page.items) {
+      if (seenCases.has(item.requestId)) {
+        throw new Error("Duplicate correction case across history pages; retry");
+      }
+      seenCases.add(item.requestId);
+      items.push(item);
+    }
+    if (page.nextCursor === null) return { enabled: true, role, items };
+    const cursorKey = page.nextCursor.receivedAt + "|" + page.nextCursor.requestId;
+    if (seenCursors.has(cursorKey) || page.items.length === 0) {
+      throw new Error("Correction history page did not advance; retry");
+    }
+    seenCursors.add(cursorKey);
+    cursor = page.nextCursor;
+  }
+  throw new Error("Correction history exceeds the safe retrieval limit");
 }
 
 export async function submitOfficeCorrectionDecision(
