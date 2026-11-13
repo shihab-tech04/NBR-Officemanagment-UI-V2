@@ -25,4 +25,12 @@ describe('Office taxpayer Tax Journey',()=>{
     expect(html).toContain('কোনো পেমেন্ট রেকর্ড নেই');
     expect(html).not.toContain('<li ');
   });
+
+  it('groups events by the Bangladesh calendar year used for displayed dates',()=>{
+    const html=renderToStaticMarkup(<OfficeTaxJourney language="en" onOpen={()=>{}}
+      entries={[{record:{...oldRow,key:'year-boundary',payment_ref:'year-boundary'},occurredAt:'2026-12-31T20:00:00Z'}]}/>);
+    expect(html).toContain('<section aria-label="2027">');
+    expect(html).toContain('1 Jan 2027');
+    expect(html).not.toContain('<section aria-label="2026">');
+  });
 });
