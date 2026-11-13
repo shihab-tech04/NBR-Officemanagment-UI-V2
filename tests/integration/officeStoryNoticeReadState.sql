@@ -34,10 +34,14 @@ BEGIN
 END;
 $security$;
 
+CREATE TEMP TABLE story_notice_read_retry_probe(
+  read_at_before timestamptz,read_at_after timestamptz
+) ON COMMIT DROP;
+
 SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $maker_reads$
-DECLARE v_state jsonb; v_first jsonb; v_retry jsonb; v_first_at timestamptz; v_retry_at timestamptz;
+DECLARE v_state jsonb; v_first jsonb;
 BEGIN
   v_state:=public.payment_v1_office_story_notice_read_state(ARRAY['101','102','101']::text[]);
   IF pg_catalog.jsonb_array_length(v_state)<>2
@@ -45,14 +49,8 @@ BEGIN
     RAISE EXCEPTION 'Maker initial read state should be unread and deduplicated by notice ID';
   END IF;
   v_first:=public.payment_v1_office_set_story_notice_read('101',true);
-  SELECT read_at INTO v_first_at FROM payment_sync.officer_story_notice_reads
-    WHERE notice_id=101 AND officer_uid='80000000-0000-4000-8000-000000000011';
-  v_retry:=public.payment_v1_office_set_story_notice_read('101',true);
-  SELECT read_at INTO v_retry_at FROM payment_sync.officer_story_notice_reads
-    WHERE notice_id=101 AND officer_uid='80000000-0000-4000-8000-000000000011';
-  IF v_first IS DISTINCT FROM '{"noticeId":"101","isRead":true}'::jsonb
-     OR v_retry IS DISTINCT FROM v_first OR v_first_at IS DISTINCT FROM v_retry_at THEN
-    RAISE EXCEPTION 'Retrying a read receipt must not duplicate or rewrite the receipt';
+  IF v_first IS DISTINCT FROM '{"noticeId":"101","isRead":true}'::jsonb THEN
+    RAISE EXCEPTION 'Maker read receipt should return its persisted state';
   END IF;
   v_state:=public.payment_v1_office_story_notice_read_state(ARRAY['101']::text[]);
   IF NOT (v_state @> '[{"noticeId":"101","isRead":true}]'::jsonb) THEN
@@ -103,7 +101,40 @@ BEGIN
 END;
 $maker_reads$;
 
+-- Inspect the private table only after leaving the authenticated client role.
+-- The second call remains an authenticated RPC, then privileged test code compares timestamps.
 RESET ROLE;
+INSERT INTO story_notice_read_retry_probe(read_at_before)
+SELECT read_at FROM payment_sync.officer_story_notice_reads
+WHERE notice_id=101 AND officer_uid='80000000-0000-4000-8000-000000000011';
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
+DO $maker_read_retry$
+DECLARE v_retry jsonb;
+BEGIN
+  v_retry:=public.payment_v1_office_set_story_notice_read('101',true);
+  IF v_retry IS DISTINCT FROM '{"noticeId":"101","isRead":true}'::jsonb THEN
+    RAISE EXCEPTION 'Retrying a read receipt should return the same state';
+  END IF;
+END;
+$maker_read_retry$;
+RESET ROLE;
+UPDATE story_notice_read_retry_probe p
+SET read_at_after=r.read_at
+FROM payment_sync.officer_story_notice_reads r
+WHERE r.notice_id=101
+  AND r.officer_uid='80000000-0000-4000-8000-000000000011';
+DO $retry_timestamp$
+DECLARE v_before timestamptz; v_after timestamptz;
+BEGIN
+  SELECT read_at_before,read_at_after INTO v_before,v_after
+  FROM story_notice_read_retry_probe;
+  IF v_before IS NULL OR v_after IS NULL OR v_before IS DISTINCT FROM v_after THEN
+    RAISE EXCEPTION 'Retrying a read receipt must not duplicate or rewrite the receipt';
+  END IF;
+END;
+$retry_timestamp$;
+
 SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000012',true);
 DO $reviewer_reads$
