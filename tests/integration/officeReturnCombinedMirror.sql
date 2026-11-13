@@ -243,4 +243,110 @@ BEGIN
   IF NOT v_denied THEN RAISE EXCEPTION 'UNRELATED_SERVICE_SIZE_LIMIT_LOST'; END IF;
   RAISE NOTICE 'PASS: Return-only and Other Tax mirrors, v2 allocation and certificate readback, Travel Tax passenger projection, exact replay and legacy 16k guards';
 END $office_return_combined_test$;
+
+-- WS3 v3 receipt/Pay Again replay: disposable Office SQL only. This is NOT
+-- evidence of a full two-database Taxpayer -> Office transport run.
+DO $v3_replay$
+DECLARE
+  parent_id uuid := gen_random_uuid();
+  again_id uuid := gen_random_uuid();
+  session_id uuid := gen_random_uuid();
+  lines jsonb; allocations jsonb; snapshot jsonb;
+  source jsonb; again jsonb; before_data jsonb;
+  r jsonb; page jsonb; original_row jsonb; again_row jsonb;
+BEGIN
+  lines := jsonb_build_array(
+    jsonb_build_object('headId',8,'economicCode','50','serviceCode','SOURCE_TAX_DEPOSIT',
+      'isWithholding',true,'totalAmount',15),
+    jsonb_build_object('headId',145,'economicCode','135','serviceCode','ASSESSED_DEMAND',
+      'isWithholding',false,'totalAmount',35));
+  allocations := jsonb_build_array(
+    jsonb_build_object('allocationId','ws3-v3-one','payerTin','999999999999',
+      'taxpayerTin','111111111111','headId',8,'economicCode','50',
+      'serviceCode','SOURCE_TAX_DEPOSIT','isWithholding',true,
+      'assessmentYear','2026-27','amountMinor',1500),
+    jsonb_build_object('allocationId','ws3-v3-two','payerTin','999999999999',
+      'taxpayerTin','222222222222','headId',145,'economicCode','135',
+      'serviceCode','ASSESSED_DEMAND','isWithholding',false,
+      'assessmentYear','2025-26','amountMinor',3500));
+  snapshot := jsonb_build_object(
+    'challanNo','WS3-V3-'||parent_id::text,
+    'paymentCategory','OTHER_TAX_PAYMENT','totalAmount',50,'items',lines,
+    'allocationItems',jsonb_build_array(
+      jsonb_build_object('allocationId','ws3-v3-one','taxpayerTin','111111111111',
+        'assessmentYear','2026-27','amountMinor',1500,'economicCode','50'),
+      jsonb_build_object('allocationId','ws3-v3-two','taxpayerTin','222222222222',
+        'assessmentYear','2025-26','amountMinor',3500,'economicCode','135')));
+  source := jsonb_build_object('id',parent_id,'sessionId',session_id,
+    'service','OTHER_TAX_PAYMENT','amountMinor',5000,'status','SIMULATED_SUCCESS',
+    'createdAt',now(),
+    'data',jsonb_build_object('origin','TAXPAY_UI','service','OTHER_TAX_PAYMENT',
+      'amountMinor',5000,'details',jsonb_build_object(
+        'allocationContractVersion',3,'combinedPayment',true,'allocationCount',2,
+        'payerMode','OTHER','payerTin','999999999999','totalAmount',50,
+        'lines',lines,'allocations',allocations,'receiptSnapshot',snapshot)));
+  r := public.demo_story1_mirror(source);
+  IF r->>'id' IS DISTINCT FROM parent_id::text
+     OR r->>'replayed' IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'V3_FIRST_OFFICE_MIRROR_FAILED';
+  END IF;
+  SELECT data INTO before_data FROM demo_payment.story_payments WHERE id=parent_id;
+  IF before_data IS DISTINCT FROM source->'data' THEN
+    RAISE EXCEPTION 'V3_ORIGINAL_SOURCE_SNAPSHOT_CHANGED';
+  END IF;
+  r := public.demo_story1_mirror(source);
+  IF r->>'replayed' IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'V3_SOURCE_RETRY_NOT_IDEMPOTENT';
+  END IF;
+  again := jsonb_set(source,'{id}',to_jsonb(again_id::text));
+  again := jsonb_set(again,'{data,details,sourcePaymentId}',to_jsonb(parent_id::text));
+  again := jsonb_set(again,'{data,details,receiptSnapshot,challanNo}',
+    to_jsonb('WS3-V3-'||again_id::text));
+  r := public.demo_story1_mirror(again);
+  IF r->>'id' IS DISTINCT FROM again_id::text
+     OR r->>'replayed' IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'V3_PAY_AGAIN_PARENT_FAILED';
+  END IF;
+  r := public.demo_story1_mirror(again);
+  IF r->>'replayed' IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'V3_PAY_AGAIN_RETRY_FAILED';
+  END IF;
+  page := public.demo_story1_office_payment_page(1,100);
+  SELECT item INTO original_row FROM jsonb_array_elements(page->'items') AS records(item)
+    WHERE item->>'id'=parent_id::text;
+  SELECT item INTO again_row FROM jsonb_array_elements(page->'items') AS records(item)
+    WHERE item->>'id'=again_id::text;
+  IF original_row IS NULL OR again_row IS NULL
+     OR original_row->>'certificateReference' IS DISTINCT FROM 'SK-PC-'||parent_id::text
+     OR again_row->>'certificateReference' IS DISTINCT FROM 'SK-PC-'||again_id::text
+     OR original_row->>'amountMinor' IS DISTINCT FROM '5000'
+     OR again_row->>'amountMinor' IS DISTINCT FROM '5000'
+     OR original_row->'details'->'allocations' IS DISTINCT FROM allocations
+     OR again_row->'details'->'allocations' IS DISTINCT FROM allocations
+     OR original_row->'details'->'receiptSnapshot' IS DISTINCT FROM snapshot
+     OR again_row->'details'->'receiptSnapshot'->>'challanNo'
+          IS DISTINCT FROM 'WS3-V3-'||again_id::text
+     OR original_row->'details'->>'sourcePaymentId' IS NOT NULL
+     OR again_row->'details'->>'sourcePaymentId' IS DISTINCT FROM parent_id::text
+     OR again_row->'details'->>'payerTin' IS DISTINCT FROM '999999999999'
+  THEN RAISE EXCEPTION 'V3_ALLOCATION_RECEIPT_OR_LINEAGE_MISMATCH'; END IF;
+  IF (SELECT count(*) FROM demo_payment.story_payments
+       WHERE id IN (parent_id,again_id))<>2
+     OR (SELECT count(*) FROM demo_payment.story_notifications
+       WHERE payment_id=parent_id)<>1
+     OR (SELECT count(*) FROM demo_payment.story_notifications
+       WHERE payment_id=again_id)<>1
+     OR (SELECT data FROM demo_payment.story_payments
+       WHERE id=parent_id) IS DISTINCT FROM before_data
+     OR (SELECT data FROM demo_payment.story_payments
+       WHERE id=again_id) IS DISTINCT FROM again->'data'
+     OR (SELECT sum((a->>'amountMinor')::bigint)
+       FROM jsonb_array_elements(again_row->'details'->'allocations') a)<>5000
+     OR (SELECT count(DISTINCT a->>'allocationId')
+       FROM jsonb_array_elements(again_row->'details'->'allocations') a)<>2
+  THEN RAISE EXCEPTION 'V3_PARENT_REPLAY_OR_AMOUNT_INTEGRITY_FAILED'; END IF;
+  RAISE NOTICE 'PASS: v3 allocation IDs, payer, two recipients, mixed AY, Pay Again original parent, certificates, single notices and retry';
+END;
+$v3_replay$;
+
 ROLLBACK;
