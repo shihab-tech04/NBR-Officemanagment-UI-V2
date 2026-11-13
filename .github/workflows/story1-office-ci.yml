@@ -9,6 +9,7 @@ on:
       - 'tests/integration/story1OfficeMigrations.sql'
       - 'tests/integration/story1ApprovedFixtureRead.sql'
       - 'tests/integration/officeCorrectionReview.sql'
+      - 'tests/integration/officeReturnCombinedMirror.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
