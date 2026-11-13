@@ -6,6 +6,14 @@ export type CorrectionReviewAction =
   | "APPROVER_CLOSE"
   | "REJECT";
 
+export type OfficeCorrectionDecisionEvent = {
+  messageId: string;
+  action: CorrectionReviewAction;
+  role: "MAKER" | "REVIEWER" | "APPROVER";
+  occurredAt: string;
+  deliveryState: "ACKNOWLEDGED";
+};
+
 export type OfficeCorrectionInquiry = {
   requestId: string;
   sourcePaymentId: string | null;
@@ -21,6 +29,7 @@ export type OfficeCorrectionInquiry = {
   reviewState: string;
   reviewRevision: number;
   reviewUpdatedAt: string;
+  decisionHistory: OfficeCorrectionDecisionEvent[];
   pendingDelivery: boolean;
   deliveryState: string | null;
   lastDeliveryError: string | null;
@@ -68,6 +77,29 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
     }
     const sourcePaymentId = parentIdMissing ? null : rawParentId as string;
     const sourcePaymentKind = parentKindMissing ? null : "TAXPAY_STORY_PAYMENT" as const;
+    const rawHistory = row.decisionHistory;
+    if (rawHistory !== undefined && !Array.isArray(rawHistory)) {
+      throw new Error("Invalid correction decision history");
+    }
+    const decisionHistory = (Array.isArray(rawHistory) ? rawHistory : []).map((event) => {
+      if (!event || typeof event !== "object") throw new Error("Invalid correction decision event");
+      const decision = event as Record<string, unknown>;
+      if (typeof decision.messageId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decision.messageId) ||
+          typeof decision.action !== "string" || !validActions.has(decision.action as CorrectionReviewAction) ||
+          !["MAKER", "REVIEWER", "APPROVER"].includes(String(decision.role)) ||
+          typeof decision.occurredAt !== "string" || !Number.isFinite(Date.parse(decision.occurredAt)) ||
+          decision.deliveryState !== "ACKNOWLEDGED") {
+        throw new Error("Invalid or unacknowledged correction decision event");
+      }
+      return {
+        messageId: decision.messageId,
+        action: decision.action as CorrectionReviewAction,
+        role: decision.role as OfficeCorrectionDecisionEvent["role"],
+        occurredAt: decision.occurredAt,
+        deliveryState: "ACKNOWLEDGED" as const,
+      };
+    });
     const actions = row.availableActions.filter((action): action is CorrectionReviewAction =>
       typeof action === "string" && validActions.has(action as CorrectionReviewAction));
     if (actions.length !== row.availableActions.length) {
@@ -88,6 +120,7 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
       reviewState: row.reviewState as string,
       reviewRevision: row.reviewRevision as number,
       reviewUpdatedAt: row.reviewUpdatedAt as string,
+      decisionHistory,
       pendingDelivery: row.pendingDelivery as boolean,
       deliveryState: typeof row.deliveryState === "string" ? row.deliveryState : null,
       lastDeliveryError: typeof row.lastDeliveryError === "string" ? row.lastDeliveryError : null,
