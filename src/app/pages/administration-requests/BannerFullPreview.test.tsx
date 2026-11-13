@@ -37,6 +37,9 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     const { container } = render(<BannerFullPreview banner={slide} imageSrc="/cropped-art.png" device="desktop"
       language="en" travelAction="Pay Travel Tax" fixedCopy={fixedCopy} />);
     const preview = screen.getByRole('img', {name:/Unpublished desktop banner preview/});
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. Tax payments, without the confusion. Choose the payment you need. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
     expect(preview.getAttribute('data-preview-palette')).toBe('image');
     expect(preview.getAttribute('data-payment-service')).toBe('TAX_WITH_RETURN');
     expect(preview.getAttribute('style')).toContain('--preview-bg: #F1F6FA');
@@ -54,7 +57,11 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
   it('switches to exact mobile and Bangla text without changing colors or image', () => {
     const { container } = render(<BannerFullPreview banner={slide} imageSrc="/cropped-art.png" device="mobile"
       language="bn" travelAction="ভ্রমণ কর পরিশোধ" fixedCopy={fixedCopy} />);
-    expect(screen.getByRole('img',{name:/Unpublished mobile banner preview/}).getAttribute('style')).toContain('--preview-bg: #F1F6FA');
+    const preview=screen.getByRole('img',{name:/Unpublished mobile banner preview/});
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. কর পরিশোধ সহজ করুন. কর দিন, পেমেন্টের তথ্য রাখুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    expect(preview.getAttribute('style')).toContain('--preview-bg: #F1F6FA');
     expect(container.querySelector('.cms-theme-preview--mobile')).toBeInTheDocument();
     expect(container.querySelector('.cms-theme-preview__media img')?.getAttribute('src')).toBe('/cropped-art.png');
     expect(screen.getByText('কর পরিশোধ সহজ করুন')).toBeInTheDocument();
