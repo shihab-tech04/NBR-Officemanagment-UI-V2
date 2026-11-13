@@ -129,10 +129,14 @@ export function correctionHistoryEvents(
         titleBn: "অফিস সংশোধন সিদ্ধান্ত স্বীকৃত",
         detailEn: action[0] + " · role " + role[0] + " · case " + requestId,
         detailBn: action[1] + " · ভূমিকা " + role[1] + " · কেস " + requestId,
-        provenanceEn: "Office SQL acknowledged outbox message " + decision.messageId +
-          " · case " + requestId + " · immutable Taxpayer SQL payment parent " + parentId,
-        provenanceBn: "অফিস SQL স্বীকৃত outbox বার্তা " + decision.messageId +
-          " · কেস " + requestId + " · অপরিবর্তনীয় করদাতা SQL পেমেন্ট প্যারেন্ট " + parentId,
+        provenanceEn: "Taxpayer SQL source event " + inquiry.sourceEventId +
+          " (" + inquiry.sourceEventType + ") · Office SQL correction case " + requestId +
+          " · Office SQL acknowledged outbox message " + decision.messageId +
+          " · immutable Taxpayer SQL payment parent " + parentId,
+        provenanceBn: "করদাতা SQL উৎস ঘটনা " + inquiry.sourceEventId +
+          " (" + inquiry.sourceEventType + ") · অফিস SQL সংশোধন কেস " + requestId +
+          " · অফিস SQL স্বীকৃত outbox বার্তা " + decision.messageId +
+          " · অপরিবর্তনীয় করদাতা SQL পেমেন্ট প্যারেন্ট " + parentId,
       });
     }
   }

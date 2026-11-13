@@ -30,7 +30,7 @@ describe('Office taxpayer register/detail navigation',()=>{
   it('does not fabricate official credits or show unrelated reference corrections',()=>{
     expect(module).toContain("t('taxPositionNotVerified')");
     expect(module).toContain("t('ledgerNotVerified')");
-    expect(module).toContain('linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear)');
+    expect(module).toContain('linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,'all')');
     expect(module).toContain('taxpayerCorrectionRows=officeCorrectionRows.filter');
     expect(module).not.toContain('...referenceCorrections.map');
   });
