@@ -1,17 +1,19 @@
 /** Existing Office Payments screen data adapter for Story 1 simulated payments. */
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
 export type StoryPayment = {
-  id:string;service:string;amountMinor:number;status:string;createdAt:string;
+  id:string;service:string;amountMinor:number;status:string;createdAt:string;certificateReference?:string;
   details?:{
-    payerId?:string;payerName?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
+    payerId?:string;payerName?:string;payerTin?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
     taxZone?:string;taxCircle?:string;receiptReference?:string;
     paymentChannel?:string;paymentMethod?:string;
-    lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;[key:string]:unknown}>;
-    allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string}>;
+    lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;headId?:number;economicCode?:string;headNameEn?:string;serviceCode?:string;isWithholding?:boolean;totalAmount?:number;[key:string]:unknown}>;
+    allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string;serviceCode?:string;isWithholding?:boolean}>;
     batchId?:string;batchItemId?:string;batchItemIndex?:number;batchItemCount?:number;
     receiptMobile?:string;noticeReference?:string;
-    payerMode?:string;incomeTaxType?:string;travelRoute?:string;
+    payerMode?:string;incomeTaxType?:string;travelRoute?:string;travelMode?:string;departurePort?:string;destination?:string;economicCode?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
+    passengers?:Array<{passengerName?:string;name?:string;passportNumberMasked?:string|null;nationality?:string;country?:string;age?:number;amountMinor?:number;amount?:number}>;
+    receiptSnapshot?:{paymentCategory?:string;totalAmount?:number;challanNo?:string;receiptReference?:string;items?:Array<Record<string,unknown>>;allocationItems?:Array<Record<string,unknown>>;travelDetails?:{passengers?:Array<Record<string,unknown>>}};
   };
 };
 export type StoryNotice = {id:number;paymentId:string;type:string;createdAt:string};
