@@ -587,12 +587,13 @@ describe('verified TaxPay banner CMS', () => {
           const ending = bn
             ? (/[.!?।]$/u.test(title) ? '' : '।')
             : (/[.!?]$/.test(title) ? '' : '.');
-          const action = bn ? banner.action_bn : banner.action_en;
+          const fixedCopy = row();
+          const action = bn ? fixedCopy.action_bn : fixedCopy.action_en;
           const travelAction = bn ? 'ভ্রমণ কর পরিশোধ' : 'Pay Travel Tax';
           const imageSrc = '/published/' + banner.id + '-' + device + '.webp';
           const { container, unmount } = render(<BannerFullPreview banner={banner}
             imageSrc={imageSrc} device={device} language={language}
-            travelAction={travelAction} fixedCopy={row()} />);
+            travelAction={travelAction} fixedCopy={fixedCopy} />);
           const preview = screen.getByRole('img');
           expect(preview).toHaveAttribute('data-fixed-left', 'true');
           expect(preview).toHaveAttribute('data-preview-palette', 'image');
