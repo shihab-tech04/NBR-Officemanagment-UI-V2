@@ -1,0 +1,71 @@
+name: WS3 Office notice read-state - disposable PostgreSQL 17
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-state-contract:
+    name: Officer read state and exact bigint IDs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notice_read_state_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notice_read_state_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Load disposable Office/Auth notice fixtures
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadStateFixture.sql
+      - name: Apply the WS3 Office read-state migration
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113170000_office_story_notice_read_state.sql
+      - name: Verify role isolation, retry immutability and exact bigint readback
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadState.sql
