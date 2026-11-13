@@ -59,6 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -c 'create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;'
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeMigrationAuthPrerequisite.sql
           mapfile -t migrations < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print | LC_ALL=C sort)
           test "${#migrations[@]}" -gt 0
           printf 'Applying %s active Office migration files\n' "${#migrations[@]}"
