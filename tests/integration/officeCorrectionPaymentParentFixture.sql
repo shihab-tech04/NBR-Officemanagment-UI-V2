@@ -45,7 +45,6 @@ CREATE TABLE payment_sync.officer_decisions(
     ('MAKER_ACKNOWLEDGE','REVIEWER_VERIFY','APPROVER_CLOSE','REJECT')),
   reason text,idempotency_key uuid NOT NULL,
   message_id uuid NOT NULL UNIQUE REFERENCES payment_sync.control_outbox(message_id),
-  created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(request_id,officer_uid,idempotency_key)
 );
 

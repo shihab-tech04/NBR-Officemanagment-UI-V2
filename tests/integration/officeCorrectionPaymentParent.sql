@@ -82,23 +82,23 @@ INSERT INTO payment_sync.control_outbox(
   message_id,request_id,target_origin,payload,delivery_state,attempts,acknowledged_at
 ) VALUES
   ('80000000-0000-4000-8000-000000000021','80000000-0000-4000-8000-000000000002',
-   'TAXPAY_SQL','{}','ACKNOWLEDGED',1,'2026-11-12T17:02:00Z'),
+   'TAXPAY_SQL','{"occurredAt":"2026-11-12T17:02:00Z"}','ACKNOWLEDGED',1,'2026-11-12T17:02:00Z'),
   ('80000000-0000-4000-8000-000000000022','80000000-0000-4000-8000-000000000002',
-   'TAXPAY_SQL','{}','ACKNOWLEDGED',1,'2026-11-12T17:03:00Z'),
+   'TAXPAY_SQL','{"occurredAt":"2026-11-12T17:03:00Z"}','ACKNOWLEDGED',1,'2026-11-12T17:03:00Z'),
   ('80000000-0000-4000-8000-000000000023','80000000-0000-4000-8000-000000000002',
-   'TAXPAY_SQL','{}','PENDING',1,NULL);
+   'TAXPAY_SQL','{"occurredAt":"2026-11-12T17:04:00Z"}','PENDING',1,NULL);
 INSERT INTO payment_sync.officer_decisions(
-  request_id,officer_uid,officer_role,action_code,reason,idempotency_key,message_id,created_at
+  request_id,officer_uid,officer_role,action_code,reason,idempotency_key,message_id
 ) VALUES
   ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000011',
    'MAKER','MAKER_ACKNOWLEDGE','Synthetic accepted maker event',
-   '80000000-0000-4000-8000-000000000031','80000000-0000-4000-8000-000000000021','2026-11-12T17:02:00Z'),
+   '80000000-0000-4000-8000-000000000031','80000000-0000-4000-8000-000000000021'),
   ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000012',
    'REVIEWER','REVIEWER_VERIFY','Synthetic accepted reviewer event',
-   '80000000-0000-4000-8000-000000000032','80000000-0000-4000-8000-000000000022','2026-11-12T17:03:00Z'),
+   '80000000-0000-4000-8000-000000000032','80000000-0000-4000-8000-000000000022'),
   ('80000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000013',
    'APPROVER','APPROVER_CLOSE','Synthetic pending attempt',
-   '80000000-0000-4000-8000-000000000033','80000000-0000-4000-8000-000000000023','2026-11-12T17:04:00Z');
+   '80000000-0000-4000-8000-000000000033','80000000-0000-4000-8000-000000000023');
 UPDATE payment_sync.correction_mirrors
 SET review_state='REVIEWER_VERIFIED',review_revision=3,review_updated_at='2026-11-12T17:03:00Z',
     pending_message_id='80000000-0000-4000-8000-000000000023'
@@ -124,7 +124,9 @@ BEGIN
   END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
      OR v_item->'decisionHistory'->0->>'action'<>'MAKER_ACKNOWLEDGE'
+     OR v_item->'decisionHistory'->0->>'occurredAt'<>'2026-11-12T17:02:00Z'
      OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY'
+     OR v_item->'decisionHistory'->1->>'occurredAt'<>'2026-11-12T17:03:00Z'
      OR v_item->'decisionHistory'->1->>'deliveryState'<>'ACKNOWLEDGED' THEN
     RAISE EXCEPTION 'Office correction queue omitted ordered acknowledged decision history';
   END IF;

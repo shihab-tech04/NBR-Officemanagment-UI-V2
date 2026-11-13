@@ -85,9 +85,9 @@ BEGIN
             'messageId',d.message_id,
             'action',d.action_code,
             'role',d.officer_role,
-            'occurredAt',d.created_at,
+            'occurredAt',nullif(o_decision.payload->>'occurredAt',''),
             'deliveryState',o_decision.delivery_state
-          ) ORDER BY d.created_at,d.message_id)
+          ) ORDER BY nullif(o_decision.payload->>'occurredAt','')::timestamptz NULLS LAST,d.message_id)
           FROM payment_sync.officer_decisions d
           JOIN payment_sync.control_outbox o_decision ON o_decision.message_id=d.message_id
           WHERE d.request_id=m.inquiry_id AND o_decision.delivery_state='ACKNOWLEDGED'
