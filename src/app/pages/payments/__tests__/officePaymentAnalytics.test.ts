@@ -63,3 +63,56 @@ describe('Office Payments Analytics: source-backed metrics',()=>{
     expect(officePaymentAnalytics([])).toEqual({total:0,saved:0,failed:0,pending:0,other:0,amountMinor:0,methods:[],services:[]});
   });
 });
+
+const reportingPayment:StoryPayment={...multiYear,details:{...multiYear.details,payerId:'payer-1',payerName:'Payer Example'}};
+
+describe('allocation-backed report grouping',()=>{
+  it('projects reconciled allocation lines with original parent and payer identities',()=>{
+    const result=projectOfficePaymentReport([reportingPayment]);
+    expect(result.issues).toEqual([]);
+    expect(result.rows).toHaveLength(3);
+    expect(result.rows.map(row=>row.parentId)).toEqual(['p-multi','p-multi','p-multi']);
+    expect(result.rows.reduce((sum,row)=>sum+row.amountMinor,0)).toBe(6000);
+    expect(result.rows.map(row=>row.assessmentYear)).toEqual(['2025-26','2025-26','2026-27']);
+    expect(result.rows.map(row=>row.headId)).toEqual([68,68,68]);
+    expect(result.rows.map(row=>row.payerId)).toEqual(['payer-1','payer-1','payer-1']);
+  });
+  it('groups by year, head, payer and beneficiary without multiplying parent totals',()=>{
+    const {rows}=projectOfficePaymentReport([reportingPayment]);
+    const years=groupOfficePaymentReport(rows,'assessmentYear');
+    expect(years.map(({label,parentCount,amountMinor})=>({label,parentCount,amountMinor})))
+      .toEqual([{label:'2025-26',parentCount:1,amountMinor:3000},{label:'2026-27',parentCount:1,amountMinor:3000}]);
+    expect(groupOfficePaymentReport(rows,'head')).toEqual([{
+      key:'head:68',label:'Advance Tax',parentCount:1,lineCount:3,amountMinor:6000,parentIds:['p-multi']
+    }]);
+    expect(groupOfficePaymentReport(rows,'payer')[0]).toMatchObject({
+      key:'payer:payer-1',label:'Payer Example',parentCount:1,lineCount:3,amountMinor:6000
+    });
+    const beneficiaries=groupOfficePaymentReport(rows,'beneficiary');
+    expect(beneficiaries.map(({key,parentCount,amountMinor})=>({key,parentCount,amountMinor})))
+      .toEqual([
+        {key:'beneficiary:123456789012',parentCount:1,amountMinor:4000},
+        {key:'beneficiary:234567890123',parentCount:1,amountMinor:2000},
+      ]);
+  });
+  it('does not merge two unverified payer names into one payer identity',()=>{
+    const {rows,issues}=projectOfficePaymentReport([
+      {...reportingPayment,id:'p-one'},
+      {...reportingPayment,id:'p-two'},
+    ]);
+    expect(issues.filter(issue=>issue.reason==='PAYER_ID_MISSING')).toHaveLength(2);
+    const payers=groupOfficePaymentReport(rows,'payer');
+    expect(payers).toHaveLength(2);
+    expect(payers.map(group=>group.parentCount)).toEqual([1,1]);
+  });
+  it('fails closed on an allocation mismatch instead of publishing a guessed report amount',()=>{
+    const {rows,issues}=projectOfficePaymentReport([{...reportingPayment,amountMinor:6001}]);
+    expect(rows).toEqual([]);
+    expect(issues).toEqual([{parentId:'p-multi',reason:'ALLOCATION_MISSING_OR_UNRECONCILED'}]);
+  });
+  it('does not include undated rows in a date-based report projection',()=>{
+    const {rows,issues}=projectOfficePaymentReport([{...reportingPayment,createdAt:'not-a-date'}]);
+    expect(rows).toEqual([]);
+    expect(issues).toEqual([{parentId:'p-multi',reason:'INVALID_OCCURRED_AT'}]);
+  });
+});

@@ -75,3 +75,119 @@ export function officePaymentAnalytics(records:readonly StoryPayment[],year='all
   return {total:scoped.length,saved,failed,pending,other,amountMinor,
     methods:sorted(methods),services:sorted(services)};
 }
+
+export type OfficePaymentReportDimension='assessmentYear'|'head'|'payer'|'beneficiary';
+export type OfficePaymentReportLine={
+  parentId:string;allocationIndex:number;occurredAt:string;status:string;
+  payerId:string|null;payerName:string|null;
+  beneficiaryTin:string|null;beneficiary:string;
+  headId:number|null;head:string;assessmentYear:string;amountMinor:number;
+};
+export type OfficePaymentReportIssueReason=
+  |'PAYMENT_ID_MISSING'|'INVALID_OCCURRED_AT'|'ALLOCATION_MISSING_OR_UNRECONCILED'
+  |'PAYMENT_STATUS_MISSING'|'PAYER_ID_MISSING'|'BENEFICIARY_TIN_MISSING'
+  |'HEAD_ID_MISSING'|'ASSESSMENT_YEAR_MISSING';
+export type OfficePaymentReportIssue={parentId:string;reason:OfficePaymentReportIssueReason};
+export type OfficePaymentReportGroup={
+  key:string;label:string;parentCount:number;lineCount:number;amountMinor:number|null;parentIds:string[];
+};
+
+/** Project only reconciled, payment-linked Office allocation lines. Unavailable
+ * identities stay explicit and are never guessed from private address books. */
+export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
+  rows:OfficePaymentReportLine[];issues:OfficePaymentReportIssue[]
+}{
+  const rows:OfficePaymentReportLine[]=[];
+  const issueKeys=new Set<string>();
+  const issues:OfficePaymentReportIssue[]=[];
+  const addIssue=(parentId:string,reason:OfficePaymentReportIssueReason)=>{
+    const key=parentId+':'+reason;
+    if(issueKeys.has(key))return;
+    issueKeys.add(key);issues.push({parentId,reason});
+  };
+  for(const payment of records){
+    const parentId=typeof payment?.id==='string'&&payment.id.trim()?payment.id:'(unidentified payment)';
+    if(parentId==='(unidentified payment)'){
+      addIssue(parentId,'PAYMENT_ID_MISSING');continue;
+    }
+    const occurredAt=typeof payment.createdAt==='string'?payment.createdAt:'';
+    if(!Number.isFinite(Date.parse(occurredAt))){
+      addIssue(parentId,'INVALID_OCCURRED_AT');continue;
+    }
+    const status=typeof payment.status==='string'?payment.status.trim():'';
+    if(!status)addIssue(parentId,'PAYMENT_STATUS_MISSING');
+    const details=payment.details??{};
+    const allocations=Array.isArray(details.allocations)?details.allocations:[];
+    const lines=Array.isArray(details.lines)?details.lines:[];
+    const items=getOfficePaymentItems(payment);
+    if(!items.length|| (allocations.length>0&&items.length!==allocations.length) ||
+      (allocations.length===0&&items.length!==lines.length)){
+      addIssue(parentId,'ALLOCATION_MISSING_OR_UNRECONCILED');continue;
+    }
+    const payerId=typeof details.payerId==='string'&&details.payerId.trim()?details.payerId.trim():null;
+    const payerName=typeof details.payerName==='string'&&details.payerName.trim()?details.payerName.trim():null;
+    if(!payerId)addIssue(parentId,'PAYER_ID_MISSING');
+    items.forEach((item,index)=>{
+      const allocation=allocations.length?allocations[index]:undefined;
+      const sourceLine=lines[index];
+      const rawHeadId=allocation?.headId??sourceLine?.headId;
+      const headId=Number.isSafeInteger(rawHeadId)?rawHeadId as number:null;
+      const head=item.service&&item.service!=='—'?item.service:'Head not recorded';
+      const rawTin=item.taxpayerTin;
+      const beneficiaryTin=typeof rawTin==='string'&&/^\d{12,13}$/.test(rawTin)?rawTin:null;
+      const beneficiary=item.taxpayer&&item.taxpayer!=='—'?item.taxpayer:
+        beneficiaryTin?'TIN '+beneficiaryTin:'Beneficiary not recorded';
+      const assessmentYear=typeof item.assessmentYear==='string'
+        ?item.assessmentYear.trim().replace(/–/g,'-'):'';
+      if(!beneficiaryTin)addIssue(parentId,'BENEFICIARY_TIN_MISSING');
+      if(headId===null)addIssue(parentId,'HEAD_ID_MISSING');
+      if(!assessmentYear||assessmentYear==='—')addIssue(parentId,'ASSESSMENT_YEAR_MISSING');
+      rows.push({
+        parentId,allocationIndex:index,occurredAt,status:status||'',
+        payerId,payerName,beneficiaryTin,beneficiary,headId,head,
+        assessmentYear:assessmentYear||'—',amountMinor:item.amountMinor,
+      });
+    });
+  }
+  issues.sort((a,b)=>a.parentId.localeCompare(b.parentId)||a.reason.localeCompare(b.reason));
+  return {rows,issues};
+}
+
+/** Group by source identities and split amounts by reconciled allocation lines.
+ * Parent counts are distinct within each group; amount totals sum the line shares.
+ * Missing identity uses a per-line key, avoiding false merges by display name. */
+export function groupOfficePaymentReport(
+  rows:readonly OfficePaymentReportLine[],dimension:OfficePaymentReportDimension
+):OfficePaymentReportGroup[]{
+  const groups=new Map<string,{label:string;parents:Set<string>;lineCount:number;amountMinor:number|null}>();
+  rows.forEach(row=>{
+    let identity:string|null=null,label='Not recorded';
+    if(dimension==='assessmentYear'){
+      if(row.assessmentYear&&row.assessmentYear!=='—')identity=row.assessmentYear;
+      label=identity??'Assessment year not recorded';
+    }else if(dimension==='head'){
+      if(row.headId!==null)identity=String(row.headId);
+      label=row.head||'Head not recorded';
+    }else if(dimension==='payer'){
+      if(row.payerId)identity=row.payerId;
+      label=row.payerName||row.payerId||'Payer identity unavailable';
+    }else{
+      if(row.beneficiaryTin)identity=row.beneficiaryTin;
+      label=row.beneficiary||row.beneficiaryTin||'Beneficiary not recorded';
+    }
+    const key=identity===null
+      ?'unverified:'+row.parentId+':'+String(row.allocationIndex)
+      :dimension+':'+identity;
+    const group=groups.get(key)??{label,parents:new Set<string>(),lineCount:0,amountMinor:0};
+    group.parents.add(row.parentId);group.lineCount++;
+    if(group.amountMinor!==null){
+      const next=group.amountMinor+row.amountMinor;
+      group.amountMinor=Number.isSafeInteger(row.amountMinor)&&row.amountMinor>0&&Number.isSafeInteger(next)?next:null;
+    }
+    groups.set(key,group);
+  });
+  return [...groups.entries()].map(([key,group])=>({
+    key,label:group.label,parentCount:group.parents.size,lineCount:group.lineCount,
+    amountMinor:group.amountMinor,parentIds:[...group.parents].sort(),
+  })).sort((a,b)=>b.parentCount-a.parentCount||a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+}
