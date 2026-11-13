@@ -49,7 +49,7 @@ const notificationsSlice = createSlice({
         if (notice.type === "payment") notice.isRead = false;
       });
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: number[]; officerUid?: string | null }>) {
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: string[]; officerUid?: string | null }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
       const nextReadStateMode = action.payload.useOfficerReadState ? "officer" : "demo";
@@ -91,10 +91,10 @@ const notificationsSlice = createSlice({
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
           isRead: action.payload.useOfficerReadState
-            ? officerReadIds.has(event.id)
+            ? officerReadIds.has(String(event.id))
             : previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
           targetPaymentId: event.paymentId,
-          targetNoticeId: event.id,
+          targetNoticeId: String(event.id),
           destination: { main: "payments", sub: "transactions" },
         });
       }

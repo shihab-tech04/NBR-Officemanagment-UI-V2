@@ -23,7 +23,7 @@ describe("Office SQL-backed payment bell", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: "sql-payment-91", isRead: false,
       targetPaymentId: paymentId,
-      targetNoticeId: first.id,
+      targetNoticeId: String(first.id),
       destination: { main: "payments", sub: "transactions" } });
     expect(notificationTargetPath(rows[0])).toBe(`/payments/transactions/record/${paymentId}`);
     expect(rows[0].message).toContain("৳1,250.50");
@@ -47,7 +47,7 @@ describe("Office SQL-backed payment bell", () => {
     const unread = reducer(undefined, sync([first]));
     const markedByMaker = reducer(unread, syncMirroredPaymentNotices({
       notices: [first], payments: [payment], language: "en",
-      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [first.id],
+      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [String(first.id)],
     }));
     expect(markedByMaker.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(true);
 
@@ -60,7 +60,7 @@ describe("Office SQL-backed payment bell", () => {
   it("does not reuse or apply a delayed read receipt across officer identities", () => {
     const maker = reducer(undefined, syncMirroredPaymentNotices({
       notices: [first], payments: [payment], language: "en",
-      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [first.id],
+      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [String(first.id)],
     }));
     expect(maker.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(true);
 
@@ -76,7 +76,7 @@ describe("Office SQL-backed payment bell", () => {
   it("clears the prior officer's cached read flags as soon as identity changes", () => {
     const maker = reducer(undefined, syncMirroredPaymentNotices({
       notices: [first], payments: [payment], language: "en",
-      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [first.id],
+      useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [String(first.id)],
     }));
     const signedOut = reducer(maker, clearOfficerNoticeReadState());
     expect(signedOut.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);

@@ -1,7 +1,7 @@
 import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 
 export type OfficeStoryNoticeReadState = {
-  noticeId: number;
+  noticeId: string;
   isRead: boolean;
 };
 export type OfficeStoryNoticeReadSnapshot = {
@@ -9,26 +9,26 @@ export type OfficeStoryNoticeReadSnapshot = {
   notices: OfficeStoryNoticeReadState[];
 };
 
-function noticeId(value: unknown): number | null {
-  const parsed = typeof value === "number" ? value
-    : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : NaN;
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+/** Exact decimal-string PostgreSQL bigint identity, never coerced to JS Number. */
+export function parseOfficeNoticeId(value: unknown): string | null {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,18}$/.test(value)) return null;
+  return BigInt(value) <= 9223372036854775807n ? value : null;
 }
 
 /** Validate the authenticated RPC response against the exact requested notice IDs. */
 export function parseOfficeStoryNoticeReadState(
   data: unknown,
-  expectedIds: number[],
+  expectedIds: string[],
 ): OfficeStoryNoticeReadState[] {
   if (!Array.isArray(data)) throw new Error("Invalid Office notice read-state response");
   const expected = new Set(expectedIds);
-  const parsed = new Map<number, OfficeStoryNoticeReadState>();
+  const parsed = new Map<string, OfficeStoryNoticeReadState>();
   for (const item of data) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new Error("Invalid Office notice read-state row");
     }
     const row = item as Record<string, unknown>;
-    const id = noticeId(row.noticeId);
+    const id = parseOfficeNoticeId(row.noticeId);
     if (id === null || typeof row.isRead !== "boolean" || !expected.has(id) || parsed.has(id)) {
       throw new Error("Office notice read-state identity did not match the request");
     }
@@ -57,9 +57,9 @@ async function verifyCurrentOfficer(db: Awaited<ReturnType<typeof authenticatedC
 
 /** The SQL RPC derives the actor from auth.uid() and checks an active payment role. */
 export async function getOfficeStoryNoticeReadState(
-  noticeIds: number[],
+  noticeIds: string[],
 ): Promise<OfficeStoryNoticeReadSnapshot> {
-  if (noticeIds.length > 100 || noticeIds.some(id => noticeId(id) === null)) {
+  if (noticeIds.length > 100 || noticeIds.some(id => parseOfficeNoticeId(id) === null)) {
     throw new Error("Invalid Office notice read-state request");
   }
   const uniqueIds = Array.from(new Set(noticeIds));
@@ -74,8 +74,8 @@ export async function getOfficeStoryNoticeReadState(
 }
 
 /** Retries are safe: the SQL receipt key is (notice_id, officer_uid). */
-export async function setOfficeStoryNoticeRead(noticeIdValue: number, isRead: boolean): Promise<string> {
-  const id = noticeId(noticeIdValue);
+export async function setOfficeStoryNoticeRead(noticeIdValue: string, isRead: boolean): Promise<string> {
+  const id = parseOfficeNoticeId(noticeIdValue);
   if (id === null || typeof isRead !== "boolean") {
     throw new Error("Invalid Office notice read-state update");
   }

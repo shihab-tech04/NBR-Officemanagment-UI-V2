@@ -12,7 +12,7 @@ import {
 import { useNotificationsState } from "./useNotificationsState";
 import type { Notification } from "../store/notificationsSlice";
 import { markDemoNoticeViewed, markAllDemoNoticesViewed } from "../services/demoNotificationReadState";
-import { setOfficeStoryNoticeRead } from "../services/officeStoryNoticeReadState";
+import { parseOfficeNoticeId, setOfficeStoryNoticeRead } from "../services/officeStoryNoticeReadState";
 import { isSharedAuditMode } from "../pages/audit/auditSharedSql";
 
 // Re-export for backwards compat
@@ -43,7 +43,7 @@ export function useNotifications(
       if (notification.type !== "payment") {
         dispatch(markNotificationRead(notification.id));
       } else if (isSharedAuditMode()) {
-        if (Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0) {
+        if (parseOfficeNoticeId(notification.targetNoticeId) !== null) {
           void setOfficeStoryNoticeRead(notification.targetNoticeId!, true)
             .then(officerUid => dispatch(markOfficerNotificationRead({ id: notification.id, officerUid })))
             .catch(() => {
@@ -74,7 +74,7 @@ export function useNotifications(
       dispatch(markNotificationRead(notification.id));
     }
     const receiptable = paymentNotices.filter(
-      notification => Number.isSafeInteger(notification.targetNoticeId) && notification.targetNoticeId! > 0
+      notification => parseOfficeNoticeId(notification.targetNoticeId) !== null
     );
     void Promise.allSettled(receiptable.map(async notification => {
       const officerUid = await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);

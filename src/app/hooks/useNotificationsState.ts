@@ -27,11 +27,11 @@ export function useNotificationsState() {
         if (isSharedAuditMode()) {
           // A failed or role-denied read is shown as unverified/unread. The next
           // focus, online event, or periodic refresh retries against the officer's own rows.
-          let officerReadNoticeIds: number[] = [];
+          let officerReadNoticeIds: string[] = [];
           let officerUid: string | null = null;
           try {
             const snapshot = await getOfficeStoryNoticeReadState(
-              notices.slice(0, 100).map(notice => notice.id)
+              notices.slice(0, 100).map(notice => String(notice.id))
             );
             officerUid = snapshot.officerUid;
             officerReadNoticeIds = snapshot.notices.filter(state => state.isRead).map(state => state.noticeId);
