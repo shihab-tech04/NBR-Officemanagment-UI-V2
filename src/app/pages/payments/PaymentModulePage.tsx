@@ -25,6 +25,7 @@ import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice 
 import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
+import { correctionHistoryEvents, registrationHistoryEvents } from './officeTaxJourneyEvidence';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
@@ -234,7 +235,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     return()=>{active=false;window.clearInterval(interval);};
   },[selectedTin]);
   useEffect(()=>{
-    if(current!=='corrections' && !(current==='taxpayer-360' && !!taxpayerTin && taxpayerTab==='correctionsTab'))return;
+    if(current!=='corrections' && !(current==='taxpayer-360' && !!selectedTin &&
+      (taxpayerTab==='correctionsTab'||taxpayerTab==='taxJourney')))return;
     let active=true;
     const refresh=async()=>{
       try{
@@ -248,7 +250,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     void refresh();
     const timer=window.setInterval(()=>void refresh(),15000);
     return()=>{active=false;window.clearInterval(timer);};
-  },[current,correctionRefreshKey,taxpayerTin,taxpayerTab]);
+  },[current,correctionRefreshKey,selectedTin,taxpayerTab]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
   const isTransactionDetails = details?.title === t('transactions');
@@ -356,6 +358,12 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     .filter((row):row is NonNullable<typeof row>=>row!==null);
   const journeySourceById=new Map(storyPayments.map(payment=>[payment.id,payment.createdAt]));
   const taxpayerJourneyEntries=taxPayments.map(record=>({record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''}));
+  const linkedJourneyCorrections=officeCorrectionQueue.enabled && !storyLoading && !storyError
+    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear):[];
+  const taxpayerJourneyEvidenceEvents=[
+    ...registrationHistoryEvents(registrationProfile),
+    ...correctionHistoryEvents(linkedJourneyCorrections),
+  ];
   const taxpayerActivity=storyLoading||storyError?null:
     summarizeTaxpayerRecordedActivity(storyPayments,storyNotices,selectedTin,scopeYear);
   const beneficiaryNotices=isDemo?liveNotices:[];
@@ -385,9 +393,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
-  const taxpayerCorrectionIds=new Set(officeCorrectionQueue.enabled && !storyLoading && !storyError
-    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear)
-        .map(item=>item.inquiry.requestId):[]);
+  const taxpayerCorrectionIds=new Set(linkedJourneyCorrections.map(item=>item.inquiry.requestId));
   const taxpayerCorrectionRows=officeCorrectionRows.filter(row=>taxpayerCorrectionIds.has(String(row.__correctionInquiryId)));
   // Never interleave illustrative cases with an operational correction queue.
   const corrRows=[...localRecords.corrections,...officeCorrectionRows];
@@ -532,6 +538,11 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     </> :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
       taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
+        evidenceEvents={taxpayerJourneyEvidenceEvents}
+        paymentsLoading={storyLoading} paymentsError={storyError}
+        profileLoading={registrationLoading} profileError={registrationError}
+        correctionsLoading={officeCorrectionLoading} correctionsError={officeCorrectionError}
+        correctionsAvailable={officeCorrectionQueue.enabled}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
       taxpayerTab==='notices' ? taxpayerActivity
