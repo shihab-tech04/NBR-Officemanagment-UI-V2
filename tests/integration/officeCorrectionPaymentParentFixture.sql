@@ -55,6 +55,12 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO auth.users(id,email)
 VALUES ('80000000-0000-4000-8000-000000000012','correction-parent-reviewer@example.invalid')
 ON CONFLICT (id) DO NOTHING;
+INSERT INTO auth.users(id,email)
+VALUES ('80000000-0000-4000-8000-000000000013','correction-parent-approver@example.invalid')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO payment_sync.officer_roles(user_uid,role,active)
+VALUES ('80000000-0000-4000-8000-000000000013','APPROVER',true)
+ON CONFLICT (user_uid) DO UPDATE SET role=EXCLUDED.role,active=true;
 INSERT INTO payment_sync.settings(singleton,origin) VALUES(true,'OFFICE_SQL')
 ON CONFLICT (singleton) DO UPDATE SET origin=EXCLUDED.origin;
 INSERT INTO payment_sync.officer_roles(user_uid,role,active)
