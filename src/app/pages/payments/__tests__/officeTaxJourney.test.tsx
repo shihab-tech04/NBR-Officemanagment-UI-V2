@@ -90,7 +90,8 @@ describe("Office taxpayer Tax Journey", () => {
     expect(events.every(event => event.provenanceEn.includes("Taxpayer SQL source event"))).toBe(true);
     expect(events.every(event => event.provenanceEn.includes("Office SQL correction case"))).toBe(true);
     expect(events.every(event => event.provenanceEn.includes("immutable Taxpayer SQL payment parent"))).toBe(true);
-    expect(events[0].detailEn).toContain("not verified as a completed change");
+    expect(events.find(event => event.id.startsWith("correction-request:"))?.detailEn)
+      .toContain("not verified as a completed change");
     expect(events.some(event => event.provenanceEn.includes("000000000052"))).toBe(false);
   });
 
