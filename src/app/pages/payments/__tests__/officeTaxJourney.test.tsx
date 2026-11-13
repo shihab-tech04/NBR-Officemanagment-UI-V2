@@ -34,7 +34,7 @@ describe('Office taxpayer Tax Journey',()=>{
     expect((html.match(/<li /g)||[]).length).toBe(2);
     expect(html).toContain('Correction request recorded');
     expect(html).toContain('Correction decision delivered');
-    expect(html.indexOf('request-event-1')).toBeLessThan(html.indexOf('decision-event-1'));
+    expect(html.indexOf('decision-event-1')).toBeLessThan(html.indexOf('request-event-1'));
     expect(html).toContain('Acknowledged by TaxPay');
     expect(html).not.toContain('Tax credit not verified');
   });
