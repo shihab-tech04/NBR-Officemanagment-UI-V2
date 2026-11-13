@@ -38,13 +38,22 @@ CREATE TABLE payment_sync.control_outbox(
   next_attempt_at timestamptz NOT NULL DEFAULT now(),claim_token uuid
 );
 CREATE TABLE payment_sync.officer_decisions(
-  request_id uuid NOT NULL,officer_uid uuid NOT NULL,officer_role text NOT NULL,
-  action_code text NOT NULL,reason text NOT NULL,idempotency_key uuid NOT NULL,
-  message_id uuid NOT NULL,UNIQUE(request_id,officer_uid,idempotency_key)
+  decision_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id uuid NOT NULL,officer_uid uuid NOT NULL REFERENCES auth.users(id),
+  officer_role text NOT NULL CHECK(officer_role IN ('MAKER','REVIEWER','APPROVER')),
+  action_code text NOT NULL CHECK(action_code IN
+    ('MAKER_ACKNOWLEDGE','REVIEWER_VERIFY','APPROVER_CLOSE','REJECT')),
+  reason text,idempotency_key uuid NOT NULL,
+  message_id uuid NOT NULL UNIQUE REFERENCES payment_sync.control_outbox(message_id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(request_id,officer_uid,idempotency_key)
 );
 
 INSERT INTO auth.users(id,email)
 VALUES ('80000000-0000-4000-8000-000000000011','correction-parent-maker@example.invalid')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO auth.users(id,email)
+VALUES ('80000000-0000-4000-8000-000000000012','correction-parent-reviewer@example.invalid')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO payment_sync.settings(singleton,origin) VALUES(true,'OFFICE_SQL')
 ON CONFLICT (singleton) DO UPDATE SET origin=EXCLUDED.origin;
