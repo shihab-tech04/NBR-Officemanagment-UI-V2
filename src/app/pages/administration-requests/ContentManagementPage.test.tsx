@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyPublicImage } from './verifyPublicImage';
+import { BannerFullPreview } from './BannerFullPreview';
 
 const deps = vi.hoisted(() => ({ createClient: vi.fn(), officeClient: vi.fn(), verified: vi.fn(), bridge: vi.fn() }));
 vi.mock('../../services/officeCmsBridge', () => ({
@@ -553,6 +554,66 @@ describe('verified TaxPay banner CMS', () => {
       expect.objectContaining({ banner: expect.stringContaining('"background_color":"#EAF2FF"') }),
       expect.objectContaining({ desktop:expect.any(File) })));
     expect(await screen.findByText(/Published colors verified in SQL/)).toBeInTheDocument();
+  });
+
+
+  it('applies saved fixed-left preview content to all five banner assets in both languages and device layouts', () => {
+    const palettes = [
+      { background_color:'#EAF2FF', heading_color:'#172033', body_color:'#5F6B7A', outline_color:'#2C5EAD' },
+      { background_color:'#F1F6FA', heading_color:'#234868', body_color:'#375977', outline_color:'#265D79' },
+      { background_color:'#FFF6EC', heading_color:'#80420D', body_color:'#765334', outline_color:'#A65B19' },
+      { background_color:'#F6F1FC', heading_color:'#4E327B', body_color:'#5A4673', outline_color:'#6D4BA8' },
+      { background_color:'#ECF8FC', heading_color:'#07516B', body_color:'#316078', outline_color:'#0C6D8D' },
+    ];
+    const slides = [
+      { ...row(), id:'intro', service_code:null },
+      { ...row(), id:'return', service_code:'TAX_WITH_RETURN' },
+      { ...row(), id:'advance', service_code:'ADVANCE_TAX' },
+      { ...row(), id:'source', service_code:'SOURCE_TAX_DEPOSIT' },
+      { ...row(), id:'travel', service_code:'TRAVEL_TAX', action_en:'Pay Travel Tax', action_bn:'ভ্রমণ কর পরিশোধ' },
+    ].map((banner, index) => ({ ...banner, ...palettes[index] }));
+
+    for (const banner of slides) {
+      for (const device of ['desktop', 'mobile'] as const) {
+        for (const language of ['en', 'bn'] as const) {
+          const mobile = device === 'mobile';
+          const bn = language === 'bn';
+          const title = mobile
+            ? (bn ? banner.mobile_heading_bn : banner.mobile_heading_en)
+            : (bn ? banner.heading_bn : banner.heading_en);
+          const body = mobile
+            ? (bn ? banner.mobile_description_bn : banner.mobile_description_en)
+            : (bn ? banner.description_bn : banner.description_en);
+          const ending = bn
+            ? (/[.!?।]$/u.test(title) ? '' : '।')
+            : (/[.!?]$/.test(title) ? '' : '.');
+          const action = bn ? banner.action_bn : banner.action_en;
+          const travelAction = bn ? 'ভ্রমণ কর পরিশোধ' : 'Pay Travel Tax';
+          const imageSrc = '/published/' + banner.id + '-' + device + '.webp';
+          const { container, unmount } = render(<BannerFullPreview banner={banner}
+            imageSrc={imageSrc} device={device} language={language}
+            travelAction={travelAction} fixedCopy={row()} />);
+          const preview = screen.getByRole('img');
+          expect(preview).toHaveAttribute('data-fixed-left', 'true');
+          expect(preview).toHaveAttribute('data-preview-palette', 'image');
+          if (banner.service_code) expect(preview).toHaveAttribute('data-payment-service', banner.service_code);
+          else expect(preview).not.toHaveAttribute('data-payment-service');
+          expect(preview).toHaveAccessibleName(
+            'Unpublished ' + device + ' banner preview. ' + title + ending + ' ' + body +
+              ' Actions shown: ' + action + '; ' + travelAction + '.',
+          );
+          expect(preview.getAttribute('style')).toContain('--preview-bg: ' + banner.background_color);
+          expect(preview.getAttribute('style')).toContain('--preview-heading: ' + banner.heading_color);
+          expect(preview.getAttribute('style')).toContain('--preview-body: ' + banner.body_color);
+          expect(preview.getAttribute('style')).toContain('--preview-outline: ' + banner.outline_color);
+          expect(container.querySelector('.cms-theme-preview__media img')).toHaveAttribute('src', imageSrc);
+          expect(container.querySelector('.cms-theme-preview__actions')).toHaveAttribute('aria-hidden', 'true');
+          expect(container.querySelector('.cms-theme-preview__media')).toHaveAttribute('aria-hidden', 'true');
+          expect(container.querySelector('button, a, input, select, textarea, [tabindex]')).toBeNull();
+          unmount();
+        }
+      }
+    }
   });
 
   it('keeps the published intro copy and both payment actions on a service artwork preview', async () => {
