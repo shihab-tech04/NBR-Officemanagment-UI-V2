@@ -67,7 +67,9 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction,
     data-payment-service={banner.service_code || undefined}
     data-fixed-left="true"
     data-preview-palette={customPalette ? 'image' : 'fallback'}
-    style={theme} role="img" aria-label={"Unpublished "+device+" banner preview: "+title}>
+    style={theme} role="img" aria-label={
+      "Unpublished "+device+" banner preview. "+title+". "+body+" Actions shown: "+action+"; "+travelAction+"."
+    }>
     <div className="cms-theme-preview__copy">
       <h3>{title}</h3>
       <p>{body}</p>
