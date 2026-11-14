@@ -528,13 +528,13 @@ BEGIN
     END LOOP;
   END LOOP;
 
+  -- Client role must not need SELECT on the private officer-role table.
   FOR v_role,v_actor IN
-    SELECT role,user_uid FROM payment_sync.officer_roles
-    WHERE user_uid IN (
-      '77000000-0000-4000-8000-000000000001'::uuid,
-      '77000000-0000-4000-8000-000000000002'::uuid,
-      '77000000-0000-4000-8000-000000000003'::uuid
-    ) AND active ORDER BY role
+    SELECT role,user_uid FROM (VALUES
+      ('MAKER','77000000-0000-4000-8000-000000000001'::uuid),
+      ('REVIEWER','77000000-0000-4000-8000-000000000002'::uuid),
+      ('APPROVER','77000000-0000-4000-8000-000000000003'::uuid)
+    ) AS fixture(role,user_uid)
   LOOP
     PERFORM pg_catalog.set_config('request.jwt.claim.sub',v_actor::text,true);
     v_page := public.payment_v1_office_guarded_story_page(1,100);
