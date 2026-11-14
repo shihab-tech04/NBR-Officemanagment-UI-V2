@@ -1,12 +1,16 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 
-const client=vi.hoisted(()=>({read:vi.fn()}));
+const client=vi.hoisted(()=>({read:vi.fn(),getSession:vi.fn()}));
+vi.mock("../../pages/audit/auditSharedSql",()=>({
+  getAuditSqlClient:()=>({auth:{getSession:client.getSession}}),
+}));
 vi.mock("../officeStoryNoticeReadState",()=>({
   parseOfficeNoticeId:(value:unknown)=>{
     if(typeof value!=="string"||!/^[1-9][0-9]{0,18}$/.test(value))return null;
     return BigInt(value)<=9223372036854775807n?value:null;
   },
   getOfficeStoryNoticeReadState:client.read,
+  OfficeNoticeAuthorizationError:class extends Error{},
 }));
 import {getVerifiedOfficerStoryNotices} from "../officeStoryNoticePages";
 
@@ -18,11 +22,16 @@ function event(id:string) {
 }
 const ids=Array.from({length:235},(_,i)=>(9007199254740993n+BigInt(i)).toString());
 beforeEach(()=>{
- client.read.mockReset();
+ client.read.mockReset();client.getSession.mockReset();
+ client.getSession.mockResolvedValue({
+   data:{session:{user:{id:"officer-one"},access_token:"verified-officer-jwt"}},error:null,
+ });
  client.read.mockImplementation(async(batch:string[])=>({
    officerUid:"officer-one",notices:batch.map(id=>({noticeId:id,isRead:id===ids[101]})),
  }));
- vi.stubGlobal("fetch",vi.fn(async(url:string)=>{
+ vi.stubGlobal("fetch",vi.fn(async(url:string,options?:RequestInit)=>{
+   expect((options?.headers as Record<string,string>|undefined)?.Authorization)
+     .toBe("Bearer verified-officer-jwt");
    const request=new URL(String(url));
    if(!request.pathname.endsWith("/notifications/page"))throw Error("Wrong API route");
    const after=request.searchParams.get("afterId")??"0";
@@ -36,6 +45,16 @@ beforeEach(()=>{
 });
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 describe("Office SQL notice page + officer read-state transport",()=>{
+ it("rejects an absent or switched verified Office session before fetching any page",async()=>{
+   client.getSession.mockResolvedValueOnce({data:{session:null},error:null});
+   await expect(getVerifiedOfficerStoryNotices()).rejects.toThrow();
+   expect(globalThis.fetch).not.toHaveBeenCalled();
+   client.getSession.mockResolvedValueOnce({
+     data:{session:{user:{id:"another-officer"},access_token:"some-other-jwt"}},error:null,
+   });
+   await expect(getVerifiedOfficerStoryNotices()).rejects.toThrow();
+   expect(globalThis.fetch).not.toHaveBeenCalled();
+ });
  it("reads all 235 exact bigint IDs, batches read-state in 100, and marks only officer-owned receipts",async()=>{
    const value=await getVerifiedOfficerStoryNotices();
    expect(value.officerUid).toBe("officer-one");

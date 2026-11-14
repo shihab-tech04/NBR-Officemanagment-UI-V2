@@ -2,7 +2,8 @@
  * Exact-ID Office Story alert cursor consumer.
  * Canonical route + SQL belong to WS3 Office #270; this file is read-only.
  */
-import {parseOfficeNoticeId, getOfficeStoryNoticeReadState} from "./officeStoryNoticeReadState";
+import {parseOfficeNoticeId, getOfficeStoryNoticeReadState, OfficeNoticeAuthorizationError} from "./officeStoryNoticeReadState";
+import {getAuditSqlClient} from "../pages/audit/auditSharedSql";
 
 const ENDPOINT = "https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office";
 const MAX_ID = 9223372036854775807n;
@@ -81,11 +82,12 @@ export async function loadOfficeStoryCursorNotices(
   throw Error("Office notice cursor exceeded safe retrieval limit");
 }
 
-async function fetchPage(afterId:string,limit:number):Promise<unknown>{
+async function fetchPage(afterId:string,limit:number,authorization:string):Promise<unknown>{
   const response=await fetch(ENDPOINT+"/notifications/page?afterId="+
     encodeURIComponent(afterId)+"&limit="+limit,{
-      method:"GET",cache:"no-store",headers:{Accept:"application/json"},
+      method:"GET",cache:"no-store",headers:{Accept:"application/json",Authorization:"Bearer "+authorization},
     });
+  if(response.status===401||response.status===403)throw new OfficeNoticeAuthorizationError();
   if(!response.ok)throw Error("Office notice page temporarily unavailable");
   const responseData:unknown=await response.json();
   if(!responseData||typeof responseData!=="object")throw Error("Invalid Office notice response");
@@ -103,7 +105,15 @@ export async function getVerifiedOfficerStoryNotices():Promise<{
   officerUid:string;notices:OfficeStoryCursorNotice[];readIds:string[];
 }> {
   const start=await getOfficeStoryNoticeReadState([]);
-  const notices=await loadOfficeStoryCursorNotices(fetchPage);
+  // Reuse the officer session already verified by the SQL read-state contract,
+  // rather than letting an anonymous public GET disclose even synthetic notices.
+  const {data,error}=await getAuditSqlClient().auth.getSession();
+  const session=data.session;
+  if(error||!session||session.user.id!==start.officerUid||
+     typeof session.access_token!=="string"||!session.access_token)
+    throw new OfficeNoticeAuthorizationError();
+  const notices=await loadOfficeStoryCursorNotices(
+    (afterId,limit)=>fetchPage(afterId,limit,session.access_token));
   const accepted=notices.filter(item=>item.type==="NEW_SIMULATED_PAYMENT");
   const readIds:string[]=[];
   for(let offset=0;offset<accepted.length;offset+=100){
