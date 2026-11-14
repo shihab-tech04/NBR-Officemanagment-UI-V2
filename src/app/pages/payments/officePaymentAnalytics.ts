@@ -215,7 +215,11 @@ export function groupOfficePaymentReport(
     group.parents.add(row.parentId);group.lineCount++;
     if(group.amountMinor!==null){
       const next=group.amountMinor+row.amountMinor;
-      group.amountMinor=Number.isSafeInteger(row.amountMinor)&&row.amountMinor>0&&Number.isSafeInteger(next)?next:null;
+      // A source-verified Travel Tax passenger may be exempt (৳0). Other
+      // payment allocation lines still require strictly positive amounts.
+      const validLine=Number.isSafeInteger(row.amountMinor)&&
+        (row.serviceCode==='TRAVEL_TAX'?row.amountMinor>=0:row.amountMinor>0);
+      group.amountMinor=validLine&&Number.isSafeInteger(next)?next:null;
     }
     groups.set(key,group);
   });
