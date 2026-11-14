@@ -277,6 +277,7 @@ DECLARE
   lines jsonb; allocations jsonb; snapshot jsonb;
   source jsonb; again jsonb; before_data jsonb;
   r jsonb; page jsonb; original_row jsonb; again_row jsonb;
+  envelope_case text; before_notice_count bigint;
   invalid_case text; bad jsonb;
 BEGIN
   lines := jsonb_build_array(
@@ -322,6 +323,35 @@ BEGIN
   IF r->>'replayed' IS DISTINCT FROM 'true' THEN
     RAISE EXCEPTION 'V3_SOURCE_RETRY_NOT_IDEMPOTENT';
   END IF;
+  -- Exact replay is allowed; changing any source envelope field while
+  -- retaining the original JSON payload must not be misclassified as replay.
+  SELECT count(*) INTO before_notice_count FROM demo_payment.story_notifications
+    WHERE payment_id=parent_id;
+  FOR envelope_case IN SELECT unnest(ARRAY[
+    'SERVICE','AMOUNT_MINOR','CREATED_AT'
+  ]) LOOP
+    bad := source;
+    IF envelope_case='SERVICE' THEN
+      bad := pg_catalog.jsonb_set(bad,'{service}',pg_catalog.to_jsonb('ADVANCE_TAX'::text));
+    ELSIF envelope_case='AMOUNT_MINOR' THEN
+      bad := pg_catalog.jsonb_set(bad,'{amountMinor}','4900'::jsonb);
+    ELSE
+      bad := pg_catalog.jsonb_set(bad,'{createdAt}',
+        pg_catalog.to_jsonb((now()+interval '1 minute')::text));
+    END IF;
+    BEGIN
+      PERFORM public.demo_story1_mirror(bad);
+      RAISE EXCEPTION 'ENVELOPE_CONFLICT_ACCEPTED_%',envelope_case;
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM IS DISTINCT FROM 'MIRROR_CONFLICT' THEN RAISE; END IF;
+    END;
+    IF (SELECT data FROM demo_payment.story_payments WHERE id=parent_id)
+        IS DISTINCT FROM before_data
+      OR (SELECT count(*) FROM demo_payment.story_payments WHERE id=parent_id)<>1
+      OR (SELECT count(*) FROM demo_payment.story_notifications
+          WHERE payment_id=parent_id)<>before_notice_count
+    THEN RAISE EXCEPTION 'ENVELOPE_CONFLICT_MUTATED_ORIGINAL_%',envelope_case; END IF;
+  END LOOP;
   again := jsonb_set(source,'{id}',to_jsonb(again_id::text));
   again := jsonb_set(again,'{data,details,sourcePaymentId}',to_jsonb(parent_id::text));
   again := jsonb_set(again,'{data,details,receiptSnapshot,challanNo}',
