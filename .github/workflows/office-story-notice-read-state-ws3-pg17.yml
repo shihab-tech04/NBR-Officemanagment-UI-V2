@@ -167,5 +167,5 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-      - name: WS5 integration gate - preserve WS2 detail route on WS3 payment UI
+      - name: WS5 integration gate - preserve WS2 detail route, privacy and close recovery on WS3 payment UI
         run: npx vitest run src/test/paymentNoticeDetailNavigation.test.ts src/test/paymentNoticeDetailRoute.test.tsx src/test/ws5PaymentNoticeDeepLinkBehavior.test.tsx
