@@ -1,6 +1,9 @@
 BEGIN;
 
 -- A per-officer read receipt for Office-visible TaxPay Story notices.
+-- Eligibility is the cursor's existing TAXPAY_UI/NEW_SIMULATED_PAYMENT
+-- predicate plus the identical closed historical test exclusion.
+-- Never broaden this permission to TAXPAY_SQL_FIXTURE data.
 -- Keep these rows separate from immutable payments, receipts and notice events.
 CREATE TABLE payment_sync.officer_story_notice_reads (
   notice_id bigint NOT NULL
@@ -64,6 +67,11 @@ BEGIN
       JOIN demo_payment.story_payments p ON p.id=n.payment_id
       WHERE p.data->>'origin'='TAXPAY_UI'
         AND n.event_type='NEW_SIMULATED_PAYMENT'
+      AND NOT (
+        p.data->'details'->>'payerName'='Taxpayer / withholding agent'
+        AND p.data->'details'->>'taxpayerTin'='123456789012'
+        AND p.created_at<'2026-10-18 06:55:00+00'::timestamptz
+      )
     ) valid;
   IF v_valid<>v_requested THEN
     RAISE EXCEPTION 'Office payment notice not found';
@@ -86,6 +94,11 @@ BEGIN
     JOIN demo_payment.story_notifications n ON n.id=source_notice.id
     WHERE source_payment.data->>'origin'='TAXPAY_UI'
       AND n.event_type='NEW_SIMULATED_PAYMENT'
+      AND NOT (
+        source_payment.data->'details'->>'payerName'='Taxpayer / withholding agent'
+        AND source_payment.data->'details'->>'taxpayerTin'='123456789012'
+        AND source_payment.created_at<'2026-10-18 06:55:00+00'::timestamptz
+      )
   ) n
   LEFT JOIN payment_sync.officer_story_notice_reads r
     ON r.notice_id=n.id AND r.officer_uid=v_actor;
@@ -129,6 +142,11 @@ BEGIN
     JOIN demo_payment.story_payments p ON p.id=n.payment_id
     WHERE n.id=v_notice_id AND n.event_type='NEW_SIMULATED_PAYMENT'
       AND p.data->>'origin'='TAXPAY_UI'
+      AND NOT (
+        p.data->'details'->>'payerName'='Taxpayer / withholding agent'
+        AND p.data->'details'->>'taxpayerTin'='123456789012'
+        AND p.created_at<'2026-10-18 06:55:00+00'::timestamptz
+      )
   ) THEN
     RAISE EXCEPTION 'Office payment notice not found';
   END IF;
