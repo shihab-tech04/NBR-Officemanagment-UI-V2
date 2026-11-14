@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyPublicImage } from './verifyPublicImage';
+import { BannerFullPreview } from './BannerFullPreview';
 
 const deps = vi.hoisted(() => ({ createClient: vi.fn(), officeClient: vi.fn(), verified: vi.fn(), bridge: vi.fn() }));
 vi.mock('../../services/officeCmsBridge', () => ({
@@ -365,13 +366,13 @@ describe('verified TaxPay banner CMS', () => {
     expect(screen.queryByText(/public TaxPay text and images verified/)).not.toBeInTheDocument();
   });
 
-  it('explains that each slide owns its Taxpayer copy without changing service actions', async () => {
+  it('explains that public copy and payment actions stay fixed across artwork slides', async () => {
     const { client } = makeClient(true);
     deps.createClient.mockReturnValue(client);
     const { ContentManagementPage } = await import('./ContentManagementPage');
     render(<ContentManagementPage />);
     await screen.findByRole('button', { name: 'Edit banner' });
-    expect(screen.getByText(/displays this banner’s own artwork, headings, body text and payment actions/)).toBeInTheDocument();
+    expect(screen.getByText(/keeps the main banner’s heading, description and Pay Tax label, plus the Travel Tax label, fixed/)).toBeInTheDocument();
   });
 
   it('reads approved v9 preview and commits edits through versioned server bridge', async () => {
@@ -523,10 +524,27 @@ describe('verified TaxPay banner CMS', () => {
     await user.upload(input, new File([new Uint8Array(256)], 'new-banner.png', { type: 'image/png' }));
     await user.click(screen.getByRole('button', { name: 'Apply crop' }));
     const dialog = await screen.findByRole('dialog', { name: /Full banner preview/ });
-    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
-    await user.click(screen.getByRole('button', { name: 'Mobile' }));
+    const preview = dialog.querySelector('.cms-theme-preview')!;
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. Tax payments, without the confusion. Choose a tax payment. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
+    expect(preview.querySelector('.cms-theme-preview__actions')).toHaveAttribute('aria-hidden', 'true');
+    expect(preview.querySelector('.cms-theme-preview__media')).toHaveAttribute('aria-hidden', 'true');
+    expect(preview.querySelector('button, a, input, select, textarea, [tabindex]')).toBeNull();
+
     await user.click(screen.getByRole('button', { name: 'বাংলা' }));
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. কর পরিশোধে আর বিভ্রান্তি নয়। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('কর দিন');
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. কর দিন। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. Pay tax. Choose and pay. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
     await user.click(screen.getByRole('button', { name: 'Return to editor' }));
     expect(screen.getByLabelText('Light background color')).toHaveValue('#eaf2ff');
     expect(screen.getByLabelText('Dark heading color')).toHaveValue('#1e4484');
@@ -537,4 +555,131 @@ describe('verified TaxPay banner CMS', () => {
       expect.objectContaining({ desktop:expect.any(File) })));
     expect(await screen.findByText(/Published colors verified in SQL/)).toBeInTheDocument();
   });
+
+
+  it('applies saved fixed-left preview content to all five banner assets in both languages and device layouts', () => {
+    const palettes = [
+      { background_color:'#EAF2FF', heading_color:'#172033', body_color:'#5F6B7A', outline_color:'#2C5EAD' },
+      { background_color:'#F1F6FA', heading_color:'#234868', body_color:'#375977', outline_color:'#265D79' },
+      { background_color:'#FFF6EC', heading_color:'#80420D', body_color:'#765334', outline_color:'#A65B19' },
+      { background_color:'#F6F1FC', heading_color:'#4E327B', body_color:'#5A4673', outline_color:'#6D4BA8' },
+      { background_color:'#ECF8FC', heading_color:'#07516B', body_color:'#316078', outline_color:'#0C6D8D' },
+    ];
+    const slides = [
+      { ...row(), id:'intro', service_code:null },
+      { ...row(), id:'return', service_code:'TAX_WITH_RETURN' },
+      { ...row(), id:'advance', service_code:'ADVANCE_TAX' },
+      { ...row(), id:'source', service_code:'SOURCE_TAX_DEPOSIT' },
+      { ...row(), id:'travel', service_code:'TRAVEL_TAX', action_en:'Pay Travel Tax', action_bn:'ভ্রমণ কর পরিশোধ' },
+    ].map((banner, index) => ({ ...banner, ...palettes[index] }));
+
+    for (const banner of slides) {
+      for (const device of ['desktop', 'mobile'] as const) {
+        for (const language of ['en', 'bn'] as const) {
+          const mobile = device === 'mobile';
+          const bn = language === 'bn';
+          const title = mobile
+            ? (bn ? banner.mobile_heading_bn : banner.mobile_heading_en)
+            : (bn ? banner.heading_bn : banner.heading_en);
+          const body = mobile
+            ? (bn ? banner.mobile_description_bn : banner.mobile_description_en)
+            : (bn ? banner.description_bn : banner.description_en);
+          const ending = bn
+            ? (/[.!?।]$/u.test(title) ? '' : '।')
+            : (/[.!?]$/.test(title) ? '' : '.');
+          const fixedCopy = row();
+          const action = bn ? fixedCopy.action_bn : fixedCopy.action_en;
+          const travelAction = bn ? 'ভ্রমণ কর পরিশোধ' : 'Pay Travel Tax';
+          const imageSrc = '/published/' + banner.id + '-' + device + '.webp';
+          const { container, unmount } = render(<BannerFullPreview banner={banner}
+            imageSrc={imageSrc} device={device} language={language}
+            travelAction={travelAction} fixedCopy={fixedCopy} />);
+          const preview = screen.getByRole('img');
+          expect(preview).toHaveAttribute('data-fixed-left', 'true');
+          expect(preview).toHaveAttribute('data-preview-palette', 'image');
+          if (banner.service_code) expect(preview).toHaveAttribute('data-payment-service', banner.service_code);
+          else expect(preview).not.toHaveAttribute('data-payment-service');
+          expect(preview).toHaveAccessibleName(
+            'Unpublished ' + device + ' banner preview. ' + title + ending + ' ' + body +
+              ' Actions shown: ' + action + '; ' + travelAction + '.',
+          );
+          expect(preview.getAttribute('style')).toContain('--preview-bg: ' + banner.background_color);
+          expect(preview.getAttribute('style')).toContain('--preview-heading: ' + banner.heading_color);
+          expect(preview.getAttribute('style')).toContain('--preview-body: ' + banner.body_color);
+          expect(preview.getAttribute('style')).toContain('--preview-outline: ' + banner.outline_color);
+          expect(container.querySelector('.cms-theme-preview__media img')).toHaveAttribute('src', imageSrc);
+          expect(container.querySelector('.cms-theme-preview__actions')).toHaveAttribute('aria-hidden', 'true');
+          expect(container.querySelector('.cms-theme-preview__media')).toHaveAttribute('aria-hidden', 'true');
+          expect(container.querySelector('button, a, input, select, textarea, [tabindex]')).toBeNull();
+          unmount();
+        }
+      }
+    }
+  });
+
+  it('keeps the published intro copy and both payment actions on a service artwork preview', async () => {
+    const { client, publicClient } = makeClient(false, false, { extraBanner:true });
+    deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:/Withholding tax banner/ }));
+    await user.click(screen.getByRole('button', { name:'Full banner preview' }));
+    const dialog=await screen.findByRole('dialog', { name:/Full banner preview/ });
+    const preview=dialog.querySelector('.cms-theme-preview')!;
+    expect(preview).toHaveAttribute('data-payment-service','SOURCE_TAX');
+    expect(preview).toHaveAttribute('data-fixed-left','true');
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
+    expect(dialog.querySelector('.cms-theme-preview__copy h3')).not.toHaveTextContent('Withholding tax banner');
+    expect(dialog.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(dialog.querySelector('.cms-theme-preview__primary')).toHaveTextContent('Pay Tax');
+    expect(dialog.querySelector('.cms-theme-preview__outline')).toHaveTextContent('Pay Travel Tax');
+  });
+
+  it('keeps a non-publisher preview as a local draft and does not call the publish bridge', async () => {
+    const { client } = makeClient(false);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const headline = screen.getByLabelText('Desktop heading · English');
+    await user.clear(headline);
+    await user.type(headline, 'Local preview only');
+    await user.click(screen.getByRole('button', { name:'Full banner preview' }));
+    const preview=await screen.findByRole('dialog', { name:/Full banner preview/ });
+    expect(preview.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Local preview only');
+    await user.click(screen.getByRole('button', { name:'Return to editor' }));
+    await user.click(screen.getByRole('button', { name:'Publish to TaxPay' }));
+    expect(await screen.findByText(/Not published: this Office session has no verified TaxPay publishing access/)).toBeInTheDocument();
+    expect(headline).toHaveValue('Local preview only');
+    expect(deps.bridge.mock.calls.filter(([action])=>action==='publish-banner')).toHaveLength(0);
+  });
+
+  it('cancels the unpublished full preview and restores the saved fixed-left content without a write', async () => {
+    const { client } = makeClient(true);
+    deps.createClient.mockReturnValue(client);
+    const { ContentManagementPage } = await import('./ContentManagementPage');
+    const user = userEvent.setup();
+    render(<ContentManagementPage />);
+    await user.click(await screen.findByRole('button', { name:'Edit banner' }));
+    const heading=screen.getByLabelText('Desktop heading · English');
+    await user.clear(heading);
+    await user.type(heading,'Temporary headline not for publishing');
+    await user.click(screen.getByRole('button',{name:'Full banner preview'}));
+    const unpublished=await screen.findByRole('dialog',{name:/Full banner preview/});
+    expect(unpublished.querySelector('.cms-theme-preview__copy h3'))
+      .toHaveTextContent('Temporary headline not for publishing');
+    await user.click(screen.getByRole('button',{name:'Return to editor'}));
+    await user.click(screen.getByRole('button',{name:'Cancel'}));
+    await user.click(screen.getByRole('button',{name:'Full banner preview'}));
+    const restored=await screen.findByRole('dialog',{name:/Full banner preview/});
+    expect(restored.querySelector('.cms-theme-preview__copy h3'))
+      .toHaveTextContent('Tax payments, without the confusion');
+    expect(restored.querySelector('.cms-theme-preview__copy h3'))
+      .not.toHaveTextContent('Temporary headline not for publishing');
+    expect(restored.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(deps.bridge.mock.calls.filter(([action])=>action==='publish-banner')).toHaveLength(0);
+  });
+
 });

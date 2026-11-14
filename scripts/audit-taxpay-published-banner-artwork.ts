@@ -110,9 +110,9 @@ try{
       return slides.map(slide=>{
         const heading=slide.querySelector('h1,h2') as HTMLElement | null;
         const body=slide.querySelector('.citizen-public-hero__copy > p') as HTMLElement | null;
-        const button=slide.querySelector(
-          slide.dataset.bannerKind==='intro' ? '.public-hero-carousel__travel' : '.citizen-public-primary'
-        ) as HTMLElement | null;
+        // Pay Tax is the fixed filled brand action on every slide. The image-derived
+        // outline belongs to Pay Travel Tax across the fixed-left carousel.
+        const button=slide.querySelector('.public-hero-carousel__travel') as HTMLElement | null;
         const art=slide.querySelector('img') as HTMLElement | null;
         return {
           id:slide.dataset.bannerService,
