@@ -113,6 +113,8 @@ describe("Office taxpayer Tax Journey", () => {
     expect(html.indexOf("new-sql-id")).toBeLessThan(html.indexOf("TIN registration date recorded"));
     expect(html).toContain("Original Taxpayer SQL profile");
     expect(html).toContain("Office SQL mirror");
+  });
+
   it("groups a payment under the Dhaka calendar year displayed in the event date", () => {
     const html = renderToStaticMarkup(<OfficeTaxJourney language="en" onOpen={() => {}}
       entries={[{record:newerRow,occurredAt:"2026-12-31T18:30:00Z"}]}
@@ -120,7 +122,5 @@ describe("Office taxpayer Tax Journey", () => {
     expect(html).toContain('aria-label="2027"');
     expect(html).not.toContain('aria-label="2026"');
     expect(html).toContain('1 Jan 2027');
-  });
-
   });
 });
