@@ -50,8 +50,9 @@ export function OfficeTaxJourney({
     const groups = new Map<string, TimelineItem[]>();
     for (const item of rows) {
       const time = Date.parse(item.occurredAt);
+      // Match the tax journey's rendered Dhaka-local date, not an unrelated UTC year.
       const year = Number.isFinite(time)
-        ? new Date(time).getUTCFullYear().toString()
+        ? new Intl.DateTimeFormat("en", {year: "numeric", timeZone: "Asia/Dhaka"}).format(time)
         : tr("Date unavailable", "তারিখ পাওয়া যায়নি");
       groups.set(year, [...(groups.get(year) ?? []), item]);
     }
