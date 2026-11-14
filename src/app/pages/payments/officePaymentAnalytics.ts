@@ -28,6 +28,15 @@ function amountForYear(payment:StoryPayment,year:string):number|null{
   const hasAllocationEvidence=(payment.details?.lines?.length??0)>0||
     (payment.details?.allocations?.length??0)>0;
   const items=getOfficePaymentItems(payment);
+  // An approved Travel Tax parent has one source-recorded year, not a
+  // per-passenger income-tax assessment year. Reconcile its complete passenger
+  // amounts before attributing the single parent to that recorded year.
+  if(payment.service==='TRAVEL_TAX'&&Array.isArray(payment.details?.passengers)&&
+    payment.details.passengers.length>0){
+    if(years.length!==1||years[0]!==year||!items.length)return null;
+    const travelTotal=items.reduce((sum,item)=>sum+item.amountMinor,0);
+    return Number.isSafeInteger(travelTotal)&&travelTotal===payment.amountMinor?travelTotal:null;
+  }
   if(items.length){
     let total=0;
     for(const item of items){
@@ -162,8 +171,9 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
       const beneficiaryTin=typeof rawTin==='string'&&/^\d{12,13}$/.test(rawTin)?rawTin:null;
       const beneficiary=item.taxpayer&&item.taxpayer!=='—'?item.taxpayer:
         beneficiaryTin?'TIN '+beneficiaryTin:'Beneficiary not recorded';
-      const assessmentYear=typeof item.assessmentYear==='string'
-        ?item.assessmentYear.trim().replace(/–/g,'-'):'';
+      const reportYear=passengerCount>0?details.assessmentYear:item.assessmentYear;
+      const assessmentYear=typeof reportYear==='string'
+        ?reportYear.trim().replace(/–/g,'-'):'';
       // Travel Tax requires passenger identity/amount but has no income-tax
       // head, assessment year, or verified beneficiary TIN in this contract.
       if(!passengerCount&&!beneficiaryTin)addIssue(parentId,'BENEFICIARY_TIN_MISSING');
