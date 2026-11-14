@@ -51,15 +51,19 @@ Deno.serve(async(req)=>{
    if(req.method==="POST"&&path==="/mirror"){
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
-      if(!incoming?.id||!incoming?.sessionId)return respond({success:false,error:"INVALID_MIRROR"},400);
+      if(!validUuid(incoming?.id)||!validUuid(incoming?.sessionId))return respond({success:false,error:"INVALID_MIRROR"},400);
+      // A public session-based source read must never authorize an Office write.
+      // Require the signed short-lived TaxPay proof BEFORE calling any source URL.
+      const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
+      if(!mirrorProof||!/^v1\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(mirrorProof))
+        return respond({success:false,error:"MIRROR_PROOF_REQUIRED"},403);
       // Use the source SQL read-back, never an unverified caller snapshot.
       const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/payments/"
          +encodeURIComponent(incoming.id)+"?sessionId="+encodeURIComponent(incoming.sessionId);
       // Forward TaxPay's short-lived, payment+session-bound proof to TaxPay.
       // Never trust the caller's payment snapshot or store the proof in Office.
-      const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
       const source=await fetch(sourceUrl,{
-        headers:mirrorProof?{"x-taxpay-office-mirror-proof":mirrorProof}:undefined,
+        headers:{"x-taxpay-office-mirror-proof":mirrorProof},
         signal:AbortSignal.timeout(10000)});
       if(!source.ok)return respond({success:false,error:"SOURCE_RECORD_NOT_FOUND"},424);
       const sourceResponse=await source.json();
