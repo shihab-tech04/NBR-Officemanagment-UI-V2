@@ -536,28 +536,41 @@ for (const config of [
       localStorage.setItem('i18nextLng',language);
     },config.language);
     await page.route('**/functions/v1/demo-story1-office/payments*',route=>
-      route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
-        success:true,data:{items:[{
-          id:parent,service:'TRAVEL_TAX',amountMinor:12000,status:'SIMULATED_SUCCESS',
-          createdAt:'2026-11-13T10:00:00Z',certificateReference,
-          details:{
-            payerId:'ws3-travel-payer',payerName:'Travel payer',assessmentYear:'2026-27',
-            receiptReference,travelMode:'LAND',departurePort:'Benapole',destination:'India',
-            travelDate:'2026-11-20',
-            passengers:[
-              {name:'Passenger A',passportMasked:'••••1234',amount:60},
-              {name:'Passenger B',passportMasked:'••••5678',amount:60},
-            ],
-            lines:[
-              {headId:155,headNameEn:'Travel Tax',totalAmount:60},
-              {headId:156,headNameEn:'Travel Tax',totalAmount:60},
-            ],
-            receiptSnapshot:{paymentCategory:'TRAVEL_TAX',totalAmount:120,
-              travelDetails:{passengers:[
-                {name:'Passenger A',amount:60},{name:'Passenger B',amount:60},
-              ]}},
+      route.fulfill({
+        status:200,
+        contentType:'application/json',
+        body:JSON.stringify({
+          success:true,
+          data:{
+            items:[{
+              id:parent,service:'TRAVEL_TAX',amountMinor:12000,status:'SIMULATED_SUCCESS',
+              createdAt:'2026-11-13T10:00:00Z',certificateReference,
+              details:{
+                payerId:'ws3-travel-payer',payerName:'Travel payer',assessmentYear:'2026-27',
+                receiptReference,travelMode:'LAND',departurePort:'Benapole',destination:'India',
+                travelDate:'2026-11-20',
+                passengers:[
+                  {name:'Passenger A',passportMasked:'••••1234',amount:60},
+                  {name:'Passenger B',passportMasked:'••••5678',amount:60},
+                ],
+                lines:[
+                  {headId:155,headNameEn:'Travel Tax',totalAmount:60},
+                  {headId:156,headNameEn:'Travel Tax',totalAmount:60},
+                ],
+                receiptSnapshot:{
+                  paymentCategory:'TRAVEL_TAX',totalAmount:120,
+                  travelDetails:{passengers:[
+                    {name:'Passenger A',amount:60},{name:'Passenger B',amount:60},
+                  ]},
+                },
+              },
+            }],
+            total:1,page:1,perPage:100,
           },
-        }],total:1,page:1,perPage:100},simulationOnly:true})});
+          simulationOnly:true,
+        }),
+      })
+    );
     await page.goto('/payments/transactions');
     const detailAction=config.viewport.width<=768
       ?page.locator('.mobile-table-card__action-btn').first()
