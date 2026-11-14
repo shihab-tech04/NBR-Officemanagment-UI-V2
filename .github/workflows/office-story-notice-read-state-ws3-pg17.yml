@@ -106,10 +106,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WS2_SHA=93def492ad21e356b7c9b5dc3247eaafe3d80177
+          WS2_SHA=8e9bb0277ec432748346d28e4dd871cc26659920
           WS2_DIR="$RUNNER_TEMP/ws2-office-consumer"
           git clone --depth 1 --branch ws02/payment-notice-detail-deeplink \
             https://github.com/shihab-tech04/NBR-Officemanagment-UI-V2.git "$WS2_DIR"
+          git -C "$WS2_DIR" fetch --depth 1 origin "$WS2_SHA"
+          git -C "$WS2_DIR" checkout --detach "$WS2_SHA"
           test "$(git -C "$WS2_DIR" rev-parse HEAD)" = "$WS2_SHA"
           test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
           files=(
