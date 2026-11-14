@@ -1,0 +1,68 @@
+{
+  "run_date": "2026-10-22",
+  "stage": "REVIEW_ONLY_NOT_HOSTED_OR_APPROVED",
+  "exact_previous_pr_head": "45b275e3362eb83288a5fc385c6e05514ae96828",
+  "source_sha256": {
+    "deployed_v12": "1a228c1102fb41b7d698dcfa2620972fb507af386ca51f1a07251f9daf1005e8",
+    "repaired_w5": "14325400233075c8ba590208ee1251fc5ff80f76f5403c1f0218707b9e064a02",
+    "test_suite": "e2573760653e1239757ab29be0784a2f32898f26af2620cf3234ecb98e74765a",
+    "frozen_registry": "34902bac07a459a4f0c051b90bfe3b4c492f2465d06c661bab18ab7f36252184",
+    "deployed_diff": "3bed50c80a8f211fe3cce41f848430955d7736deeeac0d6026771098200dc4ac"
+  },
+  "test_counts": {
+    "tests": 89,
+    "pass": 89,
+    "fail": 0,
+    "skipped": 0
+  },
+  "test_runner": "Node 22.16.0 node --test tests/engine_boundary.node.mjs",
+  "test_runner_scope": "synthetic in-memory Edge/RPC mocks; actual 366 source input used for IDs; not legal amounts; production SQL never mutated",
+  "positive_mock_precision": {
+    "percentage_text": "0.0000001%",
+    "expected_fraction": "0.000000001",
+    "expected_base": "1000000000",
+    "expected_amount": "1",
+    "status": "LOCAL_SYNTHETIC_PASS"
+  },
+  "negative_mock_precision": {
+    "percentage_text": "0.000000001%",
+    "status": "FAIL_CLOSED",
+    "actual_amount": null
+  },
+  "negative_mock_authorization": [
+    "anonymous",
+    "expired-equivalent",
+    "forged body principal",
+    "wrong taxpayer",
+    "missing owner RPC",
+    "duplicate idempotency",
+    "missing reservation",
+    "missing finalization"
+  ],
+  "negative_mock_law": [
+    "draft year",
+    "old PASS gates",
+    "stale rule-set SHA",
+    "unapproved revision",
+    "source cutoff mismatch",
+    "effective date conflict",
+    "ambiguous rate options",
+    "unsupported residency",
+    "unclassified business",
+    "payment credit without ownership"
+  ],
+  "production_gates": {
+    "AY2026-27": "0/5",
+    "staging_approved_rule": false,
+    "auth_rpc": false,
+    "reservation_rpc": false,
+    "finalization_rpc": false,
+    "version_pinned_base_tax_rpc": false
+  },
+  "read_only_sql": "NBR public individual schedule AY2026-27 revision 2; ACTIVE flag but no independent legal release approval; AY2027-28 DRAFT. No WS02 approved isolated fixture.",
+  "pg17_auth_e2e": "BLOCKED: no approved isolated PG17/Auth instance and no WS02 source contract; local PG tools unavailable",
+  "human_approval_required": "WS01 source law verification, WS02 PG17 Auth/SQL/RPC, WS07 independent results, release controller",
+  "no_prod_post": true,
+  "no_schema_write": true,
+  "no_activation": true
+}
