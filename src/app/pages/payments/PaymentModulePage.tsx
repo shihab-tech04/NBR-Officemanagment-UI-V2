@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
@@ -25,6 +25,7 @@ import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice 
 import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
+import { correctionHistoryEvents, registrationHistoryEvents } from './officeTaxJourneyEvidence';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
@@ -131,7 +132,7 @@ type DraftKind = 'corrections' | 'incidents' | 'offline-events';
 type Details = { title:string; record:TableRow } | null;
 const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
-export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?:string}) {
+export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;taxpayerTin?:string;paymentId?:string}) {
   const {t,i18n} = useTranslation('payment');
   const {t:translateTables} = useTranslation('tables');
   const displayNumber = (value:number) => formatLocalizedNumber(value,i18n.resolvedLanguage);
@@ -201,6 +202,26 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
+  const [paymentLinkUnavailable,setPaymentLinkUnavailable]=useState(false);
+  const handledPaymentLink=useRef<string|null>(null);
+  useEffect(()=>{
+    if(!paymentId){
+      handledPaymentLink.current=null;
+      setPaymentLinkUnavailable(false);
+      return;
+    }
+    if(current!=='transactions'||storyLoading||handledPaymentLink.current===paymentId)return;
+    handledPaymentLink.current=paymentId;
+    const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
+    const match=valid?storyPayments.find(item=>item.id.toLowerCase()===paymentId.toLowerCase()):undefined;
+    if(!match){
+      setDetails(null);
+      setPaymentLinkUnavailable(true);
+      return;
+    }
+    setPaymentLinkUnavailable(false);
+    setDetails({record:toStoryPaymentRow(match),title:t('transactions')});
+  },[paymentId,current,storyLoading,storyPayments,t]);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
   const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
   const [officeCorrectionError,setOfficeCorrectionError] = useState('');
@@ -234,7 +255,8 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     return()=>{active=false;window.clearInterval(interval);};
   },[selectedTin]);
   useEffect(()=>{
-    if(current!=='corrections' && !(current==='taxpayer-360' && !!taxpayerTin && taxpayerTab==='correctionsTab'))return;
+    if(current!=='corrections' && !(current==='taxpayer-360' && !!selectedTin &&
+      (taxpayerTab==='correctionsTab'||taxpayerTab==='taxJourney')))return;
     let active=true;
     const refresh=async()=>{
       try{
@@ -246,11 +268,23 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     };
     setOfficeCorrectionLoading(true);
     void refresh();
+    const journeyOnly=current==='taxpayer-360'&&taxpayerTab==='taxJourney';
+    if(journeyOnly){
+      const onFocus=()=>void refresh();
+      const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
+      window.addEventListener('focus',onFocus);
+      document.addEventListener('visibilitychange',onVisible);
+      return()=>{active=false;window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};
+    }
     const timer=window.setInterval(()=>void refresh(),15000);
     return()=>{active=false;window.clearInterval(timer);};
-  },[current,correctionRefreshKey,taxpayerTin,taxpayerTab]);
+  },[current,correctionRefreshKey,selectedTin,taxpayerTab]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
+  const closeTransactionDetails=()=>{
+    setDetails(null);
+    if(paymentId)navigate('/payments/transactions',{replace:true});
+  };
   const isTransactionDetails = details?.title === t('transactions');
   // The 360 payment drawer receives the same canonical SQL parent as Transactions.
   // Its display is independently scoped to the selected TIN and year below.
@@ -354,8 +388,18 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const isDemo=demoProfiles.some(p=>p.tin===selectedTin);
   const taxPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,scopeYear))
     .filter((row):row is NonNullable<typeof row>=>row!==null);
+  const taxpayerJourneyPayments=storyPayments.map(payment=>toStoryTaxpayerPaymentRow(payment,selectedTin,'all'))
+    .filter((row):row is NonNullable<typeof row>=>row!==null);
   const journeySourceById=new Map(storyPayments.map(payment=>[payment.id,payment.createdAt]));
-  const taxpayerJourneyEntries=taxPayments.map(record=>({record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''}));
+  const taxpayerJourneyEntries=taxpayerJourneyPayments.map(record=>({
+    record,occurredAt:journeySourceById.get(String(record.payment_ref??''))??''
+  }));
+  const linkedJourneyCorrections=officeCorrectionQueue.enabled && !storyLoading && !storyError
+    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,'all'):[];
+  const taxpayerJourneyEvidenceEvents=[
+    ...registrationHistoryEvents(registrationProfile),
+    ...correctionHistoryEvents(linkedJourneyCorrections),
+  ];
   const taxpayerActivity=storyLoading||storyError?null:
     summarizeTaxpayerRecordedActivity(storyPayments,storyNotices,selectedTin,scopeYear);
   const beneficiaryNotices=isDemo?liveNotices:[];
@@ -382,12 +426,24 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     pending_delivery:item.pendingDelivery?t('officeCorrectionDecisionPending'):t('officeCorrectionDecisionDelivered'),
     delivery_state:item.deliveryState??'—',
     delivery_error:item.lastDeliveryError??'—',
+    // Display audited, TaxPay-acknowledged decisions inside the existing
+    // detail drawer. No extra role, route, layout or hidden record access.
+    decision_history:item.decisionHistory.length
+      ?item.decisionHistory.map(event=>[
+        correctionActionLabel(event.action),
+        event.officerUid
+          ?(i18n.resolvedLanguage?.startsWith('bn')?'কর্মকর্তা: ':'Officer: ')+event.officerUid
+          :event.role,
+        displayEventDate(event.occurredAt),
+        event.reason ?t('field_reason')+': '+event.reason:null,
+      ].filter(Boolean).join(' · ')).join(' | ')
+      :'—',
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
-  const taxpayerCorrectionIds=new Set(officeCorrectionQueue.enabled && !storyLoading && !storyError
-    ? linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear)
-        .map(item=>item.inquiry.requestId):[]);
+  const taxpayerCorrectionIds=new Set(linkedJourneyCorrections
+    .filter(item=>toStoryTaxpayerPaymentRow(item.payment,selectedTin,scopeYear)!==null)
+    .map(item=>item.inquiry.requestId));
   const taxpayerCorrectionRows=officeCorrectionRows.filter(row=>taxpayerCorrectionIds.has(String(row.__correctionInquiryId)));
   // Never interleave illustrative cases with an operational correction queue.
   const corrRows=[...localRecords.corrections,...officeCorrectionRows];
@@ -472,6 +528,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     {toolbar(t('transactions'))}
     {storyLoading?<p className="table-page__desc" role="status">Loading transactions…</p>:null}
     {storyError?<p className="table-page__desc" role="alert">{storyError}</p>:null}
+    {paymentLinkUnavailable&&<p className="table-page__desc" role="alert">
+      {i18n.resolvedLanguage?.startsWith('bn')?'বিজ্ঞপ্তির পেমেন্ট রেকর্ডটি উপলভ্য নয়।':'The linked payment record is unavailable.'}
+    </p>}
     {!storyLoading&&!storyError&&scopedPayments.length===0?<p className="table-page__desc" role="status">No payments submitted yet.</p>:null}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
@@ -532,6 +591,11 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     </> :
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
       taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
+        evidenceEvents={taxpayerJourneyEvidenceEvents}
+        paymentsLoading={storyLoading} paymentsError={storyError}
+        profileLoading={registrationLoading} profileError={registrationError}
+        correctionsLoading={officeCorrectionLoading} correctionsError={officeCorrectionError}
+        correctionsAvailable={officeCorrectionQueue.enabled}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
       taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
       taxpayerTab==='notices' ? taxpayerActivity
@@ -607,7 +671,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       source={selectedStoryPayment}
       scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}
       scopeYear={isTransactionDetails && current==='taxpayer-360' ? scopeYear : undefined}
-      onClose={() => setDetails(null)}
+      onClose={closeTransactionDetails}
     />
     <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
       title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}

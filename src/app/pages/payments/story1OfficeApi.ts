@@ -1,17 +1,21 @@
 /** Existing Office Payments screen data adapter for Story 1 simulated payments. */
+import { getAuditSqlClient, isSharedAuditMode } from "../audit/auditSharedSql";
+import { getOfficeCmsAuthClient } from "../../services/officeCmsBridge";
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
 export type StoryPayment = {
-  id:string;service:string;amountMinor:number;status:string;createdAt:string;
+  id:string;service:string;amountMinor:number;status:string;createdAt:string;certificateReference?:string;
   details?:{
-    payerId?:string;payerName?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
+    payerId?:string;payerName?:string;payerTin?:string;taxpayerName?:string;taxpayerTin?:string;assessmentYear?:string;
     taxZone?:string;taxCircle?:string;receiptReference?:string;
     paymentChannel?:string;paymentMethod?:string;
-    lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;[key:string]:unknown}>;
-    allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string}>;
+    lines?:Array<{beneficiary?:string;amountMinor?:number;category?:string;assessmentYear?:string;authorizationId?:string;headId?:number;economicCode?:string;headNameEn?:string;serviceCode?:string;isWithholding?:boolean;totalAmount?:number;[key:string]:unknown}>;
+    allocations?:Array<{taxpayerTin?:string;taxpayerName?:string;headId?:number;amountMinor?:number;assessmentYear?:string;serviceCode?:string;isWithholding?:boolean}>;
     batchId?:string;batchItemId?:string;batchItemIndex?:number;batchItemCount?:number;
     receiptMobile?:string;noticeReference?:string;
-    payerMode?:string;incomeTaxType?:string;travelRoute?:string;
+    payerMode?:string;incomeTaxType?:string;travelRoute?:string;travelMode?:string;departurePort?:string;destination?:string;economicCode?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
+    passengers?:Array<{passengerName?:string;name?:string;passportNumberMasked?:string|null;nationality?:string;country?:string;age?:number;amountMinor?:number;amount?:number}>;
+    receiptSnapshot?:{paymentCategory?:string;totalAmount?:number;challanNo?:string;receiptReference?:string;items?:Array<Record<string,unknown>>;allocationItems?:Array<Record<string,unknown>>;travelDetails?:{passengers?:Array<Record<string,unknown>>}};
   };
 };
 export type StoryNotice = {id:number;paymentId:string;type:string;createdAt:string};
@@ -29,7 +33,20 @@ const knownLegacyBrowserTest=(p:StoryPayment):boolean=>
   Date.parse(p.createdAt)<Date.parse('2026-10-18T07:01:00Z');
 
 async function get<T>(path:string):Promise<T> {
-  const response=await fetch(ENDPOINT+path,{headers:{'Accept':'application/json'},cache:'no-store'});
+  // Reuse the existing Office Auth connection; Audit shared mode is opt-in.
+  const client=isSharedAuditMode()?getAuditSqlClient():getOfficeCmsAuthClient();
+  const {data:identity,error:identityError}=await client.auth.getUser();
+  if(identityError||!identity.user||identity.user.is_anonymous)
+    throw Error('Verified Office officer sign-in is required');
+  const {data:session,error:sessionError}=await client.auth.getSession();
+  if(sessionError||!session.session||session.session.user.id!==identity.user.id||
+     typeof session.session.access_token!=='string'||!session.session.access_token)
+    throw Error('Office officer session changed; sign in again');
+  const response=await fetch(ENDPOINT+path,{headers:{
+    'Accept':'application/json','Authorization':'Bearer '+session.session.access_token
+  },cache:'no-store'});
+  if(response.status===401||response.status===403)
+    throw Error('Authorized Office payment officer access is required');
   if(!response.ok)throw Error('Office transactions temporarily unavailable');
   const json=await response.json() as {success:boolean;data:T};
   if(!json.success)throw Error('Invalid Office payment response');
@@ -51,7 +68,19 @@ export async function getStoryPayments():Promise<StoryPayment[]> {
     total=Math.max(total,result.total);
     for(const payment of result.items) {
       if(!payment||typeof payment.id!=='string'||!payment.id)throw Error('Invalid payment identity');
-      records.set(payment.id,payment);
+      const prior=records.get(payment.id);
+      // Offset pagination may overlap while new Office source rows arrive.
+      // A repeated immutable parent is harmless only if its source snapshot
+      // agrees exactly. Never silently replace a payment with a conflicting
+      // amount/status/recipient projection and later report it as complete.
+      if(prior&&JSON.stringify([
+        prior.service,prior.status,prior.amountMinor,prior.createdAt,
+        prior.certificateReference??null,prior.details??null,
+      ])!==JSON.stringify([
+        payment.service,payment.status,payment.amountMinor,payment.createdAt,
+        payment.certificateReference??null,payment.details??null,
+      ]))throw Error('Payment history changed during pagination; retry');
+      if(!prior)records.set(payment.id,payment);
     }
     // Offset pages can change while new payments are arriving: never
     // represent missing or duplicated pages as a complete history.

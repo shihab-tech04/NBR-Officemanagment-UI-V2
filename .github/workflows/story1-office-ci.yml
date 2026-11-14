@@ -5,10 +5,12 @@ on:
     paths:
       - 'src/app/pages/payments/**'
       - 'supabase/functions/demo-story1-office/**'
+      - 'tests/integration/officeStoryMirrorProofHttp.mjs'
       - 'supabase/migrations/**'
       - 'tests/integration/story1OfficeMigrations.sql'
       - 'tests/integration/story1ApprovedFixtureRead.sql'
       - 'tests/integration/officeCorrectionReview.sql'
+      - 'tests/integration/officeReturnCombinedMirror.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
@@ -21,6 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm}
       - run: npm ci --no-audit --no-fund
+      - name: Confirm Office mirror requires Taxpayer proof before network or SQL
+        run: node tests/integration/officeStoryMirrorProofHttp.mjs
       - run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
@@ -59,6 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -X -v ON_ERROR_STOP=1 -c 'create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;'
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeMigrationAuthPrerequisite.sql
           mapfile -t migrations < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print | LC_ALL=C sort)
           test "${#migrations[@]}" -gt 0
           printf 'Applying %s active Office migration files\n' "${#migrations[@]}"

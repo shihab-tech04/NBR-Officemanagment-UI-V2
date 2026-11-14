@@ -6,8 +6,23 @@ export type CorrectionReviewAction =
   | "APPROVER_CLOSE"
   | "REJECT";
 
+export type OfficeCorrectionDecisionEvent = {
+  messageId: string;
+  action: CorrectionReviewAction;
+  role: "MAKER" | "REVIEWER" | "APPROVER";
+  occurredAt: string;
+  deliveryState: "ACKNOWLEDGED";
+  /** Present for newer authorized Office SQL audit projections; older rows remain readable. */
+  officerUid?: string | null;
+  reason?: string | null;
+};
+
 export type OfficeCorrectionInquiry = {
   requestId: string;
+  sourceEventId: string;
+  sourceEventType: "CORRECTION_SUBMITTED";
+  sourcePaymentId: string | null;
+  sourcePaymentKind: "TAXPAY_STORY_PAYMENT" | null;
   originalReference: string;
   reason: string;
   requestedOutcome: string;
@@ -19,6 +34,7 @@ export type OfficeCorrectionInquiry = {
   reviewState: string;
   reviewRevision: number;
   reviewUpdatedAt: string;
+  decisionHistory: OfficeCorrectionDecisionEvent[];
   pendingDelivery: boolean;
   deliveryState: string | null;
   lastDeliveryError: string | null;
@@ -35,18 +51,39 @@ const validActions = new Set<CorrectionReviewAction>([
   "MAKER_ACKNOWLEDGE", "REVIEWER_VERIFY", "APPROVER_CLOSE", "REJECT",
 ]);
 
-function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
+type CorrectionQueueCursor = { receivedAt: string; requestId: string };
+type CorrectionQueuePage = {
+  role: NonNullable<OfficeCorrectionQueue["role"]>;
+  items: OfficeCorrectionInquiry[];
+  nextCursor: CorrectionQueueCursor | null;
+};
+
+function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
   if (!value || typeof value !== "object") throw new Error("Invalid correction review response");
   const response = value as Record<string, unknown>;
   if (!Array.isArray(response.items) ||
-      !["MAKER", "REVIEWER", "APPROVER"].includes(String(response.role))) {
-    throw new Error("Invalid correction review queue");
+      !["MAKER", "REVIEWER", "APPROVER"].includes(String(response.role)) ||
+      !Object.prototype.hasOwnProperty.call(response, "nextCursor")) {
+    throw new Error("Invalid correction review queue page");
+  }
+  let nextCursor: CorrectionQueueCursor | null = null;
+  if (response.nextCursor !== null) {
+    if (!response.nextCursor || typeof response.nextCursor !== "object" || Array.isArray(response.nextCursor)) {
+      throw new Error("Invalid correction queue cursor");
+    }
+    const cursor = response.nextCursor as Record<string, unknown>;
+    if (typeof cursor.receivedAt !== "string" || !Number.isFinite(Date.parse(cursor.receivedAt)) ||
+        typeof cursor.requestId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor.requestId)) {
+      throw new Error("Invalid correction queue cursor");
+    }
+    nextCursor = { receivedAt: cursor.receivedAt, requestId: cursor.requestId };
   }
   const items = response.items.map((item): OfficeCorrectionInquiry => {
     if (!item || typeof item !== "object") throw new Error("Invalid correction review item");
     const row = item as Record<string, unknown>;
-    const stringFields = ["requestId", "originalReference", "reason", "requestedOutcome",
-      "createdAt", "reviewState", "reviewUpdatedAt"];
+    const stringFields = ["requestId", "sourceEventId", "sourceEventType", "originalReference", "reason",
+      "requestedOutcome", "createdAt", "reviewState", "reviewUpdatedAt"];
     if (stringFields.some((key) => typeof row[key] !== "string") ||
         row.evidenceState !== "PENDING_EVIDENCE" ||
         typeof row.reviewRevision !== "number" ||
@@ -54,6 +91,56 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
         !Array.isArray(row.availableActions)) {
       throw new Error("Incomplete correction review item");
     }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(row.sourceEventId)) ||
+        row.sourceEventType !== "CORRECTION_SUBMITTED") {
+      throw new Error("Invalid correction source event identity");
+    }
+    const rawParentId = row.sourcePaymentId;
+    const rawParentKind = row.sourcePaymentKind;
+    const parentIdMissing = rawParentId === undefined || rawParentId === null;
+    const parentKindMissing = rawParentKind === undefined || rawParentKind === null;
+    if (parentIdMissing !== parentKindMissing ||
+        (!parentIdMissing && (typeof rawParentId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawParentId) ||
+          rawParentKind !== "TAXPAY_STORY_PAYMENT"))) {
+      throw new Error("Invalid correction source payment parent");
+    }
+    const sourcePaymentId = parentIdMissing ? null : rawParentId as string;
+    const sourcePaymentKind = parentKindMissing ? null : "TAXPAY_STORY_PAYMENT" as const;
+    const rawHistory = row.decisionHistory;
+    if (rawHistory !== undefined && !Array.isArray(rawHistory)) {
+      throw new Error("Invalid correction decision history");
+    }
+    const decisionHistory = (Array.isArray(rawHistory) ? rawHistory : []).map((event) => {
+      if (!event || typeof event !== "object") throw new Error("Invalid correction decision event");
+      const decision = event as Record<string, unknown>;
+      if (typeof decision.messageId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decision.messageId) ||
+          typeof decision.action !== "string" || !validActions.has(decision.action as CorrectionReviewAction) ||
+          !["MAKER", "REVIEWER", "APPROVER"].includes(String(decision.role)) ||
+          typeof decision.occurredAt !== "string" || !Number.isFinite(Date.parse(decision.occurredAt)) ||
+          decision.deliveryState !== "ACKNOWLEDGED") {
+        throw new Error("Invalid or unacknowledged correction decision event");
+      }
+      const actor = decision.officerUid;
+      const reason = decision.reason;
+      const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if ((actor !== undefined && actor !== null &&
+           (typeof actor !== "string" || !validUuid.test(actor))) ||
+          (reason !== undefined && reason !== null &&
+           (typeof reason !== "string" || !reason.trim() || reason.length > 1000))) {
+        throw new Error("Invalid correction decision audit provenance");
+      }
+      return {
+        messageId: decision.messageId,
+        action: decision.action as CorrectionReviewAction,
+        role: decision.role as OfficeCorrectionDecisionEvent["role"],
+        occurredAt: decision.occurredAt,
+        deliveryState: "ACKNOWLEDGED" as const,
+        officerUid: typeof actor === "string" ? actor : null,
+        reason: typeof reason === "string" ? reason : null,
+      };
+    });
     const actions = row.availableActions.filter((action): action is CorrectionReviewAction =>
       typeof action === "string" && validActions.has(action as CorrectionReviewAction));
     if (actions.length !== row.availableActions.length) {
@@ -61,6 +148,10 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
     }
     return {
       requestId: row.requestId as string,
+      sourceEventId: row.sourceEventId as string,
+      sourceEventType: "CORRECTION_SUBMITTED",
+      sourcePaymentId,
+      sourcePaymentKind,
       originalReference: row.originalReference as string,
       reason: row.reason as string,
       requestedOutcome: row.requestedOutcome as string,
@@ -72,13 +163,14 @@ function asCorrectionQueue(value: unknown): OfficeCorrectionQueue {
       reviewState: row.reviewState as string,
       reviewRevision: row.reviewRevision as number,
       reviewUpdatedAt: row.reviewUpdatedAt as string,
+      decisionHistory,
       pendingDelivery: row.pendingDelivery as boolean,
       deliveryState: typeof row.deliveryState === "string" ? row.deliveryState : null,
       lastDeliveryError: typeof row.lastDeliveryError === "string" ? row.lastDeliveryError : null,
       availableActions: actions,
     };
   });
-  return { enabled: true, role: response.role as OfficeCorrectionQueue["role"], items };
+  return { role: response.role as CorrectionQueuePage["role"], items, nextCursor };
 }
 
 async function authenticatedClient() {
@@ -93,9 +185,41 @@ async function authenticatedClient() {
 export async function listOfficeCorrectionInquiries(): Promise<OfficeCorrectionQueue> {
   if (!isSharedAuditMode()) return { enabled: false, role: null, items: [] };
   const db = await authenticatedClient();
-  const { data, error } = await db.rpc("payment_v1_correction_queue", { p_limit: 200 });
-  if (error) throw new Error(`Office correction queue failed: ${error.message}`);
-  return asCorrectionQueue(data);
+  const pageSize = 200;
+  const maxPages = 2000;
+  const seenCursors = new Set<string>();
+  const seenCases = new Set<string>();
+  const items: OfficeCorrectionInquiry[] = [];
+  let cursor: CorrectionQueueCursor | null = null;
+  let role: OfficeCorrectionQueue["role"] = null;
+  for (let pageNumber = 0; pageNumber < maxPages; pageNumber++) {
+    const { data, error } = await db.rpc("payment_v1_correction_queue_page", {
+      p_limit: pageSize,
+      p_after_received_at: cursor?.receivedAt ?? null,
+      p_after_request_id: cursor?.requestId ?? null,
+    });
+    if (error) throw new Error(`Office correction queue failed: ${error.message}`);
+    const page = asCorrectionQueuePage(data);
+    if (role !== null && role !== page.role) {
+      throw new Error("Office correction role changed during history pagination; retry");
+    }
+    role = page.role;
+    for (const item of page.items) {
+      if (seenCases.has(item.requestId)) {
+        throw new Error("Duplicate correction case across history pages; retry");
+      }
+      seenCases.add(item.requestId);
+      items.push(item);
+    }
+    if (page.nextCursor === null) return { enabled: true, role, items };
+    const cursorKey = page.nextCursor.receivedAt + "|" + page.nextCursor.requestId;
+    if (seenCursors.has(cursorKey) || page.items.length === 0) {
+      throw new Error("Correction history page did not advance; retry");
+    }
+    seenCursors.add(cursorKey);
+    cursor = page.nextCursor;
+  }
+  throw new Error("Correction history exceeds the safe retrieval limit");
 }
 
 export async function submitOfficeCorrectionDecision(

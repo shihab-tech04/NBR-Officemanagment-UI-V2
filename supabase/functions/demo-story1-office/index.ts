@@ -1,6 +1,51 @@
 import {createClient} from "npm:@supabase/supabase-js@2.57.0";
 const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,apikey","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json","Cache-Control":"no-store"};
 const respond=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
+const PG_BIGINT_MAX=9223372036854775807n;
+const validDate=(value:unknown)=>typeof value==="string"&&Number.isFinite(Date.parse(value));
+const validUuid=(value:unknown)=>typeof value==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const validNoticePage=(data:unknown,afterId:bigint,limit:number):boolean=>{
+ if(!data||typeof data!=="object"||Array.isArray(data))return false;
+ const page=data as {items?:unknown;nextAfterId?:unknown;hasMore?:unknown};
+ if(!Array.isArray(page.items)||typeof page.nextAfterId!=="string"||
+    typeof page.hasMore!=="boolean"||page.items.length>limit)return false;
+ if(!/^(0|[1-9][0-9]*)$/.test(page.nextAfterId)||page.nextAfterId.length>19)return false;
+ const next=BigInt(page.nextAfterId);
+ if(next>PG_BIGINT_MAX||next<afterId)return false;
+ let previous=afterId;
+ for(const value of page.items){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const item=value as Record<string,unknown>;
+  if(typeof item.id!=="string"||item.id.length>19||
+     !/^[1-9][0-9]*$/.test(item.id)||!validUuid(item.paymentId)||
+     typeof item.type!=="string"||!item.type||!validDate(item.createdAt))return false;
+  const id=BigInt(item.id);
+  if(id<=previous||id>PG_BIGINT_MAX)return false;
+  previous=id;
+  const payment=item.payment;
+  if(!payment||typeof payment!=="object"||Array.isArray(payment))return false;
+  const record=payment as Record<string,unknown>;
+  if(record.id!==item.paymentId||typeof record.service!=="string"||!record.service||
+     typeof record.amountMinor!=="string"||!/^[1-9][0-9]*$/.test(record.amountMinor)||
+     record.amountMinor.length>19||BigInt(record.amountMinor)>PG_BIGINT_MAX||
+     record.status!=="SIMULATED_SUCCESS"||!validDate(record.createdAt))return false;
+ }
+ const expected=page.items.length?String(previous):String(afterId);
+ if(page.nextAfterId!==expected)return false;
+ if(page.hasMore&&(page.items.length!==limit||previous<=afterId))return false;
+ return true;
+};
+async function verifiedOfficeReadClient(req:Request,client:ReturnType<typeof createClient>,url:string,key:string) {
+ const authorization=req.headers.get("authorization");
+ if(!authorization||!/^Bearer [^\s]+$/.test(authorization)||authorization.length>8192)
+   return null;
+ const {data,error}=await client.auth.getUser(authorization.slice(7));
+ if(error||!data.user||data.user.is_anonymous)return null;
+ return createClient(url,key,{
+   auth:{persistSession:false,autoRefreshToken:false},
+   global:{headers:{Authorization:authorization}}
+ });
+}
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
  const path=new URL(req.url).pathname.replace(/^\/demo-story1-office/,"");
@@ -13,18 +58,23 @@ Deno.serve(async(req)=>{
  let rpcClient=client;
  try{
    let rpc:string;let args:Record<string,unknown>={};
+   let noticePageCheck:{afterId:bigint;limit:number}|null=null;
    if(req.method==="POST"&&path==="/mirror"){
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
-      if(!incoming?.id||!incoming?.sessionId)return respond({success:false,error:"INVALID_MIRROR"},400);
+      if(!validUuid(incoming?.id)||!validUuid(incoming?.sessionId))return respond({success:false,error:"INVALID_MIRROR"},400);
+      // A public session-based source read must never authorize an Office write.
+      // Require the signed short-lived TaxPay proof BEFORE calling any source URL.
+      const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
+      if(!mirrorProof||!/^v1\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(mirrorProof))
+        return respond({success:false,error:"MIRROR_PROOF_REQUIRED"},403);
       // Use the source SQL read-back, never an unverified caller snapshot.
       const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/payments/"
          +encodeURIComponent(incoming.id)+"?sessionId="+encodeURIComponent(incoming.sessionId);
       // Forward TaxPay's short-lived, payment+session-bound proof to TaxPay.
       // Never trust the caller's payment snapshot or store the proof in Office.
-      const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
       const source=await fetch(sourceUrl,{
-        headers:mirrorProof?{"x-taxpay-office-mirror-proof":mirrorProof}:undefined,
+        headers:{"x-taxpay-office-mirror-proof":mirrorProof},
         signal:AbortSignal.timeout(10000)});
       if(!source.ok)return respond({success:false,error:"SOURCE_RECORD_NOT_FOUND"},424);
       const sourceResponse=await source.json();
@@ -60,12 +110,49 @@ Deno.serve(async(req)=>{
             perPage=Number(u.searchParams.get("perPage")??"100");
       if(!Number.isSafeInteger(page)||!Number.isSafeInteger(perPage)||page<1||perPage<1||perPage>100)
         return respond({success:false,error:"INVALID_PAGINATION"},400);
-      rpc="demo_story1_office_page";args={p_page:page,p_per_page:perPage};
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;
+      rpc="payment_v1_office_guarded_story_page";args={p_page:page,p_per_page:perPage};
    }
-   else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
+   else if(req.method==="GET"&&path==="/notifications/page"){
+      const u=new URL(req.url),afterId=u.searchParams.get("afterId")??"0",
+            limitRaw=u.searchParams.get("limit")??"100";
+      if(afterId.length>19||!/^(0|[1-9][0-9]*)$/.test(afterId)||!/^[1-9][0-9]{0,2}$/.test(limitRaw))
+        return respond({success:false,error:"INVALID_PAGINATION"},400);
+      const afterIdValue=BigInt(afterId),limit=Number(limitRaw);
+      if(afterIdValue>PG_BIGINT_MAX||!Number.isSafeInteger(limit)||limit<1||limit>100)
+        return respond({success:false,error:"INVALID_PAGINATION"},400);
+      // The existing Office Auth session must accompany every cursor page.
+      // Never read the SECURITY DEFINER RPC through a public anonymous bearer.
+      const authorization=req.headers.get("authorization");
+      if(!authorization||!/^Bearer [^\s]+$/.test(authorization)||authorization.length>8192)
+        return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      const token=authorization.slice(7);
+      const {data:validated,error:authError}=await client.auth.getUser(token);
+      if(authError||!validated.user||validated.user.is_anonymous)
+        return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=createClient(url,key,{
+        auth:{persistSession:false,autoRefreshToken:false},
+        global:{headers:{Authorization:authorization}}
+      });
+      noticePageCheck={afterId:afterIdValue,limit};
+      rpc="demo_story1_office_notice_page";args={p_after_id:afterId,p_limit:limit};
+   }else if(req.method==="GET"&&path==="/notifications"){
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;rpc="payment_v1_office_guarded_story_notices";
+   }
    else return respond({success:false,error:"NOT_FOUND"},404);
    const {data,error}=await rpcClient.rpc(rpc,args);
-   if(error){console.error("office story1",error.code,error.message);return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);}
+   if(error){
+     if(error.code==="42501")return respond({success:false,error:"OFFICE_OFFICER_ACCESS_DENIED"},403);
+     console.error("office story1",error.code,error.message);
+     return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);
+   }
+   if(rpc==="demo_story1_office_notice_page"&&noticePageCheck&&
+      !validNoticePage(data,noticePageCheck.afterId,noticePageCheck.limit))
+     return respond({success:false,error:"INVALID_NOTIFICATION_PAGE"},502);
    return respond({success:true,data,simulationOnly:true});
  }catch(e){console.error("office story1 request",e);return respond({success:false,error:"INVALID_INPUT"},400)}
 });

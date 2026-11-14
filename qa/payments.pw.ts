@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installIsolatedOfficeOfficer } from './isolated-office-officer';
 const pages = ['overview','transactions','taxpayer-360','corrections','incidents','offline-events','analytics'];
 const viewports = [
   {width:1440,height:900}, {width:1280,height:800}, {width:1024,height:768},
@@ -17,6 +18,7 @@ const submittedPayments = [
     paymentMethod:'BKASH',receiptReference:'UI-'+p.id},
 }));
 test.beforeEach(async ({page}) => {
+  await installIsolatedOfficeOfficer(page);
   // Fixtures are injected into Playwright only, never saved in live SQL.
   await page.route('**/functions/v1/demo-story1-office/**',route=>{
     const url=new URL(route.request().url());
@@ -355,7 +357,7 @@ test('Transactions never shows the reference or scenario source selector',async(
   await expect(page.getByText('Mixed-payment scenarios (demo)')).toHaveCount(0);
   await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
-test('Guest-submitted payment is displayed without an officer sign-in gate',async({page})=>{
+test('Guest-submitted payment is displayed to a verified Office officer without a second sign-in',async({page})=>{
   await page.goto('/payments/transactions');
   await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
   await expect(page.getByText('Authorized officer sign-in required')).toHaveCount(0);
