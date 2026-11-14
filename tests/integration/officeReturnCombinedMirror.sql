@@ -435,4 +435,146 @@ BEGIN
 END;
 $v3_replay$;
 
+
+-- P0 hosted-read cutover regression: the existing migration has already
+-- revoked direct access to the three legacy SECURITY DEFINER projections.
+-- Exercise actual caller roles instead of relying only on grant metadata.
+-- All identities, source payments, notices and role rows are disposable.
+INSERT INTO auth.users(id,email) VALUES
+ ('77000000-0000-4000-8000-000000000001','ws3-maker@example.invalid'),
+ ('77000000-0000-4000-8000-000000000002','ws3-reviewer@example.invalid'),
+ ('77000000-0000-4000-8000-000000000003','ws3-approver@example.invalid'),
+ ('77000000-0000-4000-8000-000000000004','ws3-outsider@example.invalid'),
+ ('77000000-0000-4000-8000-000000000005','ws3-inactive@example.invalid')
+ ON CONFLICT (id) DO NOTHING;
+INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
+ ('77000000-0000-4000-8000-000000000001','MAKER',true),
+ ('77000000-0000-4000-8000-000000000002','REVIEWER',true),
+ ('77000000-0000-4000-8000-000000000003','APPROVER',true),
+ ('77000000-0000-4000-8000-000000000005','MAKER',false);
+
+SELECT pg_catalog.set_config('request.jwt.claim.sub','',true);
+SET LOCAL ROLE anon;
+DO $legacy_anon_denied$
+DECLARE v_rpc text;
+BEGIN
+  FOREACH v_rpc IN ARRAY ARRAY[
+    'public.demo_story1_office_list()',
+    'public.demo_story1_office_page(1,100)',
+    'public.demo_story1_office_notices()',
+    'public.demo_story1_office_payment_page(1,100)',
+    'public.payment_v1_office_guarded_story_page(1,100)',
+    'public.payment_v1_office_guarded_story_notices()'
+  ] LOOP
+    BEGIN
+      EXECUTE 'SELECT ' || v_rpc;
+      RAISE EXCEPTION 'ANONYMOUS_OFFICE_READ_ACCEPTED: %',v_rpc;
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+  END LOOP;
+END;
+$legacy_anon_denied$;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub',
+  '77000000-0000-4000-8000-000000000004',true);
+DO $no_direct_signed_in$
+DECLARE v_rpc text;
+BEGIN
+  FOREACH v_rpc IN ARRAY ARRAY[
+    'public.demo_story1_office_list()',
+    'public.demo_story1_office_page(1,100)',
+    'public.demo_story1_office_notices()',
+    'public.demo_story1_office_payment_page(1,100)'
+  ] LOOP
+    BEGIN
+      EXECUTE 'SELECT ' || v_rpc;
+      RAISE EXCEPTION 'SIGNED_IN_DIRECT_OFFICE_READ_ACCEPTED: %',v_rpc;
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+  END LOOP;
+END;
+$no_direct_signed_in$;
+
+DO $guarded_officer_only$
+DECLARE
+  v_actor uuid;
+  v_role text;
+  v_page jsonb;
+  v_notices jsonb;
+  v_parent jsonb;
+  v_allocations jsonb;
+  v_rpc text;
+BEGIN
+  -- Neither a signed-in non-officer, inactive payment officer, nor a
+  -- session without auth.uid() may read through the privileged wrappers.
+  FOREACH v_actor IN ARRAY ARRAY[
+    '77000000-0000-4000-8000-000000000004'::uuid,
+    '77000000-0000-4000-8000-000000000005'::uuid,
+    NULL::uuid
+  ] LOOP
+    PERFORM pg_catalog.set_config('request.jwt.claim.sub',
+      coalesce(v_actor::text,''),true);
+    FOREACH v_rpc IN ARRAY ARRAY[
+      'public.payment_v1_office_guarded_story_page(1,100)',
+      'public.payment_v1_office_guarded_story_notices()'
+    ] LOOP
+      BEGIN
+        EXECUTE 'SELECT ' || v_rpc;
+        RAISE EXCEPTION 'UNAUTHORIZED_OFFICER_READ_ACCEPTED: %',v_rpc;
+      EXCEPTION WHEN insufficient_privilege THEN NULL;
+      END;
+    END LOOP;
+  END LOOP;
+
+  FOR v_role,v_actor IN
+    SELECT role,user_uid FROM payment_sync.officer_roles
+    WHERE user_uid IN (
+      '77000000-0000-4000-8000-000000000001'::uuid,
+      '77000000-0000-4000-8000-000000000002'::uuid,
+      '77000000-0000-4000-8000-000000000003'::uuid
+    ) AND active ORDER BY role
+  LOOP
+    PERFORM pg_catalog.set_config('request.jwt.claim.sub',v_actor::text,true);
+    v_page := public.payment_v1_office_guarded_story_page(1,100);
+    SELECT item INTO v_parent
+    FROM pg_catalog.jsonb_array_elements(v_page->'items') AS source(item)
+    WHERE item->'details'->>'allocationContractVersion'='3'
+      AND item->'details'->>'sourcePaymentId' IS NULL
+      AND item->'details'->'receiptSnapshot'->>'challanNo' LIKE 'WS3-V3-%'
+    LIMIT 1;
+    IF v_parent IS NULL
+      OR v_parent->>'amountMinor' IS DISTINCT FROM '5000'
+      OR v_parent->>'certificateReference' IS DISTINCT FROM
+        'SK-PC-' || (v_parent->>'id')
+    THEN RAISE EXCEPTION 'OFFICER_PAYMENT_READBACK_FAILED_%',v_role; END IF;
+    v_allocations := v_parent->'details'->'allocations';
+    IF pg_catalog.jsonb_array_length(v_allocations)<>2
+      OR v_allocations->0->>'allocationId' IS DISTINCT FROM 'ws3-v3-one'
+      OR v_allocations->0->>'taxpayerTin' IS DISTINCT FROM '111111111111'
+      OR v_allocations->0->>'headId' IS DISTINCT FROM '8'
+      OR v_allocations->0->>'assessmentYear' IS DISTINCT FROM '2026-27'
+      OR v_allocations->0->>'amountMinor' IS DISTINCT FROM '1500'
+      OR v_allocations->1->>'allocationId' IS DISTINCT FROM 'ws3-v3-two'
+      OR v_allocations->1->>'taxpayerTin' IS DISTINCT FROM '222222222222'
+      OR v_allocations->1->>'headId' IS DISTINCT FROM '145'
+      OR v_allocations->1->>'assessmentYear' IS DISTINCT FROM '2025-26'
+      OR v_allocations->1->>'amountMinor' IS DISTINCT FROM '3500'
+    THEN RAISE EXCEPTION 'OFFICER_IMMUTABLE_ALLOCATION_DRIFT_%',v_role; END IF;
+
+    v_notices := public.payment_v1_office_guarded_story_notices();
+    IF pg_catalog.jsonb_typeof(v_notices) IS DISTINCT FROM 'array'
+      OR NOT EXISTS (
+        SELECT 1 FROM pg_catalog.jsonb_array_elements(v_notices) AS n(value)
+        WHERE n.value::text LIKE '%' || (v_parent->>'id') || '%'
+      )
+    THEN RAISE EXCEPTION 'OFFICER_NOTICE_READBACK_FAILED_%',v_role; END IF;
+  END LOOP;
+  IF NOT FOUND THEN RAISE EXCEPTION 'OFFICER_FIXTURE_EMPTY'; END IF;
+  RAISE NOTICE 'PASS: all legacy direct reads denied to anon/authenticated; unauthorized/inactive/missing officers denied; MAKER/REVIEWER/APPROVER receive original v3 parent, both allocation IDs/heads/AYs/amounts and notices';
+END;
+$guarded_officer_only$;
+RESET ROLE;
+
 ROLLBACK;
