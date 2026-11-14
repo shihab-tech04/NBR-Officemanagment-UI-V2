@@ -78,7 +78,7 @@ export function officePaymentAnalytics(records:readonly StoryPayment[],year='all
 
 export type OfficePaymentReportDimension='assessmentYear'|'head'|'payer'|'beneficiary';
 export type OfficePaymentReportLine={
-  parentId:string;allocationIndex:number;occurredAt:string;status:string;
+  parentId:string;allocationIndex:number;occurredAt:string;status:string;serviceCode:string;
   payerId:string|null;payerName:string|null;
   beneficiaryTin:string|null;beneficiary:string;
   headId:number|null;head:string;assessmentYear:string;amountMinor:number;
@@ -139,8 +139,14 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
     const allocations=Array.isArray(details.allocations)?details.allocations:[];
     const lines=Array.isArray(details.lines)?details.lines:[];
     const items=getOfficePaymentItems(payment);
-    if(!items.length|| (allocations.length>0&&items.length!==allocations.length) ||
-      (allocations.length===0&&items.length!==lines.length)){
+    const passengerCount=payment.service==='TRAVEL_TAX'&&Array.isArray(details.passengers)
+      ? details.passengers.length:0;
+    // Travel Tax passenger rows reconcile to the parent total, not to the
+    // single legacy aggregate receipt line or income-tax head allocations.
+    if(!items.length|| (passengerCount>0
+      ? allocations.length>0||items.length!==passengerCount
+      : (allocations.length>0&&items.length!==allocations.length) ||
+        (allocations.length===0&&items.length!==lines.length))){
       addIssue(parentId,'ALLOCATION_MISSING_OR_UNRECONCILED');continue;
     }
     const payerId=typeof details.payerId==='string'&&details.payerId.trim()?details.payerId.trim():null;
@@ -148,7 +154,7 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
     if(!payerId)addIssue(parentId,'PAYER_ID_MISSING');
     items.forEach((item,index)=>{
       const allocation=allocations.length?allocations[index]:undefined;
-      const sourceLine=lines[index];
+      const sourceLine=passengerCount>0?undefined:lines[index];
       const rawHeadId=allocation?.headId??sourceLine?.headId;
       const headId=Number.isSafeInteger(rawHeadId)?rawHeadId as number:null;
       const head=item.service&&item.service!=='—'?item.service:'Head not recorded';
@@ -158,11 +164,13 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
         beneficiaryTin?'TIN '+beneficiaryTin:'Beneficiary not recorded';
       const assessmentYear=typeof item.assessmentYear==='string'
         ?item.assessmentYear.trim().replace(/–/g,'-'):'';
-      if(!beneficiaryTin)addIssue(parentId,'BENEFICIARY_TIN_MISSING');
-      if(headId===null)addIssue(parentId,'HEAD_ID_MISSING');
-      if(!assessmentYear||assessmentYear==='—')addIssue(parentId,'ASSESSMENT_YEAR_MISSING');
+      // Travel Tax requires passenger identity/amount but has no income-tax
+      // head, assessment year, or verified beneficiary TIN in this contract.
+      if(!passengerCount&&!beneficiaryTin)addIssue(parentId,'BENEFICIARY_TIN_MISSING');
+      if(!passengerCount&&headId===null)addIssue(parentId,'HEAD_ID_MISSING');
+      if(!passengerCount&&(!assessmentYear||assessmentYear==='—'))addIssue(parentId,'ASSESSMENT_YEAR_MISSING');
       rows.push({
-        parentId,allocationIndex:index,occurredAt,status:status||'',
+        parentId,allocationIndex:index,occurredAt,status:status||'',serviceCode:payment.service,
         payerId,payerName,beneficiaryTin,beneficiary,headId,head,
         assessmentYear:assessmentYear||'—',amountMinor:item.amountMinor,
       });
@@ -186,6 +194,7 @@ export function groupOfficePaymentReport(
       label=identity??'Assessment year not recorded';
     }else if(dimension==='head'){
       if(row.headId!==null)identity=String(row.headId);
+      else if(row.serviceCode==='TRAVEL_TAX')identity='travel-tax';
       label=row.head||'Head not recorded';
     }else if(dimension==='payer'){
       if(row.payerId){
