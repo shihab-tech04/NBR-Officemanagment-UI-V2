@@ -55,7 +55,7 @@ describe('WS5 combined Office notification deep-link behavior', () => {
       expect(await screen.findByTestId('payment-transactions')).toBeInTheDocument();
       const drawer = await screen.findByRole('dialog');
       expect(within(drawer).getByText(recordedId)).toBeVisible();
-      fireEvent.click(within(drawer).getByRole('button', { name: /close modal/i }));
+      fireEvent.click(within(drawer).getByRole('button', { name: /close drawer/i }));
       await waitFor(() => expect(view.router.state.location.pathname).toBe('/payments/transactions'));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     } finally {
