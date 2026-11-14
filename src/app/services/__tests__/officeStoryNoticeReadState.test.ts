@@ -8,7 +8,7 @@ describe("authenticated Office Story notice read-state mapping", () => {
       { noticeId: "102", isRead: false },
     ], ["101", "102"])).toEqual([
       { noticeId: "101", isRead: true },
-      { noticeId: 102, isRead: false },
+      { noticeId: "102", isRead: false },
     ]);
   });
 
