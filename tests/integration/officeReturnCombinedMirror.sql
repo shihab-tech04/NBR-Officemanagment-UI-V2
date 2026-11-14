@@ -141,9 +141,17 @@ BEGIN
 
   -- The Office/Admin payment endpoint keeps the parent, allocations, receipt
   -- lines, recipients and deterministic certificate reference in readback.
-  IF NOT has_function_privilege('anon','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
-     OR NOT has_function_privilege('authenticated','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
+  IF has_function_privilege('anon','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
+     OR has_function_privilege('authenticated','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
+     OR has_function_privilege('anon','public.payment_v1_office_guarded_story_page(integer,integer)','EXECUTE')
+     OR NOT has_function_privilege('authenticated','public.payment_v1_office_guarded_story_page(integer,integer)','EXECUTE')
   THEN RAISE EXCEPTION 'OFFICE_CERTIFICATE_PAGE_ACCESS_REGRESSION'; END IF;
+  -- The guard must deny a missing Office officer before any SQL read.
+  v_denied:=false;
+  BEGIN PERFORM public.payment_v1_office_guarded_story_page(1,100);
+  EXCEPTION WHEN insufficient_privilege THEN v_denied:=true; END;
+  IF NOT v_denied THEN RAISE EXCEPTION 'OFFICE_CERTIFICATE_UNAUTHENTICATED_READ_ACCEPTED'; END IF;
+  -- SQL fixture owns the sample records and validates the unchanged projection as postgres.
   v_page:=public.demo_story1_office_payment_page(1,100);
   SELECT item INTO v_projected
     FROM jsonb_array_elements(v_page->'items') AS rows(item)
