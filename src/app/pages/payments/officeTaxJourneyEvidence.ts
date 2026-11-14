@@ -13,8 +13,27 @@ export type OfficeJourneyEvidenceEvent = {
   provenanceBn: string;
 };
 
+/** Date-only registration fields and offset-aware SQL timestamps only.
+ * Date.parse alone silently normalizes impossible dates (e.g. February 30)
+ * and accepts ambiguous numeric strings, which must never become Admin events.
+ */
 const eventTime = (value: unknown): string | null => {
-  if (typeof value !== "string" || !value.trim()) return null;
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2}))?$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second, zone] = match;
+  const y = Number(year), m = Number(month), d = Number(day);
+  if (y < 100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 ||
+      date.getUTCDate() !== d) return null;
+  if (hour !== undefined && (
+    Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59 ||
+    (zone !== "Z" && (
+      Number(zone.slice(1, 3)) > 14 || Number(zone.slice(4, 6)) > 59 ||
+      (Number(zone.slice(1, 3)) === 14 && Number(zone.slice(4, 6)) !== 0)
+    ))
+  )) return null;
   const time = Date.parse(value);
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 };
