@@ -137,7 +137,13 @@ BEGIN
      OR v_item->'decisionHistory'->0->>'occurredAt'<>'2026-11-12T17:02:00Z'
      OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY'
      OR v_item->'decisionHistory'->1->>'occurredAt'<>'2026-11-12T17:03:00Z'
-     OR v_item->'decisionHistory'->1->>'deliveryState'<>'ACKNOWLEDGED' THEN
+     OR v_item->'decisionHistory'->1->>'deliveryState'<>'ACKNOWLEDGED'
+     OR v_item->'decisionHistory'->0->>'officerUid'<>'80000000-0000-4000-8000-000000000011'
+     OR v_item->'decisionHistory'->0->>'reason'<>'Synthetic accepted maker event'
+     OR v_item->'decisionHistory'->1->>'officerUid'<>'80000000-0000-4000-8000-000000000012'
+     OR v_item->'decisionHistory'->1->>'reason'<>'Synthetic accepted reviewer event'
+     OR v_item->>'sourceEventId'<>'80000000-0000-4000-8000-000000000001'
+     OR v_item->>'sourceEventType'<>'CORRECTION_SUBMITTED' THEN
     RAISE EXCEPTION 'Office correction queue omitted ordered acknowledged decision history';
   END IF;
   IF v_item->>'pendingDelivery'<>'true' OR v_item->>'deliveryState'<>'PENDING' THEN
@@ -187,7 +193,11 @@ BEGIN
   END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
      OR v_item->'decisionHistory'->0->>'action'<>'MAKER_ACKNOWLEDGE'
-     OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY' THEN
+     OR v_item->'decisionHistory'->1->>'action'<>'REVIEWER_VERIFY'
+     OR v_item->'decisionHistory'->0->>'officerUid'<>'80000000-0000-4000-8000-000000000011'
+     OR v_item->'decisionHistory'->0->>'reason'<>'Synthetic accepted maker event'
+     OR v_item->'decisionHistory'->1->>'officerUid'<>'80000000-0000-4000-8000-000000000012'
+     OR v_item->'decisionHistory'->1->>'reason'<>'Synthetic accepted reviewer event' THEN
     RAISE EXCEPTION 'Paged correction history lost acknowledged chronology';
   END IF;
   BEGIN
@@ -201,4 +211,15 @@ BEGIN
 END;
 $queue_parent$;
 
+-- Direct anonymous access still forbidden; audit details are Office-only.
+RESET ROLE;
+DO $verify_correction_audit_scope$
+BEGIN
+  IF has_function_privilege('anon','public.payment_v1_correction_queue(integer)','EXECUTE')
+    OR has_function_privilege('anon','public.payment_v1_correction_queue_page(integer,timestamptz,uuid)','EXECUTE')
+    OR NOT has_function_privilege('authenticated','public.payment_v1_correction_queue(integer)','EXECUTE')
+    OR NOT has_function_privilege('authenticated','public.payment_v1_correction_queue_page(integer,timestamptz,uuid)','EXECUTE')
+  THEN RAISE EXCEPTION 'CORRECTION_AUDIT_ACCESS_REGRESSION'; END IF;
+END;
+$verify_correction_audit_scope$;
 ROLLBACK;
