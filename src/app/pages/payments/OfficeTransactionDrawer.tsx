@@ -87,7 +87,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ['amount', t('colAmount'), label('Payment information','পেমেন্টের তথ্য')],
     ['payment_channel', label('Payment method','পেমেন্ট পদ্ধতি'),label('Payment information','পেমেন্টের তথ্য')],
     ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
-    ['allocation_items',label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন')],
+    ['allocation_items',source?.service==='TRAVEL_TAX'
+      ?label('Passengers and amounts','যাত্রী ও পরিমাণ'):label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),
+      label('Payment breakdown','পেমেন্ট বিবরণ')],
     ['payment_ref',label('Transaction ID','লেনদেন আইডি'),label('References','রেফারেন্স')],
     ['acs_reference',label('Receipt reference','রসিদ রেফারেন্স'),label('References','রেফারেন্স')],
     ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
