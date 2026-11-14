@@ -13,6 +13,7 @@
   "new": "new",
   "seeAll": "See all notifications",
   "viewAllPaymentRecords": "View all payment records",
+  "readStateSaveFailed": "Could not save this read status. The notice stays unread so you can retry.",
   "allCaughtUp": "You are all caught up.",
   "empty": {
     "title": "No notifications",

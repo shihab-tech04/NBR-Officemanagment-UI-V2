@@ -3,6 +3,7 @@ import { MOCK_NOTIFICATIONS } from "../data/mockData";
 import type { Notification, NotificationType, NotificationPriority } from "../data/mockData";
 import type { StoryNotice, StoryPayment } from "../pages/payments/story1OfficeApi";
 import type { DemoNoticeReadState } from "../services/demoNotificationReadState";
+import type { OfficeStoryCursorNotice } from "../services/officeStoryNoticePages";
 
 // Re-export notification types for convenience
 export type { Notification, NotificationType, NotificationPriority };
@@ -12,12 +13,16 @@ interface NotificationsState {
   items: Notification[];
   // Timestamp of the last mark-all-read action; closes races with delayed SQL fetches.
   readThroughMs: number | null;
+  readStateMode: "demo" | "officer";
+  readStateOfficerUid: string | null;
 }
 
 const initialState: NotificationsState = {
   // Payment notices must come from mirrored SQL, not the old fictional payment fixture.
   items: MOCK_NOTIFICATIONS.filter(notice => notice.type !== "payment"),
   readThroughMs: null,
+  readStateMode: "demo",
+  readStateOfficerUid: null,
 };
 
 // ── Slice ─────────────────────────────────────────────────────────────────────
@@ -33,14 +38,65 @@ const notificationsSlice = createSlice({
       state.items.forEach((n) => { n.isRead = true; });
       state.readThroughMs = Date.now();
     },
-    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState }>) {
+    markOfficerNotificationRead(state, action: PayloadAction<{ id: string; officerUid: string }>) {
+      if (state.readStateMode !== "officer" || state.readStateOfficerUid !== action.payload.officerUid) return;
+      const item = state.items.find((n) => n.id === action.payload.id);
+      if (item) item.isRead = true;
+    },
+    clearOfficerNoticeReadState(state) {
+      if (state.readStateMode !== "officer") return;
+      state.readStateOfficerUid = null;
+      // Never expose the previous officer's private feed after sign-out or switch.
+      state.items = state.items.filter(notice => notice.type !== "payment");
+    },
+    syncVerifiedOfficerCursorNotices(state, action: PayloadAction<{
+      officerUid:string;notices:OfficeStoryCursorNotice[];readIds:string[];language:"en"|"bn";
+    }>) {
+      if(!action.payload.officerUid)return;
+      const bn=action.payload.language==="bn";
+      const read=new Set(action.payload.readIds);
+      const next:Notification[]=[];
+      const seen=new Set<string>();
+      for(const event of action.payload.notices){
+        if(event.type!=="NEW_SIMULATED_PAYMENT"||seen.has(event.id))continue;
+        // Cursor projections use exact decimal minor units. Format without Number.
+        const minor=BigInt(event.payment.amountMinor);
+        const taka=(minor/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+        const poisha=(minor%100n).toString().padStart(2,"0");
+        const amount="৳"+taka+"."+poisha;
+        seen.add(event.id);
+        next.push({
+          id:"sql-payment-"+event.id,type:"payment",priority:"medium",
+          title:bn?"নতুন পেমেন্ট রেকর্ড":"New payment record",
+          message:bn?`পেমেন্টের পরিমাণ ${amount}। TaxPay থেকে অফিসে সংরক্ষিত হয়েছে। সরকারি নিষ্পত্তি নিশ্চিত হয়নি।`
+                   :`Payment amount ${amount} recorded in Office. No government settlement is confirmed.`,
+          module:bn?"পেমেন্টস":"Payments",
+          time:new Date(event.createdAt).toLocaleString(bn?"bn-BD":"en-GB"),
+          isRead:read.has(event.id),targetPaymentId:event.paymentId,
+          targetNoticeId:event.id,destination:{main:"payments",sub:"transactions"},
+        });
+      }
+      state.readStateMode="officer";
+      state.readStateOfficerUid=action.payload.officerUid;
+      state.items=[...next,...state.items.filter(item=>item.type!=="payment"&&!item.id.startsWith("sql-payment-"))];
+    },
+    syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: string[]; officerUid?: string | null }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
       // infer an official settled payment, or create a notice from a UI click.
-      const previousRead = new Map(state.items.map(notice => [notice.id, notice.isRead]));
+      const nextReadStateMode = action.payload.useOfficerReadState ? "officer" : "demo";
+      const nextOfficerUid = action.payload.useOfficerReadState ? action.payload.officerUid ?? null : null;
+      const canReusePreviousRead = state.readStateMode === nextReadStateMode &&
+        (nextReadStateMode === "demo" || state.readStateOfficerUid === nextOfficerUid);
+      const previousRead = canReusePreviousRead
+        ? new Map(state.items.map(notice => [notice.id, notice.isRead]))
+        : new Map<string, boolean>();
+      state.readStateMode = nextReadStateMode;
+      state.readStateOfficerUid = nextOfficerUid;
       const seen = new Set<string>();
       const bn = action.payload.language === "bn";
       const saved = action.payload.tabReadState;
       const savedIds = new Set(saved?.ids ?? []);
+      const officerReadIds = new Set(action.payload.officerReadNoticeIds ?? []);
       const readThrough = Math.max(state.readThroughMs ?? 0, saved?.readThroughMs ?? 0);
       const mirrored: Notification[] = [];
       // A notice alone contains no amount. Resolve it only against an exact
@@ -65,7 +121,11 @@ const notificationsSlice = createSlice({
                       : `Payment amount ${amount} recorded in Office. No government settlement is confirmed.`,
           module: bn ? "পেমেন্টস" : "Payments",
           time: new Date(event.createdAt).toLocaleString(bn ? "bn-BD" : "en-GB"),
-          isRead: previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
+          isRead: action.payload.useOfficerReadState
+            ? officerReadIds.has(String(event.id))
+            : previousRead.get(id) ?? (savedIds.has(id) || (readThrough > 0 && Date.parse(event.createdAt) <= readThrough)),
+          targetPaymentId: event.paymentId,
+          targetNoticeId: String(event.id),
           destination: { main: "payments", sub: "transactions" },
         });
       }
@@ -80,7 +140,10 @@ const notificationsSlice = createSlice({
 export const {
   markNotificationRead,
   markAllNotificationsRead,
+  markOfficerNotificationRead,
+  clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
+  syncVerifiedOfficerCursorNotices,
   setNotifications,
 } = notificationsSlice.actions;
 

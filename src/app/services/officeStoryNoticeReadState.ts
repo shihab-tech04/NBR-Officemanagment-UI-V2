@@ -1,0 +1,108 @@
+import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
+
+/** Distinguish revoked/expired officer access from transient network failure. */
+export class OfficeNoticeAuthorizationError extends Error {
+  constructor() { super("Verified Office payment officer access is required"); }
+}
+function isOfficerAccessDenied(error:{code?:string;message?:string}|null):boolean{
+  if(!error)return false;
+  return error.code==="42501" ||
+    /(?:authorized office officer required|active payment officer role required|permission denied|jwt expired|invalid jwt)/i.test(error.message??"");
+}
+
+export type OfficeStoryNoticeReadState = {
+  noticeId: string;
+  isRead: boolean;
+};
+export type OfficeStoryNoticeReadSnapshot = {
+  officerUid: string;
+  notices: OfficeStoryNoticeReadState[];
+};
+
+/** Exact decimal-string PostgreSQL bigint identity, never coerced to JS Number. */
+export function parseOfficeNoticeId(value: unknown): string | null {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,18}$/.test(value)) return null;
+  return BigInt(value) <= 9223372036854775807n ? value : null;
+}
+
+/** Validate the authenticated RPC response against the exact requested notice IDs. */
+export function parseOfficeStoryNoticeReadState(
+  data: unknown,
+  expectedIds: string[],
+): OfficeStoryNoticeReadState[] {
+  if (!Array.isArray(data)) throw new Error("Invalid Office notice read-state response");
+  const expected = new Set(expectedIds);
+  const parsed = new Map<string, OfficeStoryNoticeReadState>();
+  for (const item of data) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error("Invalid Office notice read-state row");
+    }
+    const row = item as Record<string, unknown>;
+    const id = parseOfficeNoticeId(row.noticeId);
+    if (id === null || typeof row.isRead !== "boolean" || !expected.has(id) || parsed.has(id)) {
+      throw new Error("Office notice read-state identity did not match the request");
+    }
+    parsed.set(id, { noticeId: id, isRead: row.isRead });
+  }
+  if (parsed.size !== expected.size) throw new Error("Office notice read-state response was incomplete");
+  return expectedIds.map(id => parsed.get(id)!);
+}
+
+async function authenticatedClient() {
+  if (!isSharedAuditMode()) throw new Error("Shared Office mode is not enabled");
+  const db = getAuditSqlClient();
+  const { data, error } = await db.auth.getUser();
+  if (error || !data.user || data.user.is_anonymous) {
+    throw new OfficeNoticeAuthorizationError();
+  }
+  return { db, officerUid: data.user.id };
+}
+
+async function verifyCurrentOfficer(db: Awaited<ReturnType<typeof authenticatedClient>>["db"], officerUid: string) {
+  const { data, error } = await db.auth.getUser();
+  if (error || !data.user || data.user.is_anonymous || data.user.id !== officerUid) {
+    throw new OfficeNoticeAuthorizationError();
+  }
+}
+
+/** The SQL RPC derives the actor from auth.uid() and checks an active payment role. */
+export async function getOfficeStoryNoticeReadState(
+  noticeIds: string[],
+): Promise<OfficeStoryNoticeReadSnapshot> {
+  if (noticeIds.length > 100 || noticeIds.some(id => parseOfficeNoticeId(id) === null)) {
+    throw new Error("Invalid Office notice read-state request");
+  }
+  const uniqueIds = Array.from(new Set(noticeIds));
+  const { db, officerUid } = await authenticatedClient();
+  if (!uniqueIds.length) return { officerUid, notices: [] };
+  const { data, error } = await db.rpc("payment_v1_office_story_notice_read_state", {
+    p_notice_ids: uniqueIds,
+  });
+  if (error) {
+    if(isOfficerAccessDenied(error))throw new OfficeNoticeAuthorizationError();
+    throw new Error("Office notice read-state is unavailable");
+  }
+  await verifyCurrentOfficer(db, officerUid);
+  return { officerUid, notices: parseOfficeStoryNoticeReadState(data, uniqueIds) };
+}
+
+/** Retries are safe: the SQL receipt key is (notice_id, officer_uid). */
+export async function setOfficeStoryNoticeRead(noticeIdValue: string, isRead: boolean): Promise<string> {
+  const id = parseOfficeNoticeId(noticeIdValue);
+  if (id === null || typeof isRead !== "boolean") {
+    throw new Error("Invalid Office notice read-state update");
+  }
+  const { db, officerUid } = await authenticatedClient();
+  const { data, error } = await db.rpc("payment_v1_office_set_story_notice_read", {
+    p_notice_id: id,
+    p_is_read: isRead,
+  });
+  if (isOfficerAccessDenied(error))throw new OfficeNoticeAuthorizationError();
+  if (error || !data || typeof data !== "object" ||
+      (data as Record<string, unknown>).noticeId !== id ||
+      (data as Record<string, unknown>).isRead !== isRead) {
+    throw new Error("Office notice read-state update could not be verified");
+  }
+  await verifyCurrentOfficer(db, officerUid);
+  return officerUid;
+}
