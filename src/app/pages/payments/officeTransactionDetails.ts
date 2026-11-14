@@ -13,6 +13,22 @@ export type OfficePaymentItem = {
 
 const validAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+// Existing TravelTax.tsx stores receipt passenger amounts in taka; the
+// separate SQL fixture uses minor units. Accept either exact source format,
+// never an approximate or conflicting conversion.
+const travelPassengerMinor = (passenger:{amountMinor?:number;amount?:number}):number|null => {
+  const direct=passenger.amountMinor;
+  const taka=passenger.amount;
+  if(direct!==undefined&&(!Number.isSafeInteger(direct)||direct<0))return null;
+  let converted:number|null=null;
+  if(taka!==undefined){
+    if(typeof taka!=='number'||!Number.isFinite(taka)||taka<0)return null;
+    converted=Math.round(taka*100);
+    if(!Number.isSafeInteger(converted)||Math.abs(converted/100-taka)>1e-7)return null;
+  }
+  if(direct!==undefined&&converted!==null&&direct!==converted)return null;
+  return direct??converted;
+};
 const human = (value: unknown): string =>
   typeof value === 'string' && value.trim() ? value.trim() : '—';
 
@@ -58,12 +74,12 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
     // masked passport cannot establish entitlement to a taxpayer-scoped read.
     if (explicit.length || passengers.some(passenger =>
       !passenger || human(passenger.passengerName ?? passenger.name) === '—' ||
-      !validAmount(passenger.amountMinor))) return [];
+      travelPassengerMinor(passenger)===null)) return [];
     items = passengers.map(passenger => ({
       taxpayer: human(passenger.passengerName ?? passenger.name),
       service: paymentServiceName.TRAVEL_TAX,
       assessmentYear: '—',
-      amountMinor: passenger.amountMinor!,
+      amountMinor: travelPassengerMinor(passenger)!,
     }));
   } else if (synthetic) {
     if (lines.some(line => typeof line?.beneficiary !== 'string' || !validAmount(line.amountMinor))) return [];
