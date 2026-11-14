@@ -1,5 +1,6 @@
 /** Existing Office Payments screen data adapter for Story 1 simulated payments. */
-import { getAuditSqlClient } from "../audit/auditSharedSql";
+import { getAuditSqlClient, isSharedAuditMode } from "../audit/auditSharedSql";
+import { getOfficeCmsAuthClient } from "../../services/officeCmsBridge";
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
 export type StoryPayment = {
   id:string;service:string;amountMinor:number;status:string;createdAt:string;certificateReference?:string;
@@ -32,7 +33,8 @@ const knownLegacyBrowserTest=(p:StoryPayment):boolean=>
   Date.parse(p.createdAt)<Date.parse('2026-10-18T07:01:00Z');
 
 async function get<T>(path:string):Promise<T> {
-  const client=getAuditSqlClient();
+  // Reuse the existing Office Auth connection; Audit shared mode is opt-in.
+  const client=isSharedAuditMode()?getAuditSqlClient():getOfficeCmsAuthClient();
   const {data:identity,error:identityError}=await client.auth.getUser();
   if(identityError||!identity.user||identity.user.is_anonymous)
     throw Error('Verified Office officer sign-in is required');

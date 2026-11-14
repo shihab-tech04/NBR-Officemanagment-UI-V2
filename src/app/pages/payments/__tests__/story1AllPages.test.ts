@@ -1,7 +1,11 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const auth = vi.hoisted(()=>({getUser:vi.fn(),getSession:vi.fn()}));
 vi.mock('../../audit/auditSharedSql',()=>({
+  isSharedAuditMode:()=>false,
   getAuditSqlClient:()=>({auth}),
+}));
+vi.mock('../../../services/officeCmsBridge',()=>({
+  getOfficeCmsAuthClient:()=>({auth}),
 }));
 import {getStoryPayments} from '../story1OfficeApi';
 
