@@ -13,12 +13,12 @@ DECLARE
   or v_old.created_at is distinct from (p_input->>''createdAt'')::timestamptz';
 BEGIN
   v_source := pg_catalog.pg_get_functiondef('public.demo_story1_mirror(jsonb)'::regprocedure);
-  IF pg_catalog.position(v_new IN v_source)>0 THEN RETURN; END IF;
-  IF pg_catalog.position(v_old IN v_source)=0 THEN
+  IF position(v_new IN v_source)>0 THEN RETURN; END IF;
+  IF position(v_old IN v_source)=0 THEN
     RAISE EXCEPTION 'OFFICE_MIRROR_REPLAY_SOURCE_UNEXPECTED';
   END IF;
   EXECUTE pg_catalog.replace(v_source,v_old,v_new);
-  IF pg_catalog.position(v_new IN
+  IF position(v_new IN
     pg_catalog.pg_get_functiondef('public.demo_story1_mirror(jsonb)'::regprocedure))=0
   THEN RAISE EXCEPTION 'OFFICE_MIRROR_REPLAY_INSTALL_FAILED'; END IF;
 END;
