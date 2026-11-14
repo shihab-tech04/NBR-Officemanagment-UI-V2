@@ -65,6 +65,16 @@ begin
     where table_schema='demo_payment' and table_name='authorization_audit'
       and column_name in ('code_value','consent_code','otp','password'))
   then raise exception 'Office authorization audit contains a credential field'; end if;
+  -- Legacy SECURITY DEFINER projections must never be invokable through public Data API.
+  if has_function_privilege('anon','public.demo_story1_office_list()','EXECUTE')
+     or has_function_privilege('anon','public.demo_story1_office_page(integer,integer)','EXECUTE')
+     or has_function_privilege('anon','public.demo_story1_office_notices()','EXECUTE')
+     or has_function_privilege('anon','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
+     or has_function_privilege('anon','public.payment_v1_office_guarded_story_page(integer,integer)','EXECUTE')
+     or has_function_privilege('anon','public.payment_v1_office_guarded_story_notices()','EXECUTE')
+     or not has_function_privilege('authenticated','public.payment_v1_office_guarded_story_page(integer,integer)','EXECUTE')
+     or not has_function_privilege('authenticated','public.payment_v1_office_guarded_story_notices()','EXECUTE')
+  then raise exception 'Anonymous Office read or missing authenticated guard'; end if;
   raise notice 'PASS: eight fictional payments, replay, notices, UI page, RLS and code-free authorization mirror';
 end;
 $check$;

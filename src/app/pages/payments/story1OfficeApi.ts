@@ -1,4 +1,5 @@
 /** Existing Office Payments screen data adapter for Story 1 simulated payments. */
+import { getAuditSqlClient } from "../audit/auditSharedSql";
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
 export type StoryPayment = {
   id:string;service:string;amountMinor:number;status:string;createdAt:string;certificateReference?:string;
@@ -31,7 +32,19 @@ const knownLegacyBrowserTest=(p:StoryPayment):boolean=>
   Date.parse(p.createdAt)<Date.parse('2026-10-18T07:01:00Z');
 
 async function get<T>(path:string):Promise<T> {
-  const response=await fetch(ENDPOINT+path,{headers:{'Accept':'application/json'},cache:'no-store'});
+  const client=getAuditSqlClient();
+  const {data:identity,error:identityError}=await client.auth.getUser();
+  if(identityError||!identity.user||identity.user.is_anonymous)
+    throw Error('Verified Office officer sign-in is required');
+  const {data:session,error:sessionError}=await client.auth.getSession();
+  if(sessionError||!session.session||session.session.user.id!==identity.user.id||
+     typeof session.session.access_token!=='string'||!session.session.access_token)
+    throw Error('Office officer session changed; sign in again');
+  const response=await fetch(ENDPOINT+path,{headers:{
+    'Accept':'application/json','Authorization':'Bearer '+session.session.access_token
+  },cache:'no-store'});
+  if(response.status===401||response.status===403)
+    throw Error('Authorized Office payment officer access is required');
   if(!response.ok)throw Error('Office transactions temporarily unavailable');
   const json=await response.json() as {success:boolean;data:T};
   if(!json.success)throw Error('Invalid Office payment response');

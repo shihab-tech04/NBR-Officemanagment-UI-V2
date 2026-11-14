@@ -1,12 +1,32 @@
-import {afterEach,describe,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+const auth = vi.hoisted(()=>({getUser:vi.fn(),getSession:vi.fn()}));
+vi.mock('../../audit/auditSharedSql',()=>({
+  getAuditSqlClient:()=>({auth}),
+}));
 import {getStoryPayments} from '../story1OfficeApi';
 
-afterEach(()=>{vi.unstubAllGlobals();});
+beforeEach(()=>{
+  auth.getUser.mockResolvedValue({data:{user:{id:'officer-one',is_anonymous:false}},error:null});
+  auth.getSession.mockResolvedValue({data:{session:{user:{id:'officer-one'},access_token:'office-officer-jwt'}},error:null});
+});
+afterEach(()=>{vi.unstubAllGlobals();auth.getUser.mockReset();auth.getSession.mockReset();});
 
 describe('Office SQL historical/new payment pagination',()=>{
+  it('requires the existing verified Office Auth account and sends its bearer on all payment pages',async()=>{
+    auth.getUser.mockResolvedValueOnce({data:{user:null},error:null});
+    const fetchMock=vi.fn();
+    vi.stubGlobal('fetch',fetchMock);
+    await expect(getStoryPayments()).rejects.toThrow('Verified Office officer sign-in');
+    expect(fetchMock).not.toHaveBeenCalled();
+    auth.getUser.mockResolvedValueOnce({data:{user:{id:'officer-one',is_anonymous:false}},error:null});
+    auth.getSession.mockResolvedValueOnce({data:{session:{user:{id:'switched-officer'},access_token:'other-jwt'}},error:null});
+    await expect(getStoryPayments()).rejects.toThrow('Office officer session changed');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it('continues beyond the old 10,000-row cap without duplicate IDs or lost end pages',async()=>{
     const total=10001;
-    const fetchMock=vi.fn(async(url:string)=>{
+    const fetchMock=vi.fn(async(url:string,request?:RequestInit)=>{
+      expect((request?.headers as Record<string,string>)?.Authorization).toBe('Bearer office-officer-jwt');
       const query=new URL(url);
       const page=Number(query.searchParams.get('page'));
       const from=(page-1)*100;

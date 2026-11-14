@@ -35,6 +35,17 @@ const validNoticePage=(data:unknown,afterId:bigint,limit:number):boolean=>{
  if(page.hasMore&&(page.items.length!==limit||previous<=afterId))return false;
  return true;
 };
+async function verifiedOfficeReadClient(req:Request,client:ReturnType<typeof createClient>,url:string,key:string) {
+ const authorization=req.headers.get("authorization");
+ if(!authorization||!/^Bearer [^\s]+$/.test(authorization)||authorization.length>8192)
+   return null;
+ const {data,error}=await client.auth.getUser(authorization.slice(7));
+ if(error||!data.user||data.user.is_anonymous)return null;
+ return createClient(url,key,{
+   auth:{persistSession:false,autoRefreshToken:false},
+   global:{headers:{Authorization:authorization}}
+ });
+}
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
  const path=new URL(req.url).pathname.replace(/^\/demo-story1-office/,"");
@@ -99,7 +110,10 @@ Deno.serve(async(req)=>{
             perPage=Number(u.searchParams.get("perPage")??"100");
       if(!Number.isSafeInteger(page)||!Number.isSafeInteger(perPage)||page<1||perPage<1||perPage>100)
         return respond({success:false,error:"INVALID_PAGINATION"},400);
-      rpc="demo_story1_office_payment_page";args={p_page:page,p_per_page:perPage};
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;
+      rpc="payment_v1_office_guarded_story_page";args={p_page:page,p_per_page:perPage};
    }
    else if(req.method==="GET"&&path==="/notifications/page"){
       const u=new URL(req.url),afterId=u.searchParams.get("afterId")??"0",
@@ -124,10 +138,18 @@ Deno.serve(async(req)=>{
       });
       noticePageCheck={afterId:afterIdValue,limit};
       rpc="demo_story1_office_notice_page";args={p_after_id:afterId,p_limit:limit};
-   }else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}
+   }else if(req.method==="GET"&&path==="/notifications"){
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;rpc="payment_v1_office_guarded_story_notices";
+   }
    else return respond({success:false,error:"NOT_FOUND"},404);
    const {data,error}=await rpcClient.rpc(rpc,args);
-   if(error){console.error("office story1",error.code,error.message);return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);}
+   if(error){
+     if(error.code==="42501")return respond({success:false,error:"OFFICE_OFFICER_ACCESS_DENIED"},403);
+     console.error("office story1",error.code,error.message);
+     return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);
+   }
    if(rpc==="demo_story1_office_notice_page"&&noticePageCheck&&
       !validNoticePage(data,noticePageCheck.afterId,noticePageCheck.limit))
      return respond({success:false,error:"INVALID_NOTIFICATION_PAGE"},502);
