@@ -124,6 +124,12 @@ describe('Office-native transaction record and receipt', () => {
       passengers:[{name:'Passenger A',amount:60},{name:'Passenger B',amount:60}],
     }};
     expect(getOfficePaymentItems(actualSourceShape)).toEqual(rows);
+    // A matching parent sum cannot conceal amounts assigned to the wrong
+    // passenger; each source receipt line must reconcile by its passenger.
+    const mismatchedPassengerLines:StoryPayment={...actualSourceShape,details:{
+      ...actualSourceShape.details,lines:[{headId:155,totalAmount:59},{headId:156,totalAmount:61}],
+    }};
+    expect(getOfficePaymentItems(mismatchedPassengerLines)).toEqual([]);
     const zeroTaxPassenger:StoryPayment={...travel,details:{...travel.details,
       passengers:[{name:'Passenger A',amount:120},{name:'Exempt passenger',amount:0}],
     }};

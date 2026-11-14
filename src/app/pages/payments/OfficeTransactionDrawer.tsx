@@ -20,6 +20,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const ref = display(row?.payment_ref);
+  const receiptReference=source?.details?.receiptReference?.trim()||'';
+  const certificateReference=source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
   const items = useMemo(() => getOfficePaymentItems(source, scopeTin
     ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
@@ -36,6 +38,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     year: display(row?.assessment_year), amount: display(row?.amount),
     paymentStatus: display(row?.financial_receipt_status),
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
+    ...(receiptReference?{receiptReference}:{}),
+    ...(certificateReference?{certificateReference}:{}),
     ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
       ? {batchId:source.details.batchId}:{}),
     ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)

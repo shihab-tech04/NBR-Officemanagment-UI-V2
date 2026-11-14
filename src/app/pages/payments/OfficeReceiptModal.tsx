@@ -72,8 +72,16 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           </div>
         </header>
         <section className="office-receipt__reference receipt-view__reference-strip">
-          <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong>{info.reference}</strong></div>
+          <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong className="break-all">{info.reference}</strong></div>
           <div><p>{label('Date', 'তারিখ')}</p><strong>{info.date}</strong></div>
+          {info.receiptReference&&<div>
+            <p>{label('Receipt reference','রসিদ রেফারেন্স')}</p>
+            <strong className="break-all">{info.receiptReference}</strong>
+          </div>}
+          {info.certificateReference&&<div>
+            <p>{label('Certificate reference','সনদ রেফারেন্স')}</p>
+            <strong className="break-all">{info.certificateReference}</strong>
+          </div>}
         </section>
         {info.batchId&&<section className="office-receipt__reference receipt-view__reference-strip" data-testid="office-receipt-batch-identity">
           <div><p>{label('Batch reference','ব্যাচ রেফারেন্স')}</p><strong className="break-all">{info.batchId}</strong></div>

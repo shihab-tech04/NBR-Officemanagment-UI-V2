@@ -16,21 +16,46 @@ const validAmount = (value: unknown): value is number =>
 // Existing TravelTax.tsx stores receipt passenger amounts in taka; the
 // separate SQL fixture uses minor units. Accept either exact source format,
 // never an approximate or conflicting conversion.
-const travelPassengerMinor = (passenger:{amountMinor?:number;amount?:number}):number|null => {
-  const direct=passenger.amountMinor;
-  const taka=passenger.amount;
-  if(direct!==undefined&&(!Number.isSafeInteger(direct)||direct<0))return null;
-  let converted:number|null=null;
-  if(taka!==undefined){
-    if(typeof taka!=='number'||!Number.isFinite(taka)||taka<0)return null;
-    converted=Math.round(taka*100);
-    if(!Number.isSafeInteger(converted)||Math.abs(converted/100-taka)>1e-7)return null;
+const travelAmountMinor=(minorValue:unknown,takaValue:unknown):number|null=>{
+  let direct:number|null=null;
+  if(minorValue!==undefined){
+    if(typeof minorValue!=='number'||!Number.isSafeInteger(minorValue)||minorValue<0)return null;
+    direct=minorValue;
   }
-  if(direct!==undefined&&converted!==null&&direct!==converted)return null;
+  let converted:number|null=null;
+  if(takaValue!==undefined){
+    if(typeof takaValue!=='number'||!Number.isFinite(takaValue)||takaValue<0)return null;
+    converted=Math.round(takaValue*100);
+    if(!Number.isSafeInteger(converted)||Math.abs(converted/100-takaValue)>1e-7)return null;
+  }
+  if(direct!==null&&converted!==null&&direct!==converted)return null;
   return direct??converted;
+};
+const travelPassengerMinor=(passenger:unknown):number|null=>{
+  if(!passenger||typeof passenger!=='object'||Array.isArray(passenger))return null;
+  const row=passenger as Record<string,unknown>;
+  return travelAmountMinor(row.amountMinor,row.amount);
+};
+const travelLineMinor=(line:unknown):number|null=>{
+  if(!line||typeof line!=='object'||Array.isArray(line))return null;
+  const row=line as Record<string,unknown>;
+  return travelAmountMinor(row.amountMinor,row.totalAmount!==undefined?row.totalAmount:row.amount);
 };
 const human = (value: unknown): string =>
   typeof value === 'string' && value.trim() ? value.trim() : '—';
+const travelPassengerName=(passenger:unknown):string=>{
+  if(!passenger||typeof passenger!=='object'||Array.isArray(passenger))return '—';
+  const row=passenger as Record<string,unknown>;
+  return human(row.passengerName)!=='—'?human(row.passengerName):human(row.name);
+};
+const sameTravelPassengerRows=(left:unknown[],right:unknown[]):boolean=>
+  left.length===right.length&&left.every((passenger,index)=>{
+    const other=right[index];
+    const name=travelPassengerName(passenger);
+    const amount=travelPassengerMinor(passenger);
+    return name!=='—'&&name===travelPassengerName(other)&&
+      amount!==null&&amount===travelPassengerMinor(other);
+  });
 
 export function officeMoney(minor: number, language = 'en'): string {
   if (!Number.isSafeInteger(minor) || minor < 0) return '—';
@@ -64,22 +89,41 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   const lines = Array.isArray(details.lines) ? details.lines : [];
   const explicit = Array.isArray(details.allocations) ? details.allocations : [];
   const synthetic = lines.some(line => typeof line?.beneficiary === 'string');
-  const passengers = payment.service === 'TRAVEL_TAX' && Array.isArray(details.passengers)
-    ? details.passengers : null;
+  const detailPassengers:unknown[]=Array.isArray(details.passengers)?details.passengers:[];
+  const snapshotPassengers:unknown[]=Array.isArray(details.receiptSnapshot?.travelDetails?.passengers)
+    ?details.receiptSnapshot.travelDetails.passengers:[];
+  const passengers = payment.service === 'TRAVEL_TAX'
+    ? (detailPassengers.length?detailPassengers:snapshotPassengers.length?snapshotPassengers:null)
+    : null;
+  const passengerSourcesConflict=detailPassengers.length>0&&snapshotPassengers.length>0&&
+    !sameTravelPassengerRows(detailPassengers,snapshotPassengers);
 
   if (synthetic && explicit.length) return []; // Cannot reconcile two identity schemes.
   let items: OfficePaymentItem[] = [];
   if (passengers?.length) {
     // The Office officer can inspect reconciled passenger amounts. A name or
     // masked passport cannot establish entitlement to a taxpayer-scoped read.
-    if (explicit.length || passengers.some(passenger =>
-      !passenger || human(passenger.passengerName ?? passenger.name) === '—' ||
-      travelPassengerMinor(passenger)===null)) return [];
-    items = passengers.map(passenger => ({
-      taxpayer: human(passenger.passengerName ?? passenger.name),
+    const passengerAmounts=passengers.map(travelPassengerMinor);
+    if (passengerSourcesConflict||explicit.length||
+      passengers.some(passenger=>travelPassengerName(passenger)==='—')||
+      passengerAmounts.some(amount=>amount===null)) return [];
+    const safePassengerAmounts=passengerAmounts as number[];
+    const travelLines=lines.length?lines:
+      Array.isArray(details.receiptSnapshot?.items)?details.receiptSnapshot.items:[];
+    // The Taxpayer source emits one receipt line per passenger. Older mirrored
+    // rows may contain one aggregate line; accept that only when it equals the
+    // immutable parent total. Never reassign a mismatched line by array sum.
+    const linesReconcile=!travelLines.length||
+      (travelLines.length===1&&passengers.length>1
+        ?travelLineMinor(travelLines[0])===payment.amountMinor
+        :travelLines.length===passengers.length&&travelLines.every((line,index)=>
+          travelLineMinor(line)===safePassengerAmounts[index]));
+    if(!linesReconcile)return [];
+    items = passengers.map((passenger,index) => ({
+      taxpayer: travelPassengerName(passenger),
       service: paymentServiceName.TRAVEL_TAX,
       assessmentYear: '—',
-      amountMinor: travelPassengerMinor(passenger)!,
+      amountMinor: safePassengerAmounts[index],
     }));
   } else if (synthetic) {
     if (lines.some(line => typeof line?.beneficiary !== 'string' || !validAmount(line.amountMinor))) return [];
@@ -158,6 +202,8 @@ export type OfficeReceiptInfo = {
   paymentStatus: string;
   creditStatus: string;
   method: string;
+  receiptReference?:string;
+  certificateReference?:string;
   batchId?:string;
   batchItemIndex?:number;
   batchItemCount?:number;

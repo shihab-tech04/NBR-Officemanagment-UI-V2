@@ -517,3 +517,76 @@ test('Office shared receipt modal fits a 360px viewport without external navigat
   expect(over).toBeLessThanOrEqual(2);
   await expect(page).toHaveURL(/\/payments\/transactions$/);
 });
+
+for (const config of [
+  {language:'en',viewport:{width:1440,height:900}},
+  {language:'bn',viewport:{width:1440,height:900}},
+  {language:'en',viewport:{width:390,height:844}},
+  {language:'bn',viewport:{width:390,height:844}},
+]) {
+  test(`Travel Tax Office details preserve passenger allocations and linked references ${config.language}/${config.viewport.width}px`,async({page})=>{
+    const parent='8ec734a4-75b9-4d24-a891-0a52d31df9ac';
+    const receiptReference='TRV-RCPT-'+parent;
+    const certificateReference='SK-PC-'+parent;
+    await page.setViewportSize(config.viewport);
+    await page.addInitScript(language=>{
+      localStorage.setItem('gov_ui_settings',JSON.stringify({
+        assessmentYear:'2027-28',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:language,
+      }));
+      localStorage.setItem('i18nextLng',language);
+    },config.language);
+    await page.route('**/functions/v1/demo-story1-office/payments*',route=>
+      route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+        success:true,data:{items:[{
+          id:parent,service:'TRAVEL_TAX',amountMinor:12000,status:'SIMULATED_SUCCESS',
+          createdAt:'2026-11-13T10:00:00Z',certificateReference,
+          details:{
+            payerId:'ws3-travel-payer',payerName:'Travel payer',assessmentYear:'2026-27',
+            receiptReference,travelMode:'LAND',departurePort:'Benapole',destination:'India',
+            travelDate:'2026-11-20',
+            passengers:[
+              {name:'Passenger A',passportMasked:'••••1234',amount:60},
+              {name:'Passenger B',passportMasked:'••••5678',amount:60},
+            ],
+            lines:[
+              {headId:155,headNameEn:'Travel Tax',totalAmount:60},
+              {headId:156,headNameEn:'Travel Tax',totalAmount:60},
+            ],
+            receiptSnapshot:{paymentCategory:'TRAVEL_TAX',totalAmount:120,
+              travelDetails:{passengers:[
+                {name:'Passenger A',amount:60},{name:'Passenger B',amount:60},
+              ]}},
+          },
+        }],total:1,page:1,perPage:100},simulationOnly:true})});
+    await page.goto('/payments/transactions');
+    const detailAction=config.viewport.width<=768
+      ?page.locator('.mobile-table-card__action-btn').first()
+      :page.locator('.payment-module__table-card .card-table__action-btn').first();
+    await expect(detailAction).toBeVisible({timeout:18000});
+    await detailAction.click();
+    const drawer=page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText(parent);
+    await expect(drawer).toContainText(receiptReference);
+    await expect(drawer).toContainText(certificateReference);
+    await expect(drawer).toContainText('Passenger A');
+    await expect(drawer).toContainText('Passenger B');
+    await expect(drawer.locator('.office-shared-allocation-list__item')).toHaveCount(2);
+    const formattedAmount=config.language==='bn'?'৳৬০.০০':'৳60.00';
+    await expect(drawer).toContainText(formattedAmount);
+    await expect(drawer).toContainText('SIMULATED SUCCESS');
+    const receiptButton=config.language==='bn'?'রসিদ দেখুন':'View receipt';
+    await drawer.getByRole('button',{name:receiptButton}).click();
+    const paper=page.locator('#office-receipt-paper');
+    await expect(paper).toBeVisible();
+    await expect(paper).toContainText(parent);
+    await expect(paper).toContainText(receiptReference);
+    await expect(paper).toContainText(certificateReference);
+    await expect(paper.locator('.office-receipt__breakdown tbody tr')).toHaveCount(2);
+    await expect(paper).toContainText(formattedAmount);
+    await expect(paper).not.toContainText('••••1234');
+    await expect(paper).not.toContainText('••••5678');
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+    expect(overflow).toBeLessThanOrEqual(2);
+  });
+}
