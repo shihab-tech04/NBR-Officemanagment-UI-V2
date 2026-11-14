@@ -99,6 +99,31 @@ describe('Office-native transaction record and receipt', () => {
     expect(getOfficePaymentItems(person11).map(x=>x.taxpayerTin)).toEqual(['9000000000011']);
   });
 
+  it('shows every reconciled Travel Tax passenger amount without inventing TIN or AY', () => {
+    const travel:StoryPayment={id:'travel-parent',service:'TRAVEL_TAX',status:'SIMULATED_SUCCESS',
+      amountMinor:12000,createdAt:'2026-11-13T10:00:00Z',details:{
+        payerId:'user1',travelDate:'2026-11-13',passportNumberMasked:'••••1234',
+        lines:[{amountMinor:12000,note:'Passport: NEVER-IN-PASSENGER-DETAIL'}],
+        passengers:[
+          {passengerName:'Passenger A',passportNumberMasked:'••••1234',amountMinor:6000},
+          {passengerName:'Passenger B',passportNumberMasked:'••••5678',amountMinor:6000},
+        ],
+      }};
+    const rows=getOfficePaymentItems(travel);
+    expect(rows).toEqual([
+      {taxpayer:'Passenger A',service:'Travel Tax',assessmentYear:'—',amountMinor:6000},
+      {taxpayer:'Passenger B',service:'Travel Tax',assessmentYear:'—',amountMinor:6000},
+    ]);
+    expect(rows.reduce((total,row)=>total+row.amountMinor,0)).toBe(travel.amountMinor);
+    expect(JSON.stringify(rows)).not.toContain('NEVER-IN-PASSENGER-DETAIL');
+    expect(JSON.stringify(rows)).not.toContain('••••1234');
+    expect(getOfficePaymentItems(travel,{taxpayerTin:'222222222222'})).toEqual([]);
+    expect(getOfficePaymentItems({...travel,amountMinor:12001})).toEqual([]);
+    expect(getOfficePaymentItems({...travel,details:{...travel.details,
+      passengers:[{passengerName:'Passenger A',amountMinor:6000},
+        {passengerName:'Passenger B'}]}})).toEqual([]);
+  });
+
   it('exports exactly the visible shared-modal receipt paper, not a duplicate receipt template', () => {
     const paper = document.createElement('article');
     paper.className = 'office-receipt__paper';
