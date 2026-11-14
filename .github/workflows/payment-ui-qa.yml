@@ -2,6 +2,10 @@ name: Payments UI integration checks
 on:
   pull_request:
     branches: [main]
+  # Run this existing PR's test-only gate even while its SQL migration conflicts
+  # with WS3's canonical migration. Never merges, deploys or changes approvals.
+  push:
+    branches: [ws02/payment-notice-detail-deeplink]
   workflow_dispatch:
 permissions:
   contents: read
