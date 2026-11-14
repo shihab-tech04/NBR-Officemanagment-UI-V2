@@ -82,6 +82,38 @@ describe("Office taxpayer Tax Journey", () => {
     expect(registrationHistoryEvents(taxpayerProfile("SYNTHETIC"))).toEqual([]);
   });
 
+  it("does not fabricate verified TIN or correction events from impossible or ambiguous dates", () => {
+    const original = taxpayerProfile("NBR_TIN");
+    const invalidProfile = {
+      ...original,
+      profile: {...original.profile, registeredOn: "2026-02-30", certificateIssuedOn: "1"},
+    } as TaxpayerRegistrationProfile;
+    expect(registrationHistoryEvents(invalidProfile)).toEqual([]);
+
+    const leapYearProfile = {
+      ...original,
+      profile: {...original.profile, registeredOn: "2024-02-29",
+        certificateIssuedOn: "2024-03-01T05:30:00+06:00"},
+    } as TaxpayerRegistrationProfile;
+    const verifiedDates = registrationHistoryEvents(leapYearProfile);
+    expect(verifiedDates).toHaveLength(2);
+    expect(verifiedDates[0].occurredAt).toBe("2024-02-29T00:00:00.000Z");
+    expect(verifiedDates[1].occurredAt).toBe("2024-02-29T23:30:00.000Z");
+
+    const source = linkedCorrection[0];
+    const malformed = [{
+      ...source,
+      inquiry: {...source.inquiry, createdAt: "2026-02-30",
+        decisionHistory: source.inquiry.decisionHistory?.map(decision =>
+          ({...decision, occurredAt: "2026-11-31T10:00:00Z"}))},
+    }] as LinkedTaxpayerCorrection[];
+    expect(correctionHistoryEvents(malformed)).toEqual([]);
+
+    const verified = correctionHistoryEvents(linkedCorrection);
+    expect(verified).toHaveLength(2);
+    expect(verified.some(event => event.detailEn.includes("not verified as a completed change"))).toBe(true);
+  });
+
   it("includes source IDs, request values as unverified, and only acknowledged decisions", () => {
     const events = correctionHistoryEvents(linkedCorrection);
     expect(events).toHaveLength(2);
