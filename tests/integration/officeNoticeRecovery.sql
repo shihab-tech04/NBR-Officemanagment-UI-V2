@@ -1,4 +1,5 @@
--- Disposable-only 205-event offline recovery and cursor integrity contract.
+-- Disposable-only 205 eligible-event offline recovery and cursor integrity contract.
+-- All fixture-origin records remain stored but are excluded from the officer bell.
 BEGIN;
 
 INSERT INTO demo_payment.story_payments(
@@ -95,8 +96,8 @@ BEGIN
      OR jsonb_array_length(v_second->'items')<>100
      OR v_second->>'nextAfterId'<>'9007199254741192'
      OR v_second->>'hasMore'<>'true'
-     OR jsonb_array_length(v_third->'items')<>6
-     OR v_third->>'nextAfterId'<>'9007199254741199'
+     OR jsonb_array_length(v_third->'items')<>5
+     OR v_third->>'nextAfterId'<>'9007199254741197'
      OR v_third->>'hasMore'<>'false'
   THEN
     RAISE EXCEPTION 'Cursor pages or deterministic retry did not preserve all available events';
@@ -128,14 +129,18 @@ BEGIN
     UNION ALL
     SELECT value->>'id' AS id FROM jsonb_array_elements(v_third->'items') AS p(value)
   ) all_items;
-  IF v_ids<>206 OR v_distinct_ids<>206
+  IF v_ids<>205 OR v_distinct_ids<>205
      OR EXISTS(
        SELECT 1 FROM jsonb_array_elements(v_third->'items') AS p(value)
        WHERE value->>'id'='9007199254741198'
      )
-     OR NOT EXISTS(
+     OR EXISTS(
        SELECT 1 FROM jsonb_array_elements(v_third->'items') AS p(value)
        WHERE value->>'id'='9007199254741199'
+     )
+     OR NOT EXISTS(
+       SELECT 1 FROM jsonb_array_elements(v_third->'items') AS p(value)
+       WHERE value->>'id'='9007199254741197'
      )
   THEN
     RAISE EXCEPTION 'Pagination duplicated, omitted, or exposed a filtered notice';
