@@ -277,6 +277,7 @@ DECLARE
   lines jsonb; allocations jsonb; snapshot jsonb;
   source jsonb; again jsonb; before_data jsonb;
   r jsonb; page jsonb; original_row jsonb; again_row jsonb;
+  invalid_case text; bad jsonb;
 BEGIN
   lines := jsonb_build_array(
     jsonb_build_object('headId',8,'economicCode','50','serviceCode','SOURCE_TAX_DEPOSIT',
@@ -334,6 +335,38 @@ BEGIN
   IF r->>'replayed' IS DISTINCT FROM 'true' THEN
     RAISE EXCEPTION 'V3_PAY_AGAIN_RETRY_FAILED';
   END IF;
+  -- Every malformed new v3 source snapshot must be rejected atomically
+  -- without inserting a parent/notice or changing the immutable original.
+  FOR invalid_case IN SELECT unnest(ARRAY[
+    'MISSING_ALLOCATION_ID','DUPLICATE_ALLOCATION_ID',
+    'ALLOCATION_AMOUNT_DRIFT','MISSING_LINE_SERVICE','PARENT_TOTAL_DRIFT'
+  ]) LOOP
+    bad := pg_catalog.jsonb_set(source,'{id}',pg_catalog.to_jsonb(pg_catalog.gen_random_uuid()::text));
+    IF invalid_case='MISSING_ALLOCATION_ID' THEN
+      bad := pg_catalog.jsonb_set(bad,'{data,details,allocations,0,allocationId}','null'::jsonb);
+    ELSIF invalid_case='DUPLICATE_ALLOCATION_ID' THEN
+      bad := pg_catalog.jsonb_set(bad,'{data,details,allocations,1,allocationId}',
+        pg_catalog.to_jsonb('ws3-v3-one'::text));
+    ELSIF invalid_case='ALLOCATION_AMOUNT_DRIFT' THEN
+      bad := pg_catalog.jsonb_set(bad,'{data,details,allocations,1,amountMinor}','3400'::jsonb);
+    ELSIF invalid_case='MISSING_LINE_SERVICE' THEN
+      bad := pg_catalog.jsonb_set(bad,'{data,details,allocations,0,serviceCode}','null'::jsonb);
+    ELSE
+      bad := pg_catalog.jsonb_set(bad,'{data,amountMinor}','4900'::jsonb);
+    END IF;
+    BEGIN
+      PERFORM public.demo_story1_mirror(bad);
+      RAISE EXCEPTION 'V3_BAD_SOURCE_ACCEPTED_%',invalid_case;
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM IS DISTINCT FROM 'INVALID_V3_ALLOCATION' THEN RAISE; END IF;
+    END;
+    IF EXISTS(SELECT 1 FROM demo_payment.story_payments
+              WHERE id=(bad->>'id')::uuid)
+       OR EXISTS(SELECT 1 FROM demo_payment.story_notifications
+              WHERE payment_id=(bad->>'id')::uuid)
+    THEN RAISE EXCEPTION 'V3_REJECTED_SOURCE_LEFT_FINANCIAL_RECORD_%',invalid_case; END IF;
+  END LOOP;
+
   page := public.demo_story1_office_payment_page(1,100);
   SELECT item INTO original_row FROM jsonb_array_elements(page->'items') AS records(item)
     WHERE item->>'id'=parent_id::text;
