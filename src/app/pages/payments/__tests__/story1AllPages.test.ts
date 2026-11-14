@@ -51,6 +51,54 @@ describe('Office SQL historical/new payment pagination',()=>{
     expect(rows[total-1].id).toBe('payment-010000');
     expect(fetchMock).toHaveBeenCalledTimes(101);
   });
+  it('accepts an identical overlapping immutable Office payment during page refresh',async()=>{
+    const payment=(id:number)=>({
+      id:'payment-'+String(id),service:'OTHER_TAX_PAYMENT',
+      status:'SIMULATED_SUCCESS',amountMinor:500,createdAt:'2026-11-05T06:00:00Z',
+      details:{payerId:'payer-1',allocations:[{
+        taxpayerTin:'001234567890',headId:68,assessmentYear:'2026-27',amountMinor:500
+      }],lines:[{headId:68,headNameEn:'Advance Tax'}]},
+    });
+    const fetchMock=vi.fn(async(url:string)=>{
+      const page=Number(new URL(url).searchParams.get('page'));
+      const items=page===1
+        ?Array.from({length:100},(_,i)=>payment(i))
+        :page===2?[structuredClone(payment(0)),payment(100)]:[];
+      return {ok:true,json:async()=>({success:true,data:{items,total:101,page,perPage:100}})};
+    });
+    vi.stubGlobal('fetch',fetchMock);
+    const result=await getStoryPayments();
+    expect(result).toHaveLength(101);
+    expect(result[0].details?.allocations?.[0].taxpayerTin).toBe('001234567890');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects conflicting identical-parent IDs across Office SQL pages before any report',async()=>{
+    const payment=(id:number)=>({
+      id:'payment-'+String(id),service:'OTHER_TAX_PAYMENT',
+      status:'SIMULATED_SUCCESS',amountMinor:500,createdAt:'2026-11-05T06:00:00Z',
+      details:{payerId:'payer-1',allocations:[{
+        taxpayerTin:'001234567890',headId:68,assessmentYear:'2026-27',amountMinor:500
+      }],lines:[{headId:68,headNameEn:'Advance Tax'}]},
+    });
+    for(const conflict of [
+      {...payment(0),amountMinor:999},
+      {...payment(0),status:'FAILED'},
+      {...payment(0),details:{...payment(0).details,payerId:'payer-other'}},
+    ]){
+      const fetchMock=vi.fn(async(url:string)=>{
+        const page=Number(new URL(url).searchParams.get('page'));
+        const items=page===1
+          ?Array.from({length:100},(_,i)=>payment(i))
+          :page===2?[conflict,payment(100)]:[];
+        return {ok:true,json:async()=>({success:true,data:{items,total:101,page,perPage:100}})};
+      });
+      vi.stubGlobal('fetch',fetchMock);
+      await expect(getStoryPayments()).rejects.toThrow('Payment history changed during pagination; retry');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    }
+  });
+
   it('rejects missing SQL pages instead of reporting an incomplete payment history as complete',async()=>{
     const fetchMock=vi.fn(async(url:string)=>{
       const page=Number(new URL(url).searchParams.get('page'));

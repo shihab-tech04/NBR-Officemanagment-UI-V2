@@ -68,7 +68,19 @@ export async function getStoryPayments():Promise<StoryPayment[]> {
     total=Math.max(total,result.total);
     for(const payment of result.items) {
       if(!payment||typeof payment.id!=='string'||!payment.id)throw Error('Invalid payment identity');
-      records.set(payment.id,payment);
+      const prior=records.get(payment.id);
+      // Offset pagination may overlap while new Office source rows arrive.
+      // A repeated immutable parent is harmless only if its source snapshot
+      // agrees exactly. Never silently replace a payment with a conflicting
+      // amount/status/recipient projection and later report it as complete.
+      if(prior&&JSON.stringify([
+        prior.service,prior.status,prior.amountMinor,prior.createdAt,
+        prior.certificateReference??null,prior.details??null,
+      ])!==JSON.stringify([
+        payment.service,payment.status,payment.amountMinor,payment.createdAt,
+        payment.certificateReference??null,payment.details??null,
+      ]))throw Error('Payment history changed during pagination; retry');
+      if(!prior)records.set(payment.id,payment);
     }
     // Offset pages can change while new payments are arriving: never
     // represent missing or duplicated pages as a complete history.
