@@ -53,3 +53,63 @@ assert.equal(sqlCalls,0,'Missing/invalid proof caused a privileged Office SQL ca
 const methods=await handler(new Request(url,{method:'OPTIONS'}));
 assert.equal(methods.status,204);
 console.log('PASS: real Office Edge handler requires source-bound proof at ingress, malformed IDs and proofs fail before network/SQL, preflight preserved; no hosted access');
+
+
+// WS2/WS3 Office notice cursor bearer contract: the *actual* Edge handler
+// rejects anonymous and bad-session reads before any Office SQL request.
+let cursorHandler=null;
+const verifiedTokens=[],noticeSql=[];
+const validToken='isolated-active-officer-jwt';
+const cursorBox={
+ ...box,
+ require(name){
+   assert.match(name,/^npm:@supabase\/supabase-js@/);
+   return {createClient:(_url,_key,opts)=>({
+     auth:{getUser:async(token)=>{
+       verifiedTokens.push(token);
+       return token===validToken
+         ? {data:{user:{id:'80000000-0000-4000-8000-000000000011',is_anonymous:false}},error:null}
+         : {data:{user:null},error:{message:'unauthorized'}};
+     }},
+     rpc:async(name,args)=>{
+       noticeSql.push({name,args,bearer:opts?.global?.headers?.Authorization});
+       const exactId='9007199254740993';
+       return {data:{items:[{
+         id:exactId,paymentId:id,type:'NEW_SIMULATED_PAYMENT',createdAt:'2026-11-14T00:00:00Z',
+         payment:{id,service:'ADVANCE_TAX',amountMinor:'125050',
+           status:'SIMULATED_SUCCESS',createdAt:'2026-11-14T00:00:00Z'}
+       }],nextAfterId:exactId,hasMore:false},error:null};
+     },
+   })};
+ },
+ Deno:{...box.Deno,serve(callback){cursorHandler=callback;}},
+};
+vm.runInNewContext(compiled,cursorBox,{filename:'office-notice-auth.ts',timeout:5000});
+assert.equal(typeof cursorHandler,'function');
+const cursorUrl='http://127.0.0.1/demo-story1-office/notifications/page?afterId=0&limit=100';
+async function cursorRequest(address,bearer){
+ const headers={};
+ if(bearer!==undefined)headers.Authorization=bearer;
+ const response=await cursorHandler(new Request(address,{method:'GET',headers}));
+ return {status:response.status,body:await response.json()};
+}
+let cursor=await cursorRequest(cursorUrl);
+assert.equal(cursor.status,401);
+assert.equal(cursor.body.error,'OFFICE_OFFICER_AUTH_REQUIRED');
+cursor=await cursorRequest(cursorUrl,'Bearer invalid-token');
+assert.equal(cursor.status,401);
+cursor=await cursorRequest(cursorUrl+'0','Bearer '+validToken);
+assert.equal(cursor.status,400);
+assert.equal(noticeSql.length,0,'Anonymous/invalid cursor reached Office SQL');
+cursor=await cursorRequest(cursorUrl,'Bearer '+validToken);
+assert.equal(cursor.status,200);
+assert.equal(cursor.body.success,true);
+assert.equal(cursor.body.data.items[0].id,'9007199254740993');
+assert.equal(cursor.body.data.items[0].payment.amountMinor,'125050');
+assert.equal(noticeSql.length,1);
+assert.equal(noticeSql[0].name,'demo_story1_office_notice_page');
+assert.equal(noticeSql[0].args.p_after_id,'0');
+assert.equal(noticeSql[0].bearer,'Bearer '+validToken);
+assert.deepEqual(verifiedTokens,['invalid-token',validToken]);
+assert.equal((await cursorHandler(new Request(cursorUrl,{method:'OPTIONS'}))).status,204);
+console.log('PASS: real Office notice Edge handler denies anonymous/invalid bearer, forwards existing officer token, keeps bigint IDs precise, and preserves CORS preflight');
