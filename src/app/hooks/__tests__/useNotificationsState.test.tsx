@@ -4,6 +4,7 @@ import {Provider} from "react-redux";
 import {configureStore} from "@reduxjs/toolkit";
 import reducer from "../../store/notificationsSlice";
 import {useNotificationsState} from "../useNotificationsState";
+import {OfficeNoticeAuthorizationError} from "../../services/officeStoryNoticeReadState";
 import type {ReactNode} from "react";
 
 const mocks=vi.hoisted(()=>({
@@ -71,6 +72,16 @@ describe("Office bell network and officer-switch recovery",()=>{
     await waitFor(()=>expect(view.store.getState().notifications.items.find(n=>n.type==="payment")?.isRead)
       .toBe(false));
     expect(view.store.getState().notifications.readStateOfficerUid).toBe("reviewer");
+    view.unmount();
+  });
+  it("clears a previously visible officer feed on confirmed role revocation",async()=>{
+    mocks.feed.mockResolvedValueOnce({officerUid:"maker",notices:[notice],readIds:[notice.id]})
+      .mockRejectedValueOnce(new OfficeNoticeAuthorizationError());
+    const view=setup();
+    await waitFor(()=>expect(view.store.getState().notifications.items.find(n=>n.type==="payment")).toBeDefined());
+    act(()=>window.dispatchEvent(new Event("online")));
+    await waitFor(()=>expect(mocks.feed).toHaveBeenCalledTimes(2));
+    await waitFor(()=>expect(view.store.getState().notifications.items.filter(n=>n.type==="payment")).toEqual([]));
     view.unmount();
   });
   it("does not publish a stale in-flight response after signing out",async()=>{

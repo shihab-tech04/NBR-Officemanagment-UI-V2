@@ -1,5 +1,15 @@
 import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 
+/** Distinguish revoked/expired officer access from transient network failure. */
+export class OfficeNoticeAuthorizationError extends Error {
+  constructor() { super("Verified Office payment officer access is required"); }
+}
+function isOfficerAccessDenied(error:{code?:string;message?:string}|null):boolean{
+  if(!error)return false;
+  return error.code==="42501" ||
+    /(?:authorized office officer required|active payment officer role required|permission denied|jwt expired|invalid jwt)/i.test(error.message??"");
+}
+
 export type OfficeStoryNoticeReadState = {
   noticeId: string;
   isRead: boolean;
@@ -43,7 +53,7 @@ async function authenticatedClient() {
   const db = getAuditSqlClient();
   const { data, error } = await db.auth.getUser();
   if (error || !data.user || data.user.is_anonymous) {
-    throw new Error("Verified Office officer sign-in is required");
+    throw new OfficeNoticeAuthorizationError();
   }
   return { db, officerUid: data.user.id };
 }
@@ -51,7 +61,7 @@ async function authenticatedClient() {
 async function verifyCurrentOfficer(db: Awaited<ReturnType<typeof authenticatedClient>>["db"], officerUid: string) {
   const { data, error } = await db.auth.getUser();
   if (error || !data.user || data.user.is_anonymous || data.user.id !== officerUid) {
-    throw new Error("Office officer changed during the read-state request");
+    throw new OfficeNoticeAuthorizationError();
   }
 }
 
@@ -68,7 +78,10 @@ export async function getOfficeStoryNoticeReadState(
   const { data, error } = await db.rpc("payment_v1_office_story_notice_read_state", {
     p_notice_ids: uniqueIds,
   });
-  if (error) throw new Error("Office notice read-state is unavailable");
+  if (error) {
+    if(isOfficerAccessDenied(error))throw new OfficeNoticeAuthorizationError();
+    throw new Error("Office notice read-state is unavailable");
+  }
   await verifyCurrentOfficer(db, officerUid);
   return { officerUid, notices: parseOfficeStoryNoticeReadState(data, uniqueIds) };
 }
@@ -84,6 +97,7 @@ export async function setOfficeStoryNoticeRead(noticeIdValue: string, isRead: bo
     p_notice_id: id,
     p_is_read: isRead,
   });
+  if (isOfficerAccessDenied(error))throw new OfficeNoticeAuthorizationError();
   if (error || !data || typeof data !== "object" ||
       (data as Record<string, unknown>).noticeId !== id ||
       (data as Record<string, unknown>).isRead !== isRead) {

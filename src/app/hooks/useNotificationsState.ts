@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
 import { getVerifiedOfficerStoryNotices } from "../services/officeStoryNoticePages";
+import {OfficeNoticeAuthorizationError} from "../services/officeStoryNoticeReadState";
 import { readDemoNoticeState } from "../services/demoNotificationReadState";
 
 import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
@@ -39,9 +40,14 @@ export function useNotificationsState() {
           dispatch(syncMirroredPaymentNotices({
             notices, payments, language, tabReadState: readDemoNoticeState(),
           }));
-      } catch {
-        // Keep last verified snapshot on network errors. On sign-out/account switch,
-        // clearOfficerNoticeReadState removes old private rows immediately.
+      } catch(cause) {
+        if(active && attempt===generation && isSharedAuditMode() &&
+           cause instanceof OfficeNoticeAuthorizationError) {
+          // Revocation/expired identity is different from a transient offline error.
+          // Do not keep showing another officer's previously private payment feed.
+          dispatch(clearOfficerNoticeReadState());
+        }
+        // Network errors retain only the last already verified same-officer feed.
       }
     };
     void refresh();

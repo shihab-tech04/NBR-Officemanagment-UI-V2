@@ -8,11 +8,12 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   markOfficerNotificationRead,
+  clearOfficerNoticeReadState,
 } from "../store/notificationsSlice";
 import { useNotificationsState } from "./useNotificationsState";
 import type { Notification } from "../store/notificationsSlice";
 import { markDemoNoticeViewed, markAllDemoNoticesViewed } from "../services/demoNotificationReadState";
-import { parseOfficeNoticeId, setOfficeStoryNoticeRead } from "../services/officeStoryNoticeReadState";
+import { OfficeNoticeAuthorizationError, parseOfficeNoticeId, setOfficeStoryNoticeRead } from "../services/officeStoryNoticeReadState";
 import { isSharedAuditMode } from "../pages/audit/auditSharedSql";
 
 // Re-export for backwards compat
@@ -46,7 +47,8 @@ export function useNotifications(
         if (parseOfficeNoticeId(notification.targetNoticeId) !== null) {
           void setOfficeStoryNoticeRead(notification.targetNoticeId!, true)
             .then(officerUid => dispatch(markOfficerNotificationRead({ id: notification.id, officerUid })))
-            .catch(() => {
+            .catch(cause => {
+              if(cause instanceof OfficeNoticeAuthorizationError)dispatch(clearOfficerNoticeReadState());
               toast.error(t("readStateSaveFailed"));
             });
         } else {
@@ -80,6 +82,9 @@ export function useNotifications(
       const officerUid = await setOfficeStoryNoticeRead(notification.targetNoticeId!, true);
       dispatch(markOfficerNotificationRead({ id: notification.id, officerUid }));
     })).then(results => {
+      if(results.some(result=>result.status==="rejected" &&
+           result.reason instanceof OfficeNoticeAuthorizationError))
+        dispatch(clearOfficerNoticeReadState());
       if (receiptable.length !== paymentNotices.length || results.some(result => result.status === "rejected")) {
         toast.error(t("readStateSaveFailed"));
       }
