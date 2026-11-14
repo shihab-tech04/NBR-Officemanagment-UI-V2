@@ -13,3 +13,18 @@ CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
 LANGUAGE sql STABLE AS $$
   SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid;
 $$;
+
+-- CI only: hosted Office settings/roles are not re-created by the candidate
+-- migration series. Mirror their minimal identity contract in disposable PG17.
+CREATE SCHEMA IF NOT EXISTS payment_sync;
+CREATE TABLE IF NOT EXISTS payment_sync.settings(
+  singleton boolean PRIMARY KEY,
+  origin text NOT NULL
+);
+INSERT INTO payment_sync.settings(singleton,origin)
+VALUES(true,'OFFICE_SQL') ON CONFLICT(singleton) DO NOTHING;
+CREATE TABLE IF NOT EXISTS payment_sync.officer_roles(
+  user_uid uuid PRIMARY KEY REFERENCES auth.users(id),
+  role text NOT NULL CHECK(role IN ('MAKER','REVIEWER','APPROVER')),
+  active boolean NOT NULL DEFAULT true
+);
