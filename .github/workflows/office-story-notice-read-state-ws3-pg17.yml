@@ -126,7 +126,7 @@ jobs:
             src/test/paymentNoticeDetailNavigation.test.ts
             src/test/paymentNoticeDetailRoute.test.tsx
           )
-          for path in "\${files[@]}"; do
+          for path in "${files[@]}"; do
             test -f "$WS2_DIR/$path"
             mkdir -p "$(dirname "$path")"
             cp -- "$WS2_DIR/$path" "$path"
