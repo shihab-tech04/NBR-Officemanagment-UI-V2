@@ -117,6 +117,21 @@ describe('Office-native transaction record and receipt', () => {
     expect(rows.reduce((total,row)=>total+row.amountMinor,0)).toBe(travel.amountMinor);
     expect(JSON.stringify(rows)).not.toContain('NEVER-IN-PASSENGER-DETAIL');
     expect(JSON.stringify(rows)).not.toContain('••••1234');
+    // Current approved TravelTax.tsx persists receipt passengers as
+    // {name, amount} in taka, while older isolated SQL uses amountMinor.
+    const actualSourceShape:StoryPayment={...travel,details:{...travel.details,
+      lines:[{headId:155,totalAmount:60},{headId:156,totalAmount:60}],
+      passengers:[{name:'Passenger A',amount:60},{name:'Passenger B',amount:60}],
+    }};
+    expect(getOfficePaymentItems(actualSourceShape)).toEqual(rows);
+    const zeroTaxPassenger:StoryPayment={...travel,details:{...travel.details,
+      passengers:[{name:'Passenger A',amount:120},{name:'Exempt passenger',amount:0}],
+    }};
+    expect(getOfficePaymentItems(zeroTaxPassenger).map(item=>item.amountMinor)).toEqual([12000,0]);
+    expect(getOfficePaymentItems({...travel,details:{...travel.details,
+      passengers:[{name:'Passenger A',amount:60,amountMinor:6001},
+        {name:'Passenger B',amount:60}],
+    }})).toEqual([]);
     expect(getOfficePaymentItems(travel,{taxpayerTin:'222222222222'})).toEqual([]);
     expect(getOfficePaymentItems({...travel,amountMinor:12001})).toEqual([]);
     expect(getOfficePaymentItems({...travel,details:{...travel.details,
