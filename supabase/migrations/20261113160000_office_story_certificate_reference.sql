@@ -1,3 +1,4 @@
+BEGIN;
 -- Add a deterministic certificate reference to the existing Office payment read model.
 -- The original payment UUID remains the sole transaction identity; no payment or
 -- certificate row is created. The wrapped SQL projection retains its existing
@@ -25,10 +26,10 @@ BEGIN
 END;
 $function$;
 
+-- Never temporarily expose this SECURITY DEFINER read projection to client roles.
+-- The guarded authenticated RPC below remains the only client entrypoint.
 REVOKE ALL ON FUNCTION public.demo_story1_office_payment_page(integer,integer)
- FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.demo_story1_office_payment_page(integer,integer)
- TO anon,authenticated;
+ FROM PUBLIC,anon,authenticated;
 
 COMMENT ON FUNCTION public.demo_story1_office_payment_page(integer,integer) IS
  'Office payment read projection over the immutable TaxPay parent. Exposes the existing deterministic SK-PC-{parent UUID} reference without creating a financial transaction.';
@@ -37,7 +38,6 @@ COMMENT ON FUNCTION public.demo_story1_office_payment_page(integer,integer) IS
 -- retire direct anonymous execution before introducing private Office records.
 -- Authorized Office RPC wrappers reuse the same MAKER/REVIEWER/APPROVER membership
 -- and Office origin checks as the canonical payment notice cursor.
-BEGIN;
 CREATE OR REPLACE FUNCTION public.payment_v1_office_guarded_story_page(
   p_page integer DEFAULT 1,p_per_page integer DEFAULT 100
 ) RETURNS jsonb
