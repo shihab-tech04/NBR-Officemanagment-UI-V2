@@ -25,18 +25,11 @@ BEGIN
     FROM demo_payment.story_notifications n
     JOIN demo_payment.story_payments p ON p.id=n.payment_id
     WHERE n.id>p_after_id
-      AND (
-        p.data->>'origin'='TAXPAY_UI'
-        OR (
-          p.data->>'origin'='TAXPAY_SQL_FIXTURE'
-          AND p.data->'details'->>'sampleOnly'='true'
-          AND p.data->'details'->>'fixtureBatch' IN (
-            'TAXPAY-20261107-30-PROFILE-COVERAGE',
-            'TAXPAY-20261107-ACTIVE-HEAD-CATALOGUE'
-          )
-          AND p.data->'details'->>'payerId' ~ '^user([1-9]|[12][0-9]|30)$'
-        )
-      )
+      -- Same narrow officer read/ack eligibility as
+      -- payment_v1_office_story_notice_read_state / _set_story_notice_read:
+      -- fixture provenance and unrelated event types are NOT authorized.
+      AND p.data->>'origin'='TAXPAY_UI'
+      AND n.event_type='NEW_SIMULATED_PAYMENT'
       AND NOT (
         p.data->'details'->>'payerName'='Taxpayer / withholding agent'
         AND p.data->'details'->>'taxpayerTin'='123456789012'
