@@ -122,7 +122,7 @@ jobs:
           cache: npm
       - name: Install canonical Office locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Stage exact-head WS2 #165 compatible notification files without its obsolete SQL
+      - name: Verify committed WS2 #165 notification files match pinned source without obsolete SQL
         shell: bash
         run: |
           set -euo pipefail
@@ -135,6 +135,9 @@ jobs:
           test "$(git -C "$WS2_DIR" rev-parse HEAD)" = "$WS2_SHA"
           test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
           files=(
+            src/app/data/mockData.ts
+            src/app/locales/en/notifications.json
+            src/app/locales/bn/notifications.json
             src/app/services/officeStoryNoticePages.ts
             src/app/services/officeStoryNoticeReadState.ts
             src/app/services/__tests__/officeStoryNoticePages.test.ts
@@ -150,11 +153,11 @@ jobs:
           )
           for path in "${files[@]}"; do
             test -f "$WS2_DIR/$path"
-            mkdir -p "$(dirname "$path")"
-            cp -- "$WS2_DIR/$path" "$path"
+            test -f "$path"
+            cmp -s -- "$WS2_DIR/$path" "$path" || { echo "::error::Committed WS2 notice consumer differs from pinned #165: $path"; exit 1; }
           done
           test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
-          echo "Staged exact WS2 notice consumer without a competing bigint[] migration."
+          echo "Verified committed WS2 notice consumer and locale/type contracts; no competing read-state migration."
       - name: Verify 235-event WS2 cursor consumer and read-state/privacy against WS3 source
         run: |
           npx vitest run \
@@ -163,7 +166,7 @@ jobs:
             src/app/services/__tests__/officeStoryNoticeReadState.test.ts \
             src/app/hooks/__tests__/useNotificationsState.test.tsx \
             src/app/store/__tests__/paymentSqlNotifications.test.ts
-      - name: Build canonical Office with staged WS2 consumer (no WS2 payment-page overwrite)
+      - name: Build actual canonical Office with committed WS2 consumer (no payment-page overwrite)
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
