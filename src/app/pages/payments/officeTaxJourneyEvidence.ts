@@ -19,7 +19,17 @@ export type OfficeJourneyEvidenceEvent = {
  */
 const eventTime = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2}))?$/.exec(value);
+  // The canonical reviewed e-TIN source also stores dates as "19 Jan 2026".
+  // Normalize ONLY this known exact display format; never use Date.parse
+  // heuristics for arbitrary labels such as "1" or "tomorrow".
+  const certificateDate = /^(\d{1,2}) (Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?) (\d{4})$/i.exec(value);
+  const monthNames = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const monthIndex = certificateDate ? monthNames.indexOf(certificateDate[2].slice(0, 3).toLowerCase()) : -1;
+  const normalized = certificateDate && monthIndex >= 0
+    ? certificateDate[3] + "-" + String(monthIndex + 1).padStart(2, "0") + "-" +
+      certificateDate[1].padStart(2, "0")
+    : value;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-]\d{2}:\d{2}))?$/.exec(normalized);
   if (!match) return null;
   const [, year, month, day, hour, minute, second, zone] = match;
   const y = Number(year), m = Number(month), d = Number(day);
@@ -34,7 +44,7 @@ const eventTime = (value: unknown): string | null => {
       (Number(zone.slice(1, 3)) === 14 && Number(zone.slice(4, 6)) !== 0)
     ))
   )) return null;
-  const time = Date.parse(value);
+  const time = Date.parse(normalized);
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 };
 
