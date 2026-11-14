@@ -113,3 +113,27 @@ assert.equal(noticeSql[0].bearer,'Bearer '+validToken);
 assert.deepEqual(verifiedTokens,['invalid-token',validToken]);
 assert.equal((await cursorHandler(new Request(cursorUrl,{method:'OPTIONS'}))).status,204);
 console.log('PASS: real Office notice Edge handler denies anonymous/invalid bearer, forwards existing officer token, keeps bigint IDs precise, and preserves CORS preflight');
+
+// WS5 legacy Office payment and notice endpoints must reject anonymous
+// callers before SQL, then forward the existing verified officer session.
+const legacyCases=[
+  ['/payments?page=1&perPage=100','payment_v1_office_guarded_story_page'],
+  ['/notifications','payment_v1_office_guarded_story_notices']
+];
+for(const [route,expectedRpc] of legacyCases){
+ const address='http://127.0.0.1/demo-story1-office'+route;
+ const before=noticeSql.length;
+ let observed=await cursorRequest(address);
+ assert.equal(observed.status,401,'Anonymous Office '+route+' must fail closed');
+ assert.equal(observed.body.error,'OFFICE_OFFICER_AUTH_REQUIRED');
+ observed=await cursorRequest(address,'Bearer invalid-token');
+ assert.equal(observed.status,401,'Invalid Office token must not read '+route);
+ assert.equal(noticeSql.length,before,'Anonymous Office '+route+' reached SQL');
+ observed=await cursorRequest(address,'Bearer '+validToken);
+ assert.equal(observed.status,200,'Authorized Office officer must retain '+route);
+ assert.equal(observed.body.success,true);
+ assert.equal(noticeSql.length,before+1);
+ assert.equal(noticeSql.at(-1).name,expectedRpc);
+ assert.equal(noticeSql.at(-1).bearer,'Bearer '+validToken);
+}
+console.log('PASS: legacy payment and notices Edge reads reject anonymous/invalid bearer, forward verified Office officer bearer to role-guarded SQL, and preserve existing source projection');
