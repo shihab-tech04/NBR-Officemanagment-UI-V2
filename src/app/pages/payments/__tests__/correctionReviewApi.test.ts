@@ -102,13 +102,51 @@ describe("Office correction review SQL adapter", () => {
     const decisionHistory = [
       { messageId: "90000000-0000-4000-8000-000000000011",
         action: "MAKER_ACKNOWLEDGE", role: "MAKER",
+        officerUid: "80000000-0000-4000-8000-000000000011",
+        reason: "Synthetic accepted maker event",
         occurredAt: "2026-10-29T17:05:00.000Z", deliveryState: "ACKNOWLEDGED" },
       { messageId: "90000000-0000-4000-8000-000000000012",
         action: "REVIEWER_VERIFY", role: "REVIEWER",
+        officerUid: "80000000-0000-4000-8000-000000000012",
+        reason: "Synthetic accepted reviewer event",
         occurredAt: "2026-10-29T17:06:00.000Z", deliveryState: "ACKNOWLEDGED" },
     ];
     setupClient([{ data: { role: "MAKER", items: [{ ...correction, decisionHistory }], nextCursor: null }, error: null }]);
     await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({ items: [{ decisionHistory }] });
+  });
+
+  it("rejects fabricated officer identity or malformed audit reasoning", async () => {
+    for (const changed of [
+      { officerUid: "not-an-officer-uuid", reason: "Valid recorded reason" },
+      { officerUid: "80000000-0000-4000-8000-000000000011", reason: 42 },
+    ]) {
+      setupClient([{ data: { role: "MAKER", items: [{
+        ...correction,
+        decisionHistory: [{
+          messageId: "90000000-0000-4000-8000-000000000011",
+          action: "MAKER_ACKNOWLEDGE", role: "MAKER",
+          occurredAt: "2026-10-29T17:05:00.000Z", deliveryState: "ACKNOWLEDGED",
+          ...changed,
+        }],
+      }], nextCursor: null }, error: null }]);
+      await expect(listOfficeCorrectionInquiries()).rejects.toThrow(
+        "Invalid correction decision audit provenance",
+      );
+    }
+  });
+
+  it("preserves the older authorized SQL history without new audit fields", async () => {
+    const history = [{
+      messageId: "90000000-0000-4000-8000-000000000011",
+      action: "MAKER_ACKNOWLEDGE", role: "MAKER",
+      occurredAt: "2026-10-29T17:05:00.000Z", deliveryState: "ACKNOWLEDGED",
+    }];
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, decisionHistory: history,
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{decisionHistory: [{officerUid: null, reason: null}]}],
+    });
   });
 
   it("rejects unacknowledged or malformed correction decision history", async () => {

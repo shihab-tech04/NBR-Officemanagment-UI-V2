@@ -186,6 +186,7 @@
   "field_old_value": "Previous value",
   "field_new_value": "Requested value",
   "field_created_at": "Inquiry submitted",
+  "field_decision_history": "Acknowledged decision history",
   "field_review_state": "Office review status",
   "field_review_revision": "Review revision",
   "field_review_updated_at": "Review updated",

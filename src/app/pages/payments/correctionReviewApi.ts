@@ -12,6 +12,9 @@ export type OfficeCorrectionDecisionEvent = {
   role: "MAKER" | "REVIEWER" | "APPROVER";
   occurredAt: string;
   deliveryState: "ACKNOWLEDGED";
+  /** Present for newer authorized Office SQL audit projections; older rows remain readable. */
+  officerUid?: string | null;
+  reason?: string | null;
 };
 
 export type OfficeCorrectionInquiry = {
@@ -119,12 +122,23 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
           decision.deliveryState !== "ACKNOWLEDGED") {
         throw new Error("Invalid or unacknowledged correction decision event");
       }
+      const actor = decision.officerUid;
+      const reason = decision.reason;
+      const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if ((actor !== undefined && actor !== null &&
+           (typeof actor !== "string" || !validUuid.test(actor))) ||
+          (reason !== undefined && reason !== null &&
+           (typeof reason !== "string" || !reason.trim() || reason.length > 1000))) {
+        throw new Error("Invalid correction decision audit provenance");
+      }
       return {
         messageId: decision.messageId,
         action: decision.action as CorrectionReviewAction,
         role: decision.role as OfficeCorrectionDecisionEvent["role"],
         occurredAt: decision.occurredAt,
         deliveryState: "ACKNOWLEDGED" as const,
+        officerUid: typeof actor === "string" ? actor : null,
+        reason: typeof reason === "string" ? reason : null,
       };
     });
     const actions = row.availableActions.filter((action): action is CorrectionReviewAction =>

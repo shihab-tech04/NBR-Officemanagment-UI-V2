@@ -426,6 +426,18 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     pending_delivery:item.pendingDelivery?t('officeCorrectionDecisionPending'):t('officeCorrectionDecisionDelivered'),
     delivery_state:item.deliveryState??'—',
     delivery_error:item.lastDeliveryError??'—',
+    // Display audited, TaxPay-acknowledged decisions inside the existing
+    // detail drawer. No extra role, route, layout or hidden record access.
+    decision_history:item.decisionHistory.length
+      ?item.decisionHistory.map(event=>[
+        correctionActionLabel(event.action),
+        event.officerUid
+          ?(i18n.resolvedLanguage?.startsWith('bn')?'কর্মকর্তা: ':'Officer: ')+event.officerUid
+          :event.role,
+        displayEventDate(event.occurredAt),
+        event.reason ?t('field_reason')+': '+event.reason:null,
+      ].filter(Boolean).join(' · ')).join(' | ')
+      :'—',
     __correctionInquiryId:item.requestId,
     __correctionAvailableActions:item.availableActions,
   }));
