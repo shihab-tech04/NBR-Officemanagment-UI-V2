@@ -47,7 +47,9 @@ SELECT
 
 DO $permissions$
 BEGIN
-  IF NOT has_function_privilege('anon',
+  IF has_function_privilege('anon',
+       'public.demo_story1_office_notice_page(bigint,integer)'::regprocedure,'EXECUTE')
+     OR NOT has_function_privilege('authenticated',
        'public.demo_story1_office_notice_page(bigint,integer)'::regprocedure,'EXECUTE')
      OR has_table_privilege('anon','demo_payment.story_payments','SELECT')
      OR has_table_privilege('anon','demo_payment.story_notifications','SELECT')
@@ -57,7 +59,8 @@ BEGIN
 END;
 $permissions$;
 
-SET LOCAL ROLE anon;
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $page_contract$
 DECLARE
   v_first jsonb;
@@ -162,6 +165,31 @@ BEGIN
   END;
 END;
 $page_contract$;
+RESET ROLE;
+
+-- An unauthenticated caller cannot enumerate even sanitized synthetic events.
+SET LOCAL ROLE anon;
+DO $anon_denied$
+BEGIN
+  BEGIN
+    PERFORM public.demo_story1_office_notice_page(0,100);
+    RAISE EXCEPTION 'UNAUTHORIZED_CURSOR_ACCEPTED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END;
+$anon_denied$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000014',true);
+DO $viewer_denied$
+BEGIN
+  BEGIN
+    PERFORM public.demo_story1_office_notice_page(0,100);
+    RAISE EXCEPTION 'NONPAYMENT_ROLE_ACCEPTED';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'Active payment officer role required' THEN RAISE; END IF;
+  END;
+END;
+$viewer_denied$;
 RESET ROLE;
 
 DO $read_only$

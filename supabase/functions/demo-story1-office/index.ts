@@ -109,6 +109,19 @@ Deno.serve(async(req)=>{
       const afterIdValue=BigInt(afterId),limit=Number(limitRaw);
       if(afterIdValue>PG_BIGINT_MAX||!Number.isSafeInteger(limit)||limit<1||limit>100)
         return respond({success:false,error:"INVALID_PAGINATION"},400);
+      // The existing Office Auth session must accompany every cursor page.
+      // Never read the SECURITY DEFINER RPC through a public anonymous bearer.
+      const authorization=req.headers.get("authorization");
+      if(!authorization||!/^Bearer [^\s]+$/.test(authorization)||authorization.length>8192)
+        return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      const token=authorization.slice(7);
+      const {data:validated,error:authError}=await client.auth.getUser(token);
+      if(authError||!validated.user||validated.user.is_anonymous)
+        return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=createClient(url,key,{
+        auth:{persistSession:false,autoRefreshToken:false},
+        global:{headers:{Authorization:authorization}}
+      });
       noticePageCheck={afterId:afterIdValue,limit};
       rpc="demo_story1_office_notice_page";args={p_after_id:afterId,p_limit:limit};
    }else if(req.method==="GET"&&path==="/notifications"){rpc="demo_story1_office_notices";}

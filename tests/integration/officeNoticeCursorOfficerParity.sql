@@ -34,7 +34,8 @@ SELECT (SELECT count(*) FROM demo_payment.story_payments) AS payment_count,
        (SELECT md5(string_agg(md5(row_to_json(n)::text),'' ORDER BY row_to_json(n)::text)) FROM demo_payment.story_notifications n) AS notice_sha;
 DO $access$
 BEGIN
- IF NOT has_function_privilege('anon','public.demo_story1_office_notice_page(bigint,integer)','EXECUTE')
+ IF has_function_privilege('anon','public.demo_story1_office_notice_page(bigint,integer)','EXECUTE')
+ OR NOT has_function_privilege('authenticated','public.demo_story1_office_notice_page(bigint,integer)','EXECUTE')
  OR has_function_privilege('anon','public.payment_v1_office_story_notice_read_state(text[])','EXECUTE')
  OR has_function_privilege('anon','public.payment_v1_office_set_story_notice_read(text,boolean)','EXECUTE')
  OR has_table_privilege('authenticated','payment_sync.officer_story_notice_reads','SELECT')
@@ -125,6 +126,12 @@ SELECT set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000014'
 DO $viewer$
 BEGIN
  BEGIN
+  PERFORM public.demo_story1_office_notice_page(9007199254742000,100);
+  RAISE EXCEPTION 'TEST_VIEWER_CURSOR_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM<>'Active payment officer role required' THEN RAISE; END IF;
+ END;
+ BEGIN
   PERFORM public.payment_v1_office_story_notice_read_state(ARRAY['9007199254742001']);
   RAISE EXCEPTION 'TEST_VIEWER_READ_ALLOWED';
  EXCEPTION WHEN OTHERS THEN
@@ -145,6 +152,12 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $revoked$
 BEGIN
+ BEGIN
+  PERFORM public.demo_story1_office_notice_page(9007199254742000,100);
+  RAISE EXCEPTION 'TEST_REVOKED_CURSOR_ALLOWED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM<>'Active payment officer role required' THEN RAISE; END IF;
+ END;
  BEGIN
   PERFORM public.payment_v1_office_story_notice_read_state(ARRAY['9007199254742001']);
   RAISE EXCEPTION 'TEST_REVOKED_READ_ALLOWED';

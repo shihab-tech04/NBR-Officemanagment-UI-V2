@@ -10,10 +10,26 @@ SECURITY DEFINER
 SET search_path TO ''
 AS $function$
 DECLARE
+  v_actor uuid:=auth.uid();
+  v_origin text;
   v_items jsonb;
   v_has_more boolean;
   v_next_after_id bigint;
 BEGIN
+  -- Match the existing MAKER/REVIEWER/APPROVER authorization already enforced
+  -- by the read-state and read-ack RPCs. Public payment history is separate.
+  SELECT s.origin INTO v_origin
+    FROM payment_sync.settings s WHERE s.singleton;
+  IF v_actor IS NULL OR v_origin IS DISTINCT FROM 'OFFICE_SQL' THEN
+    RAISE EXCEPTION 'Authorized Office officer required';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM payment_sync.officer_roles r
+    WHERE r.user_uid=v_actor AND r.active
+      AND r.role IN ('MAKER','REVIEWER','APPROVER')
+  ) THEN
+    RAISE EXCEPTION 'Active payment officer role required';
+  END IF;
   IF p_after_id IS NULL OR p_after_id < 0
      OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 100 THEN
     RAISE EXCEPTION 'INVALID_PAGINATION';
@@ -68,7 +84,9 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.demo_story1_office_notice_page(bigint,integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.demo_story1_office_notice_page(bigint,integer) TO anon,authenticated;
+REVOKE ALL ON FUNCTION public.demo_story1_office_notice_page(bigint,integer)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.demo_story1_office_notice_page(bigint,integer)
+  TO authenticated;
 COMMENT ON FUNCTION public.demo_story1_office_notice_page(bigint,integer) IS
-  'Read-only cursor page of approved synthetic Office alerts with exact payment-parent metadata; no private taxpayer fields.';
+  'Authorized active Office payment officer cursor; exact synthetic parent metadata, no private taxpayer fields.';
