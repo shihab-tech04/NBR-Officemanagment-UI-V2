@@ -73,9 +73,9 @@ describe("Office SQL notice page + officer read-state transport",()=>{
  it("never publishes partial notifications after a later page fails offline",async()=>{
    const original=globalThis.fetch;
    let calls=0;
-   vi.stubGlobal("fetch",vi.fn(async(input:string)=>{
+   vi.stubGlobal("fetch",vi.fn(async(input:string,options?:RequestInit)=>{
      if(++calls===2)throw Error("network offline");
-     return original(input);
+     return original(input,options);
    }));
    await expect(getVerifiedOfficerStoryNotices()).rejects.toThrow("network offline");
    expect(client.read.mock.calls).toHaveLength(1);
