@@ -155,17 +155,17 @@ jobs:
           done
           test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
           echo "Staged exact WS2 notice consumer without a competing bigint[] migration."
-      - name: Test 235 notices, 100-ID batches, role switching, reconnect, and detail navigation
+      - name: Verify 235-event WS2 cursor consumer and read-state/privacy against WS3 source
         run: |
           npx vitest run \
             src/app/services/__tests__/officeStoryNoticePages.test.ts \
             src/app/services/__tests__/officeStoryNoticePagesTransport.test.ts \
             src/app/services/__tests__/officeStoryNoticeReadState.test.ts \
             src/app/hooks/__tests__/useNotificationsState.test.tsx \
-            src/app/store/__tests__/paymentSqlNotifications.test.ts \
-            src/test/paymentNoticeDetailNavigation.test.ts \
-            src/test/paymentNoticeDetailRoute.test.tsx
-      - name: Build hybrid canonical Office with staged compatible WS2 consumer
+            src/app/store/__tests__/paymentSqlNotifications.test.ts
+      - name: Build canonical Office with staged WS2 consumer (no WS2 payment-page overwrite)
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
+      - name: WS5 integration gate - preserve WS2 detail route on WS3 payment UI
+        run: npx vitest run src/test/paymentNoticeDetailNavigation.test.ts src/test/paymentNoticeDetailRoute.test.tsx
