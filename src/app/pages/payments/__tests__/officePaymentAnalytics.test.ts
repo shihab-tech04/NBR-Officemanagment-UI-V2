@@ -157,6 +157,38 @@ describe('allocation-backed report grouping',()=>{
       parentCount:1,lineCount:3,amountMinor:6000,
     });
   });
+  it('reports each Travel Tax passenger amount but counts one original parent on replay',()=>{
+    const travel:StoryPayment={id:'p-travel',service:'TRAVEL_TAX',
+      status:'SIMULATED_SUCCESS',amountMinor:12000,createdAt:'2026-11-13T10:00:00Z',
+      details:{payerId:'user1',payerName:'Travel payer',
+        lines:[{amountMinor:12000,note:'One parent receipt amount'}],
+        passengers:[
+          {passengerName:'Passenger A',passportNumberMasked:'••••1234',amountMinor:6000},
+          {passengerName:'Passenger B',passportNumberMasked:'••••5678',amountMinor:6000},
+        ],
+      }};
+    const {rows,issues}=projectOfficePaymentReport([travel,structuredClone(travel)]);
+    expect(issues).toEqual([]);
+    expect(rows).toHaveLength(2);
+    expect(rows.map(row=>row.parentId)).toEqual(['p-travel','p-travel']);
+    expect(rows.map(row=>row.beneficiary)).toEqual(['Passenger A','Passenger B']);
+    expect(rows.map(row=>row.amountMinor)).toEqual([6000,6000]);
+    expect(rows.every(row=>row.beneficiaryTin===null&&row.headId===null&&
+      row.assessmentYear==='—')).toBe(true);
+    expect(groupOfficePaymentReport(rows,'head')).toEqual([{
+      key:'head:travel-tax',label:'Travel Tax',parentCount:1,
+      lineCount:2,amountMinor:12000,parentIds:['p-travel'],
+    }]);
+    expect(groupOfficePaymentReport(rows,'payer')[0]).toMatchObject({
+      parentCount:1,lineCount:2,amountMinor:12000,
+    });
+    expect(officePaymentAnalytics([travel])).toMatchObject({
+      total:1,saved:1,amountMinor:12000,services:[['Travel Tax',1]],
+    });
+    expect(projectOfficePaymentReport([{...travel,amountMinor:12001}])).toEqual({
+      rows:[],issues:[{parentId:'p-travel',reason:'ALLOCATION_MISSING_OR_UNRECONCILED'}],
+    });
+  });
   it('does not include undated rows in a date-based report projection',()=>{
     const {rows,issues}=projectOfficePaymentReport([{...reportingPayment,createdAt:'not-a-date'}]);
     expect(rows).toEqual([]);
