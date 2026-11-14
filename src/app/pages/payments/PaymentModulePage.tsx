@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Clock3, CreditCard, FilePlus2, Landmark, ShieldAlert, Users, Wallet } from 'lucide-react';
@@ -132,7 +132,7 @@ type DraftKind = 'corrections' | 'incidents' | 'offline-events';
 type Details = { title:string; record:TableRow } | null;
 const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
-export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?:string}) {
+export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;taxpayerTin?:string;paymentId?:string}) {
   const {t,i18n} = useTranslation('payment');
   const {t:translateTables} = useTranslation('tables');
   const displayNumber = (value:number) => formatLocalizedNumber(value,i18n.resolvedLanguage);
@@ -202,6 +202,26 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
+  const [paymentLinkUnavailable,setPaymentLinkUnavailable]=useState(false);
+  const handledPaymentLink=useRef<string|null>(null);
+  useEffect(()=>{
+    if(!paymentId){
+      handledPaymentLink.current=null;
+      setPaymentLinkUnavailable(false);
+      return;
+    }
+    if(current!=='transactions'||storyLoading||handledPaymentLink.current===paymentId)return;
+    handledPaymentLink.current=paymentId;
+    const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
+    const match=valid?storyPayments.find(item=>item.id.toLowerCase()===paymentId.toLowerCase()):undefined;
+    if(!match){
+      setDetails(null);
+      setPaymentLinkUnavailable(true);
+      return;
+    }
+    setPaymentLinkUnavailable(false);
+    setDetails({record:toStoryPaymentRow(match),title:t('transactions')});
+  },[paymentId,current,storyLoading,storyPayments,t]);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
   const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
   const [officeCorrectionError,setOfficeCorrectionError] = useState('');
@@ -261,6 +281,10 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[current,correctionRefreshKey,selectedTin,taxpayerTab]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
   const view = (record:TableRow,title:string) => setDetails({record,title});
+  const closeTransactionDetails=()=>{
+    setDetails(null);
+    if(paymentId)navigate('/payments/transactions',{replace:true});
+  };
   const isTransactionDetails = details?.title === t('transactions');
   // The 360 payment drawer receives the same canonical SQL parent as Transactions.
   // Its display is independently scoped to the selected TIN and year below.
@@ -492,6 +516,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     {toolbar(t('transactions'))}
     {storyLoading?<p className="table-page__desc" role="status">Loading transactions…</p>:null}
     {storyError?<p className="table-page__desc" role="alert">{storyError}</p>:null}
+    {paymentLinkUnavailable&&<p className="table-page__desc" role="alert">
+      {i18n.resolvedLanguage?.startsWith('bn')?'বিজ্ঞপ্তির পেমেন্ট রেকর্ডটি উপলভ্য নয়।':'The linked payment record is unavailable.'}
+    </p>}
     {!storyLoading&&!storyError&&scopedPayments.length===0?<p className="table-page__desc" role="status">No payments submitted yet.</p>:null}
     {table(keys.transactions,scopedPayments,'transactions',payFilters,transactionMapping)}
   </>;
@@ -632,7 +659,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       source={selectedStoryPayment}
       scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}
       scopeYear={isTransactionDetails && current==='taxpayer-360' ? scopeYear : undefined}
-      onClose={() => setDetails(null)}
+      onClose={closeTransactionDetails}
     />
     <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
       title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
