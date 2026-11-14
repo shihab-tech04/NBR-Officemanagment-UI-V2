@@ -150,14 +150,23 @@ export function correctionHistoryEvents(
       if (!occurredAt || seen.has(eventId)) continue;
       const action = actionLabels[decision.action];
       const role = roleLabels[decision.role];
+      // Decisions are already ACKNOWLEDGED by the Office-to-Taxpayer
+      // command bridge. Attribute only stored officer evidence; a legacy
+      // row without actor/reason must never invent one.
+      const officerEn = decision.officerUid ? " · officer " + decision.officerUid : "";
+      const officerBn = decision.officerUid ? " · কর্মকর্তা " + decision.officerUid : "";
+      const reasonEn = decision.reason ? " · recorded reason: " + decision.reason : "";
+      const reasonBn = decision.reason ? " · নথিভুক্ত কারণ: " + decision.reason : "";
       seen.add(eventId);
       events.push({
         id: eventId,
         occurredAt,
         titleEn: "Office correction decision acknowledged",
         titleBn: "অফিস সংশোধন সিদ্ধান্ত স্বীকৃত",
-        detailEn: action[0] + " · role " + role[0] + " · case " + requestId,
-        detailBn: action[1] + " · ভূমিকা " + role[1] + " · কেস " + requestId,
+        detailEn: action[0] + " · role " + role[0] + officerEn + reasonEn +
+          " · case " + requestId + " · no change to the original payment",
+        detailBn: action[1] + " · ভূমিকা " + role[1] + officerBn + reasonBn +
+          " · কেস " + requestId + " · মূল পেমেন্ট অপরিবর্তিত",
         provenanceEn: "Taxpayer SQL source event " + inquiry.sourceEventId +
           " (" + inquiry.sourceEventType + ") · Office SQL correction case " + requestId +
           " · Office SQL acknowledged outbox message " + decision.messageId +

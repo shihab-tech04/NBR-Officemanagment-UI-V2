@@ -39,6 +39,8 @@ const linkedCorrection = [{
     decisionHistory: [
       { messageId: "80000000-0000-4000-8000-000000000051",
         action: "MAKER_ACKNOWLEDGE", role: "MAKER",
+        officerUid: "80000000-0000-4000-8000-000000000011",
+        reason: "Acknowledged source reference and requested correction.",
         occurredAt: "2026-11-10T10:00:00.000Z", deliveryState: "ACKNOWLEDGED" },
       { messageId: "80000000-0000-4000-8000-000000000052",
         action: "REVIEWER_VERIFY", role: "REVIEWER",
@@ -142,6 +144,48 @@ describe("Office taxpayer Tax Journey", () => {
     expect(events.find(event => event.id.startsWith("correction-request:"))?.detailEn)
       .toContain("not verified as a completed change");
     expect(events.some(event => event.provenanceEn.includes("000000000052"))).toBe(false);
+  });
+
+  it("attributes only acknowledged, exact Office officer/reason evidence in both languages", () => {
+    const events = correctionHistoryEvents(linkedCorrection);
+    expect(events).toHaveLength(2);
+    const acknowledged = events.find(event => event.id.includes("correction-decision:"));
+    expect(acknowledged?.detailEn).toContain("officer 80000000-0000-4000-8000-000000000011");
+    expect(acknowledged?.detailEn).toContain("recorded reason: Acknowledged source reference");
+    expect(acknowledged?.detailBn).toContain("নথিভুক্ত কারণ");
+    expect(acknowledged?.detailEn).toContain("no change to the original payment");
+    expect(events.some(event => event.id.includes("000000000052"))).toBe(false);
+    const english = renderToStaticMarkup(<OfficeTaxJourney
+      entries={[]} evidenceEvents={events} language="en" onOpen={() => {}}
+      correctionsAvailable />);
+    const bengali = renderToStaticMarkup(<OfficeTaxJourney
+      entries={[]} evidenceEvents={events} language="bn" onOpen={() => {}}
+      correctionsAvailable />);
+    expect(english).toContain("recorded reason:");
+    expect(english).toContain("Acknowledged source reference");
+    expect(bengali).toContain("নথিভুক্ত কারণ");
+  });
+
+  it("does not invent officer identity or review reasons for legacy acknowledged decisions", () => {
+    const legacy = [{
+      ...linkedCorrection[0],
+      inquiry: {
+        ...linkedCorrection[0].inquiry,
+        decisionHistory: [{
+          messageId: "80000000-0000-4000-8000-000000000053",
+          action: "APPROVER_CLOSE", role: "APPROVER",
+          occurredAt: "2026-11-10T12:00:00.000Z",
+          deliveryState: "ACKNOWLEDGED",
+        }],
+      },
+    }] as LinkedTaxpayerCorrection[];
+    const events = correctionHistoryEvents(legacy);
+    expect(events).toHaveLength(2);
+    const decision = events.find(event => event.id.includes("000000000053"));
+    expect(decision?.detailEn).toContain("Approver closed");
+    expect(decision?.detailEn).not.toContain("recorded reason:");
+    expect(decision?.detailEn).not.toContain("officer ");
+    expect(decision?.detailBn).not.toContain("নথিভুক্ত কারণ:");
   });
 
   it("renders provenance for merged payment and historic source events", () => {
