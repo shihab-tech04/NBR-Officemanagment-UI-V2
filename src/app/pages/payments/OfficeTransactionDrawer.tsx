@@ -35,7 +35,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const info: OfficeReceiptInfo = {
     reference: ref, date: display(row?.date), payer: display(row?.payer_name),
     taxpayer: display(row?.taxpayer_name), service: display(row?.payment_type),
-    year: display(row?.assessment_year), amount: display(row?.amount),
+    year: display(row?.assessment_year),
+    amount: sourceAmountMinor===null?display(row?.amount):officeMoney(sourceAmountMinor,language),
     paymentStatus: display(row?.financial_receipt_status),
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
     ...(receiptReference?{receiptReference}:{}),
