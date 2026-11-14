@@ -48,10 +48,24 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   const lines = Array.isArray(details.lines) ? details.lines : [];
   const explicit = Array.isArray(details.allocations) ? details.allocations : [];
   const synthetic = lines.some(line => typeof line?.beneficiary === 'string');
+  const passengers = payment.service === 'TRAVEL_TAX' && Array.isArray(details.passengers)
+    ? details.passengers : null;
 
   if (synthetic && explicit.length) return []; // Cannot reconcile two identity schemes.
   let items: OfficePaymentItem[] = [];
-  if (synthetic) {
+  if (passengers?.length) {
+    // The Office officer can inspect reconciled passenger amounts. A name or
+    // masked passport cannot establish entitlement to a taxpayer-scoped read.
+    if (explicit.length || passengers.some(passenger =>
+      !passenger || human(passenger.passengerName ?? passenger.name) === '—' ||
+      !validAmount(passenger.amountMinor))) return [];
+    items = passengers.map(passenger => ({
+      taxpayer: human(passenger.passengerName ?? passenger.name),
+      service: paymentServiceName.TRAVEL_TAX,
+      assessmentYear: '—',
+      amountMinor: passenger.amountMinor!,
+    }));
+  } else if (synthetic) {
     if (lines.some(line => typeof line?.beneficiary !== 'string' || !validAmount(line.amountMinor))) return [];
     items = lines.map(line => ({
       taxpayer: human(line.beneficiary),
@@ -108,6 +122,8 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   }
   if(total !== payment.amountMinor)return [];
   if(!scope)return items;
+  // Passenger names alone cannot grant account-level visibility.
+  if(passengers?.length)return [];
   if(!/^\d{12,13}$/.test(scope.taxpayerTin))return [];
   const selected=items.filter(item=>item.taxpayerTin===scope.taxpayerTin&&
     (!scope.assessmentYear||scope.assessmentYear==='all'||
