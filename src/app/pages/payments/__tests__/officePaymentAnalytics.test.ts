@@ -197,6 +197,17 @@ describe('allocation-backed report grouping',()=>{
     expect(groupOfficePaymentReport(sourceRows.rows,'head')).toMatchObject([{
       parentCount:1,lineCount:2,amountMinor:12000,
     }]);
+    const recordedYear:StoryPayment={...sourceFormat,details:{
+      ...sourceFormat.details,assessmentYear:'2026-27',
+    }};
+    const yearReport=officePaymentAnalytics([recordedYear],'2026-27');
+    expect(yearReport.total).toBe(1);
+    expect(yearReport.amountMinor).toBe(12000);
+    expect(officePaymentAnalytics([recordedYear],'2025-26').total).toBe(0);
+    const recordedYearRows=projectOfficePaymentReport([recordedYear]).rows;
+    expect(groupOfficePaymentReport(recordedYearRows,'assessmentYear')).toMatchObject([{
+      label:'2026-27',parentCount:1,lineCount:2,amountMinor:12000,
+    }]);
     expect(projectOfficePaymentReport([{...travel,amountMinor:12001}])).toEqual({
       rows:[],issues:[{parentId:'p-travel',reason:'ALLOCATION_MISSING_OR_UNRECONCILED'}],
     });
