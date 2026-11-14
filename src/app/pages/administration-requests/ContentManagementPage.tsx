@@ -509,7 +509,7 @@ export function ContentManagementPage() {
               </div>;
             })}
           </div>
-          <p className="cms-editor__note">TaxPay displays this banner’s own artwork, headings, body text and payment actions as the carousel rotates. Preview reflects the selected desktop/mobile text, image and colors.</p>
+          <p className="cms-editor__note">The public carousel keeps the main banner’s heading, description and Pay Tax label, plus the Travel Tax label, fixed. Each slide supplies its own artwork and palette. Preview combines this draft’s desktop/mobile artwork and palette with the active intro and Travel Tax copy.</p>
           <div className="cms-palette-heading">
             <h3>Image-matched banner colors</h3>
             <div className="cms-palette-heading__actions">
@@ -570,9 +570,11 @@ export function ContentManagementPage() {
         </button>)}
       </div>
       <BannerFullPreview banner={draft} imageSrc={previewImage} device={previewDevice}
-        language={previewLanguage} travelAction={
-          previewLanguage==='bn' ? (banners.find(row => row.service_code==='TRAVEL_TAX')?.action_bn || 'ভ্রমণ কর পরিশোধ')
-            : (banners.find(row => row.service_code==='TRAVEL_TAX')?.action_en || 'Pay Travel Tax')
+        language={previewLanguage}
+        fixedCopy={draft.service_code ? banners.find(row => row.service_code===null) : draft}
+        travelAction={previewLanguage==='bn'
+          ? ((draft.service_code==='TRAVEL_TAX' ? draft.action_bn : banners.find(row => row.service_code==='TRAVEL_TAX')?.action_bn) || 'ভ্রমণ কর পরিশোধ')
+          : ((draft.service_code==='TRAVEL_TAX' ? draft.action_en : banners.find(row => row.service_code==='TRAVEL_TAX')?.action_en) || 'Pay Travel Tax')
         } />
       <p className="cms-palette-note">Preview only. Image, text and colors become public only after Publish to TaxPay succeeds.</p>
     </AppModal>}

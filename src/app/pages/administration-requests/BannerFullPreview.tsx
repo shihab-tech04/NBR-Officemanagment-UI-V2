@@ -21,41 +21,64 @@ export const TAXPAY_BANNER_FALLBACK_THEMES: Record<string, readonly [string, str
 };
 export type BannerPreviewDevice = 'desktop' | 'mobile';
 export type BannerPreviewLanguage = 'en' | 'bn';
+export type BannerPreviewCopy = Pick<BannerPreviewData,
+  'heading_en' | 'heading_bn' | 'description_en' | 'description_bn' |
+  'mobile_heading_en' | 'mobile_heading_bn' | 'mobile_description_en' | 'mobile_description_bn' |
+  'action_en' | 'action_bn'>;
 
-export function BannerFullPreview({banner,imageSrc,device,language,travelAction}:{
+const DEFAULT_FIXED_COPY: BannerPreviewCopy = {
+  heading_en: 'Tax payments, without the confusion',
+  heading_bn: 'কর পরিশোধে আর বিভ্রান্তি নয়।',
+  mobile_heading_en: 'Pay tax with confidence',
+  mobile_heading_bn: 'কর পরিশোধ সহজ করুন',
+  description_en: 'Choose the payment you need, see what happens next, and keep the payment reference handy when you need it.',
+  description_bn: 'যে কর পরিশোধ করতে চান, সেই সেবাটি বেছে নিন। ধাপে ধাপে এগিয়ে পেমেন্টের তথ্য সংরক্ষণ করুন।',
+  mobile_description_en: 'Choose, pay and keep your record.',
+  mobile_description_bn: 'কর দিন, পেমেন্টের তথ্য রাখুন।',
+  action_en: 'Pay Tax',
+  action_bn: 'কর পরিশোধ',
+};
+
+export function BannerFullPreview({banner,imageSrc,device,language,travelAction,fixedCopy=DEFAULT_FIXED_COPY}:{
   banner:BannerPreviewData;
   imageSrc:string|null;
   device:BannerPreviewDevice;
   language:BannerPreviewLanguage;
   travelAction:string;
+  fixedCopy?:BannerPreviewCopy;
 }) {
   const fallback=TAXPAY_BANNER_FALLBACK_THEMES[banner.service_code || 'intro'] || TAXPAY_BANNER_FALLBACK_THEMES.intro;
   const isMain=!banner.service_code;
-  const customPalette=Boolean(banner.background_color && banner.heading_color && banner.body_color && banner.outline_color);
+  const customPalette=[banner.background_color,banner.heading_color,banner.body_color,banner.outline_color]
+    .every(value=>typeof value==='string' && /^#[0-9a-fA-F]{6}$/.test(value));
   const theme={
-    '--preview-bg':banner.background_color || fallback[0],
-    '--preview-heading':banner.heading_color || fallback[1],
-    '--preview-body':banner.body_color || fallback[2],
-    '--preview-outline':banner.outline_color || fallback[3],
-    '--preview-outline-text':customPalette ? banner.outline_color : (isMain ? '#1E4484' : fallback[1]),
+    '--preview-bg':customPalette ? banner.background_color! : fallback[0],
+    '--preview-heading':customPalette ? banner.heading_color! : fallback[1],
+    '--preview-body':customPalette ? banner.body_color! : fallback[2],
+    '--preview-outline':customPalette ? banner.outline_color! : fallback[3],
+    '--preview-outline-text':customPalette ? banner.outline_color! : (isMain ? '#1E4484' : fallback[1]),
   } as CSSProperties;
   const isMobile=device==='mobile';
   const bn=language==='bn';
-  const title=isMobile?(bn?banner.mobile_heading_bn:banner.mobile_heading_en):(bn?banner.heading_bn:banner.heading_en);
-  const body=isMobile?(bn?banner.mobile_description_bn:banner.mobile_description_en):(bn?banner.description_bn:banner.description_en);
-  const action=bn?banner.action_bn:banner.action_en;
+  const title=isMobile?(bn?fixedCopy.mobile_heading_bn:fixedCopy.mobile_heading_en):(bn?fixedCopy.heading_bn:fixedCopy.heading_en);
+  const body=isMobile?(bn?fixedCopy.mobile_description_bn:fixedCopy.mobile_description_en):(bn?fixedCopy.description_bn:fixedCopy.description_en);
+  const action=bn?fixedCopy.action_bn:fixedCopy.action_en;
+  const announcedTitle=/[.!?।]$/u.test(title) ? title : title+(bn?'।':'.');
   return <section className={"cms-theme-preview cms-theme-preview--"+device}
     data-payment-service={banner.service_code || undefined}
+    data-fixed-left="true"
     data-preview-palette={customPalette ? 'image' : 'fallback'}
-    style={theme} role="img" aria-label={"Unpublished "+device+" banner preview: "+title}>
+    style={theme} role="img" aria-label={
+      "Unpublished "+device+" banner preview. "+announcedTitle+" "+body+" Actions shown: "+action+"; "+travelAction+"."
+    }>
     <div className="cms-theme-preview__copy">
       <h3>{title}</h3>
       <p>{body}</p>
       <div className="cms-theme-preview__actions" aria-hidden="true">
-        <span className={isMain?'cms-theme-preview__primary':'cms-theme-preview__outline'}>
+        <span className="cms-theme-preview__primary">
           <WalletCards size={16}/>{action}
         </span>
-        {isMain && <span className="cms-theme-preview__outline"><WalletCards size={16}/>{travelAction}</span>}
+        <span className="cms-theme-preview__outline"><WalletCards size={16}/>{travelAction}</span>
       </div>
     </div>
     <div className="cms-theme-preview__media" aria-hidden="true">

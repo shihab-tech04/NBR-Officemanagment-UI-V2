@@ -14,6 +14,13 @@ const slide = {
   background_color:'#F1F6FA', heading_color:'#234868',
   body_color:'#375977', outline_color:'#265D79',
 };
+const fixedCopy = {
+  heading_en:'Tax payments, without the confusion', heading_bn:'কর পরিশোধে আর বিভ্রান্তি নয়।',
+  mobile_heading_en:'Pay tax with confidence', mobile_heading_bn:'কর পরিশোধ সহজ করুন',
+  description_en:'Choose the payment you need.', description_bn:'আপনার প্রয়োজনীয় পেমেন্ট বেছে নিন।',
+  mobile_description_en:'Choose, pay and keep your record.', mobile_description_bn:'কর দিন, পেমেন্টের তথ্য রাখুন।',
+  action_en:'Pay Tax', action_bn:'কর পরিশোধ',
+};
 
 describe('CMS preview is faithful to the TaxPay persisted palette', () => {
   it('keeps the uploaded panorama full-bleed across the desktop preview, like TaxPay', () => {
@@ -28,8 +35,11 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
 
   it('uses all four saved colors on the full desktop banner, rather than fixed service colors', () => {
     const { container } = render(<BannerFullPreview banner={slide} imageSrc="/cropped-art.png" device="desktop"
-      language="en" travelAction="Pay Travel Tax" />);
+      language="en" travelAction="Pay Travel Tax" fixedCopy={fixedCopy} />);
     const preview = screen.getByRole('img', {name:/Unpublished desktop banner preview/});
+    expect(preview).toHaveAccessibleName(
+      'Unpublished desktop banner preview. Tax payments, without the confusion. Choose the payment you need. Actions shown: Pay Tax; Pay Travel Tax.',
+    );
     expect(preview.getAttribute('data-preview-palette')).toBe('image');
     expect(preview.getAttribute('data-payment-service')).toBe('TAX_WITH_RETURN');
     expect(preview.getAttribute('style')).toContain('--preview-bg: #F1F6FA');
@@ -38,23 +48,32 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(preview.getAttribute('style')).toContain('--preview-outline: #265D79');
     expect(preview.getAttribute('style')).toContain('--preview-outline-text: #265D79');
     expect(container.querySelector('img')?.getAttribute('src')).toBe('/cropped-art.png');
-    expect(screen.getByText('Tax with Return')).toBeInTheDocument();
-    expect(screen.getByText('Pay Tax with Return')).toBeInTheDocument();
+    expect(screen.getByText('Tax payments, without the confusion')).toBeInTheDocument();
+    expect(screen.getByText('Choose the payment you need.')).toBeInTheDocument();
+    expect(screen.getByText('Pay Tax')).toBeInTheDocument();
+    expect(screen.getByText('Pay Travel Tax')).toBeInTheDocument();
+    expect(container.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
   });
   it('switches to exact mobile and Bangla text without changing colors or image', () => {
     const { container } = render(<BannerFullPreview banner={slide} imageSrc="/cropped-art.png" device="mobile"
-      language="bn" travelAction="ভ্রমণ কর পরিশোধ" />);
-    expect(screen.getByRole('img',{name:/Unpublished mobile banner preview/}).getAttribute('style')).toContain('--preview-bg: #F1F6FA');
+      language="bn" travelAction="ভ্রমণ কর পরিশোধ" fixedCopy={fixedCopy} />);
+    const preview=screen.getByRole('img',{name:/Unpublished mobile banner preview/});
+    expect(preview).toHaveAccessibleName(
+      'Unpublished mobile banner preview. কর পরিশোধ সহজ করুন। কর দিন, পেমেন্টের তথ্য রাখুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+    );
+    expect(preview.getAttribute('style')).toContain('--preview-bg: #F1F6FA');
     expect(container.querySelector('.cms-theme-preview--mobile')).toBeInTheDocument();
     expect(container.querySelector('.cms-theme-preview__media img')?.getAttribute('src')).toBe('/cropped-art.png');
-    expect(screen.getByText('রিটার্নের কর')).toBeInTheDocument();
-    expect(screen.getAllByText('রিটার্নের কর দিন').length).toBeGreaterThan(0);
+    expect(screen.getByText('কর পরিশোধ সহজ করুন')).toBeInTheDocument();
+    expect(screen.getByText('কর দিন, পেমেন্টের তথ্য রাখুন।')).toBeInTheDocument();
+    expect(screen.getByText('কর পরিশোধ')).toBeInTheDocument();
+    expect(screen.getByText('ভ্রমণ কর পরিশোধ')).toBeInTheDocument();
   });
   it('keeps the main banner primary and outlined actions paired in desktop and mobile previews', () => {
     const intro={...slide,service_code:null,action_en:'Pay Tax',action_bn:'কর দিন'};
     for(const device of ['desktop','mobile'] as const) {
       const {container,unmount}=render(<BannerFullPreview banner={intro} imageSrc="/intro.png"
-        device={device} language="en" travelAction="Pay Travel Tax" />);
+        device={device} language="en" travelAction="Pay Travel Tax" fixedCopy={intro} />);
       const preview=container.querySelector('.cms-theme-preview')!;
       expect(preview).not.toHaveAttribute('data-payment-service');
       expect(preview.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
@@ -78,5 +97,17 @@ describe('CMS preview is faithful to the TaxPay persisted palette', () => {
     expect(TAXPAY_BANNER_FALLBACK_THEMES.ADVANCE_TAX[3]).toBe('#A65B19');
     expect(TAXPAY_BANNER_FALLBACK_THEMES.SOURCE_TAX_DEPOSIT[3]).toBe('#6D4BA8');
     expect(TAXPAY_BANNER_FALLBACK_THEMES.TRAVEL_TAX[3]).toBe('#0C6D8D');
+  });
+  it('falls back as a complete theme if any saved palette color is invalid', () => {
+    const partial={...slide,body_color:'invalid'};
+    const {container}=render(<BannerFullPreview banner={partial} imageSrc={null} device="desktop"
+      language="en" travelAction="Pay Travel Tax" fixedCopy={fixedCopy} />);
+    const preview=container.querySelector('.cms-theme-preview')!;
+    const fallback=TAXPAY_BANNER_FALLBACK_THEMES.TAX_WITH_RETURN;
+    expect(preview).toHaveAttribute('data-preview-palette','fallback');
+    expect(preview.getAttribute('style')).toContain('--preview-bg: '+fallback[0]);
+    expect(preview.getAttribute('style')).toContain('--preview-heading: '+fallback[1]);
+    expect(preview.getAttribute('style')).toContain('--preview-body: '+fallback[2]);
+    expect(preview.getAttribute('style')).toContain('--preview-outline: '+fallback[3]);
   });
 });
