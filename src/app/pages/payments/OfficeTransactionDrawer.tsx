@@ -68,6 +68,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     tax_treatment: label('Not verified','যাচাই হয়নি'),
     where_this_counts: label('Recorded payment, not verified tax credit','পেমেন্ট নথিভুক্ত; কর ক্রেডিট যাচাই হয়নি'),
     acs_reference: display(row.acs_reference),
+    // Source-backed deterministic reference only; not a claim that an
+    // independently issued government certificate has been verified.
+    certificate_reference: display(source?.certificateReference),
     notice_reference: display(row.notice_reference),
   } : null;
   const groups: Array<[string, string, string]> = [
@@ -92,6 +95,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
       label('Payment breakdown','পেমেন্ট বিবরণ')],
     ['payment_ref',label('Transaction ID','লেনদেন আইডি'),label('References','রেফারেন্স')],
     ['acs_reference',label('Receipt reference','রসিদ রেফারেন্স'),label('References','রেফারেন্স')],
+    ['certificate_reference',label('Payment certificate reference','পেমেন্ট সনদের রেফারেন্স'),label('References','রেফারেন্স')],
     ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
   ];
 
