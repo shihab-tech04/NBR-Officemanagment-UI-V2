@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import reducer, { markNotificationRead, markAllNotificationsRead, markOfficerNotificationRead, clearOfficerNoticeReadState, syncMirroredPaymentNotices } from "../notificationsSlice";
+import reducer, { markNotificationRead, markAllNotificationsRead, markOfficerNotificationRead, clearOfficerNoticeReadState, syncMirroredPaymentNotices, syncVerifiedOfficerCursorNotices } from "../notificationsSlice";
 import type { StoryPayment } from "../../pages/payments/story1OfficeApi";
 import { notificationTargetPath } from "../../hooks/useNotifications";
 
@@ -79,11 +79,11 @@ describe("Office SQL-backed payment bell", () => {
       useOfficerReadState: true, officerUid: "maker-uid", officerReadNoticeIds: [String(first.id)],
     }));
     const signedOut = reducer(maker, clearOfficerNoticeReadState());
-    expect(signedOut.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);
+    expect(signedOut.items.find(item => item.id === "sql-payment-91")).toBeUndefined();
     const delayedWrite = reducer(signedOut, markOfficerNotificationRead({
       id: "sql-payment-91", officerUid: "maker-uid",
     }));
-    expect(delayedWrite.items.find(item => item.id === "sql-payment-91")?.isRead).toBe(false);
+    expect(delayedWrite.items.find(item => item.id === "sql-payment-91")).toBeUndefined();
   });
   it("fails closed on missing transaction, negative, fractional, or unsafe minor-unit amounts", () => {
     const invalid: StoryPayment[] = [
@@ -108,6 +108,25 @@ describe("Office SQL-backed payment bell", () => {
     ];
     const state = reducer(undefined, sync(events));
     expect(state.items.some(item => item.type === "payment")).toBe(false);
+  });
+  it("maps exact cursor IDs beyond 2^53 and isolates read receipts on officer switches",()=>{
+    const huge="9007199254740993";
+    const row={id:huge,paymentId,type:"NEW_SIMULATED_PAYMENT",createdAt:"2026-11-13T10:00:00Z",
+      payment:{id:paymentId,service:"ADVANCE_TAX",amountMinor:"125050",
+        status:"SIMULATED_SUCCESS" as const,createdAt:"2026-11-13T10:00:00Z"}};
+    const maker=reducer(undefined,syncVerifiedOfficerCursorNotices({
+      officerUid:"officer-a",notices:[row],readIds:[huge],language:"en",
+    }));
+    expect(maker.items.find(n=>n.type==="payment")).toMatchObject({
+      id:"sql-payment-"+huge,targetNoticeId:huge,isRead:true,targetPaymentId:paymentId,
+    });
+    const reviewer=reducer(maker,syncVerifiedOfficerCursorNotices({
+      officerUid:"officer-b",notices:[row],readIds:[],language:"bn",
+    }));
+    expect(reviewer.items.find(n=>n.type==="payment")?.isRead).toBe(false);
+    const delayed=reducer(reviewer,markOfficerNotificationRead({id:"sql-payment-"+huge,officerUid:"officer-a"}));
+    expect(delayed.items.find(n=>n.type==="payment")?.isRead).toBe(false);
+    expect(reducer(delayed,clearOfficerNoticeReadState()).items.filter(n=>n.type==="payment")).toEqual([]);
   });
   it("does not resurrect old unread events during a delayed SQL response", () => {
     const original = reducer(undefined, sync([first]));

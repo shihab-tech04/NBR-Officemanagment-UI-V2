@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { getStoryNotices, getRecentStoryPayments } from "../pages/payments/story1OfficeApi";
+import { getVerifiedOfficerStoryNotices } from "../services/officeStoryNoticePages";
 import { readDemoNoticeState } from "../services/demoNotificationReadState";
-import { getOfficeStoryNoticeReadState } from "../services/officeStoryNoticeReadState";
+
 import { getAuditSqlClient, isSharedAuditMode } from "../pages/audit/auditSharedSql";
 import type { RootState, AppDispatch } from "../store/store";
 import {
@@ -11,6 +12,7 @@ import {
   markAllNotificationsRead,
   clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
+  syncVerifiedOfficerCursorNotices,
 } from "../store/notificationsSlice";
 import type { Notification } from "../store/notificationsSlice";
 
@@ -20,35 +22,26 @@ export function useNotificationsState() {
   const language = i18n.resolvedLanguage?.startsWith("bn") ? "bn" : "en";
   useEffect(() => {
     let active = true;
+    let generation = 0;
     const refresh = async () => {
+      const attempt = ++generation;
       try {
-        const [notices, payments] = await Promise.all([getStoryNotices(), getRecentStoryPayments()]);
-        if (!active) return;
         if (isSharedAuditMode()) {
-          // A failed or role-denied read is shown as unverified/unread. The next
-          // focus, online event, or periodic refresh retries against the officer's own rows.
-          let officerReadNoticeIds: string[] = [];
-          let officerUid: string | null = null;
-          try {
-            const snapshot = await getOfficeStoryNoticeReadState(
-              notices.slice(0, 100).map(notice => String(notice.id))
-            );
-            officerUid = snapshot.officerUid;
-            officerReadNoticeIds = snapshot.notices.filter(state => state.isRead).map(state => state.noticeId);
-          } catch {
-            // Do not fall back to tab storage or another officer's in-memory state.
-          }
-          if (active) dispatch(syncMirroredPaymentNotices({
-            notices, payments, language, useOfficerReadState: true, officerReadNoticeIds, officerUid,
-          }));
+          // Only server-validated officer role/read receipts can authorize bell items.
+          // Never fetch the old public 100-event list as an authenticated fallback.
+          const feed = await getVerifiedOfficerStoryNotices();
+          if (active && attempt === generation)
+            dispatch(syncVerifiedOfficerCursorNotices({ ...feed, language }));
           return;
         }
-        dispatch(syncMirroredPaymentNotices({
-          notices, payments, language, tabReadState: readDemoNoticeState(),
-        }));
+        const [notices,payments] = await Promise.all([getStoryNotices(),getRecentStoryPayments()]);
+        if (active && attempt === generation)
+          dispatch(syncMirroredPaymentNotices({
+            notices, payments, language, tabReadState: readDemoNoticeState(),
+          }));
       } catch {
-        // A failed event read cannot be interpreted as zero notices or payment success.
-        // Retain the last verified event snapshot until the next successful fetch.
+        // Keep last verified snapshot on network errors. On sign-out/account switch,
+        // clearOfficerNoticeReadState removes old private rows immediately.
       }
     };
     void refresh();
@@ -57,6 +50,7 @@ export function useNotificationsState() {
       try {
         authSubscription = getAuditSqlClient().auth.onAuthStateChange(event => {
           if (!active || !["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event)) return;
+          generation++;
           dispatch(clearOfficerNoticeReadState());
           window.setTimeout(() => { if (active) void refresh(); }, 0);
         }).data.subscription;
@@ -77,6 +71,7 @@ export function useNotificationsState() {
     window.addEventListener("online", onOnline);
     return () => {
       active = false;
+      generation++;
       authSubscription?.unsubscribe();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);

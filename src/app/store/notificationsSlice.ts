@@ -3,6 +3,7 @@ import { MOCK_NOTIFICATIONS } from "../data/mockData";
 import type { Notification, NotificationType, NotificationPriority } from "../data/mockData";
 import type { StoryNotice, StoryPayment } from "../pages/payments/story1OfficeApi";
 import type { DemoNoticeReadState } from "../services/demoNotificationReadState";
+import type { OfficeStoryCursorNotice } from "../services/officeStoryNoticePages";
 
 // Re-export notification types for convenience
 export type { Notification, NotificationType, NotificationPriority };
@@ -45,9 +46,39 @@ const notificationsSlice = createSlice({
     clearOfficerNoticeReadState(state) {
       if (state.readStateMode !== "officer") return;
       state.readStateOfficerUid = null;
-      state.items.forEach(notice => {
-        if (notice.type === "payment") notice.isRead = false;
-      });
+      // Never expose the previous officer's private feed after sign-out or switch.
+      state.items = state.items.filter(notice => notice.type !== "payment");
+    },
+    syncVerifiedOfficerCursorNotices(state, action: PayloadAction<{
+      officerUid:string;notices:OfficeStoryCursorNotice[];readIds:string[];language:"en"|"bn";
+    }>) {
+      if(!action.payload.officerUid)return;
+      const bn=action.payload.language==="bn";
+      const read=new Set(action.payload.readIds);
+      const next:Notification[]=[];
+      const seen=new Set<string>();
+      for(const event of action.payload.notices){
+        if(event.type!=="NEW_SIMULATED_PAYMENT"||seen.has(event.id))continue;
+        // Cursor projections use exact decimal minor units. Format without Number.
+        const minor=BigInt(event.payment.amountMinor);
+        const taka=(minor/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+        const poisha=(minor%100n).toString().padStart(2,"0");
+        const amount="৳"+taka+"."+poisha;
+        seen.add(event.id);
+        next.push({
+          id:"sql-payment-"+event.id,type:"payment",priority:"medium",
+          title:bn?"নতুন পেমেন্ট রেকর্ড":"New payment record",
+          message:bn?`পেমেন্টের পরিমাণ ${amount}। TaxPay থেকে অফিসে সংরক্ষিত হয়েছে। সরকারি নিষ্পত্তি নিশ্চিত হয়নি।`
+                   :`Payment amount ${amount} recorded in Office. No government settlement is confirmed.`,
+          module:bn?"পেমেন্টস":"Payments",
+          time:new Date(event.createdAt).toLocaleString(bn?"bn-BD":"en-GB"),
+          isRead:read.has(event.id),targetPaymentId:event.paymentId,
+          targetNoticeId:event.id,destination:{main:"payments",sub:"transactions"},
+        });
+      }
+      state.readStateMode="officer";
+      state.readStateOfficerUid=action.payload.officerUid;
+      state.items=[...next,...state.items.filter(item=>item.type!=="payment"&&!item.id.startsWith("sql-payment-"))];
     },
     syncMirroredPaymentNotices(state, action: PayloadAction<{ notices: StoryNotice[]; payments: StoryPayment[]; language: "en" | "bn"; tabReadState?: DemoNoticeReadState; useOfficerReadState?: boolean; officerReadNoticeIds?: string[]; officerUid?: string | null }>) {
       // SQL creates exactly one notice per mirrored simulated payment. Never
@@ -112,6 +143,7 @@ export const {
   markOfficerNotificationRead,
   clearOfficerNoticeReadState,
   syncMirroredPaymentNotices,
+  syncVerifiedOfficerCursorNotices,
   setNotifications,
 } = notificationsSlice.actions;
 
