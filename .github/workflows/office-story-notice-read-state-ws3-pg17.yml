@@ -8,6 +8,8 @@ on:
       - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
       - 'tests/integration/officeStoryNoticeReadState.sql'
       - 'tests/integration/officeNoticeCursorOfficerParity.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
       - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
       - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
   push:
@@ -17,6 +19,8 @@ on:
       - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
       - 'tests/integration/officeStoryNoticeReadState.sql'
       - 'tests/integration/officeNoticeCursorOfficerParity.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
       - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
       - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
   workflow_dispatch:
@@ -89,6 +93,22 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadState.sql
+      - name: Verify separate disposable 205-event cursor retries and denied fixture exposure
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          createdb notice_cursor_recovery_test
+          export PGDATABASE=notice_cursor_recovery_test
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecoveryFixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecovery.sql
+
 
   combined-ws2-consumer:
     name: WS2 235-event consumer atop canonical WS3 Office source (test-only)
