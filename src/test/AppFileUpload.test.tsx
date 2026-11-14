@@ -54,6 +54,18 @@ describe("AppFileUpload security validation", () => {
     expect(accepted.some((f: File) => f.name === "valid.png")).toBe(true);
   });
 
+  it("does not deliver a pending file read or React state update after unmount", async () => {
+    const onChange = vi.fn();
+    const { unmount } = renderUpload(onChange);
+    const file = makeFile("valid-after-unmount.png", [...PNG_SIG, ...Array(512).fill(0)], "image/png");
+    dropFile(file);
+    unmount();
+    // Await the FileReader lifecycle under a still-live jsdom environment;
+    // leftover callbacks must be ignored rather than leak to later test files.
+    await new Promise(resolve => setTimeout(resolve, 80));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("rejects an EXE renamed to .png (MZ header)", async () => {
     const onChange = vi.fn();
     renderUpload(onChange);
