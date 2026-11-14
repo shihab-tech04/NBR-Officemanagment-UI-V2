@@ -6,7 +6,9 @@ on:
     paths:
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeNoticeCursorOfficerParity.sql'
       - 'tests/integration/officeNoticeCursorOfficerParity.sql'
       - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
       - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
@@ -15,7 +17,9 @@ on:
     paths:
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeNoticeCursorOfficerParity.sql'
       - 'tests/integration/officeNoticeCursorOfficerParity.sql'
       - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
       - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
@@ -73,6 +77,22 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113170000_office_story_notice_read_state.sql
+      - name: Apply the canonical Office bell cursor in the same disposable database
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+      - name: Verify all 235 bigint cursor events against authenticated read and acknowledgement
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeCursorOfficerParity.sql
       - name: Verify role isolation, retry immutability and exact bigint readback
         env:
           PGHOST: 127.0.0.1
