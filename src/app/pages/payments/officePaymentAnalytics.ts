@@ -86,7 +86,7 @@ export type OfficePaymentReportLine={
 export type OfficePaymentReportIssueReason=
   |'PAYMENT_ID_MISSING'|'INVALID_OCCURRED_AT'|'ALLOCATION_MISSING_OR_UNRECONCILED'
   |'PAYMENT_STATUS_MISSING'|'PAYER_ID_MISSING'|'BENEFICIARY_TIN_MISSING'
-  |'HEAD_ID_MISSING'|'ASSESSMENT_YEAR_MISSING';
+  |'HEAD_ID_MISSING'|'ASSESSMENT_YEAR_MISSING'|'DUPLICATE_PARENT_CONFLICT';
 export type OfficePaymentReportIssue={parentId:string;reason:OfficePaymentReportIssueReason};
 export type OfficePaymentReportGroup={
   key:string;label:string;parentCount:number;lineCount:number;amountMinor:number|null;parentIds:string[];
@@ -105,11 +105,30 @@ export function projectOfficePaymentReport(records:readonly StoryPayment[]):{
     if(issueKeys.has(key))return;
     issueKeys.add(key);issues.push({parentId,reason});
   };
+  // A retry, offset-page overlap, or refreshed SQL read can return the same
+  // immutable parent more than once. Exactly equal parent snapshots count once;
+  // conflicting snapshots with the SAME ID count zero, not arbitrary first/last
+  // wins. Neither allocation lines nor financial totals may be duplicated.
+  // Original source JSON projections have stable keys and array ordering.
+  const unique=new Map<string,{payment:StoryPayment;signature:string}>();
+  const conflicting=new Set<string>();
   for(const payment of records){
-    const parentId=typeof payment?.id==='string'&&payment.id.trim()?payment.id:'(unidentified payment)';
-    if(parentId==='(unidentified payment)'){
-      addIssue(parentId,'PAYMENT_ID_MISSING');continue;
-    }
+    const id=typeof payment?.id==='string'&&payment.id.trim()?payment.id:'';
+    if(!id){addIssue('(unidentified payment)','PAYMENT_ID_MISSING');continue;}
+    const signature=JSON.stringify([
+      payment.service,payment.status,payment.amountMinor,payment.createdAt,
+      payment.certificateReference??null,payment.details??null,
+    ]);
+    const prior=unique.get(id);
+    if(prior&&prior.signature!==signature)conflicting.add(id);
+    else if(!prior)unique.set(id,{payment,signature});
+  }
+  for(const id of conflicting){
+    unique.delete(id);
+    addIssue(id,'DUPLICATE_PARENT_CONFLICT');
+  }
+  for(const {payment} of unique.values()){
+    const parentId=payment.id;
     const occurredAt=typeof payment.createdAt==='string'?payment.createdAt:'';
     if(!Number.isFinite(Date.parse(occurredAt))){
       addIssue(parentId,'INVALID_OCCURRED_AT');continue;

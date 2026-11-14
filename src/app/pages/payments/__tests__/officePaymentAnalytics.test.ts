@@ -114,6 +114,49 @@ describe('allocation-backed report grouping',()=>{
     expect(rows).toEqual([]);
     expect(issues).toEqual([{parentId:'p-multi',reason:'ALLOCATION_MISSING_OR_UNRECONCILED'}]);
   });
+  it('deduplicates an exact immutable parent replay before summing allocated lines',()=>{
+    const repeated=structuredClone(reportingPayment);
+    const {rows,issues}=projectOfficePaymentReport([
+      reportingPayment,repeated,reportingPayment,
+    ]);
+    expect(issues).toEqual([]);
+    expect(rows).toHaveLength(3);
+    expect(groupOfficePaymentReport(rows,'head')).toEqual([{
+      key:'head:68',label:'Advance Tax',parentCount:1,
+      lineCount:3,amountMinor:6000,parentIds:['p-multi']
+    }]);
+    expect(groupOfficePaymentReport(rows,'assessmentYear')
+      .map(g=>[g.label,g.parentCount,g.lineCount,g.amountMinor]))
+      .toEqual([['2025-26',1,2,3000],['2026-27',1,1,3000]]);
+  });
+  it('rejects conflicting same-ID Office parent snapshots instead of choosing a larger total',()=>{
+    const changedAmount={...reportingPayment,amountMinor:6001};
+    const changedBeneficiary={...reportingPayment,details:{
+      ...reportingPayment.details,
+      allocations:reportingPayment.details?.allocations?.map((a,i)=>
+        i===1?{...a,taxpayerTin:'999999999999'}:a),
+    }};
+    for(const conflict of [changedAmount,changedBeneficiary,
+      {...reportingPayment,status:'FAILED'}]){
+      const {rows,issues}=projectOfficePaymentReport([
+        reportingPayment,conflict,reportingPayment,
+      ]);
+      expect(rows).toEqual([]);
+      expect(issues).toEqual([{parentId:'p-multi',reason:'DUPLICATE_PARENT_CONFLICT'}]);
+    }
+  });
+  it('quarantines a conflicting parent while preserving unrelated original payments',()=>{
+    const other={...reportingPayment,id:'p-unrelated'};
+    const {rows,issues}=projectOfficePaymentReport([
+      reportingPayment,other,{...reportingPayment,createdAt:'2026-11-06T06:12:00Z'},other,
+    ]);
+    expect(issues).toEqual([{parentId:'p-multi',reason:'DUPLICATE_PARENT_CONFLICT'}]);
+    expect(new Set(rows.map(row=>row.parentId))).toEqual(new Set(['p-unrelated']));
+    expect(rows).toHaveLength(3);
+    expect(groupOfficePaymentReport(rows,'payer')[0]).toMatchObject({
+      parentCount:1,lineCount:3,amountMinor:6000,
+    });
+  });
   it('does not include undated rows in a date-based report projection',()=>{
     const {rows,issues}=projectOfficePaymentReport([{...reportingPayment,createdAt:'not-a-date'}]);
     expect(rows).toEqual([]);
