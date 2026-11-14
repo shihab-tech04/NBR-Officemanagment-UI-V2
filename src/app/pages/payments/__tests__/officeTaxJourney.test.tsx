@@ -90,6 +90,23 @@ describe("Office taxpayer Tax Journey", () => {
     } as TaxpayerRegistrationProfile;
     expect(registrationHistoryEvents(invalidProfile)).toEqual([]);
 
+    const invalidCertificateDate = {
+      ...original,
+      profile: {...original.profile, registeredOn: "30 Feb 2026",
+        certificateIssuedOn: "35 Jan 2026"},
+    } as TaxpayerRegistrationProfile;
+    expect(registrationHistoryEvents(invalidCertificateDate)).toEqual([]);
+
+    const reviewedCertificate = {
+      ...original,
+      profile: {...original.profile, source: "REVIEWED_CERTIFICATE",
+        registeredOn: "19 Jan 2026", certificateIssuedOn: "19 Jan 2026"},
+    } as TaxpayerRegistrationProfile;
+    const documented = registrationHistoryEvents(reviewedCertificate);
+    expect(documented).toHaveLength(2);
+    expect(documented.every(event => event.occurredAt === "2026-01-19T00:00:00.000Z")).toBe(true);
+    expect(documented.every(event => event.provenanceEn.includes("REVIEWED_CERTIFICATE"))).toBe(true);
+
     const leapYearProfile = {
       ...original,
       profile: {...original.profile, registeredOn: "2024-02-29",
