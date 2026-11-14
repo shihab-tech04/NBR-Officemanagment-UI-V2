@@ -185,6 +185,18 @@ describe('allocation-backed report grouping',()=>{
     expect(officePaymentAnalytics([travel])).toMatchObject({
       total:1,saved:1,amountMinor:12000,services:[['Travel Tax',1]],
     });
+    // The approved taxpayer form stores Travel Tax receipt passengers in taka,
+    // including a possible zero amount for an exempt passenger.
+    const sourceFormat:StoryPayment={...travel,details:{...travel.details,
+      lines:[{headId:155,totalAmount:120},{headId:156,totalAmount:0}],
+      passengers:[{name:'Passenger A',amount:120},{name:'Exempt passenger',amount:0}],
+    }};
+    const sourceRows=projectOfficePaymentReport([sourceFormat,structuredClone(sourceFormat)]);
+    expect(sourceRows.issues).toEqual([]);
+    expect(sourceRows.rows.map(row=>row.amountMinor)).toEqual([12000,0]);
+    expect(groupOfficePaymentReport(sourceRows.rows,'head')).toMatchObject([{
+      parentCount:1,lineCount:2,amountMinor:12000,
+    }]);
     expect(projectOfficePaymentReport([{...travel,amountMinor:12001}])).toEqual({
       rows:[],issues:[{parentId:'p-travel',reason:'ALLOCATION_MISSING_OR_UNRECONCILED'}],
     });
