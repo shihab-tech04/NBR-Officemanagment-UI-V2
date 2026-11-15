@@ -59,6 +59,7 @@ Deno.serve(async(req)=>{
  try{
    let rpc:string;let args:Record<string,unknown>={};
    let noticePageCheck:{afterId:bigint;limit:number}|null=null;
+   let lineagePaymentId:string|null=null;
    if(req.method==="POST"&&path==="/mirror"){
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
@@ -115,6 +116,17 @@ Deno.serve(async(req)=>{
       rpcClient=verified;
       rpc="payment_v1_office_guarded_story_page";args={p_page:page,p_per_page:perPage};
    }
+   else if(req.method==="GET"&&/^\/payments\/[^/]+\/lineage$/.test(path)){
+      const match=path.match(/^\/payments\/([^/]+)\/lineage$/);
+      if(!match||!validUuid(match[1]))
+        return respond({success:false,error:"INVALID_PAYMENT_ID"},400);
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;
+      rpc="payment_v1_office_guarded_pay_again_lineage";
+      lineagePaymentId=match[1];
+      args={p_payment_id:match[1]};
+   }
    else if(req.method==="GET"&&path==="/notifications/page"){
       const u=new URL(req.url),afterId=u.searchParams.get("afterId")??"0",
             limitRaw=u.searchParams.get("limit")??"100";
@@ -149,6 +161,22 @@ Deno.serve(async(req)=>{
      if(error.code==="42501")return respond({success:false,error:"OFFICE_OFFICER_ACCESS_DENIED"},403);
      console.error("office story1",error.code,error.message);
      return respond({success:false,error:error.message.startsWith("MIRROR_CONFLICT")?"MIRROR_CONFLICT":"DATABASE_ERROR"},409);
+   }
+   if(rpc==="payment_v1_office_guarded_pay_again_lineage"){
+     if(data===null)return respond({success:false,error:"PAY_AGAIN_RECORD_NOT_FOUND"},404);
+     const lineage=data&&typeof data==="object"&&!Array.isArray(data)
+       ?data as Record<string,unknown>:null;
+     if(!lineage||typeof lineage.paymentId!=="string"||
+        lineage.paymentId.toLowerCase()!==lineagePaymentId?.toLowerCase()||
+        typeof lineage.sourceMirrored!=="boolean"||
+        !validUuid(lineage.sourcePaymentId)||
+        (lineage.sourceMirrored===true&&(
+          !Array.isArray(lineage.sourceAllocations)||
+          !Array.isArray(lineage.repeatAllocations)||
+          lineage.sourceCertificateReference!=="SK-PC-"+lineage.sourcePaymentId||
+          lineage.repeatCertificateReference!=="SK-PC-"+lineage.paymentId
+        )))
+       return respond({success:false,error:"INVALID_PAY_AGAIN_READBACK"},502);
    }
    if(rpc==="demo_story1_office_notice_page"&&noticePageCheck&&
       !validNoticePage(data,noticePageCheck.afterId,noticePageCheck.limit))
