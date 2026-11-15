@@ -105,6 +105,15 @@ Deno.serve(async(req)=>{
       if(!res.ok)return respond({success:false,error:"SOURCE_AUTHORIZATION_MISSING"},424);
       const snapshot=await res.json();
       if(!snapshot?.success||snapshot.data?.id!==id)return respond({success:false,error:"SOURCE_AUTHORIZATION_INVALID"},424);
+      // Never invoke this privileged mirror using the public Data API role.
+      // The source snapshot was read back from original Taxpayer SQL above.
+      const serverKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??(()=>{
+        const raw=Deno.env.get("SUPABASE_SECRET_KEYS");if(!raw)return null;
+        try{const value=(JSON.parse(raw) as Record<string,string>).default;
+          return typeof value==="string"&&value?value:null;}catch{return null;}
+      })();
+      if(!serverKey)return respond({success:false,error:"BACKEND_UNAVAILABLE"},503);
+      rpcClient=createClient(url,serverKey,{auth:{persistSession:false,autoRefreshToken:false}});
       rpc="demo_auth_office_mirror";args={p_input:snapshot.data};
    }else if(req.method==="GET"&&path==="/payments"){
       const u=new URL(req.url),page=Number(u.searchParams.get("page")??"1"),
