@@ -8,6 +8,7 @@ on:
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
       - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
       - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261116042500_office_correction_evidence_projection.sql'
       - 'supabase/migrations/20261115183000_office_private_legacy_rpc.sql'
       - 'tests/integration/officeLegacyRpcPrivacy.sql'
       - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
@@ -90,6 +91,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113180000_office_correction_queue_cursor.sql
           # The latest audit projection supersedes the older paged function.
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116042500_office_correction_evidence_projection.sql
       - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
         env:
           PGHOST: 127.0.0.1
