@@ -127,7 +127,7 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="card p-3"><span className="text-sm">{t('Recorded deposits and payments','নথিভুক্ত জমা ও পেমেন্ট')}</span><p className="text-lg font-semibold tabular-nums">{money(report.recordedPaymentMinor)}</p></div>
         <div className="card p-3"><span className="text-sm">{t('Recorded source deductions','নথিভুক্ত উৎস কর কর্তন')}</span><p className="text-lg font-semibold tabular-nums">{money(report.recordedDeductionMinor)}</p></div>
-        <div className="card p-3"><span className="text-sm">{t('Independently verified tax credit','স্বতন্ত্রভাবে যাচাইকৃত কর ক্রেডিট')}</span><p className="text-lg font-semibold tabular-nums">{money(report.verifiedCreditMinor)}</p></div>
+        <div className="card p-3"><span className="text-sm">{t('Independently verified tax credit','স্বতন্ত্রভাবে যাচাইকৃত কর ক্রেডিট')}</span><p className="text-lg font-semibold tabular-nums">{report.lines.some(l=>l.entryKind==='CREDIT'&&l.financialStatus==='VERIFIED')?money(report.verifiedCreditMinor):t('Not verified','যাচাই হয়নি')}</p></div>
       </div>
       <p className="table-page__desc" role="status">{t('Source coverage: ','উৎস কভারেজ: ')}
         {report.allSourceCoverage.length?report.allSourceCoverage.map(s=>OFFICE_LEDGER_SOURCES[s]).join(', '):t('No verified source connections returned records','কোনো উৎস থেকে যাচাইকৃত রেকর্ড পাওয়া যায়নি')}
