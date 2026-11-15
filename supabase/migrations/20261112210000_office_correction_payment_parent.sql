@@ -28,6 +28,12 @@ DECLARE
   v_payment_id text;
   v_payment_kind text;
 BEGIN
+  -- Preserve the caller's source-backed allegation category exactly. Older
+  -- correction events without this field have the original default category.
+  IF NEW.inquiry_payload ? 'caseKind'
+     AND (NEW.inquiry_payload->>'caseKind') IS DISTINCT FROM 'CORRECTION_REVIEW'
+     AND (NEW.inquiry_payload->>'caseKind') IS DISTINCT FROM 'UNSOLICITED_PAYMENT_REPORT'
+  THEN RAISE EXCEPTION 'Invalid correction source case category'; END IF;
   IF NOT (NEW.inquiry_payload ? 'originalPaymentId')
      AND NOT (NEW.inquiry_payload ? 'originalPaymentKind') THEN
     NEW.source_payment_id:=NULL;
