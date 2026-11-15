@@ -18,6 +18,11 @@ describe('Office taxpayer register/detail navigation',()=>{
     expect(module).toContain("navigate('/payments/taxpayer-360/'+encodeURIComponent");
     expect(module).toContain("navigate('/payments/taxpayer-360')");
   });
+  it('invalidates open payment details on taxpayer, assessment-year or route changes',()=>{
+    // Reusing the Payments page cannot leave a prior taxpayer's detail/receipt visible.
+    expect(module).toMatch(/useEffect\\(\\(\\)=>\\{setDetails\\(null\\);\\},\\[current,taxpayerTin,scopeYear\\]\\)/);
+    expect(module).toContain("scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}");
+  });
   it('reuses the canonical Office table, including search and pagination',()=>{
     expect(module).toContain('PaymentRecordList kind="taxpayers"');
     expect(list).toContain('ResponsiveTable');
