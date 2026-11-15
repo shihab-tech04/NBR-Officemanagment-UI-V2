@@ -32,7 +32,7 @@ export function projectOfficeTaxpayer360Ledger(
       // an issuer-backed tax-credit status. Unknown/success-shaped states
       // remain Unverified until the authoritative WS3 source is available.
       const recorded=payment.status.trim().toUpperCase();
-      const ledgerStage=/(?:PENDING|QUEUED|PROCESSING|INITIATED)/.test(recorded)
+      const ledgerStage=['PENDING','QUEUED','PROCESSING','INITIATED'].includes(recorded)
         ?'Pending'
         :/^(?:FAILED|ERROR|DECLINED|REJECTED)$/.test(recorded)
           ?'Failed'
