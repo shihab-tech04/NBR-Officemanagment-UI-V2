@@ -8,6 +8,8 @@ const read=(path:string)=>readFileSync(resolve(process.cwd(),path),'utf8');
 const routes=read('src/app/routes.tsx');
 const module=read('src/app/pages/payments/PaymentModulePage.tsx');
 const list=read('src/app/pages/payments/PaymentRecordList.tsx');
+const ledger=read('src/app/pages/payments/OfficeTaxpayer360Ledger.tsx');
+const ledgerProjection=read('src/app/pages/payments/officeTaxpayer360LedgerModel.ts');
 
 describe('Office taxpayer register/detail navigation',()=>{
   it('opens a separate taxpayer detail route without changing the navigation shell',()=>{
@@ -29,7 +31,13 @@ describe('Office taxpayer register/detail navigation',()=>{
   });
   it('does not fabricate official credits or show unrelated reference corrections',()=>{
     expect(module).toContain("t('taxPositionNotVerified')");
-    expect(module).toContain("t('ledgerNotVerified')");
+    // The read-only Ledger tab now renders an explicit source status rather
+    // than its former hardcoded placeholder. Keep the no-fake-credit contract.
+    expect(module).toContain("taxpayerTab==='ledger' ? <OfficeTaxpayer360Ledger");
+    expect(ledger).toContain('Saved payments do not confirm Treasury settlement');
+    expect(ledger).toContain('Dhara and official reconciliation are unavailable');
+    expect(ledgerProjection).toContain("credit_status:'Not verified'");
+    expect(ledgerProjection).not.toContain("ledger_stage:'Verified'");
     expect(module).toContain('linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,scopeYear)');
     expect(module).toContain('taxpayerCorrectionRows=officeCorrectionRows.filter');
     expect(module).not.toContain('...referenceCorrections.map');
