@@ -4,7 +4,8 @@ BEGIN;
 
 ALTER TABLE payment_sync.correction_mirrors
   ADD COLUMN source_payment_id uuid,
-  ADD COLUMN source_payment_kind text;
+  ADD COLUMN source_payment_kind text,
+  ADD COLUMN target_allocation_id text;
 
 ALTER TABLE payment_sync.correction_mirrors
   ADD CONSTRAINT correction_mirrors_source_payment_pair_check CHECK (
@@ -15,6 +16,15 @@ ALTER TABLE payment_sync.correction_mirrors
   ) NOT VALID;
 ALTER TABLE payment_sync.correction_mirrors
   VALIDATE CONSTRAINT correction_mirrors_source_payment_pair_check;
+ALTER TABLE payment_sync.correction_mirrors
+  ADD CONSTRAINT correction_mirrors_target_allocation_check CHECK (
+    target_allocation_id IS NULL OR
+    (source_payment_id IS NOT NULL AND
+     length(target_allocation_id) BETWEEN 1 AND 128 AND
+     target_allocation_id = pg_catalog.btrim(target_allocation_id))
+  ) NOT VALID;
+ALTER TABLE payment_sync.correction_mirrors
+  VALIDATE CONSTRAINT correction_mirrors_target_allocation_check;
 
 CREATE INDEX correction_mirrors_source_payment_idx
   ON payment_sync.correction_mirrors(source_payment_kind,source_payment_id)
@@ -27,6 +37,7 @@ AS $function$
 DECLARE
   v_payment_id text;
   v_payment_kind text;
+  v_allocation_id text;
 BEGIN
   -- Preserve the caller's source-backed allegation category exactly. Older
   -- correction events without this field have the original default category.
@@ -34,10 +45,20 @@ BEGIN
      AND (NEW.inquiry_payload->>'caseKind') IS DISTINCT FROM 'CORRECTION_REVIEW'
      AND (NEW.inquiry_payload->>'caseKind') IS DISTINCT FROM 'UNSOLICITED_PAYMENT_REPORT'
   THEN RAISE EXCEPTION 'Invalid correction source case category'; END IF;
+  v_allocation_id:=NEW.inquiry_payload->>'targetAllocationId';
+  IF v_allocation_id IS NOT NULL AND
+     (length(v_allocation_id) NOT BETWEEN 1 AND 128 OR
+      v_allocation_id IS DISTINCT FROM pg_catalog.btrim(v_allocation_id)) THEN
+    RAISE EXCEPTION 'Invalid correction target allocation';
+  END IF;
   IF NOT (NEW.inquiry_payload ? 'originalPaymentId')
      AND NOT (NEW.inquiry_payload ? 'originalPaymentKind') THEN
+    IF v_allocation_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Invalid correction target allocation';
+    END IF;
     NEW.source_payment_id:=NULL;
     NEW.source_payment_kind:=NULL;
+    NEW.target_allocation_id:=NULL;
     RETURN NEW;
   END IF;
 
@@ -51,6 +72,7 @@ BEGIN
 
   NEW.source_payment_id:=v_payment_id::uuid;
   NEW.source_payment_kind:=v_payment_kind;
+  NEW.target_allocation_id:=v_allocation_id;
   RETURN NEW;
 END;
 $function$;
@@ -77,6 +99,7 @@ BEGIN
         'originalReference',m.inquiry_payload->>'originalReference',
         'sourcePaymentId',m.source_payment_id,
         'sourcePaymentKind',m.source_payment_kind,
+        'targetAllocationId',m.target_allocation_id,
         'reason',m.inquiry_payload->>'reason',
         'requestedOutcome',m.inquiry_payload->>'requestedOutcome',
         'evidenceState',m.inquiry_payload->>'evidenceState',
@@ -121,6 +144,8 @@ BEGIN
 END;
 $function$;
 
+COMMENT ON COLUMN payment_sync.correction_mirrors.target_allocation_id IS
+  'Exact source allocation reference for verified recipient review, derived only from signed TaxPay correction event; no local TIN entitlement claim.';
 COMMENT ON COLUMN payment_sync.correction_mirrors.source_payment_id IS
   'Immutable source-side TaxPay payment ID; the Office database stores only the cross-database parent reference.';
 COMMENT ON COLUMN payment_sync.correction_mirrors.source_payment_kind IS
