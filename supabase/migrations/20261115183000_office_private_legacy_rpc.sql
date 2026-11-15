@@ -21,6 +21,16 @@ BEGIN
     GRANT EXECUTE ON FUNCTION public.demo_story1_office_list()
       TO service_role;
   END IF;
+  -- Legacy payment page exposes mirrored payment details without an officer
+  -- session check. Current Office Edge /payments uses the separately guarded
+  -- payment_v1_office_guarded_story_page RPC; never change that read path.
+  -- Keep the three public synthetic office_v1_handoff_* prototype RPCs intact.
+  IF to_regprocedure('public.demo_story1_office_page(integer,integer)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.demo_story1_office_page(integer,integer)
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.demo_story1_office_page(integer,integer)
+      TO service_role;
+  END IF;
   IF to_regprocedure('public.demo_story1_office_notices()') IS NOT NULL THEN
     REVOKE ALL ON FUNCTION public.demo_story1_office_notices()
       FROM PUBLIC, anon, authenticated;
