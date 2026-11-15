@@ -110,7 +110,9 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
           'শুধু নথিভুক্ত সংরক্ষিত পেমেন্টের যোগফল; এটি ট্রেজারি নিষ্পত্তি বা যাচাইকৃত কর ক্রেডিট নয়।'
         )}</p>
       </section>
-      <PaymentRecordList kind="transactions" title={t('Recorded ledger entries','নথিভুক্ত লেজার এন্ট্রি')}
+      {/* A taxpayer/year switch must not inherit the previous account's
+          table search, stage filters, sorting or pagination. */}
+      <PaymentRecordList key={taxpayerTin+':'+year} kind="transactions" title={t('Recorded ledger entries','নথিভুক্ত লেজার এন্ট্রি')}
         rows={displayedRows} columns={columns} filters={filters}
         mobileMapping={{primary:'payment_type',identifier:'payment_ref',
           meta:['assessment_year','source_system','dhara','credit_status'],status:'ledger_stage',
