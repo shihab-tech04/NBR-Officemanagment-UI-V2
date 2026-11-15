@@ -80,5 +80,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
       - name: Verify Return-only combined 30KB Office mirror, retry and legacy limits (rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeReturnCombinedMirror.sql
+      - name: Verify M04 exclusive Return source receipt and Office certificate mirror (rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeM04ReturnExclusiveReadback.sql
       - name: Verify officer-only Pay Again lineage and source-mirror recovery (rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officePayAgainLineage.sql
