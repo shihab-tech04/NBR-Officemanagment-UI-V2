@@ -181,7 +181,10 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.getByRole('tab',{name:'Tax position'}).click();
   await expect(page.getByText('Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.')).toBeVisible();
   await page.getByRole('tab',{name:'Ledger'}).click();
-  await expect(page.getByText('A verified tax ledger is not connected. Open Payments to inspect linked sample transactions; they do not establish tax credits.')).toBeVisible();
+  const ledger = page.getByTestId('office-taxpayer-360-ledger');
+  await expect(ledger).toBeVisible();
+  await expect(ledger).toContainText('Saved payments do not confirm Treasury settlement, a tax credit or remaining liability.');
+  await expect(ledger).toContainText('Dhara and official reconciliation are unavailable from this source; no legal section or verified balance has been inferred.');
   await page.getByRole('tab',{name:'Returns'}).click();
   await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
   await page.getByRole('button',{name:'Back to taxpayers'}).click();
