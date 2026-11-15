@@ -833,7 +833,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
         {draftKind!=='incidents'&&<AppTextField id="payment-draft-reference" label={t('reference')} value={draft.reference} onChange={v=>change('reference',v)} error={errors.reference} required/>}
         {draftKind==='corrections'&&<AppTextArea id="payment-draft-outcome"
           label={i18n.resolvedLanguage?.startsWith('bn')?'প্রত্যাশিত ফলাফল':'Requested outcome'}
-          value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome}/>}
+          value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome} required/>}
         {draftKind==='corrections'&&<p className="payment-module__note payment-module__full">
           {i18n.resolvedLanguage?.startsWith('bn')
             ?'SQL-এ পাঠাতে মূল পেমেন্টে থাকা রেফারেন্স ও করদাতার TIN ব্যবহার করুন। অনুমোদন নয়, শুধুই পর্যালোচনার আবেদন।'
