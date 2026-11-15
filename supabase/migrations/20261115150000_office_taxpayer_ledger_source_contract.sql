@@ -21,6 +21,7 @@ CREATE TABLE office_ledger_private.source_events (
  verification_status text NOT NULL DEFAULT 'UNVERIFIED' CHECK
   (verification_status IN ('UNVERIFIED','PENDING','VERIFIED','REVERSED')),
  evidence_sha256 text, canonical_credit_ref text,
+ canonical_credit_line_id text,
  reconciliation_provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
  received_at timestamptz NOT NULL DEFAULT now(),
  CONSTRAINT external_source_revision_unique UNIQUE NULLS NOT DISTINCT
@@ -33,17 +34,20 @@ CREATE TABLE office_ledger_private.source_events (
  ),
  CONSTRAINT verified_credit_reference_required CHECK (
    verification_status<>'VERIFIED' OR entry_kind<>'CREDIT' OR
-   NULLIF(btrim(canonical_credit_ref),'') IS NOT NULL)
+   (NULLIF(btrim(canonical_credit_ref),'') IS NOT NULL AND
+    NULLIF(btrim(canonical_credit_line_id),'') IS NOT NULL))
 );
 ALTER TABLE office_ledger_private.source_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE office_ledger_private.source_events FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT ON TABLE office_ledger_private.source_events TO service_role;
 CREATE INDEX source_events_taxpayer_latest ON office_ledger_private.source_events
  (taxpayer_tin,source_system,source_record_id,source_revision DESC);
--- An authorized import must give every verified credit the same canonical
--- treasury reference, regardless of which source transmits it.
+-- An authorized importer must provide a stable canonical credit reference
+-- AND canonical line identity. Multiple taxpayers on one combined challan
+-- may each have a distinct credit line, but cross-provider replay of the
+-- *same* canonical line cannot inflate the verified total.
 CREATE UNIQUE INDEX external_verified_credit_once
- ON office_ledger_private.source_events(canonical_credit_ref)
+ ON office_ledger_private.source_events(canonical_credit_ref,canonical_credit_line_id)
  WHERE verification_status='VERIFIED' AND entry_kind='CREDIT';
 
 -- Corrections and reversals are new source revisions, never edits to evidence.
@@ -109,7 +113,9 @@ BEGIN
       'eventDate',e.event_date,'originalReference',e.original_reference,
       'entryKind',e.entry_kind,'financialStatus',e.verification_status,
       'reconciliationProvenance',e.reconciliation_provenance,
-      'evidenceSha256',e.evidence_sha256
+      'evidenceSha256',e.evidence_sha256,
+      'canonicalCreditReference',e.canonical_credit_ref,
+      'canonicalCreditLineId',e.canonical_credit_line_id
     ) AS item
    FROM external_latest e
    UNION ALL
