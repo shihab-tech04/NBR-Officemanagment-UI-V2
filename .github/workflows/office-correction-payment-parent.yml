@@ -7,6 +7,8 @@ on:
       - 'supabase/migrations/20261029170000_office_correction_review.sql'
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
       - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
+      - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/functions/demo-story1-office/index.ts'
       - 'src/app/pages/payments/correctionReviewApi.ts'
@@ -78,6 +80,8 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029170000_office_correction_review.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112210000_office_correction_payment_parent.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113180000_office_correction_queue_cursor.sql
+          # The latest audit projection supersedes the older paged function.
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
       - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
         env:
           PGHOST: 127.0.0.1
