@@ -60,6 +60,7 @@ console.log('PASS: real Office Edge handler requires source-bound proof at ingre
 // A caller's forged status is never forwarded to Office SQL.
 let authMirrorHandler=null,authSourceReads=0;
 const authMirrorSql=[];
+const authProof='v1.1234567890.'+'A'.repeat(43);
 const sourceAuthorization={id,status:'PENDING',payerId:'user1',taxpayerId:'user2'};
 const authMirrorBox={
  ...box,
@@ -72,9 +73,10 @@ const authMirrorBox={
    }
   })};
  },
- fetch:async(sourceUrl)=>{
+ fetch:async(sourceUrl,init)=>{
   authSourceReads++;
   assert.ok(sourceUrl.endsWith('/authorizations/'+id+'/snapshot'));
+  assert.equal(init?.headers?.['x-taxpay-office-authorization-proof'],authProof);
   return new Response(JSON.stringify({success:true,data:sourceAuthorization}),{status:200});
  },
  Deno:{env:{get(name){
@@ -90,6 +92,23 @@ let authResponse=await authMirrorHandler(new Request(authorizationUrl,{
  method:'POST',headers:{'Content-Type':'application/json'},
  body:JSON.stringify({id,status:'SIMULATED_SUCCESS'})
 }));
+assert.equal(authResponse.status,403);
+assert.equal((await authResponse.json()).error,'AUTHORIZATION_MIRROR_PROOF_REQUIRED');
+assert.equal(authSourceReads,0);
+assert.equal(authMirrorSql.length,0);
+authResponse=await authMirrorHandler(new Request(authorizationUrl,{
+ method:'POST',headers:{'Content-Type':'application/json',
+  'x-taxpay-office-authorization-proof':'forged'},
+ body:JSON.stringify({id})
+}));
+assert.equal(authResponse.status,403);
+assert.equal(authSourceReads,0);
+assert.equal(authMirrorSql.length,0);
+authResponse=await authMirrorHandler(new Request(authorizationUrl,{
+ method:'POST',headers:{'Content-Type':'application/json',
+  'x-taxpay-office-authorization-proof':authProof},
+ body:JSON.stringify({id,status:'SIMULATED_SUCCESS'})
+}));
 assert.equal(authResponse.status,200);
 assert.equal(authSourceReads,1);
 assert.equal(authMirrorSql.length,1);
@@ -102,7 +121,7 @@ authResponse=await authMirrorHandler(new Request(authorizationUrl,{
 assert.equal(authResponse.status,400);
 assert.equal(authSourceReads,1);
 assert.equal(authMirrorSql.length,1);
-console.log('PASS: authorization snapshot source-read before service-only Office RPC; forged caller status discarded; invalid ID denied');
+console.log('PASS: authorization mirror rejects missing/malformed proofs before network/SQL, forwards proof to Taxpayer source, uses private Office RPC only after verified source readback, and rejects forged caller status');
 
 // WS2/WS3 Office notice cursor bearer contract: the *actual* Edge handler
 // rejects anonymous and bad-session reads before any Office SQL request.
