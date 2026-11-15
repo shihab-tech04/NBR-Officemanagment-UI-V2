@@ -20,7 +20,7 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
   const t=(english:string,bengali:string)=>bn?bengali:english;
   const [fromDate,setFromDate]=useState('');
   const [toDate,setToDate]=useState('');
-  useEffect(()=>{setFromDate('');setToDate('');},[taxpayerTin]);
+  useEffect(()=>{setFromDate('');setToDate('');},[taxpayerTin,year]);
   const invalidRange=Boolean(fromDate&&toDate&&fromDate>toDate);
   const view=useMemo(()=>snapshot
     ?projectOfficeTaxpayer360Ledger(snapshot,taxpayerTin,year,fromDate,toDate)
@@ -119,7 +119,7 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
       </section>
       {/* A taxpayer/year switch must not inherit the previous account's
           table search, stage filters, sorting or pagination. */}
-      <PaymentRecordList key={taxpayerTin+':'+year} kind="transactions" title={t('Recorded ledger entries','নথিভুক্ত লেজার এন্ট্রি')}
+      <PaymentRecordList key={taxpayerTin+':'+year+':'+language} kind="transactions" title={t('Recorded ledger entries','নথিভুক্ত লেজার এন্ট্রি')}
         rows={displayedRows} columns={columns} filters={filters}
         mobileMapping={{primary:'payment_type',identifier:'payment_ref',
           meta:['assessment_year','source_system','dhara','credit_status'],status:'ledger_stage',
