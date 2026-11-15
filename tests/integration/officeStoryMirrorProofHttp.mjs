@@ -137,3 +137,65 @@ for(const [route,expectedRpc] of legacyCases){
  assert.equal(noticeSql.at(-1).bearer,'Bearer '+validToken);
 }
 console.log('PASS: legacy payment and notices Edge reads reject anonymous/invalid bearer, forward verified Office officer bearer to role-guarded SQL, and preserve existing source projection');
+
+
+// WS3 Pay Again readback: the existing Office Auth bearer must be verified
+// before requesting the new read-only, role-guarded SQL lineage function.
+// Synthetic identity is a local JS stub only, never a hosted officer grant.
+let lineageHandler=null;
+const lineageCalls=[];
+const repeatId='33333333-2222-4333-8444-555555555555';
+const sourceId='44444444-2222-4333-8444-555555555555';
+const lineagePayload={
+ paymentId:repeatId,sourcePaymentId:sourceId,sourceMirrored:true,
+ payerId:'user1',sourceReceiptReference:'SIM-SOURCE',repeatReceiptReference:'SIM-REPEAT',
+ sourceCertificateReference:'SK-PC-'+sourceId,
+ repeatCertificateReference:'SK-PC-'+repeatId,
+ sourceAllocations:[{allocationId:'old-line-1',taxpayerTin:'222222222222',
+   headId:121,assessmentYear:'2026-27',amountMinor:1500}],
+ repeatAllocations:[{allocationId:'new-line-1',taxpayerTin:'222222222222',
+   headId:121,assessmentYear:'2025-26',amountMinor:2000}]
+};
+const lineageBox={
+ ...box,
+ require(name){
+   assert.match(name,/^npm:@supabase\/supabase-js@/);
+   return {createClient:(_url,_key,opts)=>({
+     auth:{getUser:async(token)=>token===validToken
+       ?{data:{user:{id:'80000000-0000-4000-8000-000000000011',
+          is_anonymous:false}},error:null}
+       :{data:{user:null},error:{message:'Unauthorized'}}},
+     rpc:async(name,args)=>{
+       lineageCalls.push({name,args,bearer:opts?.global?.headers?.Authorization});
+       return {data:lineagePayload,error:null};
+     },
+   })};
+ },
+ Deno:{...box.Deno,serve(callback){lineageHandler=callback;}},
+};
+vm.runInNewContext(compiled,lineageBox,{filename:'office-pay-again-auth.ts',timeout:5000});
+const lineageAddress='http://127.0.0.1/demo-story1-office/payments/'+repeatId+'/lineage';
+async function queryLineage(url,bearer){
+ const headers=bearer?{Authorization:bearer}:{};
+ const response=await lineageHandler(new Request(url,{method:'GET',headers}));
+ return {status:response.status,body:await response.json()};
+}
+let lineage=await queryLineage(lineageAddress);
+assert.equal(lineage.status,401);
+assert.equal(lineage.body.error,'OFFICE_OFFICER_AUTH_REQUIRED');
+lineage=await queryLineage(lineageAddress,'Bearer invalid-token');
+assert.equal(lineage.status,401);
+lineage=await queryLineage(
+ 'http://127.0.0.1/demo-story1-office/payments/not-a-uuid/lineage','Bearer '+validToken);
+assert.equal(lineage.status,400);
+assert.equal(lineageCalls.length,0,'Invalid Office bearer/id reached Pay Again SQL');
+lineage=await queryLineage(lineageAddress,'Bearer '+validToken);
+assert.equal(lineage.status,200);
+assert.equal(lineage.body.success,true);
+assert.equal(lineage.body.data.sourcePaymentId,sourceId);
+assert.equal(lineage.body.data.sourceCertificateReference,'SK-PC-'+sourceId);
+assert.equal(lineageCalls.length,1);
+assert.equal(lineageCalls[0].name,'payment_v1_office_guarded_pay_again_lineage');
+assert.equal(lineageCalls[0].args.p_payment_id,repeatId);
+assert.equal(lineageCalls[0].bearer,'Bearer '+validToken);
+console.log('PASS WS3 Office Pay Again Edge: invalid bearer, anonymous and invalid ID denied before SQL; verified JWT reaches existing role-guarded lineage RPC, preserving original and repeat references');
