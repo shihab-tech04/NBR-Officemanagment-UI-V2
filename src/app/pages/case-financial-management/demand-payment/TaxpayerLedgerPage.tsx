@@ -7,6 +7,7 @@ import {ROW_VIEW,VIEW} from '../../../data/modulePageConfigs';
 import {getStoryPayments,type StoryPayment} from '../../payments/story1OfficeApi';
 import {officeMoney} from '../../payments/officeTransactionDetails';
 import {projectMirroredTaxLedgerRows} from '../../payments/taxLedgerProjection';
+import {OfficeConsolidatedTaxpayerLedger} from '../../payments/OfficeConsolidatedTaxpayerLedger';
 
 export function TaxpayerLedgerPage(){
   const {i18n}=useTranslation();
@@ -16,6 +17,8 @@ export function TaxpayerLedgerPage(){
   const [busy,setBusy]=useState(true);
   const [error,setError]=useState('');
   const [revision,setRevision]=useState(0);
+  const [ledgerTin,setLedgerTin]=useState('');
+  const [openedLedgerTin,setOpenedLedgerTin]=useState('');
   useEffect(()=>{
     let active=true;
     async function load(){
@@ -86,6 +89,24 @@ export function TaxpayerLedgerPage(){
     filters:BASE_FILTERS,actions:ROW_VIEW,drawerActions:VIEW,rows,kpis
   };
   return <div className="space-y-3">
+    <form className="card flex flex-wrap items-end gap-3 p-4" onSubmit={e=>{
+      e.preventDefault();
+      setOpenedLedgerTin(/^\d{12}$/.test(ledgerTin.trim())?ledgerTin.trim():'');
+    }}>
+      <label className="text-sm">{t('Taxpayer TIN for consolidated ledger','সমন্বিত লেজারের জন্য করদাতার টিআইএন')}
+        <input value={ledgerTin} onChange={e=>setLedgerTin(e.target.value)} required maxLength={12}
+          pattern="[0-9]{12}" inputMode="numeric" autoComplete="off"
+          className="mt-1 block min-h-10 rounded-md border px-3"
+          aria-label={t('Enter 12-digit taxpayer TIN','১২ সংখ্যার করদাতার টিআইএন দিন')}/>
+      </label>
+      <button className="table-card__toolbar-btn min-h-10" type="submit">
+        {t('Open verified source ledger','যাচাইকৃত উৎস লেজার খুলুন')}
+      </button>
+      {openedLedgerTin&&<button className="table-card__toolbar-btn min-h-10" type="button" onClick={()=>{
+        setOpenedLedgerTin('');setLedgerTin('');
+      }}>{t('Close ledger','লেজার বন্ধ করুন')}</button>}
+    </form>
+    {openedLedgerTin&&<OfficeConsolidatedTaxpayerLedger key={openedLedgerTin} tin={openedLedgerTin}/>}
     {busy&&<p role="status" className="table-page__desc">{t('Synchronizing payment history from SQL…','SQL থেকে পেমেন্ট ইতিহাস সমন্বয় হচ্ছে…')}</p>}
     {error&&<div role="alert" className="table-page__desc">
       {t('Payment history could not be synchronized. Existing rows may be outdated.','পেমেন্ট ইতিহাস সমন্বয় হয়নি। আগের তথ্য পুরোনো হতে পারে।')}
