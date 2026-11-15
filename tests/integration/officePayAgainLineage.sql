@@ -113,27 +113,27 @@ INSERT INTO office_ledger_private.source_events
  (source_system,source_record_id,source_allocation_id,taxpayer_tin,
   dhara,payment_source,amount_minor,assessment_year,event_date,
   original_reference,entry_kind,verification_status,evidence_sha256,
-  reconciliation_provenance,canonical_credit_ref)
+  reconciliation_provenance,canonical_credit_ref,canonical_credit_line_id)
 VALUES
  ('BRTA','ws3-brta-proof','src-line-one','222222222222',
   '82','BRTA',1200,'2026-27',now(),'BRTA-LOCAL-ONLY','DEDUCTION',
   'VERIFIED',repeat('a',64),
-  '{"officialSourceRecordId":"brta-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,null),
+  '{"officialSourceRecordId":"brta-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,null,null),
  ('BANK','ws3-bank-proof','src-line-one','222222222222',
   '82','Bank',1000,'2026-27',now(),'BANK-LOCAL-ONLY','CREDIT',
   'VERIFIED',repeat('b',64),
-  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01');
+  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01','line-A');
 -- Same original source/version must not create a second financial line.
 INSERT INTO office_ledger_private.source_events
  (source_system,source_record_id,source_allocation_id,taxpayer_tin,
   dhara,payment_source,amount_minor,assessment_year,event_date,
   original_reference,entry_kind,verification_status,evidence_sha256,
-  reconciliation_provenance,canonical_credit_ref)
+  reconciliation_provenance,canonical_credit_ref,canonical_credit_line_id)
 VALUES
  ('BANK','ws3-bank-proof','src-line-one','222222222222',
   '82','Bank',1000,'2026-27',now(),'BANK-LOCAL-ONLY','CREDIT',
   'VERIFIED',repeat('b',64),
-  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01')
+  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01','line-A')
 ON CONFLICT DO NOTHING;
 DO $source_dedup$
 DECLARE v_count integer; v_duplicate_rejected boolean:=false;
@@ -145,11 +145,11 @@ BEGIN
   INSERT INTO office_ledger_private.source_events
    (source_system,source_record_id,source_allocation_id,taxpayer_tin,
     payment_source,amount_minor,event_date,entry_kind,verification_status,
-    evidence_sha256,reconciliation_provenance,canonical_credit_ref)
+    evidence_sha256,reconciliation_provenance,canonical_credit_ref,canonical_credit_line_id)
   VALUES ('NSD','ws3-duplicate-credit','src-line-other','222222222222',
     'NSD',1000,now(),'CREDIT','VERIFIED',repeat('c',64),
     '{"officialSourceRecordId":"another-source","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,
-    'treasury-credit-unique-01');
+    'treasury-credit-unique-01','line-A');
  EXCEPTION WHEN unique_violation THEN v_duplicate_rejected:=true; END;
  IF NOT v_duplicate_rejected THEN RAISE EXCEPTION 'LEDGER_CROSS_SOURCE_CREDIT_DUPLICATE'; END IF;
 END;
