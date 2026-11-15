@@ -69,6 +69,26 @@ describe("Office correction review SQL adapter", () => {
     });
   });
 
+  it("keeps unsolicited-payment allegations distinct without changing Office decisions", async () => {
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, caseKind: "UNSOLICITED_PAYMENT_REPORT",
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ requestId: correction.requestId, caseKind: "UNSOLICITED_PAYMENT_REPORT" }],
+    });
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, caseKind: "FORGED_CASE_KIND",
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow(
+      "Invalid correction case category",
+    );
+    // The existing case rows remain readable without a newly supplied category.
+    setupClient([{ data: { role: "MAKER", items: [correction], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ caseKind: "CORRECTION_REVIEW" }],
+    });
+  });
+
   it("follows every correction page using the exact timestamp and UUID cursor", async () => {
     const nextCursor = { receivedAt: "2026-10-29T17:00:00.000Z", requestId: correction.requestId };
     const older = { ...correction, requestId: "80000000-0000-4000-8000-000000000002" };
