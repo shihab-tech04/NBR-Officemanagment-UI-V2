@@ -64,7 +64,7 @@ const sourceAuthorization={id,status:'PENDING',payerId:'user1',taxpayerId:'user2
 const authMirrorBox={
  ...box,
  require(name){
-  assert.match(name,/^npm:@supabase\\/supabase-js@/);
+  assert.ok(name.startsWith('npm:@supabase/supabase-js@'));
   return {createClient:(_url,roleKey)=>({
    rpc:async(name,args)=>{
     authMirrorSql.push({name,args,roleKey});
