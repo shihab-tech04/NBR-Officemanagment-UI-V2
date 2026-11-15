@@ -20,7 +20,7 @@ describe('Office taxpayer register/detail navigation',()=>{
   });
   it('invalidates open payment details on taxpayer, assessment-year or route changes',()=>{
     // Reusing the Payments page cannot leave a prior taxpayer's detail/receipt visible.
-    expect(module).toMatch(/useEffect\\(\\(\\)=>\\{setDetails\\(null\\);\\},\\[current,taxpayerTin,scopeYear\\]\\)/);
+    expect(module).toContain('useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear]);');
     expect(module).toContain("scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}");
   });
   it('reuses the canonical Office table, including search and pagination',()=>{
