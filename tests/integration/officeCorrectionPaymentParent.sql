@@ -23,6 +23,7 @@ BEGIN
       'targetAllocationId','ws3-verified-other-recipient',
       'caseKind','UNSOLICITED_PAYMENT_REPORT',
       'reason','Synthetic parent-link correction test',
+       'evidenceNote',E'বাংলা প্রমাণ বিবরণ\\nOffice correction supporting evidence longer than twenty characters',
       'requestedOutcome','Review the linked synthetic payment',
       'evidenceState','PENDING_EVIDENCE','claimantVerified',false,
       'originalReceiptVerified',false,'mayChangeFinancialRecords',false,
@@ -154,6 +155,9 @@ BEGIN
      OR v_item->>'targetAllocationId'<>'ws3-verified-other-recipient' THEN
     RAISE EXCEPTION 'Office correction queue omitted the exact source payment parent';
   END IF;
+  IF v_item->>'evidenceNote' IS DISTINCT FROM E'বাংলা প্রমাণ বিবরণ\\nOffice correction supporting evidence longer than twenty characters' THEN
+    RAISE EXCEPTION 'OFFICE_CORRECTION_EVIDENCE_NOT_MIRRORED';
+  END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
      OR v_item->'decisionHistory'->0->>'action'<>'MAKER_ACKNOWLEDGE'
      OR v_item->'decisionHistory'->0->>'occurredAt'<>'2026-11-12T17:02:00Z'
@@ -215,6 +219,9 @@ BEGIN
   -- into its page CTE, even when a historical record has no allocation ID.
   IF NOT (v_item ? 'targetAllocationId') THEN
     RAISE EXCEPTION 'Paged correction queue omitted target allocation field';
+  END IF;
+  IF v_item->>'evidenceNote' IS DISTINCT FROM E'বাংলা প্রমাণ বিবরণ\\nOffice correction supporting evidence longer than twenty characters' THEN
+    RAISE EXCEPTION 'OFFICE_CORRECTION_PAGED_EVIDENCE_NOT_MIRRORED';
   END IF;
   IF v_item->>'sourceEventId'<>'80000000-0000-4000-8000-000000000001'
      OR v_item->>'sourceEventType'<>'CORRECTION_SUBMITTED' THEN
