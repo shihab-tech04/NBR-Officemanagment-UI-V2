@@ -11,6 +11,7 @@ on:
       - 'tests/integration/story1ApprovedFixtureRead.sql'
       - 'tests/integration/officeCorrectionReview.sql'
       - 'tests/integration/officeReturnCombinedMirror.sql'
+      - 'tests/integration/officePayAgainLineage.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
@@ -79,3 +80,5 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
       - name: Verify Return-only combined 30KB Office mirror, retry and legacy limits (rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeReturnCombinedMirror.sql
+      - name: Verify officer-only Pay Again lineage and source-mirror recovery (rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officePayAgainLineage.sql
