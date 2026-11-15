@@ -112,7 +112,8 @@ Deno.serve(async(req)=>{
         signal:AbortSignal.timeout(10000)});
       if(!res.ok)return respond({success:false,error:"SOURCE_AUTHORIZATION_MISSING"},424);
       const snapshot=await res.json();
-      if(!snapshot?.success||snapshot.data?.id!==id)return respond({success:false,error:"SOURCE_AUTHORIZATION_INVALID"},424);
+      if(!snapshot?.success||snapshot.simulationOnly!==true||snapshot.data?.id!==id)
+        return respond({success:false,error:"SOURCE_AUTHORIZATION_INVALID"},424);
       // Never invoke this privileged mirror using the public Data API role.
       // The source snapshot was read back from original Taxpayer SQL above.
       const serverKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??(()=>{
