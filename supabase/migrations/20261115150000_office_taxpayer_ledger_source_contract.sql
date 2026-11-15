@@ -88,7 +88,7 @@ BEGIN
      e.source_revision DESC
  ), mirror_lines AS (
    SELECT p.id, p.service_code,p.amount_minor,p.status,p.created_at,p.data,
-     l.value AS line,
+     l.value AS line,l.ordinality AS line_ordinal,
      CASE WHEN pg_catalog.jsonb_typeof(p.data#>'{details,allocations}')='array'
        THEN pg_catalog.jsonb_array_length(p.data#>'{details,allocations}')>0
        ELSE false END AS has_allocations
@@ -98,10 +98,11 @@ BEGIN
          THEN p.data#>'{details,allocations}'
          ELSE pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
            'taxpayerTin',p.data#>>'{details,taxpayerTin}')) END
-   ) AS l(value)
+   ) WITH ORDINALITY AS l(value,ordinality)
    WHERE p.data->>'origin'='TAXPAY_UI'
  ), ledger_rows AS (
    SELECT e.event_date AS occurred_at,
+    'EXTERNAL:'||e.event_id::text AS stable_row_key,
     pg_catalog.jsonb_build_object(
       'sourceSystem',e.source_system,'sourceRecordId',e.source_record_id,
       'sourceAllocationId',e.source_allocation_id,
@@ -118,6 +119,7 @@ BEGIN
    FROM external_latest e
    UNION ALL
    SELECT m.created_at AS occurred_at,
+    'SOHOJKOR:'||m.id::text||':'||pg_catalog.lpad(m.line_ordinal::text,12,'0') AS stable_row_key,
     pg_catalog.jsonb_build_object(
       'sourceSystem','SOHOJKOR','sourceRecordId',m.id::text,
       'sourceAllocationId',m.line->>'allocationId',
@@ -137,11 +139,15 @@ BEGIN
     ) AS item
    FROM mirror_lines m WHERE m.line->>'taxpayerTin'=p_taxpayer_tin
  )
+ -- Stable, private row identity protects pagination when multiple allocations
+ -- share one payment parent and timestamp; do not alter the client payload.
  SELECT coalesce(pg_catalog.jsonb_agg(ordered.item ORDER BY
-   ordered.occurred_at DESC,ordered.item->>'sourceRecordId'), '[]'::jsonb)
+   ordered.occurred_at DESC,ordered.item->>'sourceSystem',
+   ordered.item->>'sourceRecordId',ordered.stable_row_key), '[]'::jsonb)
  INTO v_items FROM (
    SELECT * FROM ledger_rows
-   ORDER BY occurred_at DESC,item->>'sourceRecordId'
+   ORDER BY occurred_at DESC,item->>'sourceSystem',
+     item->>'sourceRecordId',stable_row_key
    LIMIT p_limit OFFSET p_offset
  ) ordered;
  -- Never credit simulated Sohojkor parents, unverified external records,
