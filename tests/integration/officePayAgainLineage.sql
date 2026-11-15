@@ -46,6 +46,7 @@ BEGIN
     'payerId','user1','payerTin','111111111111','payerName','WS3 CI payer',
     'payerMode','OTHER','combinedPayment',true,'allocationContractVersion',3,
     'allocationCount',2,'taxpayerCount',2,'receiptReference',v_source_ref,
+    'challanRemarks',E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\\nMultiline text longer than twenty characters',
     'allocations',pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('allocationId','ws3-original-A',
         'taxpayerTin','222222222222','taxpayerName','WS3 CI recipient A',
@@ -113,6 +114,10 @@ BEGIN
     OR NOT has_function_privilege('authenticated',
      'public.payment_v1_office_guarded_pay_again_lineage(uuid)','EXECUTE')
     OR has_table_privilege('anon','demo_payment.story_payments','SELECT')
+    OR has_function_privilege('anon',
+     'public.payment_v1_office_guarded_challan_remarks(uuid)','EXECUTE')
+    OR NOT has_function_privilege('authenticated',
+     'public.payment_v1_office_guarded_challan_remarks(uuid)','EXECUTE')
  THEN RAISE EXCEPTION 'OFFICE_LINEAGE_PUBLIC_PERMISSION_LEAK'; END IF;
 END;
 $grant_check$;
@@ -128,15 +133,29 @@ BEGIN
      (SELECT repeat_id FROM ws3_pay_again_office_state));
  EXCEPTION WHEN insufficient_privilege THEN v_denied:=true; END;
  IF NOT v_denied THEN RAISE EXCEPTION 'OFFICE_LINEAGE_NON_OFFICER_GRANTED'; END IF;
+ v_denied:=false;
+ BEGIN
+   PERFORM public.payment_v1_office_guarded_challan_remarks(
+     (SELECT source_id FROM ws3_pay_again_office_state));
+ EXCEPTION WHEN insufficient_privilege THEN v_denied:=true; END;
+ IF NOT v_denied THEN RAISE EXCEPTION 'OFFICE_REMARKS_NON_OFFICER_GRANTED'; END IF;
 END;
 $outsider$;
 
 SELECT pg_catalog.set_config('request.jwt.claim.sub',
   'd1000000-0000-4000-8000-000000000001',true);
 DO $officer$
-DECLARE v jsonb;v_pending jsonb;v_state ws3_pay_again_office_state%ROWTYPE;
+DECLARE v jsonb;v_pending jsonb;v_remarks jsonb;v_repeat_remarks jsonb;
+  v_state ws3_pay_again_office_state%ROWTYPE;
 BEGIN
  SELECT * INTO v_state FROM ws3_pay_again_office_state;
+ v_remarks:=public.payment_v1_office_guarded_challan_remarks(v_state.source_id);
+ v_repeat_remarks:=public.payment_v1_office_guarded_challan_remarks(v_state.repeat_id);
+ IF v_remarks->>'paymentId' IS DISTINCT FROM v_state.source_id::text
+    OR v_remarks->>'receiptReference' IS DISTINCT FROM v_state.source_ref
+    OR v_remarks->>'challanRemarks' IS DISTINCT FROM E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\\nMultiline text longer than twenty characters'
+    OR v_repeat_remarks->>'challanRemarks' IS DISTINCT FROM v_remarks->>'challanRemarks'
+ THEN RAISE EXCEPTION 'OFFICE_REMARKS_ORIGINAL_REPEAT_PARITY_FAILED'; END IF;
  v:=public.payment_v1_office_guarded_pay_again_lineage(v_state.repeat_id);
  IF v->>'paymentId' IS DISTINCT FROM v_state.repeat_id::text OR
     v->>'sourcePaymentId' IS DISTINCT FROM v_state.source_id::text OR
@@ -165,7 +184,7 @@ BEGIN
  THEN RAISE EXCEPTION 'OFFICE_MISSING_SOURCE_WAS_FABRICATED'; END IF;
  IF public.payment_v1_office_guarded_pay_again_lineage(v_state.source_id) IS NOT NULL
  THEN RAISE EXCEPTION 'OFFICE_NON_REPEAT_WAS_MISIDENTIFIED'; END IF;
- RAISE NOTICE 'PASS WS3 Office guarded Pay Again: separate original/new parent, source and repeat allocation IDs, exact amount/AY, historic/new receipt and certificate references, pending mirror recovery and outsider denial';
+ RAISE NOTICE 'PASS WS3 Office guarded Pay Again: separate original/new parent, source and repeat allocation IDs, exact amount/AY, historic/new receipt and certificate references, pending mirror recovery, multiline BN/EN remarks and outsider denial';
 END;
 $officer$;
 RESET ROLE;
