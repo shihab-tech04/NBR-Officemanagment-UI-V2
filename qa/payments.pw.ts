@@ -183,6 +183,7 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.getByRole('tab',{name:'Tax position'}).click();
   await expect(page.getByText('Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.')).toBeVisible();
   await page.getByRole('tab',{name:'Ledger'}).click();
+  await expect(page.locator('[data-testid="office-verified-ledger"]')).toBeVisible();
   // This legacy sample uses a 13-digit TIN, not an authorized 12-digit Office source identity.
   // Preserve the existing payment history without ever guessing a verified credit.
   await expect(page.getByText('Select a valid 12-digit taxpayer TIN to open the authorized ledger.')).toBeVisible();
