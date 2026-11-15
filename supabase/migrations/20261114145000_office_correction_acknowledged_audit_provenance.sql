@@ -107,7 +107,7 @@ BEGIN
 
   WITH page_rows AS (
     SELECT m.inquiry_id,m.received_at,m.inquiry_payload,m.source_event_id,m.source_payment_id,
-      m.source_payment_kind,m.review_state,m.review_revision,m.review_updated_at,
+      m.source_payment_kind,m.target_allocation_id,m.review_state,m.review_revision,m.review_updated_at,
       m.pending_message_id,o.delivery_state,o.last_error
     FROM payment_sync.correction_mirrors m
     LEFT JOIN payment_sync.control_outbox o ON o.message_id=m.pending_message_id
