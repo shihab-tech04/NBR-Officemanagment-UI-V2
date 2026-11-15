@@ -214,10 +214,16 @@ $outsider$;
 SELECT pg_catalog.set_config('request.jwt.claim.sub',
   'd1000000-0000-4000-8000-000000000001',true);
 DO $officer$
-DECLARE v jsonb;v_pending jsonb;v_remarks jsonb;v_repeat_remarks jsonb;v_ledger jsonb;
+DECLARE v jsonb;v_pending jsonb;v_remarks jsonb;v_repeat_remarks jsonb;v_ledger jsonb;v_second_ledger jsonb;
   v_state ws3_pay_again_office_state%ROWTYPE;
 BEGIN
  SELECT * INTO v_state FROM ws3_pay_again_office_state;
+ v_second_ledger:=public.payment_v1_office_guarded_taxpayer_ledger('333333333333',100,0);
+ IF v_second_ledger->>'verifiedExternalCreditMinor' IS DISTINCT FROM '2000'
+   OR (SELECT count(*) FROM pg_catalog.jsonb_array_elements(v_second_ledger->'items') item
+       WHERE item->>'canonicalCreditReference'='treasury-credit-unique-01'
+         AND item->>'canonicalCreditLineId'='line-B')<>1
+ THEN RAISE EXCEPTION 'LEDGER_SECOND_VERIFIED_ALLOCATION_NOT_PRESERVED'; END IF;
  v_ledger:=public.payment_v1_office_guarded_taxpayer_ledger('222222222222',100,0);
  IF v_ledger->>'verifiedExternalCreditMinor' IS DISTINCT FROM '1000'
     OR pg_catalog.jsonb_array_length(v_ledger->'items')<>5
