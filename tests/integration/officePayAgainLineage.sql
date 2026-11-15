@@ -107,6 +107,54 @@ BEGIN
 END;
 $fixtures$;
 
+-- Restricted, reversible external ledger evidence is local CI only.
+-- Importing from BRTA/Bank in production requires a separately verified source.
+INSERT INTO office_ledger_private.source_events
+ (source_system,source_record_id,source_allocation_id,taxpayer_tin,
+  dhara,payment_source,amount_minor,assessment_year,event_date,
+  original_reference,entry_kind,verification_status,evidence_sha256,
+  reconciliation_provenance,canonical_credit_ref)
+VALUES
+ ('BRTA','ws3-brta-proof','src-line-one','222222222222',
+  '82','BRTA',1200,'2026-27',now(),'BRTA-LOCAL-ONLY','DEDUCTION',
+  'VERIFIED',repeat('a',64),
+  '{"officialSourceRecordId":"brta-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,null),
+ ('BANK','ws3-bank-proof','src-line-one','222222222222',
+  '82','Bank',1000,'2026-27',now(),'BANK-LOCAL-ONLY','CREDIT',
+  'VERIFIED',repeat('b',64),
+  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01');
+-- Same original source/version must not create a second financial line.
+INSERT INTO office_ledger_private.source_events
+ (source_system,source_record_id,source_allocation_id,taxpayer_tin,
+  dhara,payment_source,amount_minor,assessment_year,event_date,
+  original_reference,entry_kind,verification_status,evidence_sha256,
+  reconciliation_provenance,canonical_credit_ref)
+VALUES
+ ('BANK','ws3-bank-proof','src-line-one','222222222222',
+  '82','Bank',1000,'2026-27',now(),'BANK-LOCAL-ONLY','CREDIT',
+  'VERIFIED',repeat('b',64),
+  '{"officialSourceRecordId":"bank-local-01","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,'treasury-credit-unique-01')
+ON CONFLICT DO NOTHING;
+DO $source_dedup$
+DECLARE v_count integer; v_duplicate_rejected boolean:=false;
+BEGIN
+ SELECT count(*) INTO v_count FROM office_ledger_private.source_events
+ WHERE source_record_id='ws3-bank-proof';
+ IF v_count<>1 THEN RAISE EXCEPTION 'LEDGER_REPLAY_DOUBLE_COUNTED'; END IF;
+ BEGIN
+  INSERT INTO office_ledger_private.source_events
+   (source_system,source_record_id,source_allocation_id,taxpayer_tin,
+    payment_source,amount_minor,event_date,entry_kind,verification_status,
+    evidence_sha256,reconciliation_provenance,canonical_credit_ref)
+  VALUES ('NSD','ws3-duplicate-credit','src-line-other','222222222222',
+    'NSD',1000,now(),'CREDIT','VERIFIED',repeat('c',64),
+    '{"officialSourceRecordId":"another-source","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,
+    'treasury-credit-unique-01');
+ EXCEPTION WHEN unique_violation THEN v_duplicate_rejected:=true; END;
+ IF NOT v_duplicate_rejected THEN RAISE EXCEPTION 'LEDGER_CROSS_SOURCE_CREDIT_DUPLICATE'; END IF;
+END;
+$source_dedup$;
+
 DO $grant_check$
 BEGIN
  IF has_function_privilege('anon',
@@ -114,6 +162,11 @@ BEGIN
     OR NOT has_function_privilege('authenticated',
      'public.payment_v1_office_guarded_pay_again_lineage(uuid)','EXECUTE')
     OR has_table_privilege('anon','demo_payment.story_payments','SELECT')
+    OR has_table_privilege('authenticated','office_ledger_private.source_events','SELECT')
+    OR has_function_privilege('anon',
+      'public.payment_v1_office_guarded_taxpayer_ledger(text,integer,integer)','EXECUTE')
+    OR NOT has_function_privilege('authenticated',
+      'public.payment_v1_office_guarded_taxpayer_ledger(text,integer,integer)','EXECUTE')
     OR has_function_privilege('anon',
      'public.payment_v1_office_guarded_challan_remarks(uuid)','EXECUTE')
     OR NOT has_function_privilege('authenticated',
@@ -139,16 +192,32 @@ BEGIN
      (SELECT source_id FROM ws3_pay_again_office_state));
  EXCEPTION WHEN insufficient_privilege THEN v_denied:=true; END;
  IF NOT v_denied THEN RAISE EXCEPTION 'OFFICE_REMARKS_NON_OFFICER_GRANTED'; END IF;
+ v_denied:=false;
+ BEGIN
+   PERFORM public.payment_v1_office_guarded_taxpayer_ledger('222222222222',100,0);
+ EXCEPTION WHEN insufficient_privilege THEN v_denied:=true; END;
+ IF NOT v_denied THEN RAISE EXCEPTION 'OFFICE_LEDGER_NON_OFFICER_GRANTED'; END IF;
 END;
 $outsider$;
 
 SELECT pg_catalog.set_config('request.jwt.claim.sub',
   'd1000000-0000-4000-8000-000000000001',true);
 DO $officer$
-DECLARE v jsonb;v_pending jsonb;v_remarks jsonb;v_repeat_remarks jsonb;
+DECLARE v jsonb;v_pending jsonb;v_remarks jsonb;v_repeat_remarks jsonb;v_ledger jsonb;
   v_state ws3_pay_again_office_state%ROWTYPE;
 BEGIN
  SELECT * INTO v_state FROM ws3_pay_again_office_state;
+ v_ledger:=public.payment_v1_office_guarded_taxpayer_ledger('222222222222',100,0);
+ IF v_ledger->>'verifiedExternalCreditMinor' IS DISTINCT FROM '1000'
+    OR pg_catalog.jsonb_array_length(v_ledger->'items')<>5
+    OR (SELECT count(*) FROM pg_catalog.jsonb_array_elements(v_ledger->'items') x
+        WHERE x->>'sourceSystem'='SOHOJKOR' AND
+              x->>'financialStatus'='UNVERIFIED')<>3
+    OR (SELECT count(*) FROM pg_catalog.jsonb_array_elements(v_ledger->'items') x
+        WHERE x->>'sourceSystem'='BANK' AND x->>'sourceAllocationId'='src-line-one')<>1
+    OR (SELECT count(*) FROM pg_catalog.jsonb_array_elements(v_ledger->'items') x
+        WHERE x->>'sourceSystem'='BRTA' AND x->>'entryKind'='DEDUCTION')<>1
+ THEN RAISE EXCEPTION 'OFFICE_LEDGER_SOURCE_DEDUP_OR_CREDIT_READBACK'; END IF;
  v_remarks:=public.payment_v1_office_guarded_challan_remarks(v_state.source_id);
  v_repeat_remarks:=public.payment_v1_office_guarded_challan_remarks(v_state.repeat_id);
  IF v_remarks->>'paymentId' IS DISTINCT FROM v_state.source_id::text
@@ -184,7 +253,7 @@ BEGIN
  THEN RAISE EXCEPTION 'OFFICE_MISSING_SOURCE_WAS_FABRICATED'; END IF;
  IF public.payment_v1_office_guarded_pay_again_lineage(v_state.source_id) IS NOT NULL
  THEN RAISE EXCEPTION 'OFFICE_NON_REPEAT_WAS_MISIDENTIFIED'; END IF;
- RAISE NOTICE 'PASS WS3 Office guarded Pay Again: separate original/new parent, source and repeat allocation IDs, exact amount/AY, historic/new receipt and certificate references, pending mirror recovery, multiline BN/EN remarks and outsider denial';
+ RAISE NOTICE 'PASS WS3 Office guarded Pay Again: separate original/new parent, source and repeat allocation IDs, exact amount/AY, historic/new receipt and certificate references, pending mirror recovery, multiline BN/EN remarks, immutable external ledger dedup/credits and outsider denial';
 END;
 $officer$;
 RESET ROLE;
