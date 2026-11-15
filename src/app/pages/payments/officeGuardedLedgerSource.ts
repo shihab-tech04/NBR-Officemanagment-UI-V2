@@ -23,7 +23,15 @@ const states=new Set(['UNVERIFIED','PENDING','VERIFIED','REVERSED']);
 const digits=/^(0|[1-9][0-9]*)$/;
 const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const maybeString=(v:unknown)=>v===undefined||v===null||typeof v==='string';
-const timestamp=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(v)&&Number.isFinite(Date.parse(v));
+const timestamp=(v:unknown):v is string=>{
+  if(typeof v!=='string')return false;
+  const match=/^(\\d{4})-(\\d{2})-(\\d{2})T/.exec(v);
+  if(!match||!Number.isFinite(Date.parse(v)))return false;
+  const [y,m,d]=match.slice(1).map(Number);
+  const calendar=new Date(Date.UTC(y,m-1,d));
+  return y>=100&&calendar.getUTCFullYear()===y&&calendar.getUTCMonth()===m-1&&
+    calendar.getUTCDate()===d;
+};
 
 /** Fail closed on invalid source evidence, wrong taxpayer, duplicate identity or
  * unapproved simulated-credit states. Never translate bad source data to zero. */
