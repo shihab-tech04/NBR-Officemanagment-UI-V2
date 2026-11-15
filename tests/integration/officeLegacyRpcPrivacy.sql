@@ -8,11 +8,15 @@ AS $stub$ SELECT '{}'::jsonb $stub$;
 CREATE OR REPLACE FUNCTION public.demo_story1_office_list()
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
 AS $stub$ SELECT '[]'::jsonb $stub$;
+CREATE OR REPLACE FUNCTION public.demo_story1_office_page(p_page integer,p_per_page integer)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $stub$ SELECT '[]'::jsonb $stub$;
 CREATE OR REPLACE FUNCTION public.demo_story1_office_notices()
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
 AS $stub$ SELECT '[]'::jsonb $stub$;
 GRANT EXECUTE ON FUNCTION public.demo_auth_office_mirror(jsonb),
-  public.demo_story1_office_list(),public.demo_story1_office_notices()
+  public.demo_story1_office_list(),public.demo_story1_office_notices(),
+  public.demo_story1_office_page(integer,integer)
   TO PUBLIC,anon,authenticated;
 COMMIT;
 \i supabase/migrations/20261115183000_office_private_legacy_rpc.sql
@@ -22,7 +26,8 @@ BEGIN
   FOREACH v_signature IN ARRAY ARRAY[
     'public.demo_auth_office_mirror(jsonb)',
     'public.demo_story1_office_list()',
-    'public.demo_story1_office_notices()'
+    'public.demo_story1_office_notices()',
+    'public.demo_story1_office_page(integer,integer)'
   ] LOOP
     IF to_regprocedure(v_signature) IS NULL
       OR has_function_privilege('anon',v_signature,'EXECUTE')
