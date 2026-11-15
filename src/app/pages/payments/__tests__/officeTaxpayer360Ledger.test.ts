@@ -57,4 +57,48 @@ describe('Office Taxpayer 360 read-only ledger projection',()=>{
     expect(filtered.hasAuthoritativeDhara).toBe(false);
   });
 
+  it('keeps failed and cancelled recorded attempts distinct without claiming tax credit',()=>{
+    const attempts=[
+      payment('success',tin,'2026-06-01T10:00:00Z','SIMULATED_SUCCESS',5000),
+      payment('pending',tin,'2026-06-02T10:00:00Z','PROCESSING',9000),
+      payment('failed',tin,'2026-06-03T10:00:00Z','FAILED',7000),
+      payment('cancelled',tin,'2026-06-04T10:00:00Z','CANCELLED',2000),
+      payment('unknown',tin,'2026-06-05T10:00:00Z','SOME_NEW_STATUS',1000),
+    ];
+    const result=projectOfficeTaxpayer360Ledger(summarizeTaxpayerRecordedActivity(attempts,[],tin,'all'),tin,'all');
+    const stage=Object.fromEntries(result.rows.map(row=>[row.payment_ref,row.ledger_stage]));
+    expect(stage).toEqual({unknown:'Unverified',cancelled:'Cancelled',failed:'Failed',pending:'Pending',success:'Unverified'});
+    expect(result.rows.every(row=>row.credit_status==='Not verified')).toBe(true);
+    expect(result.rows.some(row=>row.ledger_stage==='Verified')).toBe(false);
+    expect(result.recordedSavedAmountMinor).toBe(5000);
+  });
+  it('shows the same source and credit warning in the English and Bengali ledger views',async()=>{
+    const {createElement}=await import('react');
+    const {Provider}=await import('react-redux');
+    const {renderToStaticMarkup}=await import('react-dom/server');
+    const {store}=await import('../../../store/store');
+    const {OfficeTaxpayer360Ledger}=await import('../OfficeTaxpayer360Ledger');
+    const snapshot=summarizeTaxpayerRecordedActivity([
+      payment('failed-record',tin,'2026-07-10T10:00:00Z','FAILED',3000)
+    ],[],tin,'all');
+    const render=(language:'en'|'bn')=>renderToStaticMarkup(createElement(
+      Provider,{store},
+      createElement(OfficeTaxpayer360Ledger,{
+        snapshot,taxpayerTin:tin,year:'all',language,loading:false,error:'',
+        onRetry:()=>{},onOpen:()=>{},
+      })
+    ));
+    const english=render('en');
+    expect(english).toContain('Tax credit status');
+    expect(english).toContain('Not verified');
+    expect(english).toContain('Failed');
+    expect(english).not.toContain('Treasury settled');
+    const bengali=render('bn');
+    expect(bengali).toContain('কর ক্রেডিটের অবস্থা');
+    expect(bengali).toContain('যাচাই হয়নি');
+    expect(bengali).toContain('ব্যর্থ');
+    expect(bengali).toContain('তারিখের ফিল্টার');
+    expect(bengali).not.toContain('Treasury settled');
+  });
+
 });
