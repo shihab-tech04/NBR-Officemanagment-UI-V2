@@ -24,14 +24,37 @@ const payment=(tin:string):StoryPayment=>({
   status:'SIMULATED_SUCCESS',createdAt:'2026-06-01T10:00:00Z',
   details:{taxpayerTin:tin,assessmentYear:'2026-27'},
 });
-function ledger(tin:string,year:string){
+function ledger(tin:string,year:string,language:'en'|'bn'='en'){
   const snapshot=summarizeTaxpayerRecordedActivity([payment(tin)],[],tin,year);
   return <Provider store={store}>
     <OfficeTaxpayer360Ledger snapshot={snapshot} taxpayerTin={tin} year={year}
-      language="en" loading={false} error="" onRetry={()=>{}} onOpen={()=>{}}/>
+      language={language} loading={false} error="" onRetry={()=>{}} onOpen={()=>{}}/>
   </Provider>;
 }
 describe('Taxpayer 360 ledger scoped table state',()=>{
+  it('clears the custom date range when switching assessment years',()=>{
+    const {container,rerender}=render(ledger(first,'all'));
+    const from=()=>container.querySelector('#office-ledger-from') as HTMLInputElement|null;
+    expect(from()).not.toBeNull();
+    fireEvent.change(from()!,{target:{value:'2026-06-15'}});
+    expect(from()?.value).toBe('2026-06-15');
+    rerender(ledger(first,'2026-27'));
+    expect(from()?.value).toBe('');
+    expect(container.textContent).toContain('record-'+first);
+  });
+
+  it('resets translated table filters and search when the language changes',()=>{
+    const {container,rerender}=render(ledger(first,'all','en'));
+    const search=()=>container.querySelector('.table-card__search-wrapper input') as HTMLInputElement|null;
+    expect(search()).not.toBeNull();
+    fireEvent.change(search()!,{target:{value:'no-match'}});
+    expect(search()?.value).toBe('no-match');
+    rerender(ledger(first,'all','bn'));
+    expect(search()?.value).toBe('');
+    expect(container.textContent).toContain('record-'+first);
+    expect(container.textContent).toContain('কর ক্রেডিটের অবস্থা');
+  });
+
   it('clears old table search on taxpayer and assessment-year switches',()=>{
     const {container,rerender}=render(ledger(first,'all'));
     const search=()=>container.querySelector('.table-card__search-wrapper input') as HTMLInputElement|null;
