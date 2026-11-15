@@ -24,6 +24,8 @@ export type OfficeCorrectionInquiry = {
   sourcePaymentId: string | null;
   sourcePaymentKind: "TAXPAY_STORY_PAYMENT" | null;
   originalReference: string;
+  /** Approved case category, including unsolicited-payment allegations. */
+  caseKind?: "CORRECTION_REVIEW" | "UNSOLICITED_PAYMENT_REPORT";
   reason: string;
   requestedOutcome: string;
   evidenceState: "PENDING_EVIDENCE";
@@ -105,6 +107,11 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
           rawParentKind !== "TAXPAY_STORY_PAYMENT"))) {
       throw new Error("Invalid correction source payment parent");
     }
+    const caseKind = row.caseKind === undefined || row.caseKind === null
+      ? "CORRECTION_REVIEW" : row.caseKind;
+    if (caseKind !== "CORRECTION_REVIEW" && caseKind !== "UNSOLICITED_PAYMENT_REPORT") {
+      throw new Error("Invalid correction case category");
+    }
     const sourcePaymentId = parentIdMissing ? null : rawParentId as string;
     const sourcePaymentKind = parentKindMissing ? null : "TAXPAY_STORY_PAYMENT" as const;
     const rawHistory = row.decisionHistory;
@@ -153,6 +160,7 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
       sourcePaymentId,
       sourcePaymentKind,
       originalReference: row.originalReference as string,
+      caseKind,
       reason: row.reason as string,
       requestedOutcome: row.requestedOutcome as string,
       evidenceState: "PENDING_EVIDENCE",
