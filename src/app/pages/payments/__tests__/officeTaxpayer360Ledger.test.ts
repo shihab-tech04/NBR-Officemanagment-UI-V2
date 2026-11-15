@@ -101,4 +101,26 @@ describe('Office Taxpayer 360 read-only ledger projection',()=>{
     expect(bengali).not.toContain('Treasury settled');
   });
 
+  it('does not present a missing Office source as an empty taxpayer ledger',async()=>{
+    const {createElement}=await import('react');
+    const {Provider}=await import('react-redux');
+    const {renderToStaticMarkup}=await import('react-dom/server');
+    const {store}=await import('../../../store/store');
+    const {OfficeTaxpayer360Ledger}=await import('../OfficeTaxpayer360Ledger');
+    const empty=summarizeTaxpayerRecordedActivity([],[],tin,'all');
+    const view=(snapshot:typeof empty|null)=>renderToStaticMarkup(createElement(
+      Provider,{store},
+      createElement(OfficeTaxpayer360Ledger,{
+        snapshot,taxpayerTin:tin,year:'all',language:'en',
+        loading:false,error:'',onRetry:()=>{},onOpen:()=>{},
+      })
+    ));
+    const missing=view(null),validEmpty=view(empty);
+    expect(missing).toContain('Payment records could not be confirmed for this taxpayer');
+    expect(missing).toContain('Retry');
+    expect(missing).not.toContain('No linked recorded payments match');
+    expect(validEmpty).toContain('No linked recorded payments match');
+    expect(validEmpty).not.toContain('Payment records could not be confirmed for this taxpayer');
+  });
+
 });
