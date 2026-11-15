@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import type {ReactNode} from 'react';
 import type {TableRow} from '../../modulePageUtils';
 const mocked=vi.hoisted(()=>({getPage:vi.fn()}));
 
@@ -17,7 +18,7 @@ vi.mock('../../../components/drawers/DynamicDetailsDrawer',()=>({
     open&&rowData?<section data-testid="source-detail">{String(rowData.payment_ref)}</section>:null
 }));
 vi.mock('../../../components/buttons/SecondaryButton',()=>({
-  SecondaryButton:({children,onClick}:{children:React.ReactNode;onClick:()=>void})=>
+  SecondaryButton:({children,onClick}:{children:ReactNode;onClick:()=>void})=>
     <button type="button" onClick={onClick}>{children}</button>
 }));
 import {OfficeGuardedLedgerPanel} from '../OfficeGuardedLedgerPanel';
