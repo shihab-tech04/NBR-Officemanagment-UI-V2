@@ -24,7 +24,7 @@ export function OfficeGuardedLedgerPanel({taxpayerTin,year,language,fromDate,toD
   const t=(en:string,be:string)=>bn?be:en;
   const [refresh,setRefresh]=useState(0);
   const [state,setState]=useState<State>(()=>initial(taxpayerTin));
-  const [selected,setSelected]=useState<TableRow|null>(null);
+  const [selected,setSelected]=useState<{scope:string;row:TableRow}|null>(null);
   // Scope and language changes invalidate any previously opened source detail.
   useEffect(()=>{setSelected(null);},[year,fromDate,toDate,language]);
   useEffect(()=>{
@@ -43,9 +43,14 @@ export function OfficeGuardedLedgerPanel({taxpayerTin,year,language,fromDate,toD
     return()=>{active=false;};
   },[taxpayerTin,refresh]);
   const current=state.tin===taxpayerTin?state:initial(taxpayerTin);
+  const scopeKey=[taxpayerTin,year,language,fromDate,toDate,refresh].join(':');
   const rows=useMemo(()=>projectGuardedLedgerRows(
     current.items,year,language,fromDate,toDate
   ),[current.items,year,language,fromDate,toDate]);
+  // Render-time authorization/scope check avoids even a one-frame exposure
+  // before React runs the effect that closes the previous taxpayer's drawer.
+  const visibleSelected=selected?.scope===scopeKey&&!current.loading&&!current.error&&
+    rows.some(row=>row.key===selected.row.key)?selected.row:null;
   const more=async()=>{
     if(current.loadingMore||current.loading||current.error||!current.hasMore)return;
     const old=current;
@@ -125,13 +130,13 @@ export function OfficeGuardedLedgerPanel({taxpayerTin,year,language,fromDate,toD
         mobileMapping={{primary:'payment_type',identifier:'payment_ref',
           meta:['source_system','dhara','assessment_year','credit_status'],status:'ledger_stage',
           date:'date',amount:'amount'}}
-        onOpen={setSelected}/>}
+        onOpen={row=>setSelected({scope:scopeKey,row})}/>}
     {!current.loading&&!current.error&&current.hasMore&&<SecondaryButton size="sm"
       disabled={current.loadingMore} onClick={()=>void more()}>
       {current.loadingMore?t('Loading more…','আরও লোড হচ্ছে…'):t('Load more source entries','আরও উৎস এন্ট্রি দেখুন')}
     </SecondaryButton>}
-    <DynamicDetailsDrawer open={selected!==null} onClose={()=>setSelected(null)}
-      title={t('Source record details','উৎস রেকর্ডের বিবরণ')} rowData={selected}
+    <DynamicDetailsDrawer open={visibleSelected!==null} onClose={()=>setSelected(null)}
+      title={t('Source record details','উৎস রেকর্ডের বিবরণ')} rowData={visibleSelected}
       columns={[
         ...columns.map(c=>({key:c.type==='col'?c.col.key:'',label:c.type==='col'?c.col.label:''})),
         {key:'source_revision',label:t('Source revision','উৎস সংস্করণ')},
