@@ -24,7 +24,9 @@ BEGIN
   -- Legacy payment page exposes mirrored payment details without an officer
   -- session check. Current Office Edge /payments uses the separately guarded
   -- payment_v1_office_guarded_story_page RPC; never change that read path.
-  -- Keep the three public synthetic office_v1_handoff_* prototype RPCs intact.
+  -- Preserve existing public synthetic API behavior through the fixed-route
+  -- office-handoff-api Edge gateway. Revoke direct public SQL access; the
+  -- gateway uses an internal server-only key to call these limited RPCs.
   IF to_regprocedure('public.demo_story1_office_page(integer,integer)') IS NOT NULL THEN
     REVOKE ALL ON FUNCTION public.demo_story1_office_page(integer,integer)
       FROM PUBLIC, anon, authenticated;
@@ -35,6 +37,27 @@ BEGIN
     REVOKE ALL ON FUNCTION public.demo_story1_office_notices()
       FROM PUBLIC, anon, authenticated;
     GRANT EXECUTE ON FUNCTION public.demo_story1_office_notices()
+      TO service_role;
+  END IF;
+  -- These three synthetic handoff functions previously permitted direct
+  -- anonymous SECURITY DEFINER calls. The Edge endpoint exposes only
+  -- validated prototype routes, never financial/officer-authorized records.
+  IF to_regprocedure('public.office_v1_handoff_query(text,integer,integer,jsonb)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.office_v1_handoff_query(text,integer,integer,jsonb)
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.office_v1_handoff_query(text,integer,integer,jsonb)
+      TO service_role;
+  END IF;
+  IF to_regprocedure('public.office_v1_handoff_status_history(text,text,integer)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.office_v1_handoff_status_history(text,text,integer)
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.office_v1_handoff_status_history(text,text,integer)
+      TO service_role;
+  END IF;
+  IF to_regprocedure('public.office_v1_handoff_set_status(text,text,text,text,text,uuid,integer)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.office_v1_handoff_set_status(text,text,text,text,text,uuid,integer)
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.office_v1_handoff_set_status(text,text,text,text,text,uuid,integer)
       TO service_role;
   END IF;
 END;
