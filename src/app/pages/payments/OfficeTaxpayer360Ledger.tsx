@@ -95,7 +95,14 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
         'অফিসের পেমেন্ট উৎস পাওয়া যাচ্ছে না। কোনো লেজার রেকর্ড বা মোট পরিমাণ যাচাই করা হয়নি।'
       )}</p><SecondaryButton size="sm" onClick={onRetry}>{t('Retry','আবার চেষ্টা করুন')}</SecondaryButton>
     </div>}
-    {!loading&&!error&&!invalidRange&&rows.length===0&&<p className="table-page__desc" role="status">{t(
+    {!loading&&!error&&!invalidRange&&snapshot===null&&<div className="card payment-module__card" role="status">
+      <p className="table-page__desc">{t(
+        'Payment records could not be confirmed for this taxpayer. Try again before treating the ledger as empty.',
+        'এই করদাতার পেমেন্ট রেকর্ড পাওয়া যায়নি কিনা তা নিশ্চিত করা যাচ্ছে না। আবার চেষ্টা করুন।'
+      )}</p>
+      <SecondaryButton size="sm" onClick={onRetry}>{t('Retry','আবার চেষ্টা করুন')}</SecondaryButton>
+    </div>}
+    {!loading&&!error&&!invalidRange&&snapshot!==null&&rows.length===0&&<p className="table-page__desc" role="status">{t(
       'No linked recorded payments match this taxpayer and selected filters.',
       'এই করদাতা ও নির্বাচিত ফিল্টারে কোনো সংযুক্ত পেমেন্ট রেকর্ড পাওয়া যায়নি।'
     )}</p>}
