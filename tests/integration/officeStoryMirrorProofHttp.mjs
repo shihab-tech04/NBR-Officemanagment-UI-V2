@@ -55,6 +55,55 @@ assert.equal(methods.status,204);
 console.log('PASS: real Office Edge handler requires source-bound proof at ingress, malformed IDs and proofs fail before network/SQL, preflight preserved; no hosted access');
 
 
+// WS3 authorization mirror: the real Edge handler must source-read the
+// synthetic authorization first, then use the service key for its private RPC.
+// A caller's forged status is never forwarded to Office SQL.
+let authMirrorHandler=null,authSourceReads=0;
+const authMirrorSql=[];
+const sourceAuthorization={id,status:'PENDING',payerId:'user1',taxpayerId:'user2'};
+const authMirrorBox={
+ ...box,
+ require(name){
+  assert.match(name,/^npm:@supabase\\/supabase-js@/);
+  return {createClient:(_url,roleKey)=>({
+   rpc:async(name,args)=>{
+    authMirrorSql.push({name,args,roleKey});
+    return {data:{id,status:'PENDING'},error:null};
+   }
+  })};
+ },
+ fetch:async(sourceUrl)=>{
+  authSourceReads++;
+  assert.ok(sourceUrl.endsWith('/authorizations/'+id+'/snapshot'));
+  return new Response(JSON.stringify({success:true,data:sourceAuthorization}),{status:200});
+ },
+ Deno:{env:{get(name){
+   if(name==='SUPABASE_ANON_KEY')return 'isolated-public-key';
+   if(name==='SUPABASE_URL')return 'https://isolated-office.invalid';
+   if(name==='SUPABASE_SERVICE_ROLE_KEY')return 'isolated-private-office-key';
+   return null;
+ }},serve(callback){authMirrorHandler=callback;}},
+};
+vm.runInNewContext(compiled,authMirrorBox,{filename:'office-private-auth-mirror.ts',timeout:5000});
+const authorizationUrl='http://127.0.0.1/demo-story1-office/authorization/mirror';
+let authResponse=await authMirrorHandler(new Request(authorizationUrl,{
+ method:'POST',headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({id,status:'SIMULATED_SUCCESS'})
+}));
+assert.equal(authResponse.status,200);
+assert.equal(authSourceReads,1);
+assert.equal(authMirrorSql.length,1);
+assert.equal(authMirrorSql[0].name,'demo_auth_office_mirror');
+assert.equal(authMirrorSql[0].roleKey,'isolated-private-office-key');
+assert.equal(authMirrorSql[0].args.p_input.status,'PENDING');
+authResponse=await authMirrorHandler(new Request(authorizationUrl,{
+ method:'POST',body:JSON.stringify({id:'invalid',status:'COMPLETED'})
+}));
+assert.equal(authResponse.status,400);
+assert.equal(authSourceReads,1);
+assert.equal(authMirrorSql.length,1);
+console.log('PASS: authorization snapshot source-read before service-only Office RPC; forged caller status discarded; invalid ID denied');
+
 // WS2/WS3 Office notice cursor bearer contract: the *actual* Edge handler
 // rejects anonymous and bad-session reads before any Office SQL request.
 let cursorHandler=null;
