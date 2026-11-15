@@ -1,4 +1,5 @@
 import {getOfficeCmsAuthClient} from '../../services/officeCmsBridge';
+import {getAuditSqlClient,isSharedAuditMode} from '../audit/auditSharedSql';
 
 export const OFFICE_LEDGER_SOURCES = {
   SOHOJKOR:'Sohojkor',
@@ -133,7 +134,7 @@ export function reconcileOfficeLedger(tin:string,rawItems:readonly unknown[],cre
  */
 export async function loadOfficeConsolidatedLedger(tin:string):Promise<OfficeLedgerReport>{
   if(!validTin(tin))throw new Error('A valid 12-digit taxpayer TIN is required');
-  const db=getOfficeCmsAuthClient();
+  const db=isSharedAuditMode()?getAuditSqlClient():getOfficeCmsAuthClient();
   const {data:identity,error:authError}=await db.auth.getUser();
   if(authError||!identity.user||identity.user.is_anonymous)throw new Error('Verified Office officer sign-in is required');
   const officerUid=identity.user.id;
