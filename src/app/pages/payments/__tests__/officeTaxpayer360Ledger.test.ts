@@ -72,6 +72,22 @@ describe('Office Taxpayer 360 read-only ledger projection',()=>{
     expect(result.rows.some(row=>row.ledger_stage==='Verified')).toBe(false);
     expect(result.recordedSavedAmountMinor).toBe(5000);
   });
+  it('does not infer Pending from an unknown composite source status',()=>{
+    const states=['NOT_PENDING','PRE_PROCESSING','FAILED_PENDING','AUTHORIZATION_QUEUED',
+      'CANCELLED_PENDING',' pending '];
+    const events=states.map((state,index)=>payment('state-'+index,tin,
+      '2026-06-0'+(index+1)+'T10:00:00Z',state,1000));
+    const result=projectOfficeTaxpayer360Ledger(
+      summarizeTaxpayerRecordedActivity(events,[],tin,'all'),tin,'all');
+    const byRef=Object.fromEntries(result.rows.map(row=>[row.payment_ref,row.ledger_stage]));
+    expect(byRef).toEqual({
+      'state-0':'Unverified','state-1':'Unverified','state-2':'Unverified',
+      'state-3':'Unverified','state-4':'Unverified','state-5':'Pending',
+    });
+    expect(result.rows.every(row=>row.credit_status==='Not verified')).toBe(true);
+    expect(result.recordedSavedAmountMinor).toBe(0);
+  });
+
   it('shows the same source and credit warning in the English and Bengali ledger views',async()=>{
     const {createElement}=await import('react');
     const {Provider}=await import('react-redux');
