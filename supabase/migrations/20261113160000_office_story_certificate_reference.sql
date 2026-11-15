@@ -79,6 +79,12 @@ BEGIN
 END;
 $office_notice_guard$;
 
+-- Authorization snapshot mirroring is server-to-server only. Office Edge must
+-- validate the original Taxpayer snapshot before calling with service_role.
+REVOKE EXECUTE ON FUNCTION public.demo_auth_office_mirror(jsonb)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.demo_auth_office_mirror(jsonb)
+  TO service_role;
 REVOKE EXECUTE ON FUNCTION public.demo_story1_office_list()
   FROM PUBLIC,anon,authenticated;
 REVOKE EXECUTE ON FUNCTION public.demo_story1_office_page(integer,integer)
@@ -98,7 +104,10 @@ GRANT EXECUTE ON FUNCTION public.payment_v1_office_guarded_story_notices()
 
 DO $verify_office_story_privacy$
 BEGIN
-  IF has_function_privilege('anon','public.demo_story1_office_list()','EXECUTE')
+  IF has_function_privilege('anon','public.demo_auth_office_mirror(jsonb)','EXECUTE')
+     OR has_function_privilege('authenticated','public.demo_auth_office_mirror(jsonb)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.demo_auth_office_mirror(jsonb)','EXECUTE')
+     OR has_function_privilege('anon','public.demo_story1_office_list()','EXECUTE')
      OR has_function_privilege('anon','public.demo_story1_office_page(integer,integer)','EXECUTE')
      OR has_function_privilege('anon','public.demo_story1_office_notices()','EXECUTE')
      OR has_function_privilege('anon','public.demo_story1_office_payment_page(integer,integer)','EXECUTE')
