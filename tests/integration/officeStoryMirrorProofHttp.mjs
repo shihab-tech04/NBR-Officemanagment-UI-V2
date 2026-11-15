@@ -77,7 +77,7 @@ const authMirrorBox={
   authSourceReads++;
   assert.ok(sourceUrl.endsWith('/authorizations/'+id+'/snapshot'));
   assert.equal(init?.headers?.['x-taxpay-office-authorization-proof'],authProof);
-  return new Response(JSON.stringify({success:true,data:sourceAuthorization}),{status:200});
+  return new Response(JSON.stringify({success:true,simulationOnly:true,data:sourceAuthorization}),{status:200});
  },
  Deno:{env:{get(name){
    if(name==='SUPABASE_ANON_KEY')return 'isolated-public-key';
