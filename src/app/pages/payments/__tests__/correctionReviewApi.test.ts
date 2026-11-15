@@ -230,6 +230,26 @@ describe("Office correction review SQL adapter", () => {
     });
   });
 
+  it("preserves bounded Unicode evidence from Taxpayer SQL without changing officer action", async () => {
+    const evidence="বাংলা নথি ও ব্যাখ্যা\\nSupporting details for Office review";
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, evidenceNote: evidence,
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ evidenceNote: evidence, availableActions: ["MAKER_ACKNOWLEDGE"] }],
+    });
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, evidenceNote: "অ".repeat(2001),
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow(
+      "Invalid correction supporting evidence",
+    );
+    setupClient([{ data: { role: "MAKER", items: [correction], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ evidenceNote: null }],
+    });
+  });
+
   it("surfaces SQL errors without substituting local correction rows", async () => {
     setupClient([{ data: null, error: { message: "Active payment officer role required" } }]);
     await expect(listOfficeCorrectionInquiries()).rejects.toThrow("Active payment officer role required");
