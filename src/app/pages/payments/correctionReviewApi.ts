@@ -23,6 +23,8 @@ export type OfficeCorrectionInquiry = {
   sourceEventType: "CORRECTION_SUBMITTED";
   sourcePaymentId: string | null;
   sourcePaymentKind: "TAXPAY_STORY_PAYMENT" | null;
+  /** Immutable, verified Taxpayer source allocation ID; null on legacy cases. */
+  targetAllocationId?: string | null;
   originalReference: string;
   /** Approved case category, including unsolicited-payment allegations. */
   caseKind?: "CORRECTION_REVIEW" | "UNSOLICITED_PAYMENT_REPORT";
@@ -97,6 +99,16 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
         row.sourceEventType !== "CORRECTION_SUBMITTED") {
       throw new Error("Invalid correction source event identity");
     }
+    const rawAllocationId = row.targetAllocationId;
+    const targetAllocationId = rawAllocationId === undefined || rawAllocationId === null
+      ? null : rawAllocationId;
+    if (targetAllocationId !== null &&
+        (typeof targetAllocationId !== "string" || !targetAllocationId.trim() ||
+         targetAllocationId.trim() !== targetAllocationId ||
+         targetAllocationId.length > 128 || row.sourcePaymentId === undefined ||
+         row.sourcePaymentId === null)) {
+      throw new Error("Invalid correction target allocation");
+    }
     const rawParentId = row.sourcePaymentId;
     const rawParentKind = row.sourcePaymentKind;
     const parentIdMissing = rawParentId === undefined || rawParentId === null;
@@ -159,6 +171,7 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
       sourceEventType: "CORRECTION_SUBMITTED",
       sourcePaymentId,
       sourcePaymentKind,
+      targetAllocationId,
       originalReference: row.originalReference as string,
       caseKind,
       reason: row.reason as string,
