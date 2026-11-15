@@ -25,6 +25,8 @@ CREATE TEMP TABLE ws3_pay_again_office_state(
  source_id uuid NOT NULL,repeat_id uuid NOT NULL,pending_id uuid NOT NULL,
  missing_source_id uuid NOT NULL,source_ref text NOT NULL,repeat_ref text NOT NULL
 ) ON COMMIT DROP;
+-- Read-only fixture metadata is available to both disposable JWT roles.
+GRANT SELECT ON ws3_pay_again_office_state TO authenticated;
 DO $fixtures$
 DECLARE
  v_source_id uuid:=gen_random_uuid();
