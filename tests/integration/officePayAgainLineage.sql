@@ -126,11 +126,11 @@ VALUES
 -- One verified challan may contain multiple *different* taxpayer allocations.
 INSERT INTO office_ledger_private.source_events
  (source_system,source_record_id,source_allocation_id,taxpayer_tin,
-  payment_source,amount_minor,event_date,entry_kind,verification_status,
+  dhara,payment_source,amount_minor,event_date,entry_kind,verification_status,
   evidence_sha256,reconciliation_provenance,canonical_credit_ref,canonical_credit_line_id)
 VALUES
  ('BANK','ws3-bank-second-recipient','second-line','333333333333',
-  'Bank',2000,now(),'CREDIT','VERIFIED',repeat('d',64),
+  '82','Bank',2000,now(),'CREDIT','VERIFIED',repeat('d',64),
   '{"officialSourceRecordId":"bank-local-second","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,
   'treasury-credit-unique-01','line-B');
 
@@ -155,10 +155,10 @@ BEGIN
  BEGIN
   INSERT INTO office_ledger_private.source_events
    (source_system,source_record_id,source_allocation_id,taxpayer_tin,
-    payment_source,amount_minor,event_date,entry_kind,verification_status,
+    dhara,payment_source,amount_minor,event_date,entry_kind,verification_status,
     evidence_sha256,reconciliation_provenance,canonical_credit_ref,canonical_credit_line_id)
   VALUES ('NSD','ws3-duplicate-credit','src-line-other','222222222222',
-    'NSD',1000,now(),'CREDIT','VERIFIED',repeat('c',64),
+    '82','NSD',1000,now(),'CREDIT','VERIFIED',repeat('c',64),
     '{"officialSourceRecordId":"another-source","verifiedAt":"2026-11-15T00:00:00Z"}'::jsonb,
     'treasury-credit-unique-01','line-A');
  EXCEPTION WHEN unique_violation THEN v_duplicate_rejected:=true; END;
