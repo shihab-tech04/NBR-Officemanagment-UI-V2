@@ -41,6 +41,9 @@ import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
   listOfficeCorrectionInquiries,
   submitOfficeCorrectionDecision,
+  submitOfficeInitiatedCorrection,
+  listOfficeInitiatedCorrections,
+  type OfficeInitiatedCorrection,
   type CorrectionReviewAction,
   type OfficeCorrectionInquiry,
   type OfficeCorrectionQueue,
@@ -132,7 +135,7 @@ const pages = ['overview','transactions','taxpayer-360','corrections','incidents
 type PaymentPage = typeof pages[number];
 type DraftKind = 'corrections' | 'incidents' | 'offline-events';
 type Details = { title:string; record:TableRow } | null;
-const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
+const firstDraft = { outcome:'', tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
 export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;taxpayerTin?:string;paymentId?:string}) {
   const {t,i18n} = useTranslation('payment');
@@ -233,6 +236,12 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const [correctionDecisionReason,setCorrectionDecisionReason] = useState('');
   const [correctionDecisionError,setCorrectionDecisionError] = useState('');
   const [correctionDecisionSubmitting,setCorrectionDecisionSubmitting] = useState(false);
+  const [officeInitiated,setOfficeInitiated]=useState<OfficeInitiatedCorrection[]>([]);
+  const [officeInitiationLoading,setOfficeInitiationLoading]=useState(false);
+  const [officeInitiationError,setOfficeInitiationError]=useState('');
+  const [initiationSubmitting,setInitiationSubmitting]=useState(false);
+  const [initiationIdempotencyKey,setInitiationIdempotencyKey]=useState(()=>crypto.randomUUID());
+  const [initiationStatus,setInitiationStatus]=useState('');
   const [draftKind,setDraftKind] = useState<DraftKind | null>(null);
   const [draft,setDraft] = useState(firstDraft);
   const [draftPreview,setDraftPreview] = useState(false);
@@ -265,11 +274,18 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       try{
         const queue=await listOfficeCorrectionInquiries();
         if(active){setOfficeCorrectionQueue(queue);setOfficeCorrectionError('');setOfficeCorrectionLoading(false);}
+        try{
+          const initiated=await listOfficeInitiatedCorrections();
+          if(active){setOfficeInitiated(initiated);setOfficeInitiationError('');setOfficeInitiationLoading(false);}
+        }catch(error){
+          if(active){setOfficeInitiated([]);setOfficeInitiationError(t('officeCorrectionQueueUnavailable'));setOfficeInitiationLoading(false);}
+        }
       }catch(error){
         if(active){setOfficeCorrectionQueue({enabled:false,role:null,items:[]});setOfficeCorrectionError(t('officeCorrectionQueueUnavailable'));setOfficeCorrectionLoading(false);}
       }
     };
     setOfficeCorrectionLoading(true);
+    setOfficeInitiationLoading(true);
     void refresh();
     const journeyOnly=current==='taxpayer-360'&&taxpayerTab==='taxJourney';
     if(journeyOnly){
@@ -302,7 +318,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const correctionActionLabel=(action:CorrectionReviewAction)=>
     t(`officeCorrectionAction.${action}`,{defaultValue:action.replace(/_/g,' ')});
 
-  const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});};
+  const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});setInitiationIdempotencyKey(crypto.randomUUID());setInitiationStatus('');};
   const change=(key:keyof typeof firstDraft,value:string)=>{setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
   const previewDraft=()=>{
     const required = draftKind === 'offline-events'
@@ -316,6 +332,40 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     setErrors(next);
     if(Object.keys(next).length){setFormError(t('required'));return;}
     setFormError('');setDraftPreview(true);
+  };
+  const submitInitiatedCorrection=async()=>{
+    if(draftKind!=='corrections'||!draftPreview||initiationSubmitting)return;
+    if(officeCorrectionQueue.role!=='MAKER'&&officeCorrectionQueue.role!=='APPROVER'){
+      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'অনুমোদিত মেকার বা অ্যাপ্রুভার ভূমিকা প্রয়োজন।':'An active Maker or Approver role is required.');return;
+    }
+    const ref=draft.reference.trim(), tin=draft.tin.trim();
+    const payments=storyPayments.filter(payment=>
+      (payment.id===ref||payment.details?.receiptReference===ref||
+       payment.details?.receiptSnapshot?.challanNo===ref)&&
+      (payment.details?.taxpayerTin===tin||
+       payment.details?.allocations?.some(a=>a.taxpayerTin===tin)));
+    if(payments.length!==1){
+      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'এই করদাতার সঙ্গে নির্ভরযোগ্যভাবে যুক্ত একটি পেমেন্ট নির্বাচন করুন।':'Select exactly one connected payment belonging to this taxpayer.');return;
+    }
+    if(draft.outcome.trim().length<10||draft.outcome.trim().length>600||
+       draft.reason.trim().length<10||draft.reason.trim().length>1000||
+       draft.evidence.trim().length<10||draft.evidence.length>2000){
+      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'কারণ, প্রত্যাশিত ফলাফল এবং প্রমাণের বিবরণ পূরণ করুন।':'Complete reason, requested outcome and evidence within the supported limits.');return;
+    }
+    setInitiationSubmitting(true);setFormError('');
+    try{
+      await submitOfficeInitiatedCorrection({
+        paymentId:payments[0].id,taxpayerTin:tin,originalReference:ref,
+        reason:draft.reason,requestedOutcome:draft.outcome,
+        evidenceNote:draft.evidence,idempotencyKey:initiationIdempotencyKey,
+      });
+      setInitiationStatus(i18n.resolvedLanguage?.startsWith('bn')
+        ?'অনুরোধটি Office SQL-এ সংরক্ষিত হয়েছে। মূল করদাতা ডাটাবেসের যাচাই ও সংশ্লিষ্ট করদাতার নিশ্চিতকরণ অপেক্ষমাণ।'
+        :'Office correction queued. Original Taxpayer SQL verification and account claim are pending.');
+      setDraftKind(null);setDraftPreview(false);setCorrectionRefreshKey(v=>v+1);
+    }catch(error){
+      setFormError(error instanceof Error?error.message:'Could not submit correction');
+    }finally{setInitiationSubmitting(false);}
   };
   const submitCorrectionDecision=async()=>{
     if(!correctionDecision)return;
@@ -456,7 +506,18 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   // Never interleave illustrative cases with an operational correction queue.
   const correctionCaseIds=new Set(caseCategories.corrections.map(item=>item.requestId));
   const reportCaseIds=new Set(caseCategories.reports.map(item=>item.requestId));
-  const correctionReviewRows=[...localRecords.corrections,
+  const pendingInitiationRows:TableRow[]=officeInitiated.filter(item=>!item.sourceConfirmed).map(item=>({
+    key:'office-initiation:'+item.caseId,id:'COR-'+item.caseId.slice(0,8).toUpperCase(),
+    taxpayer:item.originalReference,reference:item.originalReference,
+    reason:item.reason,requested_outcome:item.requestedOutcome,
+    evidence:item.evidenceNote,amount:'—',
+    stage:item.deliveryState,status:item.deliveryState==='ACKNOWLEDGED'
+      ?(i18n.resolvedLanguage?.startsWith('bn')?'করদাতার নিশ্চিতকরণের অপেক্ষায়':'Awaiting taxpayer claim')
+      :(i18n.resolvedLanguage?.startsWith('bn')?'Taxpayer SQL সিঙ্ক অপেক্ষমাণ':'Taxpayer SQL synchronization pending'),
+    source_payment_id:item.sourcePaymentId,
+    created_at:item.createdAt,initiated_by_role:item.officerRole,
+  }));
+  const correctionReviewRows=[...localRecords.corrections,...pendingInitiationRows,
     ...officeCorrectionRows.filter(row=>correctionCaseIds.has(String(row.__correctionInquiryId)))];
   const reportRows=officeCorrectionRows.filter(row=>reportCaseIds.has(String(row.__correctionInquiryId)));
   const corrRows=correctionQueueTab==='reports'?reportRows:correctionReviewRows;
@@ -622,6 +683,9 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   </>;
   const corrections=()=> <>
     {toolbar(t('corrections'),()=>openDraft('corrections'))}
+    {initiationStatus&&<p role="status" aria-live="polite" className="table-page__desc">{initiationStatus}</p>}
+    {officeInitiationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'অফিসের নতুন আবেদন লোড হচ্ছে…':'Loading Office-initiated corrections…'}</p>}
+    {officeInitiationError&&<p role="alert" className="table-page__desc">{officeInitiationError}</p>}
     {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
     {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}
     {!officeCorrectionLoading&&!officeCorrectionQueue.enabled&&!officeCorrectionError&&
@@ -733,10 +797,18 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       </div>
     </AppModal>
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
-      footer={<><SecondaryButton size="sm" onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton></>}>
+      footer={<><SecondaryButton size="sm" disabled={initiationSubmitting} onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" disabled={initiationSubmitting} onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton>
+       {draftKind==='corrections'&&draftPreview&&officeCorrectionQueue.enabled&&
+        (officeCorrectionQueue.role==='MAKER'||officeCorrectionQueue.role==='APPROVER')&&
+        <PrimaryButton size="sm" disabled={initiationSubmitting} onClick={()=>void submitInitiatedCorrection()}>
+         {i18n.resolvedLanguage?.startsWith('bn')?'SQL-এ সংশোধনের আবেদন পাঠান':'Submit correction to Taxpayer SQL'}
+        </PrimaryButton>}</>}>
       <form id="payment-draft-form" onSubmit={e=>{e.preventDefault();draftPreview?saveDraft():previewDraft();}}>
       <div className="payment-module__form" aria-label={t('newRequest')}>
-        <AppSelectField id="payment-draft-tin" searchableAfter={4} label={draftKind==='incidents'?t('claimedTinOptional'):t('tin')} value={draft.tin} onChange={v=>change('tin',v)} required={draftKind!=='incidents'} error={errors.tin} options={[{value:'',label:t('selectTaxpayer')},...referenceTaxpayers.filter(p=>/^\d{12}$/.test(p.tin)).map(p=>({value:p.tin,label:`${p.name} · ${p.tin}`}))]}/>
+        <AppSelectField id="payment-draft-tin" searchableAfter={4} label={draftKind==='incidents'?t('claimedTinOptional'):t('tin')} value={draft.tin} onChange={v=>change('tin',v)} required={draftKind!=='incidents'} error={errors.tin} options={[{value:'',label:t('selectTaxpayer')},
+          ...[...new Set(storyPayments.flatMap(p=>[p.details?.taxpayerTin,p.details?.payerTin,
+           ...(p.details?.allocations??[]).map(a=>a.taxpayerTin)]).filter((v):v is string=>typeof v==='string'&&/^\d{12,13}$/.test(v)))].map(tin=>({value:tin,label:tin})),
+          ...referenceTaxpayers.filter(p=>/^\d{12}$/.test(p.tin)).map(p=>({value:p.tin,label:`${p.name} · ${p.tin}`}))]}/>
         {draftKind==='incidents'&&<>
           <AppSelectField id="payment-incident-type" searchableAfter={4} label={t('incidentType')} value={draft.type} onChange={v=>change('type',v)} required error={errors.type} options={[{value:'',label:t('select')},...['ONBOARDING','IDENTITY_MISUSE','UNKNOWN_REP','UNAUTHORIZED_PAYMENT','UNAUTHORIZED_ATTRIBUTION'].map(v=>({value:v,label:t(`incident_${v}`)}))]}/>
           <AppTextField id="payment-incident-nid" label={t('claimedNidOptional')} value={draft.nid} onChange={v=>change('nid',v)}/>
@@ -754,6 +826,14 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
           <AppTextField id="payment-draft-amount" label={t('amount')} value={draft.amount} onChange={v=>change('amount',v)} error={errors.amount} inputMode="decimal" required/>
         </>}
         {draftKind!=='incidents'&&<AppTextField id="payment-draft-reference" label={t('reference')} value={draft.reference} onChange={v=>change('reference',v)} error={errors.reference} required/>}
+        {draftKind==='corrections'&&<AppTextArea id="payment-draft-outcome"
+          label={i18n.resolvedLanguage?.startsWith('bn')?'প্রত্যাশিত ফলাফল':'Requested outcome'}
+          value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome}/>}
+        {draftKind==='corrections'&&<p className="payment-module__note payment-module__full">
+          {i18n.resolvedLanguage?.startsWith('bn')
+            ?'SQL-এ পাঠাতে মূল পেমেন্টে থাকা রেফারেন্স ও করদাতার TIN ব্যবহার করুন। অনুমোদন নয়, শুধুই পর্যালোচনার আবেদন।'
+            :'SQL submission requires a connected original payment, its reference and taxpayer TIN. It requests review only, not a financial change.'}
+        </p>}
         {draftKind==='offline-events'&&<AppTextField id="payment-draft-source" label={t('source')} value={draft.source} onChange={v=>change('source',v)} error={errors.source} required/>}
         <AppTextArea id="payment-draft-reason" label={t('reason')} value={draft.reason} onChange={v=>change('reason',v)} error={errors.reason} required={draftKind!=='incidents'}/>
         <AppTextArea id="payment-draft-evidence" label={t('evidenceDescription')} value={draft.evidence} onChange={v=>change('evidence',v)} error={errors.evidence} required={draftKind!=='incidents'}/>
