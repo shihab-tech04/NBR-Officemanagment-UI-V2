@@ -19,6 +19,7 @@ BEGIN
       'originalReference','SYN-PARENT-0001',
       'originalPaymentId',v_parent,
       'originalPaymentKind','TAXPAY_STORY_PAYMENT',
+      'caseKind','UNSOLICITED_PAYMENT_REPORT',
       'reason','Synthetic parent-link correction test',
       'requestedOutcome','Review the linked synthetic payment',
       'evidenceState','PENDING_EVIDENCE','claimantVerified',false,
@@ -44,6 +45,22 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM='TEST_UNEXPECTED_INVALID_PARENT_ACCEPTED' THEN RAISE; END IF;
     IF SQLERRM IS DISTINCT FROM 'Invalid correction source payment parent' THEN RAISE; END IF;
+  END;
+  -- Reject a forged/unsupported categorization before persisting a case.
+  BEGIN
+    v_event:=pg_catalog.jsonb_set(v_event,'{eventId}',
+      '"80000000-0000-4000-8000-000000000007"');
+    v_event:=pg_catalog.jsonb_set(v_event,'{requestId}',
+      '"80000000-0000-4000-8000-000000000008"');
+    v_event:=pg_catalog.jsonb_set(v_event,'{payload,originalPaymentId}',
+      pg_catalog.to_jsonb(v_parent::text));
+    v_event:=pg_catalog.jsonb_set(v_event,'{payload,caseKind}',
+      '"UNVERIFIED_ARBITRARY_CATEGORY"');
+    PERFORM public.payment_v1_internal_ingest_correction(v_event);
+    RAISE EXCEPTION 'TEST_UNEXPECTED_INVALID_CASE_KIND_ACCEPTED';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM='TEST_UNEXPECTED_INVALID_CASE_KIND_ACCEPTED' THEN RAISE; END IF;
+    IF SQLERRM IS DISTINCT FROM 'Invalid correction source case category' THEN RAISE; END IF;
   END;
   IF EXISTS (SELECT 1 FROM payment_sync.correction_mirrors
       WHERE inquiry_id='80000000-0000-4000-8000-000000000004') THEN
@@ -129,7 +146,8 @@ BEGIN
     FROM jsonb_array_elements(v_queue->'items') AS item(value)
     WHERE value->>'requestId'='80000000-0000-4000-8000-000000000002';
   IF v_item->>'sourcePaymentId'<>'80000000-0000-4000-8000-000000000041'
-     OR v_item->>'sourcePaymentKind'<>'TAXPAY_STORY_PAYMENT' THEN
+     OR v_item->>'sourcePaymentKind'<>'TAXPAY_STORY_PAYMENT'
+     OR v_item->>'caseKind'<>'UNSOLICITED_PAYMENT_REPORT' THEN
     RAISE EXCEPTION 'Office correction queue omitted the exact source payment parent';
   END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
@@ -159,7 +177,8 @@ BEGIN
     FROM jsonb_array_elements(v_queue->'items') AS item(value)
     WHERE value->>'requestId'='80000000-0000-4000-8000-000000000006';
   IF v_item->'sourcePaymentId'<>'null'::jsonb
-     OR v_item->'sourcePaymentKind'<>'null'::jsonb THEN
+     OR v_item->'sourcePaymentKind'<>'null'::jsonb
+     OR v_item->>'caseKind'<>'CORRECTION_REVIEW' THEN
     RAISE EXCEPTION 'Legacy queue item was incorrectly assigned a payment parent';
   END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>0 THEN
