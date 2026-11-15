@@ -25,7 +25,7 @@ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Ar
 const maybeString=(v:unknown)=>v===undefined||v===null||typeof v==='string';
 const timestamp=(v:unknown):v is string=>{
   if(typeof v!=='string')return false;
-  const match=/^(\\d{4})-(\\d{2})-(\\d{2})T/.exec(v);
+  const match=/^(\d{4})-(\d{2})-(\d{2})T/.exec(v);
   if(!match||!Number.isFinite(Date.parse(v)))return false;
   const [y,m,d]=match.slice(1).map(Number);
   const calendar=new Date(Date.UTC(y,m-1,d));
