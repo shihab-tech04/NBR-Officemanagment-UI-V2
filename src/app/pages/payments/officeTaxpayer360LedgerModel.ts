@@ -28,13 +28,21 @@ export function projectOfficeTaxpayer360Ledger(
   const linked=summarizeTaxpayerRecordedActivity(payments,[],taxpayerTin,year);
   return {
     rows:linked.rows.map(({payment,row})=>{
-      const recorded=payment.status.toUpperCase();
-      const pending=/(?:PENDING|QUEUED|PROCESSING|INITIATED)/.test(recorded);
+      // These are recorded attempt states, never Treasury settlement or
+      // an issuer-backed tax-credit status. Unknown/success-shaped states
+      // remain Unverified until the authoritative WS3 source is available.
+      const recorded=payment.status.trim().toUpperCase();
+      const ledgerStage=/(?:PENDING|QUEUED|PROCESSING|INITIATED)/.test(recorded)
+        ?'Pending'
+        :/^(?:FAILED|ERROR|DECLINED|REJECTED)$/.test(recorded)
+          ?'Failed'
+          :/^(?:CANCELLED|CANCELED)$/.test(recorded)
+            ?'Cancelled':'Unverified';
       return {
         ...row,
         source_system:OFFICE_MIRROR_SOURCE,
         dhara:'—', // No approved Dhara field in the mirrored StoryPayment contract.
-        ledger_stage:pending?'Pending':'Unverified',
+        ledger_stage:ledgerStage,
         credit_status:'Not verified',
         payment_ref:payment.id,
       };
