@@ -129,7 +129,7 @@ const moduleDrafts:Record<'corrections'|'incidents'|'offline-events',TableRow[]>
 const pages = ['overview','transactions','taxpayer-360','corrections','incidents','offline-events','analytics'] as const;
 type PaymentPage = typeof pages[number];
 type DraftKind = 'corrections' | 'incidents' | 'offline-events';
-type Details = { title:string; record:TableRow } | null;
+type Details = { title:string; record:TableRow; scope:string } | null;
 const firstDraft = { tin:'', type:'', ay:'', component:'', reduces:'', amount:'', reference:'', source:'', reason:'', evidence:'', noticed:'', altContact:'', nid:'', mobile:'' };
 
 export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?:string}) {
@@ -203,6 +203,10 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
+  // A previously opened record is never rendered under a changed account,
+  // route, assessment year or language, even before the cleanup effect runs.
+  const detailsScope=[current,taxpayerTin??'',scopeYear,i18n.resolvedLanguage??'en'].join(':');
+  const visibleDetails=details?.scope===detailsScope?details:null;
   // A route, taxpayer or year change invalidates a previously opened record.
   // Never carry another scope's drawer or receipt into the next account view.
   useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear]);
@@ -255,18 +259,18 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     return()=>{active=false;window.clearInterval(timer);};
   },[current,correctionRefreshKey,taxpayerTin,taxpayerTab]);
   const goto = (id:PaymentPage) => navigate(`/payments/${id}`);
-  const view = (record:TableRow,title:string) => setDetails({record,title});
-  const isTransactionDetails = details?.title === t('transactions');
+  const view = (record:TableRow,title:string) => setDetails({record,title,scope:detailsScope});
+  const isTransactionDetails = visibleDetails?.title === t('transactions');
   // The 360 payment drawer receives the same canonical SQL parent as Transactions.
   // Its display is independently scoped to the selected TIN and year below.
   const selectedStoryPayment = isTransactionDetails &&
     (current === 'transactions' || current === 'taxpayer-360' || current === 'overview')
-    ? storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? '')) ?? null
+    ? storyPayments.find(payment => payment.id === String(visibleDetails?.record.payment_ref ?? '')) ?? null
     : null;
-  const selectedCorrectionId=typeof details?.record.__correctionInquiryId==='string'
-    ?details.record.__correctionInquiryId:null;
-  const selectedCorrectionActions=Array.isArray(details?.record.__correctionAvailableActions)
-    ?details.record.__correctionAvailableActions as CorrectionReviewAction[]:[];
+  const selectedCorrectionId=typeof visibleDetails?.record.__correctionInquiryId==='string'
+    ?visibleDetails.record.__correctionInquiryId:null;
+  const selectedCorrectionActions=Array.isArray(visibleDetails?.record.__correctionAvailableActions)
+    ?visibleDetails.record.__correctionAvailableActions as CorrectionReviewAction[]:[];
   const correctionActionLabel=(action:CorrectionReviewAction)=>
     t(`officeCorrectionAction.${action}`,{defaultValue:action.replace(/_/g,' ')});
 
@@ -613,14 +617,14 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   return <div className="table-page payment-module" data-testid={`payment-${current}`}>
     {current==='overview'?overview():current==='transactions'?transactions():current==='taxpayer-360'?taxpayer():current==='corrections'?corrections():current==='incidents'?incidents():current==='offline-events'?offline():analytics()}
     <OfficeTransactionDrawer
-      row={isTransactionDetails ? details?.record ?? null : null}
+      row={isTransactionDetails ? visibleDetails?.record ?? null : null}
       source={selectedStoryPayment}
       scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}
       scopeYear={isTransactionDetails && current==='taxpayer-360' ? scopeYear : undefined}
       onClose={() => setDetails(null)}
     />
-    <DynamicDetailsDrawer open={details!==null && !isTransactionDetails} onClose={() => setDetails(null)}
-      title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
+    <DynamicDetailsDrawer open={visibleDetails!==null && !isTransactionDetails} onClose={() => setDetails(null)}
+      title={visibleDetails?.title} rowData={!isTransactionDetails ? visibleDetails?.record ?? null : null}
       extraFooterActions={selectedCorrectionId&&selectedCorrectionActions.length>0?<div className="flex flex-wrap gap-2">
         {selectedCorrectionActions.map(action=>{
           const startReview=action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
@@ -631,7 +635,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
         })}
       </div>:undefined}
       renderValue={(key,value)=>key==='payment_type'?<PaymentCategoryTag value={String(value??'')}/>:undefined}
-      columns={Object.keys(!isTransactionDetails ? details?.record??{} : {}).filter(key=>key!=='key'&&!key.startsWith('__')).map(key=>({
+      columns={Object.keys(!isTransactionDetails ? visibleDetails?.record??{} : {}).filter(key=>key!=='key'&&!key.startsWith('__')).map(key=>({
         key,label:t(`field_${key}`,{defaultValue:key.replace(/_/g,' ').replace(/\\b\\w/g,s=>s.toUpperCase())}),
         groupLabel:
           ['taxpayer_name','tin','payer_name','taxpayer'].includes(key)?t('drawerTaxpayer'):
