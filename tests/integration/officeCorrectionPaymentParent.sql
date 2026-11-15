@@ -9,6 +9,7 @@ DECLARE
   v_inquiry uuid := '80000000-0000-4000-8000-000000000002';
   v_stored uuid;
   v_kind text;
+  v_allocation text;
 BEGIN
   v_event:=pg_catalog.jsonb_build_object(
     'schemaVersion','1.0.0','eventId','80000000-0000-4000-8000-000000000001',
@@ -19,6 +20,7 @@ BEGIN
       'originalReference','SYN-PARENT-0001',
       'originalPaymentId',v_parent,
       'originalPaymentKind','TAXPAY_STORY_PAYMENT',
+      'targetAllocationId','ws3-verified-other-recipient',
       'caseKind','UNSOLICITED_PAYMENT_REPORT',
       'reason','Synthetic parent-link correction test',
       'requestedOutcome','Review the linked synthetic payment',
@@ -30,9 +32,10 @@ BEGIN
   IF v_result->>'stored'<>'true' OR v_result->>'duplicate'<>'false' THEN
     RAISE EXCEPTION 'Parent-linked correction event was not stored';
   END IF;
-  SELECT source_payment_id,source_payment_kind INTO v_stored,v_kind
+  SELECT source_payment_id,source_payment_kind,target_allocation_id INTO v_stored,v_kind,v_allocation
     FROM payment_sync.correction_mirrors WHERE inquiry_id=v_inquiry;
-  IF v_stored IS DISTINCT FROM v_parent OR v_kind IS DISTINCT FROM 'TAXPAY_STORY_PAYMENT' THEN
+  IF v_stored IS DISTINCT FROM v_parent OR v_kind IS DISTINCT FROM 'TAXPAY_STORY_PAYMENT'
+     OR v_allocation IS DISTINCT FROM 'ws3-verified-other-recipient' THEN
     RAISE EXCEPTION 'Office mirror did not preserve the source payment parent ID';
   END IF;
 
@@ -147,7 +150,8 @@ BEGIN
     WHERE value->>'requestId'='80000000-0000-4000-8000-000000000002';
   IF v_item->>'sourcePaymentId'<>'80000000-0000-4000-8000-000000000041'
      OR v_item->>'sourcePaymentKind'<>'TAXPAY_STORY_PAYMENT'
-     OR v_item->>'caseKind'<>'UNSOLICITED_PAYMENT_REPORT' THEN
+     OR v_item->>'caseKind'<>'UNSOLICITED_PAYMENT_REPORT'
+     OR v_item->>'targetAllocationId'<>'ws3-verified-other-recipient' THEN
     RAISE EXCEPTION 'Office correction queue omitted the exact source payment parent';
   END IF;
   IF jsonb_array_length(v_item->'decisionHistory')<>2
@@ -177,6 +181,7 @@ BEGIN
     FROM jsonb_array_elements(v_queue->'items') AS item(value)
     WHERE value->>'requestId'='80000000-0000-4000-8000-000000000006';
   IF v_item->'sourcePaymentId'<>'null'::jsonb
+     OR v_item->'targetAllocationId'<>'null'::jsonb
      OR v_item->'sourcePaymentKind'<>'null'::jsonb
      OR v_item->>'caseKind'<>'CORRECTION_REVIEW' THEN
     RAISE EXCEPTION 'Legacy queue item was incorrectly assigned a payment parent';
