@@ -10,6 +10,7 @@ const module=read('src/app/pages/payments/PaymentModulePage.tsx');
 const list=read('src/app/pages/payments/PaymentRecordList.tsx');
 const ledger=read('src/app/pages/payments/OfficeTaxpayer360Ledger.tsx');
 const ledgerProjection=read('src/app/pages/payments/officeTaxpayer360LedgerModel.ts');
+const guardedLedger=read('src/app/pages/payments/OfficeGuardedLedgerPanel.tsx');
 
 describe('Office taxpayer register/detail navigation',()=>{
   it('opens a separate taxpayer detail route without changing the navigation shell',()=>{
@@ -22,6 +23,12 @@ describe('Office taxpayer register/detail navigation',()=>{
     // Reusing the Payments page cannot leave a prior taxpayer's detail/receipt visible.
     expect(module).toContain('useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear]);');
     expect(module).toContain("scopeTin={isTransactionDetails && current==='taxpayer-360' ? taxpayerTin : undefined}");
+  });
+  it('keeps the guarded external source distinct and closes details when the scope changes',()=>{
+    expect(ledger).toContain('<OfficeGuardedLedgerPanel taxpayerTin={taxpayerTin}');
+    expect(guardedLedger).toContain('getGuardedOfficeLedger(taxpayerTin)');
+    expect(guardedLedger).toContain('useEffect(()=>{setSelected(null);},[year,fromDate,toDate,language]);');
+    expect(guardedLedger).toContain('showActions={false}');
   });
   it('reuses the canonical Office table, including search and pagination',()=>{
     expect(module).toContain('PaymentRecordList kind="taxpayers"');
