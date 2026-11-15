@@ -209,7 +209,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const visibleDetails=details?.scope===detailsScope?details:null;
   // A route, taxpayer or year change invalidates a previously opened record.
   // Never carry another scope's drawer or receipt into the next account view.
-  useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear]);
+  useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear,i18n.resolvedLanguage]);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
   const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
   const [officeCorrectionError,setOfficeCorrectionError] = useState('');
