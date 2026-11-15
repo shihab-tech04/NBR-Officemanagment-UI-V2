@@ -89,6 +89,26 @@ describe("Office correction review SQL adapter", () => {
     });
   });
 
+  it("preserves the verified source allocation and rejects an orphan allocation", async () => {
+    const parent = {
+      ...correction,
+      sourcePaymentId: "80000000-0000-4000-8000-000000000041",
+      sourcePaymentKind: "TAXPAY_STORY_PAYMENT",
+      targetAllocationId: "ws3-verified-other-recipient",
+    };
+    setupClient([{ data: { role: "MAKER", items: [parent], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({
+      items: [{ requestId: correction.requestId,
+        targetAllocationId: "ws3-verified-other-recipient" }],
+    });
+    setupClient([{ data: { role: "MAKER", items: [{
+      ...correction, targetAllocationId: "ws3-unverified-allocation",
+    }], nextCursor: null }, error: null }]);
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow(
+      "Invalid correction target allocation",
+    );
+  });
+
   it("follows every correction page using the exact timestamp and UUID cursor", async () => {
     const nextCursor = { receivedAt: "2026-10-29T17:00:00.000Z", requestId: correction.requestId };
     const older = { ...correction, requestId: "80000000-0000-4000-8000-000000000002" };
