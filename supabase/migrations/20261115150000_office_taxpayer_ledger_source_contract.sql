@@ -13,7 +13,7 @@ CREATE TABLE office_ledger_private.source_events (
  source_allocation_id text,
  source_revision bigint NOT NULL DEFAULT 1 CHECK (source_revision>0),
  taxpayer_tin text NOT NULL CHECK (taxpayer_tin ~ '^[0-9]{12}$'),
- dhara text, payment_source text NOT NULL,
+ dhara text, payment_source text NOT NULL CHECK (length(btrim(payment_source))>0),
  amount_minor bigint NOT NULL CHECK (amount_minor>=0),
  assessment_year text, event_date timestamptz NOT NULL,
  original_reference text, entry_kind text NOT NULL CHECK
@@ -31,6 +31,9 @@ CREATE TABLE office_ledger_private.source_events (
    (evidence_sha256 ~ '^[0-9a-f]{64}$' AND
     reconciliation_provenance ? 'officialSourceRecordId'
     AND reconciliation_provenance ? 'verifiedAt')
+ ),
+ CONSTRAINT verified_dhara_required CHECK (
+   verification_status<>'VERIFIED' OR NULLIF(btrim(dhara),'') IS NOT NULL
  ),
  CONSTRAINT verified_credit_reference_required CHECK (
    verification_status<>'VERIFIED' OR entry_kind<>'CREDIT' OR
