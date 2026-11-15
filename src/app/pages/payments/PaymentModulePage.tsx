@@ -35,6 +35,7 @@ import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTax
 import {getOfficeTaxpayerRegistrations,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
+import {partitionOfficeCorrectionCases} from './officeCorrectionCaseCategories';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
 import { localizeRecordValue } from '../../utils/recordDisplay';
 import {
@@ -224,6 +225,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     setDetails({record:toStoryPaymentRow(match),title:t('transactions')});
   },[paymentId,current,storyLoading,storyPayments,t]);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
+  const [correctionQueueTab,setCorrectionQueueTab]=useState<'corrections'|'reports'>('corrections');
   const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
   const [officeCorrectionError,setOfficeCorrectionError] = useState('');
   const [correctionRefreshKey,setCorrectionRefreshKey] = useState(0);
@@ -406,6 +408,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const correctionStateLabel=(state:string)=>t(`officeCorrectionState.${state}`,{defaultValue:state.replace(/_/g,' ')});
+  const caseCategories=partitionOfficeCorrectionCases(officeCorrectionQueue.items);
   const officeCorrectionRows:TableRow[]=officeCorrectionQueue.items.map((item:OfficeCorrectionInquiry)=>({
     key:`office-correction:${item.requestId}`,
     id:`COR-${item.requestId.slice(0,8).toUpperCase()}`,
@@ -417,6 +420,9 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     original_reference:item.originalReference,
     requested_outcome:item.requestedOutcome,
     supporting_evidence:item.evidenceNote??'—',
+    case_type:item.caseKind==='UNSOLICITED_PAYMENT_REPORT'
+      ?(i18n.resolvedLanguage?.startsWith('bn')?'অনাকাঙ্ক্ষিত পেমেন্ট প্রতিবেদন':'Unsolicited payment report')
+      :(i18n.resolvedLanguage?.startsWith('bn')?'সংশোধন পর্যালোচনা':'Correction review'),
     evidence_state:item.evidenceState,
     change_kind:item.changeKind??'—',
     old_value:item.oldValue??'—',
@@ -448,7 +454,12 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     .map(item=>item.inquiry.requestId));
   const taxpayerCorrectionRows=officeCorrectionRows.filter(row=>taxpayerCorrectionIds.has(String(row.__correctionInquiryId)));
   // Never interleave illustrative cases with an operational correction queue.
-  const corrRows=[...localRecords.corrections,...officeCorrectionRows];
+  const correctionCaseIds=new Set(caseCategories.corrections.map(item=>item.requestId));
+  const reportCaseIds=new Set(caseCategories.reports.map(item=>item.requestId));
+  const correctionReviewRows=[...localRecords.corrections,
+    ...officeCorrectionRows.filter(row=>correctionCaseIds.has(String(row.__correctionInquiryId)))];
+  const reportRows=officeCorrectionRows.filter(row=>reportCaseIds.has(String(row.__correctionInquiryId)));
+  const corrRows=correctionQueueTab==='reports'?reportRows:correctionReviewRows;
   const incidentRows=localRecords.incidents;
   // No verified SQL-backed offline-event reader is connected; show only unsent drafts.
   const offlineRows=[...localRecords['offline-events']];
@@ -619,9 +630,21 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       {t('officeCorrectionRole')}: {t(`officeCorrectionRoleNames.${officeCorrectionQueue.role}`,{defaultValue:officeCorrectionQueue.role})}
       {' · '}{officeCorrectionQueue.items.length} {t('officeCorrectionItems')}
     </p>}
-    <p className="table-page__desc" role="note">{i18n.resolvedLanguage?.startsWith('bn')
-      ?'এখানে শুধু সংযুক্ত সংশোধন আবেদন ও এই সেশনে তৈরি খসড়া দেখানো হচ্ছে। খসড়া SQL বা করদাতা পোর্টালে জমা হয়নি।'
-      :'Only connected correction inquiries and drafts from this session are listed. Drafts are not submitted to SQL or the taxpayer portal.'}</p>
+    <div className="payment-module__tab-scroll" data-testid="office-separate-payment-report-queue">
+      <TabBar active={correctionQueueTab}
+        onChange={value=>setCorrectionQueueTab(value==='reports'?'reports':'corrections')}
+        tabs={[
+          {id:'corrections',label:(i18n.resolvedLanguage?.startsWith('bn')?'সংশোধনের আবেদন':'Correction requests')+' ('+correctionReviewRows.length+')'},
+          {id:'reports',label:(i18n.resolvedLanguage?.startsWith('bn')?'পেমেন্টের প্রতিবেদন':'Payment reports')+' ('+reportRows.length+')'},
+        ]}/>
+    </div>
+    <p className="table-page__desc" role="note">{correctionQueueTab==='reports'
+      ?(i18n.resolvedLanguage?.startsWith('bn')
+        ?'শুধু করদাতার করা অনাকাঙ্ক্ষিত পেমেন্টের রিপোর্ট। এগুলো যাচাই বা আর্থিক সংশোধনের প্রমাণ নয়।'
+        :'Recipient-reported unsolicited payments only. Reports are not proof of verified ownership, settlement or financial correction.')
+      :(i18n.resolvedLanguage?.startsWith('bn')
+        ?'এখানে শুধু সংযুক্ত সংশোধন আবেদন ও এই সেশনে তৈরি খসড়া দেখানো হচ্ছে। খসড়া SQL বা করদাতা পোর্টালে জমা হয়নি।'
+        :'Only connected correction inquiries and drafts from this session are listed. Drafts are not submitted to SQL or the taxpayer portal.')}</p>
     {table(keys.correction,corrRows,'corrections',queueFilters,correctionMapping)}
   </>;
   const incidents=()=> <>
