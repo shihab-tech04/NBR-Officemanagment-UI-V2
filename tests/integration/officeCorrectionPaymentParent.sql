@@ -211,6 +211,11 @@ BEGIN
     RAISE EXCEPTION 'Correction page two returned a duplicate or skipped case';
   END IF;
   SELECT value INTO v_item FROM jsonb_array_elements(v_page_two->'items') AS item(value);
+  -- The latest audit view must project the source-linked allocation column
+  -- into its page CTE, even when a historical record has no allocation ID.
+  IF NOT (v_item ? 'targetAllocationId') THEN
+    RAISE EXCEPTION 'Paged correction queue omitted target allocation field';
+  END IF;
   IF v_item->>'sourceEventId'<>'80000000-0000-4000-8000-000000000001'
      OR v_item->>'sourceEventType'<>'CORRECTION_SUBMITTED' THEN
     RAISE EXCEPTION 'Paged correction history lost the original Taxpayer SQL source event identity';
