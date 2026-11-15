@@ -15,6 +15,8 @@ on:
       - 'tests/integration/officeLegacyRpcPrivacy.sql'
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/functions/demo-story1-office/index.ts'
+      - 'supabase/functions/office-handoff-api/index.ts'
+      - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
@@ -29,6 +31,8 @@ on:
       - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/functions/demo-story1-office/index.ts'
+      - 'supabase/functions/office-handoff-api/index.ts'
+      - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
@@ -94,6 +98,8 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
+      - name: Verify server-only synthetic Edge gateway and route allowlist
+        run: node --test tests/integration/officeHandoffRpcBoundary.test.mjs
       - name: Verify service-only legacy SECURITY DEFINER RPC grants (disposable)
         env:
           PGHOST: 127.0.0.1
