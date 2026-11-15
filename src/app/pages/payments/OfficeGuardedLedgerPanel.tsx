@@ -25,6 +25,8 @@ export function OfficeGuardedLedgerPanel({taxpayerTin,year,language,fromDate,toD
   const [refresh,setRefresh]=useState(0);
   const [state,setState]=useState<State>(()=>initial(taxpayerTin));
   const [selected,setSelected]=useState<TableRow|null>(null);
+  // Scope and language changes invalidate any previously opened source detail.
+  useEffect(()=>{setSelected(null);},[year,fromDate,toDate,language]);
   useEffect(()=>{
     let active=true;
     setSelected(null);
