@@ -203,6 +203,9 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   },[current]);
   const [analyticsTab,setAnalyticsTab] = useState('insights');
   const [details,setDetails] = useState<Details>(null);
+  // A route, taxpayer or year change invalidates a previously opened record.
+  // Never carry another scope's drawer or receipt into the next account view.
+  useEffect(()=>{setDetails(null);},[current,taxpayerTin,scopeYear]);
   const [officeCorrectionQueue,setOfficeCorrectionQueue] = useState<OfficeCorrectionQueue>({enabled:false,role:null,items:[]});
   const [officeCorrectionLoading,setOfficeCorrectionLoading] = useState(false);
   const [officeCorrectionError,setOfficeCorrectionError] = useState('');
