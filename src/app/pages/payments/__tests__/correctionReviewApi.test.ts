@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAuditSqlClient, isSharedAuditMode } from "../../audit/auditSharedSql";
-import { listOfficeCorrectionInquiries, submitOfficeCorrectionDecision } from "../correctionReviewApi";
+import { listOfficeCorrectionInquiries, submitOfficeCorrectionDecision, submitOfficeInitiatedCorrection, listOfficeInitiatedCorrections } from "../correctionReviewApi";
 
 vi.mock("../../audit/auditSharedSql", () => ({
   getAuditSqlClient: vi.fn(),
@@ -253,5 +253,49 @@ describe("Office correction review SQL adapter", () => {
   it("surfaces SQL errors without substituting local correction rows", async () => {
     setupClient([{ data: null, error: { message: "Active payment officer role required" } }]);
     await expect(listOfficeCorrectionInquiries()).rejects.toThrow("Active payment officer role required");
+  });
+});
+
+describe("P6 Office initiated correction is durable, bounded and identity scoped",()=>{
+  const input={
+    paymentId:"80000000-0000-4000-8000-000000000041",
+    taxpayerTin:"111111111111",originalReference:"SYN-PARENT-0001",
+    reason:"The payer selected the wrong assessment year for this original payment",
+    requestedOutcome:"Please review the original allocation and its assessment year",
+    evidenceNote:"বাংলা বিবরণ: পুরোনো চালান এবং প্রাসঙ্গিক নথির তথ্য।",
+    idempotencyKey:"80000000-0000-4000-8000-000000000071",
+  };
+  it("uses the current authorized Office session, stable idempotency and exact SQL RPC",async()=>{
+    const client=setupClient([{
+      data:{caseId:"80000000-0000-4000-8000-000000000081",queued:true,replayed:false},
+      error:null,
+    }]);
+    const result=await submitOfficeInitiatedCorrection(input);
+    expect(result.queued).toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_office_initiate_correction",{
+      p_payment_id:input.paymentId,p_taxpayer_tin:input.taxpayerTin,
+      p_original_reference:input.originalReference,p_reason:input.reason,
+      p_requested_outcome:input.requestedOutcome,p_evidence_note:input.evidenceNote,
+      p_idempotency_key:input.idempotencyKey,
+    });
+  });
+  it("rejects forged or oversized input before any writable RPC",async()=>{
+    const client=setupClient();
+    await expect(submitOfficeInitiatedCorrection({...input,taxpayerTin:"000"})).rejects.toThrow();
+    await expect(submitOfficeInitiatedCorrection({...input,evidenceNote:"x".repeat(2001)})).rejects.toThrow();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+  it("reads pending Office origin status without inventing a taxpayer confirmation",async()=>{
+    setupClient([{data:{role:"MAKER",items:[{
+      caseId:"80000000-0000-4000-8000-000000000081",
+      sourcePaymentId:input.paymentId,originalReference:input.originalReference,
+      taxpayerTin:input.taxpayerTin,reason:input.reason,
+      requestedOutcome:input.requestedOutcome,evidenceNote:input.evidenceNote,
+      officerRole:"MAKER",createdAt:"2026-11-16T04:10:00Z",
+      deliveryState:"ACKNOWLEDGED",sourceConfirmed:false,sourceReviewState:null,
+    }]},error:null}]);
+    await expect(listOfficeInitiatedCorrections()).resolves.toMatchObject([
+      {sourceConfirmed:false,deliveryState:"ACKNOWLEDGED"},
+    ]);
   });
 });
