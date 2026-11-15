@@ -274,4 +274,41 @@ BEGIN
 END;
 $officer$;
 RESET ROLE;
+-- Synthetic two-allocation ledger pagination: local transaction, rolled back.
+DO $paging_fixture$
+DECLARE v_id uuid:=gen_random_uuid();
+BEGIN
+ PERFORM public.demo_story1_mirror(jsonb_build_object(
+  'id',v_id,'sessionId',gen_random_uuid(),'service','OTHER_TAX_PAYMENT',
+  'amountMinor',6000,'status','SIMULATED_SUCCESS','createdAt','2026-10-01T00:00:00Z',
+  'data',jsonb_build_object('origin','TAXPAY_UI','details',
+   jsonb_build_object('receiptReference','WS3-SINGLE-PARENT',
+    'allocations',jsonb_build_array(
+     jsonb_build_object('allocationId','WS3-LINE-A','taxpayerTin','222222222222','amountMinor',2000),
+     jsonb_build_object('allocationId','WS3-LINE-B','taxpayerTin','222222222222','amountMinor',4000))))));
+END;
+$paging_fixture$;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','d1000000-0000-4000-8000-000000000001',true);
+DO $paging_check$
+DECLARE v_rows jsonb;v_offset integer;v_first jsonb;v_second jsonb;v_round integer;
+BEGIN
+ v_rows:=public.payment_v1_office_guarded_taxpayer_ledger('222222222222',200,0);
+ SELECT ord::integer-1 INTO v_offset
+ FROM jsonb_array_elements(v_rows->'items') WITH ORDINALITY AS x(item,ord)
+ WHERE item->>'sourceAllocationId'='WS3-LINE-A';
+ IF v_offset IS NULL THEN RAISE EXCEPTION 'LEDGER_LINE_A_NOT_FOUND'; END IF;
+ FOR v_round IN 1..3 LOOP
+  v_first:=public.payment_v1_office_guarded_taxpayer_ledger('222222222222',1,v_offset);
+  v_second:=public.payment_v1_office_guarded_taxpayer_ledger('222222222222',1,v_offset+1);
+  IF v_first#>>'{items,0,sourceAllocationId}'<>'WS3-LINE-A'
+    OR v_second#>>'{items,0,sourceAllocationId}'<>'WS3-LINE-B'
+    OR v_first#>>'{items,0,amountMinor}'<>'2000'
+    OR v_second#>>'{items,0,amountMinor}'<>'4000'
+    OR v_first->>'verifiedExternalCreditMinor'<>'1000'
+  THEN RAISE EXCEPTION 'LEDGER_SAME_PARENT_PAGINATION_REGRESSION'; END IF;
+ END LOOP;
+END;
+$paging_check$;
+RESET ROLE;
 ROLLBACK;
