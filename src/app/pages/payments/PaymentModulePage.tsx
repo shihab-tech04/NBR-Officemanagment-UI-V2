@@ -30,6 +30,7 @@ import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
+import { OfficeTaxpayer360Ledger } from './OfficeTaxpayer360Ledger';
 import {getOfficeTaxpayerRegistrations,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
@@ -146,6 +147,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
   const [liveNotices,setLiveNotices] = useState<SimulationNotice[]>([]);
   const [storyPayments,setStoryPayments] = useState<StoryPayment[]>([]);
   const [storyNotices,setStoryNotices] = useState<StoryNotice[]>([]);
+  const [ledgerReload,setLedgerReload]=useState(0);
   const [storyLoading,setStoryLoading]=useState(true);
   const [storyError,setStoryError]=useState('');
   // This fictional-payment feed has no officer login or verification dependency.
@@ -161,7 +163,7 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
     // A full payment read spans multiple SQL pages; never overlap refreshes.
     const timer=window.setInterval(()=>void refresh(),30000);
     return()=>{mounted=false;window.clearInterval(timer);};
-  },[]);
+  },[ledgerReload]);
   const [liveError,setLiveError] = useState('');
   const [liveLoading,setLiveLoading] = useState(true);
   const [kpiOpen,setKpiOpen] = useState(true);
@@ -533,7 +535,12 @@ export function PaymentModulePage({page,taxpayerTin}: {page: string;taxpayerTin?
       taxpayerTab==='taxPosition' ? <section className="card payment-module__card"><h2>{t('taxPosition')}</h2><p className="table-page__desc">{t('taxPositionNotVerified')}</p></section> :
       taxpayerTab==='taxJourney' ? <OfficeTaxJourney entries={taxpayerJourneyEntries}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
-      taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
+      taxpayerTab==='ledger' ? <OfficeTaxpayer360Ledger
+         snapshot={taxpayerActivity} taxpayerTin={selectedTin} year={scopeYear}
+         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
+         loading={storyLoading} error={storyError}
+         onRetry={()=>{setStoryLoading(true);setLedgerReload(v=>v+1);}}
+         onOpen={row=>view(row,t('transactions'))}/> :
       taxpayerTab==='notices' ? taxpayerActivity
         ? <OfficeTaxpayer360Notices snapshot={taxpayerActivity}
             language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
