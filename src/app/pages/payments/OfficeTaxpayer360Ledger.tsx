@@ -3,6 +3,7 @@ import {AppDateField} from '../../components/forms/AppDateField';
 import {SecondaryButton} from '../../components/buttons/SecondaryButton';
 import {PaymentRecordList} from './PaymentRecordList';
 import {officeMoney} from './officeTransactionDetails';
+import {OfficeGuardedLedgerPanel} from './OfficeGuardedLedgerPanel';
 import {OFFICE_MIRROR_SOURCE,projectOfficeTaxpayer360Ledger} from './officeTaxpayer360LedgerModel';
 import type {TaxpayerActivitySnapshot} from './officeTaxpayerActivity';
 import type {ColDef,FilterDef,TableRow} from '../modulePageUtils';
@@ -125,5 +126,7 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
           meta:['assessment_year','source_system','dhara','credit_status'],status:'ledger_stage',
           date:'date',amount:'amount'}} onOpen={onOpen}/>
     </>}
+    {!invalidRange&&<OfficeGuardedLedgerPanel taxpayerTin={taxpayerTin} year={year}
+      language={language} fromDate={fromDate} toDate={toDate}/>}
   </section>;
 }
