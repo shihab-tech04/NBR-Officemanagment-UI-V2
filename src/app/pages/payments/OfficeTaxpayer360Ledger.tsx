@@ -26,12 +26,24 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
     ?projectOfficeTaxpayer360Ledger(snapshot,taxpayerTin,year,fromDate,toDate)
     :null,[snapshot,taxpayerTin,year,fromDate,toDate]);
   const rows=view?.rows??[];
-  const years=Array.from(new Set(rows.flatMap(row=>String(row.assessment_year??'')
+  // Localize the mirrored state only at the display boundary. Keep underlying
+  // source records and taxpayer/amount attribution unchanged.
+  const displayedRows=useMemo(()=>rows.map(row=>({
+    ...row,
+    source_system:row.source_system===OFFICE_MIRROR_SOURCE
+      ?(bn?'অফিস SQL পেমেন্ট প্রতিলিপি':OFFICE_MIRROR_SOURCE):row.source_system,
+    ledger_stage:row.ledger_stage==='Pending'?(bn?'অপেক্ষমাণ':'Pending')
+      :row.ledger_stage==='Failed'?(bn?'ব্যর্থ':'Failed')
+      :row.ledger_stage==='Cancelled'?(bn?'বাতিল':'Cancelled')
+      :row.ledger_stage==='Unverified'?(bn?'যাচাই হয়নি':'Unverified'):row.ledger_stage,
+    credit_status:row.credit_status==='Not verified'?(bn?'যাচাই হয়নি':'Not verified'):row.credit_status,
+  })),[view,bn]);
+  const years=Array.from(new Set(displayedRows.flatMap(row=>String(row.assessment_year??'')
     .split(',').map(y=>y.trim()).filter(y=>y&&y!=='—')))).sort().reverse();
-  const stages=Array.from(new Set(rows.map(row=>String(row.ledger_stage??''))
+  const stages=Array.from(new Set(displayedRows.map(row=>String(row.ledger_stage??''))
     .filter(Boolean))).sort();
   const filters:FilterDef[]=[
-    {key:'source_system',label:t('Source','উৎস'),type:'select',options:['All',OFFICE_MIRROR_SOURCE]},
+    {key:'source_system',label:t('Source','উৎস'),type:'select',options:['All',bn?'অফিস SQL পেমেন্ট প্রতিলিপি':OFFICE_MIRROR_SOURCE]},
     {key:'dhara',label:t('Dhara (section)','ধারা'),type:'select',options:['All']},
     {key:'assessment_year',label:t('Assessment year','করবর্ষ'),type:'select',options:['All',...years]},
     {key:'ledger_stage',label:t('Record stage','রেকর্ডের অবস্থা'),type:'select',options:['All',...stages]}
@@ -45,6 +57,7 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
     col('dhara','Dhara','ধারা'),
     col('amount','Recorded amount','নথিভুক্ত পরিমাণ','right'),
     col('ledger_stage','Record stage','রেকর্ডের অবস্থা'),
+    col('credit_status','Tax credit status','কর ক্রেডিটের অবস্থা'),
     col('source_system','Source','উৎস'),
     col('payment_ref','Source reference','উৎস রেফারেন্স')
   ];
@@ -69,6 +82,9 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
         'The end date must be on or after the start date.',
         'শেষের তারিখ শুরুর তারিখের আগে হতে পারবে না।'
       )}</p>}
+      {(fromDate||toDate)&&<SecondaryButton size="sm" onClick={()=>{setFromDate('');setToDate('');}}>
+        {t('Clear date filters','তারিখের ফিল্টার মুছুন')}
+      </SecondaryButton>}
     </section>
     {loading&&<p className="table-page__desc" role="status">{t(
       'Loading linked payment records…','সংযুক্ত পেমেন্ট রেকর্ড লোড হচ্ছে…'
@@ -84,20 +100,20 @@ export function OfficeTaxpayer360Ledger({snapshot,taxpayerTin,year,language,load
       'এই করদাতা ও নির্বাচিত ফিল্টারে কোনো সংযুক্ত পেমেন্ট রেকর্ড পাওয়া যায়নি।'
     )}</p>}
     {!loading&&!error&&!invalidRange&&rows.length>0&&<>
-      <section className="card payment-module__card" aria-label={t('Recorded amount reconciliation','নথিভুক্ত অর্থের সমন্বয়')}>
+      <section className="card payment-module__card" aria-label={t('Saved payment amount summary','সংরক্ষিত পেমেন্টের পরিমাণের সারাংশ')}>
         <p className="table-page__desc">{t('Linked recorded payment entries','সংযুক্ত পেমেন্ট এন্ট্রি')}: {new Intl.NumberFormat(bn?'bn-BD':'en-BD').format(rows.length)}</p>
-        <p className="font-semibold">{t('Reconciled saved record amount','সমন্বিত সংরক্ষিত রেকর্ডের পরিমাণ')}: {
+        <p className="font-semibold">{t('Recorded saved payment amount','সংরক্ষিত পেমেন্টের নথিভুক্ত পরিমাণ')}: {
           view?.recordedSavedAmountMinor===null?'—':officeMoney(view?.recordedSavedAmountMinor??0,language)
         }</p>
         <p className="table-page__desc">{t(
-          'This amount covers reconciled saved records only; it is not a verified tax credit.',
-          'শুধু সমন্বিত সংরক্ষিত রেকর্ডের পরিমাণ; এটি যাচাইকৃত কর ক্রেডিট নয়।'
+          'This sum covers only saved recorded payments; it is not Treasury settlement or verified tax credit.',
+          'শুধু নথিভুক্ত সংরক্ষিত পেমেন্টের যোগফল; এটি ট্রেজারি নিষ্পত্তি বা যাচাইকৃত কর ক্রেডিট নয়।'
         )}</p>
       </section>
       <PaymentRecordList kind="transactions" title={t('Recorded ledger entries','নথিভুক্ত লেজার এন্ট্রি')}
-        rows={rows} columns={columns} filters={filters}
+        rows={displayedRows} columns={columns} filters={filters}
         mobileMapping={{primary:'payment_type',identifier:'payment_ref',
-          meta:['assessment_year','source_system','dhara','ledger_stage'],status:'ledger_stage',
+          meta:['assessment_year','source_system','dhara','credit_status'],status:'ledger_stage',
           date:'date',amount:'amount'}} onOpen={onOpen}/>
     </>}
   </section>;
