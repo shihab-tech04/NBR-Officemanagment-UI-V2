@@ -30,6 +30,8 @@ export type OfficeCorrectionInquiry = {
   caseKind?: "CORRECTION_REVIEW" | "UNSOLICITED_PAYMENT_REPORT";
   reason: string;
   requestedOutcome: string;
+  /** Unverified taxpayer-supplied evidence, preserved from source SQL. */
+  evidenceNote?: string | null;
   evidenceState: "PENDING_EVIDENCE";
   changeKind: string | null;
   oldValue: string | null;
@@ -124,6 +126,11 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
     if (caseKind !== "CORRECTION_REVIEW" && caseKind !== "UNSOLICITED_PAYMENT_REPORT") {
       throw new Error("Invalid correction case category");
     }
+    const evidenceNote = row.evidenceNote;
+    if (evidenceNote !== undefined && evidenceNote !== null &&
+        (typeof evidenceNote !== 'string' || evidenceNote.length > 2000)) {
+      throw new Error('Invalid correction supporting evidence');
+    }
     const sourcePaymentId = parentIdMissing ? null : rawParentId as string;
     const sourcePaymentKind = parentKindMissing ? null : "TAXPAY_STORY_PAYMENT" as const;
     const rawHistory = row.decisionHistory;
@@ -176,6 +183,7 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
       caseKind,
       reason: row.reason as string,
       requestedOutcome: row.requestedOutcome as string,
+      evidenceNote: typeof evidenceNote === 'string' ? evidenceNote : null,
       evidenceState: "PENDING_EVIDENCE",
       changeKind: typeof row.changeKind === "string" ? row.changeKind : null,
       oldValue: typeof row.oldValue === "string" ? row.oldValue : null,
