@@ -37,4 +37,24 @@ describe('Office Taxpayer 360 read-only ledger projection',()=>{
     expect(result.rows).toEqual([]);
     expect(result.recordedSavedAmountMinor).toBe(0);
   });
+  it('does not attribute payments made for another taxpayer to the payer',()=>{
+    const paidForOther:StoryPayment={
+      ...payment('payment-for-another',other,'2026-09-01T10:00:00Z','SIMULATED_SUCCESS',7000),
+      details:{taxpayerTin:other,assessmentYear:'2026-27',payerId:'user1',payerMode:'OTHER'}
+    };
+    const ownSnapshot=summarizeTaxpayerRecordedActivity([...all,paidForOther],[],tin,'all');
+    const result=projectOfficeTaxpayer360Ledger(ownSnapshot,tin,'all');
+    expect(result.rows.map(x=>x.payment_ref)).not.toContain('payment-for-another');
+    expect(result.recordedSavedAmountMinor).toBe(5000);
+    expect(result.hasAuthoritativeDhara).toBe(false);
+  });
+  it('excludes source records with invalid dates when a date range is applied',()=>{
+    const invalidSnapshot=summarizeTaxpayerRecordedActivity(
+      [payment('bad-date',tin,'not-a-timestamp','SIMULATED_SUCCESS')],[],tin,'all');
+    const filtered=projectOfficeTaxpayer360Ledger(invalidSnapshot,tin,'all','2026-01-01','2026-12-31');
+    expect(filtered.rows).toEqual([]);
+    expect(filtered.recordedSavedAmountMinor).toBe(0);
+    expect(filtered.hasAuthoritativeDhara).toBe(false);
+  });
+
 });
