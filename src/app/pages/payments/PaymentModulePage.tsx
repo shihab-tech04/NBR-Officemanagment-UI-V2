@@ -415,6 +415,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     status:correctionStateLabel(item.reviewState),
     original_reference:item.originalReference,
     requested_outcome:item.requestedOutcome,
+    supporting_evidence:item.evidenceNote??'—',
     evidence_state:item.evidenceState,
     change_kind:item.changeKind??'—',
     old_value:item.oldValue??'—',
