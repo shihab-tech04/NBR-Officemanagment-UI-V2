@@ -51,6 +51,16 @@ describe('WS4 officer-only evidence ledger source',()=>{
     expect(()=>parseGuardedOfficeLedger({...page([recorded]),mirroredSohojkorCreditVerified:true},tin,0)).toThrow();
     expect(()=>parseGuardedOfficeLedger(page([recorded]),tin,200)).toThrow();
   });
+  it('rejects calendar-invalid timestamps and impossible verification dates',()=>{
+    expect(()=>parseGuardedOfficeLedger(page([
+      {...recorded,eventDate:'2026-02-30T10:00:00Z'}
+    ]),tin,0)).toThrow();
+    expect(()=>parseGuardedOfficeLedger(page([
+      {...verified,reconciliationProvenance:{
+        officialSourceRecordId:'source-bank-1',verifiedAt:'2026-02-30T10:00:00Z'
+      }}
+    ]),tin,0)).toThrow();
+  });
   it('filters only after the Office source validates taxpayer/year/date',()=>{
     const source=parseGuardedOfficeLedger(page([recorded,verified]),tin,0);
     expect(projectGuardedLedgerRows(source.items,'2025-26','en')).toHaveLength(0);
