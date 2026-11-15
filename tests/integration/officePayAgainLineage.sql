@@ -46,7 +46,7 @@ BEGIN
     'payerId','user1','payerTin','111111111111','payerName','WS3 CI payer',
     'payerMode','OTHER','combinedPayment',true,'allocationContractVersion',3,
     'allocationCount',2,'taxpayerCount',2,'receiptReference',v_source_ref,
-    'challanRemarks',E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\\nMultiline text longer than twenty characters',
+    'challanRemarks',E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\nMultiline text longer than twenty characters',
     'allocations',pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('allocationId','ws3-original-A',
         'taxpayerTin','222222222222','taxpayerName','WS3 CI recipient A',
@@ -222,7 +222,7 @@ BEGIN
  v_repeat_remarks:=public.payment_v1_office_guarded_challan_remarks(v_state.repeat_id);
  IF v_remarks->>'paymentId' IS DISTINCT FROM v_state.source_id::text
     OR v_remarks->>'receiptReference' IS DISTINCT FROM v_state.source_ref
-    OR v_remarks->>'challanRemarks' IS DISTINCT FROM E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\\nMultiline text longer than twenty characters'
+    OR v_remarks->>'challanRemarks' IS DISTINCT FROM E'বাংলায় দীর্ঘ মন্তব্য সংরক্ষণ পরীক্ষা।\nMultiline text longer than twenty characters'
     OR v_repeat_remarks->>'challanRemarks' IS DISTINCT FROM v_remarks->>'challanRemarks'
  THEN RAISE EXCEPTION 'OFFICE_REMARKS_ORIGINAL_REPEAT_PARITY_FAILED'; END IF;
  v:=public.payment_v1_office_guarded_pay_again_lineage(v_state.repeat_id);
