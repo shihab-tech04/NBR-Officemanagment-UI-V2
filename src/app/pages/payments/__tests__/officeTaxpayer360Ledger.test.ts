@@ -97,7 +97,7 @@ describe('Office Taxpayer 360 read-only ledger projection',()=>{
     expect(bengali).toContain('কর ক্রেডিটের অবস্থা');
     expect(bengali).toContain('যাচাই হয়নি');
     expect(bengali).toContain('ব্যর্থ');
-    expect(bengali).toContain('তারিখের ফিল্টার');
+    expect(bengali).toContain('শুরুর তারিখ');
     expect(bengali).not.toContain('Treasury settled');
   });
 
