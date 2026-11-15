@@ -97,11 +97,19 @@ Deno.serve(async(req)=>{
    }else if(req.method==="POST"&&path==="/authorization/mirror"){
       const raw=await req.text();if(raw.length>200)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(raw),id=incoming.id;
-      if(typeof id!=="string"||!/^[0-9a-fA-F-]{36}$/.test(id))return respond({success:false,error:"INVALID_ID"},400);
+      if(!validUuid(id))return respond({success:false,error:"INVALID_ID"},400);
+      // An arbitrary source UUID cannot trigger an Office privileged write.
+      // Taxpayer Edge signs a separate 120-second authorization-only proof.
+      const authorizationProof=req.headers.get("x-taxpay-office-authorization-proof");
+      if(!authorizationProof||
+         !/^v1\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(authorizationProof))
+        return respond({success:false,error:"AUTHORIZATION_MIRROR_PROOF_REQUIRED"},403);
       // Never accept a caller-supplied authorization state: read TaxPay SQL back.
       const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/authorizations/"
         +encodeURIComponent(id)+"/snapshot";
-      const res=await fetch(sourceUrl,{signal:AbortSignal.timeout(10000)});
+      const res=await fetch(sourceUrl,{
+        headers:{"x-taxpay-office-authorization-proof":authorizationProof},
+        signal:AbortSignal.timeout(10000)});
       if(!res.ok)return respond({success:false,error:"SOURCE_AUTHORIZATION_MISSING"},424);
       const snapshot=await res.json();
       if(!snapshot?.success||snapshot.data?.id!==id)return respond({success:false,error:"SOURCE_AUTHORIZATION_INVALID"},424);
