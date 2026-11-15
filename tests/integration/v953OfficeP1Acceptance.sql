@@ -146,6 +146,29 @@ BEGIN
    RAISE EXCEPTION 'F177_T02_UNEXPECTED_UNPROVEN_CREDIT';
  EXCEPTION WHEN check_violation THEN NULL;
  END;
+ -- Verified ledger entries require an attributable Dhara; missing mappings
+ -- stay pending/unverified instead of being promoted into official credits.
+ BEGIN
+   INSERT INTO office_ledger_private.source_events
+     (source_system,source_record_id,taxpayer_tin,dhara,payment_source,
+      amount_minor,event_date,entry_kind,verification_status,
+      evidence_sha256,reconciliation_provenance)
+   VALUES ('E_TDS','MISSING-DHARA','111111111111',NULL,'e-TDS',
+           200,now(),'DEPOSIT','VERIFIED',repeat('b',64),
+           '{"officialSourceRecordId":"MISSING-DHARA","verifiedAt":"2026-11-15T12:00:00Z"}'::jsonb);
+   RAISE EXCEPTION 'F177_T02_UNEXPECTED_MISSING_DHARA_VERIFIED';
+ EXCEPTION WHEN check_violation THEN NULL;
+ END;
+ -- A blank provenance source label is not an attributable tax payment source.
+ BEGIN
+   INSERT INTO office_ledger_private.source_events
+     (source_system,source_record_id,taxpayer_tin,payment_source,
+      amount_minor,event_date,entry_kind)
+   VALUES ('NSD','BLANK-PAYMENT-SOURCE','111111111111','   ',
+           1,now(),'DEDUCTION');
+   RAISE EXCEPTION 'F177_T02_UNEXPECTED_BLANK_SOURCE_ACCEPTED';
+ EXCEPTION WHEN check_violation THEN NULL;
+ END;
  RAISE NOTICE 'F177_F178_DISPOSABLE_PG17_ACCEPTANCE_PASS';
 END $v953_acceptance$;
 ROLLBACK;
