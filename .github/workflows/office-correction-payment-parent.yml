@@ -8,7 +8,11 @@ on:
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
       - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
       - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261115183000_office_private_legacy_rpc.sql'
+      - 'tests/integration/officeLegacyRpcPrivacy.sql'
       - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261115183000_office_private_legacy_rpc.sql'
+      - 'tests/integration/officeLegacyRpcPrivacy.sql'
       - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
       - 'supabase/functions/demo-story1-office/index.ts'
       - 'src/app/pages/payments/correctionReviewApi.ts'
@@ -90,6 +94,14 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
+      - name: Verify service-only legacy SECURITY DEFINER RPC grants (disposable)
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeLegacyRpcPrivacy.sql
       - name: Load disposable Office notice mirror schema
         env:
           PGHOST: 127.0.0.1
