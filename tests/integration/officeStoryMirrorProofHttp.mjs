@@ -8,12 +8,22 @@ import {transformSync} from 'esbuild';
 
 const source=readFileSync('supabase/functions/demo-story1-office/index.ts','utf8');
 const compiled=transformSync(source,{loader:'ts',format:'cjs',target:'es2022'}).code;
+// Resolve the actual allowlisted source helper in each isolated Edge VM.
+// Never substitute a permissive stub for payment-source authorization.
+const mirrorSourceModule={exports:{}};
+vm.runInNewContext(transformSync(
+ readFileSync('supabase/functions/demo-story1-office/mirrorSource.ts','utf8'),
+ {loader:'ts',format:'cjs',target:'es2022'}).code,
+ {module:mirrorSourceModule,exports:mirrorSourceModule.exports,URL},
+ {filename:'office-mirror-source.ts',timeout:5000});
+
 let handler=null,remoteCalls=0,sqlCalls=0;
 const module={exports:{}};
 const box={
  console,URL,Response,Request,Headers,TextEncoder,AbortSignal,BigInt,
  module,exports:module.exports,
  require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
   assert.match(name,/^npm:@supabase\/supabase-js@/);
   return {createClient:()=>({rpc:async()=>{sqlCalls++;throw Error('Never read SQL without valid proof');}})};
  },
@@ -65,6 +75,7 @@ const sourceAuthorization={id,status:'PENDING',payerId:'user1',taxpayerId:'user2
 const authMirrorBox={
  ...box,
  require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
   assert.ok(name.startsWith('npm:@supabase/supabase-js@'));
   return {createClient:(_url,roleKey)=>({
    rpc:async(name,args)=>{
@@ -131,6 +142,7 @@ const validToken='isolated-active-officer-jwt';
 const cursorBox={
  ...box,
  require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
    assert.match(name,/^npm:@supabase\/supabase-js@/);
    return {createClient:(_url,_key,opts)=>({
      auth:{getUser:async(token)=>{
@@ -227,6 +239,7 @@ const lineagePayload={
 const lineageBox={
  ...box,
  require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
    assert.match(name,/^npm:@supabase\/supabase-js@/);
    return {createClient:(_url,_key,opts)=>({
      auth:{getUser:async(token)=>token===validToken
