@@ -450,7 +450,8 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     return {
       key:preview.sampleTin,tin:preview.sampleTin,
       taxpayer_name:bnPreview?preview.nameBn:preview.nameEn,
-      records:own.length,last_activity:latest?displayEventDate(latest):'—',
+      records:storyLoading||storyError?'—':own.length,
+      last_activity:storyLoading||storyError?'—':latest?displayEventDate(latest):'—',
     };
   });
   const selectedPreview=previewAccounts.find(item=>item.sampleTin===selectedTin);
