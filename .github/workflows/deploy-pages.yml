@@ -37,7 +37,7 @@ jobs:
             src/test/paymentPostReleaseRegression.test.ts
       - name: Verify Office CMS source and approved release endpoint
         env:
-          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://gmuhitmaynfhipcvbvkh.supabase.co' }}
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
           VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_svqqJLfKtBQNuUqCqOZSqQ_r3TDoYCk' }}
           SOHOJKOR_CUTOVER_SIGNED_PROOF: ${{ secrets.SOHOJKOR_CUTOVER_SIGNED_PROOF }}
           SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY: ${{ vars.SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY }}
@@ -48,7 +48,7 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://gmuhitmaynfhipcvbvkh.supabase.co' }}
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
           VITE_NBR_RULES_PUBLISHABLE_KEY: 'sb_publishable_ZwFis7EMwMNdqZNsTi5CKA_8Rs0JNgP'
           VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_svqqJLfKtBQNuUqCqOZSqQ_r3TDoYCk' }}
       - run: |
