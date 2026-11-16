@@ -25,6 +25,7 @@ import { getStoryPayments, getStoryNotices, type StoryPayment, type StoryNotice 
 import { toStoryPaymentRow, toStoryTaxpayerPaymentRow } from './story1PaymentPresentation';
 import { OfficeTransactionDrawer } from './OfficeTransactionDrawer';
 import {OfficeTaxJourney} from './OfficeTaxJourney';
+import {OfficeConsolidatedTaxpayerLedger} from './OfficeConsolidatedTaxpayerLedger';
 import { correctionHistoryEvents, registrationHistoryEvents } from './officeTaxJourneyEvidence';
 import { availableOfficeOverviewSummary, createSingleFlight } from './officeOverviewData';
 import { officePaymentAnalytics } from './officePaymentAnalytics';
@@ -676,7 +677,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
         correctionsLoading={officeCorrectionLoading} correctionsError={officeCorrectionError}
         correctionsAvailable={officeCorrectionQueue.enabled}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
-      taxpayerTab==='ledger' ? <section className="card payment-module__card"><h2>{t('ledger')}</h2><p className="table-page__desc">{t('ledgerNotVerified')}</p></section> :
+      taxpayerTab==='ledger' ? <OfficeConsolidatedTaxpayerLedger tin={selectedTin} /> :
       taxpayerTab==='notices' ? taxpayerActivity
         ? <OfficeTaxpayer360Notices snapshot={taxpayerActivity}
             language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
