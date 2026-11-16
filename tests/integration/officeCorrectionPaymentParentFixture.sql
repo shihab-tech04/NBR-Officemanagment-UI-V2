@@ -66,18 +66,3 @@ INSERT INTO payment_sync.officer_roles(user_uid,role,active)
 VALUES ('80000000-0000-4000-8000-000000000011','MAKER',true)
 ON CONFLICT (user_uid) DO UPDATE SET role=EXCLUDED.role,active=true;
 
--- The Office-originated correction contract requires one exact mirrored parent.
--- Entirely synthetic and isolated to the disposable PostgreSQL 17 service.
-CREATE SCHEMA demo_payment;
-CREATE TABLE demo_payment.story_payments(
-  id uuid PRIMARY KEY,status text NOT NULL,data jsonb NOT NULL
-);
-INSERT INTO demo_payment.story_payments(id,status,data) VALUES (
-  '80000000-0000-4000-8000-000000000041','SIMULATED_SUCCESS',
-  jsonb_build_object('origin','TAXPAY_UI','details',jsonb_build_object(
-    'receiptReference','SYN-PARENT-0001','taxpayerTin','111111111111',
-    'allocations',jsonb_build_array(jsonb_build_object(
-      'allocationId','alloc-for-office-initiation',
-      'taxpayerTin','111111111111','amountMinor',700))
-  ))
-);

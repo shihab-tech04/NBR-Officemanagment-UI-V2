@@ -94,7 +94,6 @@ jobs:
           # The latest audit projection supersedes the older paged function.
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116042500_office_correction_evidence_projection.sql
-          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116054000_office_correction_initiation.sql
       - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
         env:
           PGHOST: 127.0.0.1
@@ -103,14 +102,6 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
-      - name: Verify role-gated Office-initiated correction command and immutable source
-        env:
-          PGHOST: 127.0.0.1
-          PGPORT: 5432
-          PGDATABASE: correction_test
-          PGUSER: postgres
-          PGPASSWORD: postgres
-        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionInitiation.sql
       - name: Verify server-only synthetic Edge gateway and route allowlist
         run: node --test tests/integration/officeHandoffRpcBoundary.test.mjs
       - name: Verify service-only legacy SECURITY DEFINER RPC grants (disposable)
@@ -145,3 +136,20 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecovery.sql
+
+      - name: Apply Office-initiated correction contract after full mirrored-payment fixture
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116054000_office_correction_initiation.sql
+      - name: Verify role-gated Office-initiated correction command and immutable source
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionInitiation.sql

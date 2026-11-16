@@ -1,6 +1,19 @@
 -- P6 disposable SQL acceptance: authorized Office-initiated correction
 -- must queue an immutable review-only command, not modify original money.
 BEGIN;
+INSERT INTO demo_payment.story_payments(
+ id,session_id,service_code,amount_minor,data,status,created_at)
+VALUES(
+ '80000000-0000-4000-8000-000000000041',
+ '80000000-0000-4000-8000-000000000042',
+ 'OTHER_TAX_PAYMENT',700,
+ jsonb_build_object('origin','TAXPAY_UI','details',jsonb_build_object(
+   'receiptReference','SYN-PARENT-0001','taxpayerTin','111111111111',
+   'allocations',jsonb_build_array(jsonb_build_object(
+     'allocationId','alloc-for-office-initiation',
+     'taxpayerTin','111111111111','amountMinor',700)))),
+ 'SIMULATED_SUCCESS','2026-11-16T02:00:00Z'
+);
 CREATE TEMP TABLE phase6_original AS
  SELECT id,status,data FROM demo_payment.story_payments
  WHERE id='80000000-0000-4000-8000-000000000041'::uuid;

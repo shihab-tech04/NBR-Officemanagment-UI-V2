@@ -227,6 +227,7 @@ test('Corrections filters and clears a session draft status, without presenting 
  await page.getByRole('option',{name:'Md. Rahman · 123456789012'}).click();
  await page.locator('#payment-draft-reference').fill('QA-CORRECTION-REFERENCE-01');
  await page.locator('#payment-draft-reason').fill('Wrong assessment year selected');
+ await page.locator('#payment-draft-outcome').fill('Please review the recorded assessment year while preserving original payment data');
  await page.locator('#payment-draft-evidence').fill('Test-only draft without persisted officer decision');
  await page.getByRole('button',{name:'Review draft',exact:true}).click();
  await page.getByRole('button',{name:'Add to list',exact:true}).click();

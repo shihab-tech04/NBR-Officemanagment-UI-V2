@@ -323,10 +323,16 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const previewDraft=()=>{
     const required = draftKind === 'offline-events'
       ? ['tin','type','ay','component','amount','reference','source','reason','evidence']
-      : draftKind === 'corrections' ? ['tin','reference','reason','evidence'] : ['type','reason'];
+      : draftKind === 'corrections' ? ['tin','reference','reason','outcome','evidence'] : ['type','reason'];
     const next:Record<string,string>={};
     required.forEach(key=>{if(!draft[key as keyof typeof firstDraft].trim())next[key]=t('required');});
-    if(draft.tin && !/^\d{12}$/.test(draft.tin))next.tin=t('tinError');
+    if(draft.tin && !(draftKind==='corrections'?/^\d{12,13}$/:/^\d{12}$/).test(draft.tin))next.tin=t('tinError');
+    if(draftKind==='corrections'){
+      if(draft.reference && !/^[A-Za-z0-9][A-Za-z0-9._/-]{5,79}$/.test(draft.reference.trim())) next.reference=t('required');
+      if(draft.reason && (draft.reason.trim().length<10||draft.reason.trim().length>1000)) next.reason=t('required');
+      if(draft.outcome && (draft.outcome.trim().length<10||draft.outcome.trim().length>600)) next.outcome=t('required');
+      if(draft.evidence && (draft.evidence.trim().length<10||draft.evidence.length>2000)) next.evidence=t('required');
+    }
     if(draftKind==='offline-events' && draft.type==='LIABILITY_REDUCED' && !draft.reduces)next.reduces=t('required');
     if(draftKind==='offline-events' && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount)<=0))next.amount=t('amountError');
     setErrors(next);
@@ -828,7 +834,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
         {draftKind!=='incidents'&&<AppTextField id="payment-draft-reference" label={t('reference')} value={draft.reference} onChange={v=>change('reference',v)} error={errors.reference} required/>}
         {draftKind==='corrections'&&<AppTextArea id="payment-draft-outcome"
           label={i18n.resolvedLanguage?.startsWith('bn')?'প্রত্যাশিত ফলাফল':'Requested outcome'}
-          value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome}/>}
+          value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome} required/>}
         {draftKind==='corrections'&&<p className="payment-module__note payment-module__full">
           {i18n.resolvedLanguage?.startsWith('bn')
             ?'SQL-এ পাঠাতে মূল পেমেন্টে থাকা রেফারেন্স ও করদাতার TIN ব্যবহার করুন। অনুমোদন নয়, শুধুই পর্যালোচনার আবেদন।'
