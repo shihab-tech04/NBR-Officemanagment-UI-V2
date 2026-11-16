@@ -32,7 +32,7 @@ import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
-import {getOfficeTaxpayerRegistrations,getOfficePreviewTaxpayers,type OfficePreviewTaxpayer,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
+import {getOfficeTaxpayerRegistrations,getOfficePreviewTaxpayers,REGISTRATION_FIELDS,type OfficePreviewTaxpayer,type TaxpayerRegistrationProfile,type RegistrationField} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
 import {partitionOfficeCorrectionCases} from './officeCorrectionCaseCategories';
@@ -457,6 +457,19 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const selectedPreview=previewAccounts.find(item=>item.sampleTin===selectedTin);
   const registrationProfile=registrationProfiles.find(p=>selectedPreview
     ?p.accountId===selectedPreview.accountId:p.tin===selectedTin);
+  // A preview-only render record gives every account the approved 24-field
+  // profile structure without asserting missing certificate facts as real.
+  // This is never written to Taxpayer SQL or treated as a verified identity.
+  const previewRegistrationRecord:TaxpayerRegistrationProfile|null=selectedPreview?{
+    accountId:selectedPreview.accountId,tin:selectedPreview.sampleTin,
+    revision:0,updatedAt:'',
+    profile:{
+      ...(Object.fromEntries(REGISTRATION_FIELDS.map(key=>[key,null])) as Record<RegistrationField,string|null>),
+      taxpayerName:bnPreview?selectedPreview.nameBn:selectedPreview.nameEn,
+      tin:selectedPreview.sampleTin,
+      source:'SYNTHETIC',sourceUpdatedAt:'',
+    }
+  }:null;
   const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
   const taxP=connectedTaxpayer?{
     name:connectedTaxpayer.taxpayer_name,tin:selectedTin,
@@ -683,26 +696,14 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     {taxpayerTab==='identity' && registrationProfile && !registrationLoading && !registrationError
       ? <OfficeTaxpayerRegistrationDetails record={registrationProfile}
           language={bnPreview?'bn':'en'}/>
-      : taxpayerTab==='identity' && selectedPreview
-      ? <section className="card payment-module__card" data-testid="office-taxpayer-preview-profile">
-          <h3>{bnPreview?'করদাতার নমুনা প্রোফাইল':'Taxpayer preview profile'}</h3>
-          <p className="table-page__desc">{bnPreview
-            ?'এটি করদাতা প্রকল্পের একই লগইন প্রিভিউ অ্যাকাউন্ট। পূর্ণ নিবন্ধন তথ্যের যাচাইকৃত SQL রেকর্ড পাওয়া যায়নি।'
-            :'This is the same selectable preview account as Taxpayer. A complete SQL registration record is not available for this account.'}</p>
-          <dl className="payment-module__identity-grid">
-            {([
-              [bnPreview?'নাম':'Name',bnPreview?selectedPreview.nameBn:selectedPreview.nameEn],
-              [bnPreview?'অ্যাকাউন্ট':'Account',selectedPreview.accountId],
-              [bnPreview?'অ্যাকাউন্টের ধরন':'Account type',selectedPreview.roleCode.replace(/_/g,' ')],
-              [bnPreview?'নমুনা টিআইএন':'Sample TIN',selectedPreview.sampleTin],
-              [bnPreview?'প্রোফাইলের উদ্দেশ্য':'Profile focus',selectedPreview.profileFocusEn||'—'],
-              [bnPreview?'অধিক্ষেত্রের নমুনা':'Sample jurisdiction',selectedPreview.jurisdictionLabel||'—'],
-            ] as const).map(([label,value])=><div key={label}>
-              <dt className="payment-module__field-label">{label}</dt>
-              <dd>{value}</dd>
-            </div>)}
-          </dl>
-        </section>
+      : taxpayerTab==='identity' && previewRegistrationRecord
+      ? <>
+          <p className="table-page__desc" role="status" data-testid="office-taxpayer-preview-profile">{bnPreview
+            ?'এটি করদাতা প্রকল্পের একই লগইন প্রিভিউ অ্যাকাউন্ট। পূর্ণ নিবন্ধন তথ্যের যাচাইকৃত SQL রেকর্ড পাওয়া যায়নি। নিচের অপ্রাপ্য ঘরগুলো অনুমান করে পূরণ করা হয়নি।'
+            :'This is the same selectable Taxpayer preview account. No full verified SQL registration is available; missing fields below are intentionally left unavailable.'}</p>
+          <OfficeTaxpayerRegistrationDetails record={previewRegistrationRecord}
+            language={bnPreview?'bn':'en'}/>
+        </>
       : taxpayerTab==='identity' ? <section className="card payment-module__card" role="status">
           <p>{bnPreview?'করদাতার পরিচয় যাচাই করা যায়নি।':'No source-verified taxpayer identity is available.'}</p>
         </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> :
