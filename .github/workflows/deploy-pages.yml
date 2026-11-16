@@ -39,9 +39,9 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_CMS_SUPABASE_URL: 'https://eyqhoavnitkrajvyqvxn.supabase.co'
+          VITE_TAXPAY_CMS_SUPABASE_URL: 'https://gmuhitmaynfhipcvbvkh.supabase.co'
           VITE_NBR_RULES_PUBLISHABLE_KEY: 'sb_publishable_ZwFis7EMwMNdqZNsTi5CKA_8Rs0JNgP'
-          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id'
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_svqqJLfKtBQNuUqCqOZSqQ_r3TDoYCk'
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
