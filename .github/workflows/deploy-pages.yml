@@ -35,13 +35,22 @@ jobs:
             src/app/store/__tests__/paymentSqlNotifications.test.ts \
             src/test/notificationHistoryNavigation.test.ts \
             src/test/paymentPostReleaseRegression.test.ts
+      - name: Verify Office CMS source and approved release endpoint
+        env:
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id' }}
+          SOHOJKOR_CUTOVER_SIGNED_PROOF: ${{ secrets.SOHOJKOR_CUTOVER_SIGNED_PROOF }}
+          SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY: ${{ vars.SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY }}
+        run: |
+          node --test scripts/ci/office-cms-cutover-gate.test.mjs
+          node scripts/ci/office-cms-cutover-gate.mjs
       - name: Compile open Office Management UI without connected officer access
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_CMS_SUPABASE_URL: 'https://gmuhitmaynfhipcvbvkh.supabase.co'
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
           VITE_NBR_RULES_PUBLISHABLE_KEY: 'sb_publishable_ZwFis7EMwMNdqZNsTi5CKA_8Rs0JNgP'
-          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_svqqJLfKtBQNuUqCqOZSqQ_r3TDoYCk'
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id' }}
       - run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll

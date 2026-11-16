@@ -29,6 +29,7 @@ export function buildDisplayedOfficeReceiptDocument(paper: HTMLElement, title: s
 export function OfficeReceiptModal({ open, info, items, language, onClose, onBack }: Props) {
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
+  const isTravelTax=items.length>0&&items.every(item=>item.service==='Travel Tax');
   const download = () => {
     const paper = document.getElementById('office-receipt-paper');
     if (!paper || !open) return;
@@ -71,8 +72,16 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           </div>
         </header>
         <section className="office-receipt__reference receipt-view__reference-strip">
-          <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong>{info.reference}</strong></div>
+          <div><p>{label('Transaction reference', 'লেনদেন রেফারেন্স')}</p><strong className="break-all">{info.reference}</strong></div>
           <div><p>{label('Date', 'তারিখ')}</p><strong>{info.date}</strong></div>
+          {info.receiptReference&&<div>
+            <p>{label('Receipt reference','রসিদ রেফারেন্স')}</p>
+            <strong className="break-all">{info.receiptReference}</strong>
+          </div>}
+          {info.certificateReference&&<div>
+            <p>{label('Certificate reference','সনদ রেফারেন্স')}</p>
+            <strong className="break-all">{info.certificateReference}</strong>
+          </div>}
         </section>
         {info.batchId&&<section className="office-receipt__reference receipt-view__reference-strip" data-testid="office-receipt-batch-identity">
           <div><p>{label('Batch reference','ব্যাচ রেফারেন্স')}</p><strong className="break-all">{info.batchId}</strong></div>
@@ -101,13 +110,15 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
           </section>
         </div>
         {items.length > 0 && <section className="office-receipt__section office-receipt__breakdown receipt-view__breakdown">
-          <h4 className="receipt-view__section-title">{label('Payment breakdown and head classification', 'পেমেন্ট বিবরণ ও খাত')}</h4>
+          <h4 className="receipt-view__section-title">{isTravelTax
+            ?label('Passenger payment breakdown','যাত্রীদের পেমেন্ট বিবরণ')
+            :label('Payment breakdown and head classification', 'পেমেন্ট বিবরণ ও খাত')}</h4>
           <div className="office-receipt__scroll receipt-view__breakdown-content">
             <table className="receipt-view__financial-table">
               <thead><tr>
-                <th>{label('Taxpayer / TIN', 'করদাতা / টিআইএন')}</th>
-                <th>{label('Payment head', 'পেমেন্ট খাত')}</th>
-                <th>{label('Assessment year', 'করবর্ষ')}</th>
+                <th>{isTravelTax?label('Passenger','যাত্রী'):label('Taxpayer / TIN', 'করদাতা / টিআইএন')}</th>
+                <th>{isTravelTax?label('Service','সেবা'):label('Payment head', 'পেমেন্ট খাত')}</th>
+                {!isTravelTax&&<th>{label('Assessment year', 'করবর্ষ')}</th>}
                 <th className="office-receipt__numeric">{label('Amount (৳)', 'পরিমাণ (৳)')}</th>
               </tr></thead>
               <tbody>{items.map((item,index) => <tr key={index}>
@@ -115,11 +126,11 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
                   {item.taxpayerTin&&!item.taxpayer.includes(item.taxpayerTin)&&<small className="block">{label('TIN','টিআইএন')}: {item.taxpayerTin}</small>}
                 </td>
                 <td>{item.service}{item.economicCode && <small>{label('Economic code', 'অর্থনৈতিক কোড')}: {item.economicCode}</small>}</td>
-                <td>{item.assessmentYear}</td>
+                {!isTravelTax&&<td>{item.assessmentYear}</td>}
                 <td className="office-receipt__numeric">{officeMoney(item.amountMinor, language)}</td>
               </tr>)}</tbody>
               <tfoot><tr>
-                <th colSpan={3}>{label('Total amount', 'সর্বমোট অর্থ')}</th>
+                <th colSpan={isTravelTax?2:3}>{label('Total amount', 'সর্বমোট অর্থ')}</th>
                 <th className="office-receipt__numeric">{info.amount}</th>
               </tr></tfoot>
             </table>

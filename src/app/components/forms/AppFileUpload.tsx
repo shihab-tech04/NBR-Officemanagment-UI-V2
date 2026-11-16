@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { UploadCloud, FileText, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -206,6 +206,14 @@ export function AppFileUpload({
 }: AppFileUploadProps) {
   const { t: tf } = useTranslation("forms");
   const inputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+  // FileReader finishes asynchronously. Cancel any state/callback delivery
+  // after this Office form unmounts; otherwise a pending file read can update
+  // React after Vitest/jsdom teardown (and in production after navigation).
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const [dragging, setDragging] = useState(false);
   const [validating, setValidating] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -230,6 +238,7 @@ export function AppFileUpload({
       }
 
       const result = await validateFile(f, accept, maxSizeMB, tf as (k: string, opts?: Record<string, unknown>) => string);
+      if (!mountedRef.current) return;
       if (!result.ok) {
         newErrors.push(result.error);
         continue;
@@ -238,6 +247,7 @@ export function AppFileUpload({
       toAdd.push(f);
     }
 
+    if (!mountedRef.current) return;
     setErrors(newErrors);
     if (toAdd.length > 0) onChange?.([...existing, ...toAdd]);
     setValidating(false);

@@ -1,0 +1,37 @@
+name: Office authorized dual-source Taxpayer mirror acceptance
+
+on:
+  pull_request:
+    branches:
+      - ws3/v95-correction-payment-parent-20261112
+      - main
+    paths:
+      - 'supabase/functions/demo-story1-office/index.ts'
+      - 'supabase/functions/demo-story1-office/mirrorSource.ts'
+      - 'tests/officeMirrorSourceRouting.test.ts'
+      - '.github/workflows/office-dual-taxpayer-signed-mirror.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-source-contract:
+    name: Allowlisted V2/original source proof routing, typecheck and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact commit without persistence
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Locked install
+        run: npm ci
+      - name: Exercise signed-source routing and denial tests
+        run: npx vitest run tests/officeMirrorSourceRouting.test.ts
+      - name: Compile current Office without publishing
+        run: npm run build

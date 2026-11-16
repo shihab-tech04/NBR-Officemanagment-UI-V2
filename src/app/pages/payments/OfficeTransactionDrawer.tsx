@@ -20,6 +20,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const ref = display(row?.payment_ref);
+  const receiptReference=source?.details?.receiptReference?.trim()||'';
+  const certificateReference=source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
   const items = useMemo(() => getOfficePaymentItems(source, scopeTin
     ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
@@ -33,9 +35,12 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const info: OfficeReceiptInfo = {
     reference: ref, date: display(row?.date), payer: display(row?.payer_name),
     taxpayer: display(row?.taxpayer_name), service: display(row?.payment_type),
-    year: display(row?.assessment_year), amount: display(row?.amount),
+    year: display(row?.assessment_year),
+    amount: sourceAmountMinor===null?display(row?.amount):officeMoney(sourceAmountMinor,language),
     paymentStatus: display(row?.financial_receipt_status),
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
+    ...(receiptReference?{receiptReference}:{}),
+    ...(certificateReference?{certificateReference}:{}),
     ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
       ? {batchId:source.details.batchId}:{}),
     ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)
@@ -68,6 +73,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     tax_treatment: label('Not verified','যাচাই হয়নি'),
     where_this_counts: label('Recorded payment, not verified tax credit','পেমেন্ট নথিভুক্ত; কর ক্রেডিট যাচাই হয়নি'),
     acs_reference: display(row.acs_reference),
+    // Source-backed deterministic reference only; not a claim that an
+    // independently issued government certificate has been verified.
+    certificate_reference: display(source?.certificateReference),
     notice_reference: display(row.notice_reference),
   } : null;
   const groups: Array<[string, string, string]> = [
@@ -87,9 +95,12 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ['amount', t('colAmount'), label('Payment information','পেমেন্টের তথ্য')],
     ['payment_channel', label('Payment method','পেমেন্ট পদ্ধতি'),label('Payment information','পেমেন্টের তথ্য')],
     ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
-    ['allocation_items',label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন')],
+    ['allocation_items',source?.service==='TRAVEL_TAX'
+      ?label('Passengers and amounts','যাত্রী ও পরিমাণ'):label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),
+      label('Payment breakdown','পেমেন্ট বিবরণ')],
     ['payment_ref',label('Transaction ID','লেনদেন আইডি'),label('References','রেফারেন্স')],
     ['acs_reference',label('Receipt reference','রসিদ রেফারেন্স'),label('References','রেফারেন্স')],
+    ['certificate_reference',label('Payment certificate reference','পেমেন্ট সনদের রেফারেন্স'),label('References','রেফারেন্স')],
     ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
   ];
 

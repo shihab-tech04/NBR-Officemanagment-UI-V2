@@ -15,6 +15,7 @@ on:
       - 'src/assets/korbritto-brand-locked.svg'
       - 'src/styles/content-management.css'
       - '.github/workflows/banner-cms-integration.yml'
+      - 'scripts/ci/office-cms-cutover-gate*.mjs'
 permissions:
   contents: read
 jobs:
@@ -30,9 +31,18 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Verify protected CMS and production crop contracts
         run: npx vitest run src/app/pages/administration-requests/ContentManagementPage.test.tsx src/app/pages/administration-requests/ImageCropDialog.test.tsx src/app/components/auth/LoginForm.test.tsx src/app/layouts/AppRoot.test.tsx src/app/services/taxpayCmsClient.test.ts src/app/pages/administration-requests/SiteLogoPanel.test.tsx src/app/pages/administration-requests/verifyPublicImage.test.ts
+      - name: Validate coordinated CMS source and fail-closed cutover proof
+        env:
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id' }}
+          SOHOJKOR_CUTOVER_SIGNED_PROOF: ${{ secrets.SOHOJKOR_CUTOVER_SIGNED_PROOF }}
+          SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY: ${{ vars.SOHOJKOR_CUTOVER_APPROVER_PUBLIC_KEY }}
+        run: |
+          node --test scripts/ci/office-cms-cutover-gate.test.mjs
+          node scripts/ci/office-cms-cutover-gate.mjs
       - name: Compile exact approved Office design
         run: npm run build
         env:
           BASE_PATH: /NBR-Officemanagment-UI-V2/
-          VITE_TAXPAY_CMS_SUPABASE_URL: https://eyqhoavnitkrajvyqvxn.supabase.co
-          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id
+          VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}
+          VITE_TAXPAY_CMS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ZRyWCWCOWBmsg7b9qTseUg_CFlhl3Id' }}

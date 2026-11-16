@@ -1,0 +1,52 @@
+name: v9.5.3 Office F177-F178 source SQL acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/integration/v953OfficeP1Fixture.sql'
+      - 'tests/integration/v953OfficeP1Acceptance.sql'
+      - 'supabase/migrations/20261115140000_office_guarded_challan_remarks.sql'
+      - 'supabase/migrations/20261115150000_office_taxpayer_ledger_source_contract.sql'
+      - '.github/workflows/office-v953-p1-source-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verified-source-contract:
+    name: F177 F178 Office PostgreSQL17 T01-T04 isolated acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: v953_p1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d v953_p1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: v953_p1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Create disposable identity, payment and officer prerequisites
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/v953OfficeP1Fixture.sql
+      - name: Apply exact F177 and F178 Office source migrations
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261115150000_office_taxpayer_ledger_source_contract.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261115140000_office_guarded_challan_remarks.sql
+      - name: Verify seven external categories, replay, officer access, parent and Unicode comments
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/v953OfficeP1Acceptance.sql

@@ -56,7 +56,27 @@ function matchRoute(path:string):{name:string;filters:Record<string,string>}|nul
   if(ledger)return{name:'demand_payment_ledger',filters:{tin:ledger[1]}};
   return null;
 }
-const TAXPAY_HANDOFF='https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/taxpay-handoff-api/api/v1';
+// Public prototype reads must follow the explicitly approved Taxpayer primary.
+// Missing env preserves the existing original until the signed paired release.
+const TAXPAY_PRIMARY = Deno.env.get('TAXPAY_PRIMARY_URL') || 'https://eyqhoavnitkrajvyqvxn.supabase.co';
+const TAXPAY_HANDOFF = [
+  'https://eyqhoavnitkrajvyqvxn.supabase.co',
+  'https://gmuhitmaynfhipcvbvkh.supabase.co',
+].includes(TAXPAY_PRIMARY)
+  ? TAXPAY_PRIMARY + '/functions/v1/taxpay-handoff-api/api/v1'
+  : null;
+
+// Never grant a web/browser caller direct access to SECURITY DEFINER RPCs.
+// The only callers of these private-privilege SQL functions are fixed-route,
+// input-validated, synthetic-only operations in this server-side Edge function.
+function internalSyntheticKey(): string | null {
+  try {
+    const named = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}') as Record<string,string>;
+    return named.default || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || null;
+  } catch {
+    return null;
+  }
+}
 const uuidRE=/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 function proxyPath(request:Request,url:URL):string|null {
   const path=url.pathname.replace(/^\/office-handoff-api/,'')
@@ -88,6 +108,7 @@ Deno.serve(async(req:Request)=>{
   const url=new URL(req.url);
   const proxied=proxyPath(req,url);
   if(proxied){
+    if (!TAXPAY_HANDOFF) return respond({success:false,code:'BACKEND_NOT_CONFIGURED'},503);
     try{
       const body=req.method==='POST'?await req.text():undefined;
       if(body&&body.length>4096)
@@ -112,7 +133,7 @@ Deno.serve(async(req:Request)=>{
        (actionPath.kind==='status'&&req.method==='PATCH')))
       return respond({success:false,code:'METHOD_NOT_ALLOWED'},405);
     const endpoint=Deno.env.get('SUPABASE_URL');
-    const key=Deno.env.get('SUPABASE_ANON_KEY')??Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+    const key=internalSyntheticKey();
     if(!endpoint||!key)return respond({success:false,code:'BACKEND_NOT_CONFIGURED'},503);
     try{
       const client=createClient(endpoint,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -178,7 +199,7 @@ Deno.serve(async(req:Request)=>{
       (fromDate&&toDate&&fromDate>toDate))
     return respond({success:false,code:'INVALID_DATE_FILTER'},400);
   const endpoint=Deno.env.get('SUPABASE_URL');
-  const key=Deno.env.get('SUPABASE_ANON_KEY')??Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+  const key=internalSyntheticKey();
   if(!endpoint||!key)return respond({success:false,code:'BACKEND_NOT_CONFIGURED'},503);
   try{
     const client=createClient(endpoint,key,{

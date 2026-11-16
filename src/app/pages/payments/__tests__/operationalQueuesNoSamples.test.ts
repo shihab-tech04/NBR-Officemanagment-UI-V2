@@ -7,7 +7,10 @@ const paymentReference=readFileSync(resolve(process.cwd(),'src/app/pages/payment
 
 describe('Office operational queues never present illustrative fixtures as financial cases',()=>{
   it('excludes reference correction cases from the active officer queue',()=>{
-    expect(office).toContain('const corrRows=[...localRecords.corrections,...officeCorrectionRows];');
+    expect(office).toContain('const correctionReviewRows=[...localRecords.corrections,');
+    expect(office).toContain('officeCorrectionRows.filter(row=>correctionCaseIds.has(String(row.__correctionInquiryId)))');
+    expect(office).toContain('const reportRows=officeCorrectionRows.filter(row=>reportCaseIds.has(String(row.__correctionInquiryId)));');
+    expect(office).toContain("const corrRows=correctionQueueTab==='reports'?reportRows:correctionReviewRows;");
     expect(office).not.toContain('referenceCorrections.map(');
     expect(office).not.toContain('Decided (illustrative)');
   });
