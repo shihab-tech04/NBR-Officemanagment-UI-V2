@@ -476,7 +476,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       taxpayerStatus:previewRoleLabel,
       tinType:previewRoleLabel,
       taxesCircle:previewCircle,
-      tin:selectedPreview.sampleTin,
+      tin:null,
       source:'SYNTHETIC',sourceUpdatedAt:'',
     }
   }:null;
@@ -488,7 +488,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'—',status:'Not verified'
   };
   if(registrationProfile){
-    taxP.name=selectedPreview?.[bnPreview?'nameBn':'nameEn']||registrationProfile.profile.taxpayerName||registrationProfile.accountId;
+    taxP.name=registrationProfile.profile.taxpayerName||selectedPreview?.[bnPreview?'nameBn':'nameEn']||registrationProfile.accountId;
     taxP.zone=registrationProfile.profile.taxesZone||'—';
     taxP.circle=registrationProfile.profile.taxesCircle||'—';
     taxP.type=registrationProfile.profile.tinType||'—';
@@ -679,7 +679,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     <PaymentRecordList kind="taxpayers" title={t('taxpayerRegister')} rows={taxpayerAccounts}
       columns={[
         {type:'col',col:{key:'taxpayer_name',label:t('name'),truncate:'normal'}},
-        {type:'col',col:{key:'tin',label:t('tin'),truncate:'normal'}},
+        {type:'col',col:{key:'tin',label:bnPreview?'নমুনা টিআইএন':'Sample TIN',truncate:'normal'}},
         {type:'col',col:{key:'records',label:t('linkedPaymentRecords'),truncate:'normal'}},
         {type:'col',col:{key:'last_activity',label:t('colDate'),truncate:'normal'}}
       ]} mobileMapping={{primary:'taxpayer_name',identifier:'tin',meta:['records'],date:'last_activity'}}
@@ -691,7 +691,10 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     {registrationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'প্রোফাইল লোড হচ্ছে…':'Loading taxpayer profiles…'}</p>}
     {registrationError&&<p role="alert" className="table-page__desc">{registrationError}</p>}
     <div className="payment-module__year-control">{yearSelect}</div>
-    <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{selectedPreview?(bnPreview?'নমুনা টিআইএন':'Sample TIN'):t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
+    <div className="payment-module__identity"><h2>{taxP.name}</h2>
+      <p>{t('tin')}: {registrationProfile?.tin ? registrationProfile.tin.slice(0,3)+'****' : (bnPreview?'পাওয়া যায়নি':'Not available')} · {taxP.zone} · {taxP.circle}</p>
+      {selectedPreview&&<p>{bnPreview?'নমুনা পেমেন্ট রেফারেন্স':'Sample payment reference'}: {selectedTin.slice(0,3)}****</p>}
+    </div>
     {showKpis([
       kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংযুক্ত পেমেন্ট':'Linked payments',taxpayerActivity?displayNumber(taxpayerActivity.linkedRecords):'—',CreditCard),
       kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংরক্ষিত পেমেন্টের পরিমাণ':'Saved record amount',taxpayerActivity?.recordedSavedAmountMinor!==null&&taxpayerActivity?displayMoney(taxpayerActivity.recordedSavedAmountMinor/100):'—',Wallet,'neutral'),
