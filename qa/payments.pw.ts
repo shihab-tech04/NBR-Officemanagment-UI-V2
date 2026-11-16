@@ -177,7 +177,7 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.setViewportSize({width:1280,height:850});
   await page.goto('/payments/taxpayer-360');
   await expect(page.locator('.payment-module__table-card .card-table tbody tr').first()).toBeVisible({timeout:18000});
-  await page.locator('.payment-module__table-card .card-table tbody tr').first().click();
+  await page.locator('.payment-module__table-card .card-table tbody tr').first().getByRole('button',{name:'View Details'}).click();
   await expect(page).toHaveURL(new RegExp('/payments/taxpayer-360/1111111111111$'));
   await expect(page.getByRole('button',{name:'Back to taxpayers'})).toBeVisible();
   await page.getByRole('tab',{name:'Tax position'}).click();
