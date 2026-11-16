@@ -37,6 +37,36 @@ describe('Office payment monitoring content',()=>{
     expect(html).toContain('No recorded activity for this period.');
     expect(html).toContain('Not verified here');
   });
+  it('keeps the complete dashboard structure visible when the secured source fails, without showing stale totals',()=>{
+    const html=renderToStaticMarkup(<OfficePaymentDashboardInsights
+      payments={[saved]} year="all" language="en"
+      formatCount={n=>String(n)} formatDate={date=>date}
+      loading={false} error="Office transactions temporarily unavailable"
+      onRetry={()=>{}} onOpenPayment={()=>{}} onViewTransactions={()=>{}} onSelectYear={()=>{}}
+    />);
+    expect(html).toContain('data-source-state="unavailable"');
+    expect(html).toContain('Operational review');
+    expect(html).toContain('Source and reconciliation evidence');
+    expect(html).toContain('Payments by service');
+    expect(html).toContain('Record completeness');
+    expect(html).toContain('Retry');
+    expect(html).toContain('Unavailable');
+    expect(html).toContain('Payment data unavailable.');
+    expect(html).not.toContain('Read successful');
+    expect(html).not.toContain('bKash');
+    expect(html).not.toContain('record-1');
+  });
+  it('shows honest loading state with no retry action during refresh',()=>{
+    const html=renderToStaticMarkup(<OfficePaymentDashboardInsights
+      payments={[]} year="all" language="bn"
+      formatCount={n=>String(n)} formatDate={date=>date}
+      loading={true} onRetry={()=>{}} onOpenPayment={()=>{}} onViewTransactions={()=>{}} onSelectYear={()=>{}}
+    />);
+    expect(html).toContain('data-source-state="loading"');
+    expect(html).toContain('লোড হচ্ছে');
+    expect(html).not.toContain('Retry Office payments');
+    expect(html).toContain('উৎস ও সমন্বয় যাচাই');
+  });
   it('supports the approved Bengali layout and scopes record indicators to the selected year',()=>{
     const html=view([saved,failed],'2026-27','bn');
     expect(html).toContain('কার্যক্রম পর্যালোচনা');
