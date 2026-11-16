@@ -32,7 +32,7 @@ import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
-import {getOfficeTaxpayerRegistrations,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
+import {getOfficeTaxpayerRegistrations,getOfficePreviewTaxpayers,type OfficePreviewTaxpayer,type TaxpayerRegistrationProfile} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
 import {partitionOfficeCorrectionCases} from './officeCorrectionCaseCategories';
@@ -190,6 +190,31 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const [selectedTin,setSelectedTin] = useState<string>(taxpayerTin??'');
   useEffect(()=>{setSelectedTin(taxpayerTin??'');},[taxpayerTin]);
   const [taxpayerTab,setTaxpayerTab] = useState('identity');
+  const [previewAccounts,setPreviewAccounts] = useState<OfficePreviewTaxpayer[]>([]);
+  const [previewLoading,setPreviewLoading] = useState(false);
+  const [previewError,setPreviewError] = useState('');
+  useEffect(()=>{
+    if(current!=='taxpayer-360'){setPreviewAccounts([]);setPreviewError('');return;}
+    let active=true,inFlight=false;
+    const refresh=async()=>{
+      if(!active||inFlight||document.visibilityState==='hidden')return;
+      inFlight=true;
+      setPreviewLoading(true);
+      try{
+        const items=await getOfficePreviewTaxpayers();
+        if(active){setPreviewAccounts(items);setPreviewError('');}
+      }catch(error){
+        if(active){setPreviewAccounts([]);setPreviewError(error instanceof Error?error.message:'Preview directory unavailable');}
+      }finally{inFlight=false;if(active)setPreviewLoading(false);}
+    };
+    const onFocus=()=>void refresh();
+    const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
+    void refresh();
+    const timer=window.setInterval(()=>void refresh(),30000);
+    window.addEventListener('focus',onFocus);
+    document.addEventListener('visibilitychange',onVisible);
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisible);};
+  },[current]);
   const [registrationProfiles,setRegistrationProfiles] = useState<TaxpayerRegistrationProfile[]>([]);
   const [registrationLoading,setRegistrationLoading] = useState(false);
   const [registrationError,setRegistrationError] = useState('');
@@ -414,37 +439,23 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const scopedPayments=scopeYear==='all'?allRows:allRows.filter(p=>p.assessment_year.split(', ').some(y=>y.replace('–','-')===scopeYear));
   const yearSelect=<AppSelectField id="payment-year-scope" label={t('yearScope')} value={scopeYear} onChange={setScopeYear} compact
     options={[{value:'all',label:t('allYears')},...Array.from(new Set([...referencePayments.map(p=>p.ay.replace('–','-')),...demoTransactions.flatMap(tx=>tx.allocations.map(a=>a.assessmentYear)),...storyRows.flatMap(row=>row.assessment_year.split(', ').map(year=>year.trim().replace('–','-')).filter(year=>year!=='—'))])).sort().reverse().map(y=>({value:y,label:y}))]}/>;
-  // One taxpayer register derived from the same mirrored SQL Story 1 rows as Transactions.
-  // These are linked synthetic records, not an official taxpayer registry or liability ledger.
-  const taxpayerAccounts=(()=>{
-    const accounts=new Map<string,{key:string;tin:string;taxpayer_name:string;records:number;last_activity:string}>();
-    const sources=new Map(storyPayments.map(payment=>[payment.id,payment]));
-    for(const payment of storyRows){
-      const tins=String(payment.tin??'').split(',').map(v=>v.trim());
-      for(let index=0;index<tins.length;index++){
-        const tin=tins[index];
-        if(!/^[0-9]{12,13}$/.test(tin))continue;
-        const source=sources.get(String(payment.key));
-        const scoped=source?toStoryTaxpayerPaymentRow(source,tin):null;
-        if(!scoped)continue;
-        const item=accounts.get(tin);
-        const name=scoped.taxpayer_name&&scoped.taxpayer_name!=='—'?scoped.taxpayer_name:'TIN '+tin;
-        if(item){item.records++;if(Date.parse(payment.date)>Date.parse(item.last_activity))item.last_activity=payment.date;continue;}
-        accounts.set(tin,{key:tin,tin,taxpayer_name:name,records:1,last_activity:payment.date});
-      }
-    }
-    return Array.from(accounts.values()).sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
-  })();
-  for(const record of registrationProfiles){
-    const previous=taxpayerAccounts.find(item=>item.tin===record.tin);
-    if(!previous)taxpayerAccounts.push({
-      key:record.tin,tin:record.tin,
-      taxpayer_name:record.profile.taxpayerName||record.accountId,
-      records:0,last_activity:'—',
-    });
-  }
-  taxpayerAccounts.sort((a,b)=>a.taxpayer_name.localeCompare(b.taxpayer_name,undefined,{numeric:true}));
-  const registrationProfile=registrationProfiles.find(p=>p.tin===selectedTin);
+  // The directory follows the same 30 selectable Taxpayer preview accounts,
+  // including those without payments. Payments remain scoped by their source
+  // allocations, never guessed from a taxpayer name or a displayed sample TIN.
+  const bnPreview=i18n.resolvedLanguage?.startsWith('bn')??false;
+  const taxpayerAccounts=previewAccounts.map(preview=>{
+    const own=storyPayments.filter(payment=>toStoryTaxpayerPaymentRow(payment,preview.sampleTin,'all')!==null);
+    const latest=own.map(payment=>payment.createdAt).filter(date=>Number.isFinite(Date.parse(date)))
+      .sort((a,b)=>Date.parse(b)-Date.parse(a))[0];
+    return {
+      key:preview.sampleTin,tin:preview.sampleTin,
+      taxpayer_name:bnPreview?preview.nameBn:preview.nameEn,
+      records:own.length,last_activity:latest?displayEventDate(latest):'—',
+    };
+  });
+  const selectedPreview=previewAccounts.find(item=>item.sampleTin===selectedTin);
+  const registrationProfile=registrationProfiles.find(p=>selectedPreview
+    ?p.accountId===selectedPreview.accountId:p.tin===selectedTin);
   const connectedTaxpayer=taxpayerAccounts.find(p=>p.tin===selectedTin);
   const taxP=connectedTaxpayer?{
     name:connectedTaxpayer.taxpayer_name,tin:selectedTin,
@@ -453,7 +464,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     name:'—',tin:selectedTin,nid:'—',phone:'—',zone:'—',circle:'—',type:'—',status:'Not verified'
   };
   if(registrationProfile){
-    taxP.name=registrationProfile.profile.taxpayerName||registrationProfile.accountId;
+    taxP.name=selectedPreview?.[bnPreview?'nameBn':'nameEn']||registrationProfile.profile.taxpayerName||registrationProfile.accountId;
     taxP.zone=registrationProfile.profile.taxesZone||'—';
     taxP.circle=registrationProfile.profile.taxesCircle||'—';
     taxP.type=registrationProfile.profile.tinType||'—';
@@ -638,6 +649,9 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     {storyError && <p role="alert" className="table-page__desc">{storyError}</p>}
     {registrationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'প্রোফাইল লোড হচ্ছে…':'Loading taxpayer profiles…'}</p>}
     {registrationError&&<p role="alert" className="table-page__desc">{registrationError}</p>}
+    {previewLoading&&<p role="status" className="table-page__desc">{bnPreview?'করদাতাদের তালিকা লোড হচ্ছে…':'Loading all 30 Taxpayer accounts…'}</p>}
+    {previewError&&<p role="alert" className="table-page__desc">{previewError}</p>}
+    {!previewLoading&&!previewError&&previewAccounts.length!==30&&<p role="alert" className="table-page__desc">{bnPreview?'করদাতা তালিকা অসম্পূর্ণ।':'Taxpayer directory incomplete.'}</p>}
     <PaymentRecordList kind="taxpayers" title={t('taxpayerRegister')} rows={taxpayerAccounts}
       columns={[
         {type:'col',col:{key:'taxpayer_name',label:t('name'),truncate:'normal'}},
@@ -653,7 +667,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     {registrationLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage?.startsWith('bn')?'প্রোফাইল লোড হচ্ছে…':'Loading taxpayer profiles…'}</p>}
     {registrationError&&<p role="alert" className="table-page__desc">{registrationError}</p>}
     <div className="payment-module__year-control">{yearSelect}</div>
-    <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
+    <div className="payment-module__identity"><h2>{taxP.name}</h2><p>{selectedPreview?(bnPreview?'নমুনা টিআইএন':'Sample TIN'):t('tin')}: {taxP.tin} · {taxP.zone} · {taxP.circle}</p></div>
     {showKpis([
       kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংযুক্ত পেমেন্ট':'Linked payments',taxpayerActivity?displayNumber(taxpayerActivity.linkedRecords):'—',CreditCard),
       kpi(i18n.resolvedLanguage?.startsWith('bn')?'সংরক্ষিত পেমেন্টের পরিমাণ':'Saved record amount',taxpayerActivity?.recordedSavedAmountMinor!==null&&taxpayerActivity?displayMoney(taxpayerActivity.recordedSavedAmountMinor/100):'—',Wallet,'neutral'),
@@ -664,15 +678,39 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
       formatCount={displayNumber} formatDate={displayEventDate}
       onOpen={row=>view(row,t('transactions'))}/>}
-    <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='taxJourney'?(i18n.resolvedLanguage?.startsWith('bn')?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
-    {taxpayerTab==='identity' && (registrationLoading||registrationError)
-      ? null // Loading/error is displayed above; never show unverified fallback identity.
-      : taxpayerTab==='identity' && registrationProfile
+    <div className="payment-module__tab-scroll"><TabBar active={taxpayerTab} onChange={setTaxpayerTab} tabs={['identity','taxPosition','returns','paymentsTab','beneficiaries','correctionsTab','notices','ledger','taxJourney'].map(id=>({id,label:id==='beneficiaries'?(bnPreview?'সুবিধাভোগী':'Beneficiaries'):id==='taxJourney'?(bnPreview?'কর যাত্রা':'Tax journey'):t(id)}))}/></div>
+    {taxpayerTab==='identity' && registrationProfile && !registrationLoading && !registrationError
       ? <OfficeTaxpayerRegistrationDetails record={registrationProfile}
-          language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}/>
-      : taxpayerTab==='identity' ? <section className="card payment-module__card payment-module__identity-grid">
-      {Object.entries({[t('name')]:taxP.name,[t('tin')]:taxP.tin,[t('nidMasked')]:taxP.nid,[t('phoneMasked')]:taxP.phone,[t('zone')]:taxP.zone,[t('circle')]:taxP.circle,[t('type')]:taxP.type,[t('status')]:taxP.status==='Reference'?'—':taxP.status}).map(([k,v])=><div key={k}><p className="payment-module__field-label">{k}</p><p>{displayRecord(String(v))}</p></div>)}
-    </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> : taxpayerTab==='correctionsTab' ? <>
+          language={bnPreview?'bn':'en'}/>
+      : taxpayerTab==='identity' && selectedPreview
+      ? <section className="card payment-module__card" data-testid="office-taxpayer-preview-profile">
+          <h3>{bnPreview?'করদাতার নমুনা প্রোফাইল':'Taxpayer preview profile'}</h3>
+          <p className="table-page__desc">{bnPreview
+            ?'এটি করদাতা প্রকল্পের একই লগইন প্রিভিউ অ্যাকাউন্ট। পূর্ণ নিবন্ধন তথ্যের যাচাইকৃত SQL রেকর্ড পাওয়া যায়নি।'
+            :'This is the same selectable preview account as Taxpayer. A complete SQL registration record is not available for this account.'}</p>
+          <dl className="payment-module__identity-grid">
+            {([
+              [bnPreview?'নাম':'Name',bnPreview?selectedPreview.nameBn:selectedPreview.nameEn],
+              [bnPreview?'অ্যাকাউন্ট':'Account',selectedPreview.accountId],
+              [bnPreview?'অ্যাকাউন্টের ধরন':'Account type',selectedPreview.roleCode.replace(/_/g,' ')],
+              [bnPreview?'নমুনা টিআইএন':'Sample TIN',selectedPreview.sampleTin],
+              [bnPreview?'প্রোফাইলের উদ্দেশ্য':'Profile focus',selectedPreview.profileFocusEn||'—'],
+              [bnPreview?'অধিক্ষেত্রের নমুনা':'Sample jurisdiction',selectedPreview.jurisdictionLabel||'—'],
+            ] as const).map(([label,value])=><div key={label}>
+              <dt className="payment-module__field-label">{label}</dt>
+              <dd>{value}</dd>
+            </div>)}
+          </dl>
+        </section>
+      : taxpayerTab==='identity' ? <section className="card payment-module__card" role="status">
+          <p>{bnPreview?'করদাতার পরিচয় যাচাই করা যায়নি।':'No source-verified taxpayer identity is available.'}</p>
+        </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> :
+      taxpayerTab==='beneficiaries' ? <section className="card payment-module__card" data-testid="office-taxpayer-beneficiary-scope">
+        <h2>{bnPreview?'সুবিধাভোগী তালিকা':'Beneficiary list'}</h2>
+        <p className="table-page__desc" role="status">{bnPreview
+          ?'করদাতার সংরক্ষিত ব্যক্তিগত সুবিধাভোগী তালিকা Office-এর জন্য অনুমোদিত নয়। অনুমোদিত অ্যাকাউন্ট-স্কোপড উৎস সংযুক্ত হলে তথ্য দেখানো যাবে।'
+          :'Saved beneficiaries are taxpayer-owned private records. An authorized, account-scoped Office reader is not yet available; no beneficiary data is inferred from payments.'}</p>
+      </section> : taxpayerTab==='correctionsTab' ? <>
       {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
       {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}
       {!officeCorrectionLoading&&!officeCorrectionError&&!officeCorrectionQueue.enabled&&<p className="table-page__desc" role="status">{t('officeCorrectionQueueUnavailable')}</p>}
