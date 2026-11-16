@@ -1,4 +1,5 @@
 import {createClient} from "npm:@supabase/supabase-js@2.57.0";
+import {resolveMirrorSourceProject,signedTaxpayerSourceUrl} from "./mirrorSource.ts";
 const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,apikey","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Content-Type":"application/json","Cache-Control":"no-store"};
 const respond=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers});
 const PG_BIGINT_MAX=9223372036854775807n;
@@ -64,14 +65,15 @@ Deno.serve(async(req)=>{
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
       if(!validUuid(incoming?.id)||!validUuid(incoming?.sessionId))return respond({success:false,error:"INVALID_MIRROR"},400);
+      const sourceProject=resolveMirrorSourceProject(incoming?.sourceProject);
+      if(!sourceProject)return respond({success:false,error:"INVALID_TAXPAYER_SOURCE"},400);
       // A public session-based source read must never authorize an Office write.
       // Require the signed short-lived TaxPay proof BEFORE calling any source URL.
       const mirrorProof=req.headers.get("x-taxpay-office-mirror-proof");
       if(!mirrorProof||!/^v1\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(mirrorProof))
         return respond({success:false,error:"MIRROR_PROOF_REQUIRED"},403);
       // Use the source SQL read-back, never an unverified caller snapshot.
-      const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/payments/"
-         +encodeURIComponent(incoming.id)+"?sessionId="+encodeURIComponent(incoming.sessionId);
+      const sourceUrl=signedTaxpayerSourceUrl(sourceProject,"payment",incoming.id,incoming.sessionId);
       // Forward TaxPay's short-lived, payment+session-bound proof to TaxPay.
       // Never trust the caller's payment snapshot or store the proof in Office.
       const source=await fetch(sourceUrl,{
@@ -98,6 +100,8 @@ Deno.serve(async(req)=>{
       const raw=await req.text();if(raw.length>200)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(raw),id=incoming.id;
       if(!validUuid(id))return respond({success:false,error:"INVALID_ID"},400);
+      const sourceProject=resolveMirrorSourceProject(incoming?.sourceProject);
+      if(!sourceProject)return respond({success:false,error:"INVALID_TAXPAYER_SOURCE"},400);
       // An arbitrary source UUID cannot trigger an Office privileged write.
       // Taxpayer Edge signs a separate 120-second authorization-only proof.
       const authorizationProof=req.headers.get("x-taxpay-office-authorization-proof");
@@ -105,8 +109,7 @@ Deno.serve(async(req)=>{
          !/^v1\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(authorizationProof))
         return respond({success:false,error:"AUTHORIZATION_MIRROR_PROOF_REQUIRED"},403);
       // Never accept a caller-supplied authorization state: read TaxPay SQL back.
-      const sourceUrl="https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/demo-story1-taxpay/authorizations/"
-        +encodeURIComponent(id)+"/snapshot";
+      const sourceUrl=signedTaxpayerSourceUrl(sourceProject,"authorization",id);
       const res=await fetch(sourceUrl,{
         headers:{"x-taxpay-office-authorization-proof":authorizationProof},
         signal:AbortSignal.timeout(10000)});
