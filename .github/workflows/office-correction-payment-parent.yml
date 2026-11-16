@@ -2,7 +2,7 @@ name: Office correction payment parent - disposable PostgreSQL 17
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'ws3/v95-correction-payment-parent-20261112']
     paths:
       - 'supabase/migrations/20261029170000_office_correction_review.sql'
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
@@ -25,9 +25,13 @@ on:
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
       - 'tests/integration/officeNoticeRecovery.sql'
       - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'src/app/pages/payments/OfficeConsolidatedTaxpayerLedger.tsx'
+      - 'src/app/pages/payments/officeConsolidatedLedger.ts'
+      - 'src/app/pages/payments/__tests__/officeConsolidatedLedger.test.ts'
+      - 'src/test/paymentTaxpayer360ListDetail.test.ts'
       - '.github/workflows/office-correction-payment-parent.yml'
   push:
-    branches: [main]
+    branches: [main, 'phase5/office-f177-ledger-ui-20261116']
     paths:
       - 'supabase/migrations/20261029170000_office_correction_review.sql'
       - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
@@ -153,3 +157,22 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionInitiation.sql
+
+  phase5-source-ledger:
+    name: Phase 5 source-ledger UI and build acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Office dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Verify source, Dhara, no invented tax credits and taxpayer details
+        run: npx vitest run src/app/pages/payments/__tests__/officeConsolidatedLedger.test.ts src/test/paymentTaxpayer360ListDetail.test.ts
+      - name: Compile integrated Office application
+        run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/
