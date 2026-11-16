@@ -460,12 +460,22 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   // A preview-only render record gives every account the approved 24-field
   // profile structure without asserting missing certificate facts as real.
   // This is never written to Taxpayer SQL or treated as a verified identity.
+  const previewRoleLabel=selectedPreview?.roleCode==='TAXPAYER_CORPORATE'
+    ?(bnPreview?'কোম্পানি':'Company')
+    :selectedPreview?.roleCode==='WITHHOLDING_AGENT'
+      ?(bnPreview?'উৎসে কর কর্তনকারী':'Withholding agent')
+      :(bnPreview?'ব্যক্তি':'Individual');
+  const previewCircle=selectedPreview?.jurisdictionLabel||
+    (selectedPreview?'circle-'+selectedPreview.accountId.slice(4):'');
   const previewRegistrationRecord:TaxpayerRegistrationProfile|null=selectedPreview?{
     accountId:selectedPreview.accountId,tin:selectedPreview.sampleTin,
     revision:0,updatedAt:'',
     profile:{
       ...(Object.fromEntries(REGISTRATION_FIELDS.map(key=>[key,null])) as Record<RegistrationField,string|null>),
       taxpayerName:bnPreview?selectedPreview.nameBn:selectedPreview.nameEn,
+      taxpayerStatus:previewRoleLabel,
+      tinType:previewRoleLabel,
+      taxesCircle:previewCircle,
       tin:selectedPreview.sampleTin,
       source:'SYNTHETIC',sourceUpdatedAt:'',
     }
