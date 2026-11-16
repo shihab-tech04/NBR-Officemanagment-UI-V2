@@ -28,8 +28,8 @@ describe('TaxPay fictional 55-profile Office projection', () => {
 describe('Taxpayer V2 SQL-backed first-30 Office register',()=>{
  const rows=Array.from({length:55},(_,index)=>{
   const n=index+1;
-  const role=n===3||n%7===0?'WITHHOLDING_AGENT':
-   n===2||n%5===0?'TAXPAYER_CORPORATE':'TAXPAYER_INDIVIDUAL';
+  const role=n<=10?(n===3?'WITHHOLDING_AGENT':n===2?'TAXPAYER_CORPORATE':'TAXPAYER_INDIVIDUAL'):
+   n%7===0?'WITHHOLDING_AGENT':n%5===0?'TAXPAYER_CORPORATE':'TAXPAYER_INDIVIDUAL';
   return {id:'user'+n,role_code:role,
     name_en:n===7||n===8||n===9||n===10?null:
       n<=10?'SQL preview label':'Taxpayer Account '+n,
