@@ -6,6 +6,19 @@ import {strict as assert} from 'node:assert';
 import vm from 'node:vm';
 import {transformSync} from 'esbuild';
 
+// Load the same allowlisted local routing helper imported by the production Edge.
+// Retain the fail-closed npm and local import restrictions in the test VM.
+function loadOfficeLocalModule(specifier){
+ assert.equal(specifier,'./mirrorSource.ts','Unexpected local Edge dependency');
+ const sourceFile='supabase/functions/demo-story1-office/mirrorSource.ts';
+ const sourceCode=readFileSync(sourceFile,'utf8');
+ const js=transformSync(sourceCode,{loader:'ts',format:'cjs',target:'es2022'}).code;
+ const isolated={exports:{}};
+ vm.runInNewContext(js,{module:isolated,exports:isolated.exports,URL,Object,Error},
+  {filename:sourceFile,timeout:5000});
+ return isolated.exports;
+}
+
 const source=readFileSync('supabase/functions/demo-story1-office/index.ts','utf8');
 const compiled=transformSync(source,{loader:'ts',format:'cjs',target:'es2022'}).code;
 // Resolve the actual allowlisted source helper in each isolated Edge VM.
@@ -24,6 +37,7 @@ const box={
  module,exports:module.exports,
  require(name){
   if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
   assert.match(name,/^npm:@supabase\/supabase-js@/);
   return {createClient:()=>({rpc:async()=>{sqlCalls++;throw Error('Never read SQL without valid proof');}})};
  },
@@ -76,6 +90,7 @@ const authMirrorBox={
  ...box,
  require(name){
   if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
   assert.ok(name.startsWith('npm:@supabase/supabase-js@'));
   return {createClient:(_url,roleKey)=>({
    rpc:async(name,args)=>{
@@ -143,7 +158,8 @@ const cursorBox={
  ...box,
  require(name){
   if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
-   assert.match(name,/^npm:@supabase\/supabase-js@/);
+   if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
    return {createClient:(_url,_key,opts)=>({
      auth:{getUser:async(token)=>{
        verifiedTokens.push(token);
@@ -240,7 +256,8 @@ const lineageBox={
  ...box,
  require(name){
   if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
-   assert.match(name,/^npm:@supabase\/supabase-js@/);
+   if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
    return {createClient:(_url,_key,opts)=>({
      auth:{getUser:async(token)=>token===validToken
        ?{data:{user:{id:'80000000-0000-4000-8000-000000000011',
