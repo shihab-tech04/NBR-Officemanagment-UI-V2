@@ -22,8 +22,10 @@ describe('Office taxpayer register/detail navigation',()=>{
     expect(list).toContain('AppSearchField');
     expect(list).toContain('Pagination');
   });
-  it('derives taxpayer rows from the same SQL mirror as Office Transactions',()=>{
-    expect(module).toContain('for(const payment of storyRows)');
+  it('derives preview directory from V2 SQL and reconciles linked payments from Office SQL',()=>{
+    expect(module).toContain('getOfficePreviewTaxpayers');
+    expect(module).toContain('previewAccounts.map(preview=>');
+    expect(module).toContain("toStoryTaxpayerPaymentRow(payment,preview.sampleTin,'all')");
     expect(module).toContain("storyPayments.map(toStoryPaymentRow)");
     expect(module).not.toContain('Connected SQL simulation profile (no official tax credit)');
   });

@@ -46,7 +46,7 @@ for (const width of [320, 1280]) for (const language of ['en', 'bn'] as const) {
   });
 }
 
-test('Taxpayer 360 register includes both TINs from reconciled allocation records', async ({ page }) => {
+test('Taxpayer 360 register retains exactly 30 selectable accounts despite unrelated payment TINs', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await installIsolatedOfficeOfficer(page);
   const allocated = { ...payment, details: { taxpayerTin: '123456789012', assessmentYear: '2026-27',
@@ -67,6 +67,13 @@ test('Taxpayer 360 register includes both TINs from reconciled allocation record
   });
   await page.goto('/payments/taxpayer-360');
   const table = page.locator('.payment-module__table-card');
-  await expect(table).toContainText('123456789012');
-  await expect(table).toContainText('234567890123');
+  await expect(table).toContainText('30 records');
+  await expect(table).toContainText('Md. Arif Rahman');
+  await expect(table).not.toContainText('123456789012');
+  await expect(table).not.toContainText('234567890123');
+  // The original explicitly attributed allocations are still available
+  // by direct TIN lookup; they must not silently become new login users.
+  await page.goto('/payments/taxpayer-360/123456789012');
+  await page.getByRole('tab',{name:'Payments',exact:true}).click();
+  await expect(page.locator('.payment-module__table-card')).toContainText('৳15');
 });
