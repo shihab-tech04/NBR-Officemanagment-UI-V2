@@ -154,20 +154,36 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const [storyNotices,setStoryNotices] = useState<StoryNotice[]>([]);
   const [storyLoading,setStoryLoading]=useState(true);
   const [storyError,setStoryError]=useState('');
-  // This fictional-payment feed has no officer login or verification dependency.
+  const [storyNoticeUnavailable,setStoryNoticeUnavailable]=useState(false);
+  const [storyRefreshKey,setStoryRefreshKey]=useState(0);
+  // Payment records require the existing authorized Office Auth and SQL contract.
   useEffect(()=>{
     let mounted=true;
+    setStoryLoading(true);
+    setStoryError('');
     const refresh=createSingleFlight(async()=>{
       try {
-        const [payments,notices]=await Promise.all([getStoryPayments(),getStoryNotices()]);
-        if(mounted){const visibleIds=new Set(payments.map(item=>item.id));setStoryPayments(payments);setStoryNotices(notices.filter(notice=>visibleIds.has(notice.paymentId)));setStoryError('');setStoryLoading(false);}
+        const payments=await getStoryPayments();
+        // A notice-service failure must never blank the payment register or its dashboard.
+        let notices:StoryNotice[]=[];
+        let noticeUnavailable=false;
+        try {notices=await getStoryNotices();}
+        catch {noticeUnavailable=true;}
+        if(mounted){
+          const visibleIds=new Set(payments.map(item=>item.id));
+          setStoryPayments(payments);
+          setStoryNotices(notices.filter(notice=>visibleIds.has(notice.paymentId)));
+          setStoryNoticeUnavailable(noticeUnavailable);
+          setStoryError('');
+          setStoryLoading(false);
+        }
       }catch(e){if(mounted){setStoryError(e instanceof Error?e.message:'Payment connection failed');setStoryLoading(false);}}
     });
     void refresh();
     // A full payment read spans multiple SQL pages; never overlap refreshes.
     const timer=window.setInterval(()=>void refresh(),30000);
     return()=>{mounted=false;window.clearInterval(timer);};
-  },[]);
+  },[storyRefreshKey]);
   const [liveError,setLiveError] = useState('');
   const [liveLoading,setLiveLoading] = useState(true);
   const [kpiOpen,setKpiOpen] = useState(true);
@@ -577,30 +593,31 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const overview=()=> <>
     {toolbar(t('overview'))}
     <div className="payment-module__year-control">{yearSelect}</div>
-    {storyLoading&&<p role="status" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সংযুক্ত পেমেন্ট রেকর্ড লোড হচ্ছে…':'Loading connected payment records…'}</p>}
-    {storyError&&<p role="alert" className="table-page__desc">{storyError}</p>}
     {storySummary?.amountMinor===null&&<p role="alert" className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টের পরিমাণ যাচাই করা যায়নি।':'Could not verify the payment amounts.'}</p>}
     {showKpis([
       kpi(i18n.resolvedLanguage==='bn'?'পেমেন্ট রেকর্ড':'Payment records',storySummary?displayNumber(storySummary.count):'—',CreditCard),
       kpi(i18n.resolvedLanguage==='bn'?'মোট নথিভুক্ত পরিমাণ':'Total recorded amount',!storySummary||storySummary.amountMinor===null?'—':displayMoney(storySummary.amountMinor/100),Wallet),
       kpi(i18n.resolvedLanguage==='bn'?'সেবার ধরন':'Service categories',storySummary?displayNumber(storySummary.services):'—',BarChart3),
-      kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',storySummary?displayNumber(storySummary.notificationCount):'—',Users),
+      kpi(i18n.resolvedLanguage==='bn'?'ইন-অ্যাপ বিজ্ঞপ্তি':'In-app payment notices',storySummary&&!storyNoticeUnavailable?displayNumber(storySummary.notificationCount):'—',Users),
       kpi(i18n.resolvedLanguage==='bn'?'সর্বশেষ রেকর্ড':'Latest record',storySummary?.latestDate?displayEventDate(storySummary.latestDate):'—',Clock3),
     ])}
-    {storySummary&&<OfficePaymentDashboardInsights
-      payments={storyPayments} year={scopeYear}
+    <OfficePaymentDashboardInsights
+      payments={storySummary?storyPayments:[]} year={scopeYear}
+      loading={storyLoading} error={storyError}
+      onRetry={()=>setStoryRefreshKey(value=>value+1)}
       language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
       formatCount={displayNumber} formatDate={displayEventDate}
       onOpenPayment={row=>view(row,t('transactions'))}
       onViewTransactions={()=>goto('transactions')}
-      onSelectYear={setScopeYear}/>}
+      onSelectYear={setScopeYear}/>
     <div className="payment-module__summary-grid">
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('attention')}</h2><SecondaryButton size="sm" onClick={()=>goto('corrections')}>{t('viewQueue')}</SecondaryButton></div>
         <p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'পেমেন্টস > ট্রানজ্যাকশনস-এ পেমেন্ট রেকর্ড দেখুন। কর্মকর্তার অনুমোদন এখনো চালু নেই।':'View payment records under Payments > Transactions. Officer approvals are not available yet.'}</p>
       </section>
       <section className="card payment-module__card"><div className="payment-module__section-top"><h2>{t('recentAudit')}</h2><SecondaryButton size="sm" onClick={()=>navigate('/audit/audit-trail')}>{t('centralAudit')}</SecondaryButton></div>
         {storySummary&&storyNotices.slice(0,4).map(n=><button className="payment-module__record-link" key={`story-${n.id}`} type="button" onClick={()=>{setPaymentDataset('connected');goto('transactions');}}><strong>{t('payments')}</strong><p>{displayEventDate(n.createdAt)} · {n.paymentId}</p></button>)}
-        {storySummary&&!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সাম্প্রতিক পেমেন্ট বিজ্ঞপ্তি নেই।':'No recent payment notices.'}</p>}
+        {storySummary&&storyNoticeUnavailable&&<p className="table-page__desc" role="status">{i18n.resolvedLanguage?.startsWith('bn')?'নোটিশ উৎস অনুপলব্ধ। পেমেন্ট রেকর্ড প্রভাবিত নয়।':'Payment notices are unavailable; payment records remain accessible.'}</p>}
+        {storySummary&&!storyNoticeUnavailable&&!storyNotices.length&&<p className="table-page__desc">{i18n.resolvedLanguage==='bn'?'সাম্প্রতিক পেমেন্ট বিজ্ঞপ্তি নেই।':'No recent payment notices.'}</p>}
       </section>
     </div>
   </>;
