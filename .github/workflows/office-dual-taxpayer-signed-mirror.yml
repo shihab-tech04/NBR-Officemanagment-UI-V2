@@ -3,7 +3,7 @@ name: Office authorized dual-source Taxpayer mirror acceptance
 on:
   pull_request:
     branches:
-      - ws3/office-taxpayer-source-contract-20261116
+      - ws3/v95-correction-payment-parent-20261112
       - main
     paths:
       - 'supabase/functions/demo-story1-office/index.ts'
