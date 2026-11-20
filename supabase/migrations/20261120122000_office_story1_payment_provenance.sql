@@ -70,7 +70,7 @@ BEGIN
   IF v_status IS DISTINCT FROM 'SIMULATED_SUCCESS' OR
      jsonb_typeof(v_details) IS DISTINCT FROM 'object' OR
      length(p_input::text) > (CASE
-       WHEN p_input->>'service'='OTHER_TAX_PAYMENT' AND
+       WHEN p_input->>'service' IN ('OTHER_TAX_PAYMENT','TAX_WITH_RETURN') AND
             p_input->'data'->'details'->>'combinedPayment'='true' THEN 800000
        ELSE 16000 END) THEN
     RAISE EXCEPTION 'INVALID_MIRROR';
