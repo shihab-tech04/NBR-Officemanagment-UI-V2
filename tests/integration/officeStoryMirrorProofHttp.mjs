@@ -78,6 +78,64 @@ const methods=await handler(new Request(url,{method:'OPTIONS'}));
 assert.equal(methods.status,204);
 console.log('PASS: real Office Edge handler requires source-bound proof at ingress, malformed IDs and proofs fail before network/SQL, preflight preserved; no hosted access');
 
+// A valid proof still cannot make the caller's project label authoritative.
+// Office must compare the requested route with the marker returned by the
+// selected Taxpayer SQL Edge before it invokes the private mirror RPC.
+let provenanceHandler=null,provenanceSourceReads=0;
+const provenanceSql=[];
+const sourceRecord={id,data:{service:'ADVANCE_TAX',amountMinor:1250,
+  details:{payerTin:'111111111111',allocations:[{taxpayerTin:'222222222222',amountMinor:1250}]}},
+  status:'SIMULATED_SUCCESS',createdAt:'2026-11-20T09:00:00.000Z',
+  sourceProject:'original',sourceParentId:null,sourceRevision:'a'.repeat(64)};
+const provenanceBox={
+ ...box,
+ require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
+  return {createClient:(_url,roleKey)=>({rpc:async(name,args)=>{
+    provenanceSql.push({name,args,roleKey});
+    return {data:{id,mirrored:true,replayed:false},error:null};
+  }})};
+ },
+ fetch:async(sourceUrl,init)=>{
+  provenanceSourceReads++;
+  assert.ok(sourceUrl.endsWith('/payments/'+id+'?sessionId='+sessionId));
+  assert.match(init?.headers?.['x-taxpay-office-mirror-proof']??'',/^v1\.[0-9]{10}\.[A-Za-z0-9_-]{43}$/);
+  return new Response(JSON.stringify({success:true,simulationOnly:true,data:sourceRecord}),{status:200});
+ },
+ Deno:{env:{get(name){
+   if(name==='SUPABASE_ANON_KEY')return 'isolated-public-key';
+   if(name==='SUPABASE_URL')return 'https://isolated-office.invalid';
+   if(name==='SUPABASE_SERVICE_ROLE_KEY')return 'isolated-private-office-key';
+   return null;
+ }},serve(callback){provenanceHandler=callback;}},
+};
+vm.runInNewContext(compiled,provenanceBox,{filename:'office-story-mirror-provenance.ts',timeout:5000});
+const provenanceProof='v1.1234567890.'+'A'.repeat(43);
+let provenanceResponse=await provenanceHandler(new Request(url,{method:'POST',
+ headers:{'Content-Type':'application/json','x-taxpay-office-mirror-proof':provenanceProof},
+ body:JSON.stringify({id,sessionId,sourceProject:'original'})}));
+assert.equal(provenanceResponse.status,200);
+assert.equal(provenanceSourceReads,1);
+assert.equal(provenanceSql.length,1);
+assert.equal(provenanceSql[0].name,'demo_story1_mirror');
+assert.equal(provenanceSql[0].roleKey,'isolated-private-office-key');
+assert.equal(provenanceSql[0].args.p_input.sourceProject,'original');
+assert.equal(provenanceSql[0].args.p_input.sourceParentId,null);
+assert.equal(provenanceSql[0].args.p_input.sourceRevision,'a'.repeat(64));
+assert.equal(provenanceSql[0].args.p_input.data.details.payerTin,'111111111111');
+assert.equal(provenanceSql[0].args.p_input.data.details.sourceProject,undefined,
+  'Provenance must not mutate the original Taxpayer payment JSON');
+provenanceResponse=await provenanceHandler(new Request(url,{method:'POST',
+ headers:{'Content-Type':'application/json','x-taxpay-office-mirror-proof':provenanceProof},
+ body:JSON.stringify({id,sessionId,sourceProject:'v2'})}));
+assert.equal(provenanceResponse.status,424);
+assert.equal((await provenanceResponse.json()).error,'SOURCE_PROVENANCE_INVALID');
+assert.equal(provenanceSourceReads,2);
+assert.equal(provenanceSql.length,1,'A forged source-project marker reached private Office SQL');
+console.log('PASS: Office persists only the project marker returned by signed Taxpayer SQL, captures parent/revision, preserves source JSON and blocks project-mismatch before SQL');
+
 
 // WS3 authorization mirror: the real Edge handler must source-read the
 // synthetic authorization first, then use the service key for its private RPC.

@@ -85,6 +85,15 @@ Deno.serve(async(req)=>{
          sourceResponse.data?.id!==incoming.id||sourceResponse.data?.status!=="SIMULATED_SUCCESS")
         return respond({success:false,error:"SOURCE_RECORD_NOT_READY"},424);
       const record=sourceResponse.data;
+      // The source Edge derives this marker from its own configured project and
+      // fingerprints the authoritative SQL readback. Never trust these values
+      // from the inbound mirror request.
+      const sourceRevision=sourceResponse.data.sourceRevision;
+      const sourceParentId=sourceResponse.data.sourceParentId;
+      if(sourceResponse.data.sourceProject!==sourceProject||
+         typeof sourceRevision!=="string"||!/^[0-9a-f]{64}$/.test(sourceRevision)||
+         !(sourceParentId===null||validUuid(sourceParentId)))
+        return respond({success:false,error:"SOURCE_PROVENANCE_INVALID"},424);
       const serverKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??(()=>{
         const raw=Deno.env.get("SUPABASE_SECRET_KEYS");if(!raw)return null;
         try{const value=(JSON.parse(raw) as Record<string,string>).default;
@@ -95,7 +104,8 @@ Deno.serve(async(req)=>{
       rpc="demo_story1_mirror";
       args={p_input:{id:record.id,sessionId:incoming.sessionId,
          service:record.data.service,amountMinor:record.data.amountMinor,
-         data:record.data,status:record.status,createdAt:record.createdAt}};
+         data:record.data,status:record.status,createdAt:record.createdAt,
+         sourceProject,sourceParentId,sourceRevision}};
    }else if(req.method==="POST"&&path==="/authorization/mirror"){
       const raw=await req.text();if(raw.length>200)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(raw),id=incoming.id;
