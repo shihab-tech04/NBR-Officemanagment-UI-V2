@@ -8,6 +8,16 @@ import {OFFICE_LEDGER_SOURCES,loadOfficeConsolidatedLedger,
 
 const validTin=(value:string)=>/^\d{12}$/.test(value);
 const csvCell=(value:unknown)=>'"'+String(value??'').replaceAll('"','""')+'"';
+const dhakaDayFormatter=new Intl.DateTimeFormat('en-GB',{
+  timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'
+});
+function dhakaDateKey(value:string):string{
+  const timestamp=Date.parse(value);
+  if(!Number.isFinite(timestamp))return '';
+  const parts=Object.fromEntries(dhakaDayFormatter.formatToParts(new Date(timestamp))
+    .map(({type,value:part})=>[type,part]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
 function exportCsv(lines:readonly OfficeLedgerLine[],tin:string){
   const headings=['Source','Source transaction','Source allocation','Source revision',
     'Taxpayer TIN','Dhara','Payment source','Assessment year','Date','Entry kind',
@@ -39,10 +49,13 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
   const [year,setYear]=useState('ALL');
   const [status,setStatus]=useState('ALL');
   const [query,setQuery]=useState('');
+  const [dateFrom,setDateFrom]=useState('');
+  const [dateTo,setDateTo]=useState('');
   const [selected,setSelected]=useState<OfficeLedgerLine|null>(null);
   useEffect(()=>{
     let active=true;
     setSelected(null);setSource('ALL');setYear('ALL');setStatus('ALL');setQuery('');
+    setDateFrom('');setDateTo('');
     if(!validTin(tin)){
       setSnapshot({tin,loading:false,report:null,error:''});
       return()=>{active=false;};
@@ -60,6 +73,7 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
   const report=snapshot.tin===tin?snapshot.report:null;
   const loading=snapshot.tin===tin&&snapshot.loading;
   const error=snapshot.tin===tin?snapshot.error:'';
+  const invalidDateRange=Boolean(dateFrom&&dateTo&&dateFrom>dateTo);
   const money=(minor:number)=>'৳'+new Intl.NumberFormat(bn?'bn-BD':'en-BD',{
     minimumFractionDigits:2,maximumFractionDigits:2
   }).format(minor/100);
@@ -71,12 +85,15 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
   };
   const years=useMemo(()=>[...new Set((report?.lines??[]).map(l=>l.assessmentYear).filter((v):v is string=>!!v))].sort().reverse(),[report]);
   const filtered=useMemo(()=>(report?.lines??[]).filter(l=>
+    !invalidDateRange&&
     (source==='ALL'||l.sourceSystem===source)&&
     (year==='ALL'||l.assessmentYear===year)&&
     (status==='ALL'||l.financialStatus===status)&&
+    (!dateFrom||dhakaDateKey(l.eventDate)>=dateFrom)&&
+    (!dateTo||dhakaDateKey(l.eventDate)<=dateTo)&&
     (!query.trim()||[l.sourceRecordId,l.sourceAllocationId,l.originalReference,l.dhara,
       l.paymentSource,l.entryKind,l.assessmentYear].join(' ').toLowerCase().includes(query.trim().toLowerCase()))
-  ),[report,source,year,status,query]);
+  ),[report,source,year,status,query,dateFrom,dateTo,invalidDateRange]);
   const rows:TableRow[]=useMemo(()=>filtered.map(l=>({
     id:l.id,
     date:date(l.eventDate),
@@ -138,6 +155,16 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
           <input type="search" className="mt-1 block min-h-10 rounded-md border px-3" value={query}
             onChange={e=>setQuery(e.target.value)} aria-label={t('Search ledger','লেজার খুঁজুন')}/>
         </label>
+        <label className="text-sm">{t('From date','শুরুর তারিখ')}
+          <input type="date" className="mt-1 block min-h-10 rounded-md border px-3" value={dateFrom}
+            aria-invalid={invalidDateRange} onChange={e=>setDateFrom(e.target.value)}/>
+        </label>
+        <label className="text-sm">{t('To date','শেষ তারিখ')}
+          <input type="date" className="mt-1 block min-h-10 rounded-md border px-3" value={dateTo}
+            aria-invalid={invalidDateRange} onChange={e=>setDateTo(e.target.value)}/>
+        </label>
+        {(dateFrom||dateTo)&&<button type="button" className="table-card__toolbar-btn self-end"
+          onClick={()=>{setDateFrom('');setDateTo('');}}>{t('Clear dates','তারিখ মুছুন')}</button>}
         <label className="text-sm">{t('Source','উৎস')}
           <select className="mt-1 block min-h-10 rounded-md border px-3" value={source} onChange={e=>setSource(e.target.value)}>
             <option value="ALL">{t('All sources','সব উৎস')}</option>
@@ -157,6 +184,8 @@ export function OfficeConsolidatedTaxpayerLedger({tin}:{tin:string}){
           </select>
         </label>
       </div>
+      {invalidDateRange&&<p role="alert" className="table-page__desc">{t('The start date must be on or before the end date.',
+        'শুরুর তারিখ শেষ তারিখের সমান বা আগের হতে হবে।')}</p>}
       <p className="table-page__desc">{filtered.length} {t('source lines','উৎস রেকর্ড')}</p>
       <ResponsiveTable cols={columns} rows={rows}
         aria-label={t('Consolidated taxpayer payment and credit ledger','সমন্বিত করদাতা পেমেন্ট ও ক্রেডিট লেজার')}
