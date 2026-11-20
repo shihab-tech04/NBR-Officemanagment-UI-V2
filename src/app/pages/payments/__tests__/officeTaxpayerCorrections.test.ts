@@ -13,7 +13,8 @@ const payment:StoryPayment={
     ]}
 };
 const inquiry:OfficeCorrectionInquiry={
-  requestId:'case-A',originalReference:'payment-A',reason:'Incorrect payment information',
+  requestId:'case-A',sourcePaymentId:null,sourcePaymentKind:null,
+  originalReference:'payment-A',reason:'Incorrect payment information',
   requestedOutcome:'Review',evidenceState:'PENDING_EVIDENCE',changeKind:null,oldValue:null,
   newValue:null,createdAt:'2026-11-05T08:30:00Z',reviewState:'PENDING',reviewRevision:1,
   reviewUpdatedAt:'2026-11-05T08:30:00Z',pendingDelivery:false,deliveryState:null,
@@ -36,6 +37,22 @@ describe('Taxpayer 360 authorized correction-case linking',()=>{
     const duplicate={...payment,id:'payment-B'};
     expect(linkedTaxpayerCorrections([{...inquiry,originalReference:'receipt-A'}],
       [payment,duplicate],'001234567890')).toEqual([]);
+  });
+  it('uses a typed immutable parent to disambiguate a reused receipt reference',()=>{
+    const duplicate={...payment,id:'payment-B'};
+    const parentLinked={...inquiry,sourcePaymentId:'payment-A',
+      sourcePaymentKind:'TAXPAY_STORY_PAYMENT' as const,originalReference:'receipt-A'};
+    const results=linkedTaxpayerCorrections([parentLinked],[payment,duplicate],'001234567890');
+    expect(results).toHaveLength(1);
+    expect(results[0].payment.id).toBe('payment-A');
+  });
+  it('does not fall back to a reference when the typed source parent is missing or invalid',()=>{
+    const missing={...inquiry,sourcePaymentId:'missing-parent',
+      sourcePaymentKind:'TAXPAY_STORY_PAYMENT' as const,originalReference:'receipt-A'};
+    const wrongKind={...inquiry,sourcePaymentId:'payment-A',
+      sourcePaymentKind:null,originalReference:'receipt-A'};
+    expect(linkedTaxpayerCorrections([missing],[payment],'001234567890')).toEqual([]);
+    expect(linkedTaxpayerCorrections([wrongKind],[payment],'001234567890')).toEqual([]);
   });
   it('does not link case by guessed name or prefix, or invalid TIN',()=>{
     expect(linkedTaxpayerCorrections([{...inquiry,originalReference:'Person A'}],[payment],'001234567890')).toEqual([]);

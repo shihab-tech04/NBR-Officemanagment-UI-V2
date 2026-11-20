@@ -1,7 +1,7 @@
 import {beforeEach,afterEach,describe,expect,it,vi} from 'vitest';
 import {getOfficeTaxpayerRegistrations,REGISTRATION_FIELDS} from '../officeTaxpayerRegistrationProfiles';
 
-vi.mock('../../audit/auditSharedSql',()=>({getAuditSqlClient:()=>({
+vi.mock('../../audit/auditSharedSql',()=>({isSharedAuditMode:()=>true,getAuditSqlClient:()=>({
   auth:{
     getUser:async()=>({data:{user:{id:'office-admin'}} ,error:null}),
     getSession:async()=>({data:{session:{user:{id:'office-admin'},access_token:'office-token'}} ,error:null})

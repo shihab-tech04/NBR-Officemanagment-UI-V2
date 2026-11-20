@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { installIsolatedOfficeOfficer } from './isolated-office-officer';
 
 const payment = {
   id: '00000000-0000-4000-8000-000000000091', service: 'OTHER_TAX_PAYMENT', amountMinor: 5000,
@@ -12,6 +13,7 @@ const payment = {
 for (const width of [320, 1280]) for (const language of ['en', 'bn'] as const) {
   test(`${width}px ${language} Taxpayer 360 shows only that taxpayer's allocation`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
+    await installIsolatedOfficeOfficer(page);
     await page.route('**/functions/v1/demo-story1-office/**', route => {
       const isPayments = new URL(route.request().url()).pathname.endsWith('/payments');
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -44,8 +46,9 @@ for (const width of [320, 1280]) for (const language of ['en', 'bn'] as const) {
   });
 }
 
-test('Taxpayer 360 register includes both TINs from reconciled allocation records', async ({ page }) => {
+test('Taxpayer 360 register retains exactly 30 selectable accounts despite unrelated payment TINs', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await installIsolatedOfficeOfficer(page);
   const allocated = { ...payment, details: { taxpayerTin: '123456789012', assessmentYear: '2026-27',
     lines: [{ headId: 122, headNameEn: 'Advance tax', economicCode: '68A' }],
     allocations: [
@@ -64,6 +67,13 @@ test('Taxpayer 360 register includes both TINs from reconciled allocation record
   });
   await page.goto('/payments/taxpayer-360');
   const table = page.locator('.payment-module__table-card');
-  await expect(table).toContainText('123456789012');
-  await expect(table).toContainText('234567890123');
+  await expect(table).toContainText('30 records');
+  await expect(table).toContainText('Md. Arif Rahman');
+  await expect(table).not.toContainText('123456789012');
+  await expect(table).not.toContainText('234567890123');
+  // The original explicitly attributed allocations are still available
+  // by direct TIN lookup; they must not silently become new login users.
+  await page.goto('/payments/taxpayer-360/123456789012');
+  await page.getByRole('tab',{name:'Payments',exact:true}).click();
+  await expect(page.locator('.payment-module__table-card')).toContainText('৳15');
 });

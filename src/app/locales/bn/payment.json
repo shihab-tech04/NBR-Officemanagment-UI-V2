@@ -186,6 +186,7 @@
   "field_old_value": "পূর্বের মান",
   "field_new_value": "অনুরোধের মান",
   "field_created_at": "অনুসন্ধান জমার সময়",
+  "field_decision_history": "অনুমোদিত সিদ্ধান্তের ইতিহাস",
   "field_review_state": "অফিস পর্যালোচনার অবস্থা",
   "field_review_revision": "পর্যালোচনা সংস্করণ",
   "field_review_updated_at": "পর্যালোচনার হালনাগাদ",

@@ -99,6 +99,52 @@ describe('Office-native transaction record and receipt', () => {
     expect(getOfficePaymentItems(person11).map(x=>x.taxpayerTin)).toEqual(['9000000000011']);
   });
 
+  it('shows every reconciled Travel Tax passenger amount without inventing TIN or AY', () => {
+    const travel:StoryPayment={id:'travel-parent',service:'TRAVEL_TAX',status:'SIMULATED_SUCCESS',
+      amountMinor:12000,createdAt:'2026-11-13T10:00:00Z',details:{
+        payerId:'user1',travelDate:'2026-11-13',passportNumberMasked:'••••1234',
+        lines:[{amountMinor:12000,note:'Passport: NEVER-IN-PASSENGER-DETAIL'}],
+        passengers:[
+          {passengerName:'Passenger A',passportNumberMasked:'••••1234',amountMinor:6000},
+          {passengerName:'Passenger B',passportNumberMasked:'••••5678',amountMinor:6000},
+        ],
+      }};
+    const rows=getOfficePaymentItems(travel);
+    expect(rows).toEqual([
+      {taxpayer:'Passenger A',service:'Travel Tax',assessmentYear:'—',amountMinor:6000},
+      {taxpayer:'Passenger B',service:'Travel Tax',assessmentYear:'—',amountMinor:6000},
+    ]);
+    expect(rows.reduce((total,row)=>total+row.amountMinor,0)).toBe(travel.amountMinor);
+    expect(JSON.stringify(rows)).not.toContain('NEVER-IN-PASSENGER-DETAIL');
+    expect(JSON.stringify(rows)).not.toContain('••••1234');
+    // Current approved TravelTax.tsx persists receipt passengers as
+    // {name, amount} in taka, while older isolated SQL uses amountMinor.
+    const actualSourceShape:StoryPayment={...travel,details:{...travel.details,
+      lines:[{headId:155,totalAmount:60},{headId:156,totalAmount:60}],
+      passengers:[{name:'Passenger A',amount:60},{name:'Passenger B',amount:60}],
+    }};
+    expect(getOfficePaymentItems(actualSourceShape)).toEqual(rows);
+    // A matching parent sum cannot conceal amounts assigned to the wrong
+    // passenger; each source receipt line must reconcile by its passenger.
+    const mismatchedPassengerLines:StoryPayment={...actualSourceShape,details:{
+      ...actualSourceShape.details,lines:[{headId:155,totalAmount:59},{headId:156,totalAmount:61}],
+    }};
+    expect(getOfficePaymentItems(mismatchedPassengerLines)).toEqual([]);
+    const zeroTaxPassenger:StoryPayment={...travel,details:{...travel.details,
+      passengers:[{name:'Passenger A',amount:120},{name:'Exempt passenger',amount:0}],
+    }};
+    expect(getOfficePaymentItems(zeroTaxPassenger).map(item=>item.amountMinor)).toEqual([12000,0]);
+    expect(getOfficePaymentItems({...travel,details:{...travel.details,
+      passengers:[{name:'Passenger A',amount:60,amountMinor:6001},
+        {name:'Passenger B',amount:60}],
+    }})).toEqual([]);
+    expect(getOfficePaymentItems(travel,{taxpayerTin:'222222222222'})).toEqual([]);
+    expect(getOfficePaymentItems({...travel,amountMinor:12001})).toEqual([]);
+    expect(getOfficePaymentItems({...travel,details:{...travel.details,
+      passengers:[{passengerName:'Passenger A',amountMinor:6000},
+        {passengerName:'Passenger B'}]}})).toEqual([]);
+  });
+
   it('exports exactly the visible shared-modal receipt paper, not a duplicate receipt template', () => {
     const paper = document.createElement('article');
     paper.className = 'office-receipt__paper';

@@ -1,8 +1,29 @@
-import { memo, useCallback, type ReactNode } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { CardTable } from "./CardTable";
 import { UnifiedMobileCard } from "./UnifiedMobileCard";
 import type { ColDef, RowAction, TableRow, MobileCardMapping } from "../../pages/modulePageUtils";
+
+/** Keep mobile card identity anchored to the record, not its current filtered
+ * position. Prefer an immutable source ID; for old registers without one use
+ * stable field content. The suffix disambiguates truly duplicated records.
+ * This changes only React reconciliation, never the approved table layout.
+ */
+function recordKeys(rows: readonly TableRow[]): string[] {
+  const occurrences = new Map<string,number>();
+  return rows.map(row=>{
+    const recordId = row.id ?? row.uuid ?? row.transaction_id ?? row.transactionId;
+    const knownId = (typeof recordId === 'string' && recordId.trim()) ||
+      (typeof recordId === 'number' && Number.isFinite(recordId));
+    const identity = knownId
+      ? 'record:' + String(recordId)
+      : 'fields:' + Object.keys(row).sort().map(key=>
+          key + ':' + JSON.stringify(row[key] ?? null)).join('|');
+    const repeat = occurrences.get(identity) ?? 0;
+    occurrences.set(identity,repeat+1);
+    return identity + '#' + repeat;
+  });
+}
 
 interface ResponsiveTableProps {
   cols: ColDef[];
@@ -42,6 +63,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
   onSortColumn,
 }: ResponsiveTableProps) {
   const { t: translateCommon } = useTranslation("common");
+  const mobileKeys = useMemo(()=>recordKeys(rows),[rows]);
 
   const makeCardClick = useCallback(
     (row: TableRow) => onRowClick ? () => onRowClick(row) : undefined,
@@ -94,7 +116,7 @@ export const ResponsiveTable = memo(function ResponsiveTable({
         ) : (
           rows.map((row, index) => (
             <UnifiedMobileCard
-              key={index}
+              key={mobileKeys[index]}
               row={row}
               cols={cols}
               onCardClick={makeCardClick(row)}

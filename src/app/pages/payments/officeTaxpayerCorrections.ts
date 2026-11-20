@@ -8,10 +8,10 @@ export type LinkedTaxpayerCorrection={
   taxpayerName:string;
 };
 
-/** Link officer-authorized correction inquiries to one taxpayer only through exact
- * transaction/unique receipt-reference equality followed by the existing reconciled
- * taxpayer + assessment-year allocation projection. No name/TIN substring guesses.
- * A receipt reference reused by multiple payments is ambiguous and excluded. */
+/** Link correction inquiries to one taxpayer through the exact immutable source
+ * parent when present; legacy inquiries may use only a unique exact receipt/reference.
+ * Every link must still match the existing reconciled taxpayer + assessment-year
+ * allocation projection. No name/TIN substring guesses or ambiguous fallback. */
 export function linkedTaxpayerCorrections(
   inquiries:readonly OfficeCorrectionInquiry[],
   payments:readonly StoryPayment[],
@@ -37,11 +37,23 @@ export function linkedTaxpayerCorrections(
     if(!inquiry||typeof inquiry.requestId!=='string'||!inquiry.requestId||
       typeof inquiry.originalReference!=='string'||!inquiry.originalReference||
       seen.has(inquiry.requestId))continue;
-    const idMatches=ids.get(inquiry.originalReference)??[];
-    const receiptMatches=receipts.get(inquiry.originalReference)??[];
-    const all=new Map([...idMatches,...receiptMatches].map(p=>[p.id,p]));
-    if(all.size!==1)continue; // an ambiguous cross-payer reference must not be assigned
-    const payment=[...all.values()][0];
+    const parentId=inquiry.sourcePaymentId??null;
+    const parentKind=inquiry.sourcePaymentKind??null;
+    if((parentId===null)!==(parentKind===null))continue;
+    let payment:StoryPayment|undefined;
+    if(parentId!==null){
+      if(parentKind!=='TAXPAY_STORY_PAYMENT')continue;
+      const matches=ids.get(parentId)??[];
+      if(matches.length!==1)continue;
+      payment=matches[0];
+    }else{
+      const idMatches=ids.get(inquiry.originalReference)??[];
+      const receiptMatches=receipts.get(inquiry.originalReference)??[];
+      const all=new Map([...idMatches,...receiptMatches].map(p=>[p.id,p]));
+      if(all.size!==1)continue; // legacy references must remain uniquely attributable
+      payment=[...all.values()][0];
+    }
+    if(!payment)continue;
     const own=toStoryTaxpayerPaymentRow(payment,tin,assessmentYear);
     if(!own)continue;
     seen.add(inquiry.requestId);

@@ -1,0 +1,174 @@
+name: WS3 Office notice read-state - disposable PostgreSQL 17
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeNoticeCursorOfficerParity.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/migrations/20261113170000_office_story_notice_read_state.sql'
+      - 'tests/integration/officeStoryNoticeReadState.sql'
+      - 'tests/integration/officeNoticeCursorOfficerParity.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeStoryNoticeReadStateFixture.sql'
+      - '.github/workflows/office-story-notice-read-state-ws3-pg17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-state-contract:
+    name: Officer read state and exact bigint IDs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notice_read_state_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notice_read_state_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Load disposable Office/Auth notice fixtures
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadStateFixture.sql
+      - name: Apply the canonical WS3 Office notice cursor
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+      - name: Apply the WS3 Office read-state migration
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113170000_office_story_notice_read_state.sql
+      - name: Verify all 235 bigint cursor events against authenticated read and acknowledgement
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeCursorOfficerParity.sql
+      - name: Verify role isolation, retry immutability and exact bigint readback
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryNoticeReadState.sql
+      - name: Verify separate disposable 205-event cursor retries and denied fixture exposure
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: notice_read_state_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          createdb notice_cursor_recovery_test
+          export PGDATABASE=notice_cursor_recovery_test
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecoveryFixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecovery.sql
+
+
+  combined-ws2-consumer:
+    name: WS2 235-event consumer atop canonical WS3 Office source (test-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install canonical Office locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify committed WS2 #165 notification files match pinned source without obsolete SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          WS2_SHA=8e9bb0277ec432748346d28e4dd871cc26659920
+          WS2_DIR="$RUNNER_TEMP/ws2-office-consumer"
+          git clone --depth 1 --branch ws02/payment-notice-detail-deeplink \
+            https://github.com/shihab-tech04/NBR-Officemanagment-UI-V2.git "$WS2_DIR"
+          git -C "$WS2_DIR" fetch --depth 1 origin "$WS2_SHA"
+          git -C "$WS2_DIR" checkout --detach "$WS2_SHA"
+          test "$(git -C "$WS2_DIR" rev-parse HEAD)" = "$WS2_SHA"
+          test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
+          files=(
+            src/app/data/mockData.ts
+            src/app/locales/en/notifications.json
+            src/app/locales/bn/notifications.json
+            src/app/services/officeStoryNoticePages.ts
+            src/app/services/officeStoryNoticeReadState.ts
+            src/app/services/__tests__/officeStoryNoticePages.test.ts
+            src/app/services/__tests__/officeStoryNoticePagesTransport.test.ts
+            src/app/services/__tests__/officeStoryNoticeReadState.test.ts
+            src/app/hooks/useNotificationsState.ts
+            src/app/hooks/useNotifications.ts
+            src/app/hooks/__tests__/useNotificationsState.test.tsx
+            src/app/store/notificationsSlice.ts
+            src/app/store/__tests__/paymentSqlNotifications.test.ts
+            src/test/paymentNoticeDetailNavigation.test.ts
+            src/test/paymentNoticeDetailRoute.test.tsx
+          )
+          for path in "${files[@]}"; do
+            test -f "$WS2_DIR/$path"
+            test -f "$path"
+            cmp -s -- "$WS2_DIR/$path" "$path" || { echo "::error::Committed WS2 notice consumer differs from pinned #165: $path"; exit 1; }
+          done
+          test ! -e supabase/migrations/20261030180000_office_story_notice_officer_read_state.sql
+          echo "Verified committed WS2 notice consumer and locale/type contracts; no competing read-state migration."
+      - name: Verify 235-event WS2 cursor consumer and read-state/privacy against WS3 source
+        run: |
+          npx vitest run \
+            src/app/services/__tests__/officeStoryNoticePages.test.ts \
+            src/app/services/__tests__/officeStoryNoticePagesTransport.test.ts \
+            src/app/services/__tests__/officeStoryNoticeReadState.test.ts \
+            src/app/hooks/__tests__/useNotificationsState.test.tsx \
+            src/app/store/__tests__/paymentSqlNotifications.test.ts
+      - name: Build actual canonical Office with committed WS2 consumer (no payment-page overwrite)
+        run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/
+      - name: WS5 integration gate - preserve WS2 detail route, privacy and close recovery on WS3 payment UI
+        run: npx vitest run src/test/paymentNoticeDetailNavigation.test.ts src/test/paymentNoticeDetailRoute.test.tsx src/test/ws5PaymentNoticeDeepLinkBehavior.test.tsx

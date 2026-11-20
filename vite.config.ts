@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -42,6 +43,11 @@ export default defineConfig({
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
   test: {
+    // Node built-in regression suites run with node --test in the release jobs.
+    // Keep Vitest's original excludes; do not bundle node:test in jsdom.
+    exclude: [...configDefaults.exclude,
+      'scripts/ci/office-cms-cutover-gate.test.mjs',
+      'tests/integration/officeHandoffRpcBoundary.test.mjs'],
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],

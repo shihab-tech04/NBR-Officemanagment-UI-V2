@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installIsolatedOfficeOfficer } from './isolated-office-officer';
 const pages = ['overview','transactions','taxpayer-360','corrections','incidents','offline-events','analytics'];
 const viewports = [
   {width:1440,height:900}, {width:1280,height:800}, {width:1024,height:768},
@@ -17,6 +18,7 @@ const submittedPayments = [
     paymentMethod:'BKASH',receiptReference:'UI-'+p.id},
 }));
 test.beforeEach(async ({page}) => {
+  await installIsolatedOfficeOfficer(page);
   // Fixtures are injected into Playwright only, never saved in live SQL.
   await page.route('**/functions/v1/demo-story1-office/**',route=>{
     const url=new URL(route.request().url());
@@ -175,16 +177,16 @@ test('Taxpayer 360 table opens full detail; unverified credits are never fabrica
   await page.setViewportSize({width:1280,height:850});
   await page.goto('/payments/taxpayer-360');
   await expect(page.locator('.payment-module__table-card .card-table tbody tr').first()).toBeVisible({timeout:18000});
-  await page.locator('.payment-module__table-card .card-table tbody tr').first().click();
+  await page.locator('.payment-module__table-card .card-table tbody tr').first().getByRole('button',{name:'View Details'}).click();
   await expect(page).toHaveURL(new RegExp('/payments/taxpayer-360/1111111111111$'));
   await expect(page.getByRole('button',{name:'Back to taxpayers'})).toBeVisible();
   await page.getByRole('tab',{name:'Tax position'}).click();
   await expect(page.getByText('Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.')).toBeVisible();
   await page.getByRole('tab',{name:'Ledger'}).click();
-  const ledger = page.getByTestId('office-taxpayer-360-ledger');
-  await expect(ledger).toBeVisible();
-  await expect(ledger).toContainText('Saved payments do not confirm Treasury settlement, a tax credit or remaining liability.');
-  await expect(ledger).toContainText('Dhara and official reconciliation are unavailable from this source; no legal section or verified balance has been inferred.');
+  await expect(page.locator('[data-testid="office-verified-ledger"]')).toBeVisible();
+  // This legacy sample uses a 13-digit TIN, not an authorized 12-digit Office source identity.
+  // Preserve the existing payment history without ever guessing a verified credit.
+  await expect(page.getByText('Select a valid 12-digit taxpayer TIN to open the authorized ledger.')).toBeVisible();
   await page.getByRole('tab',{name:'Returns'}).click();
   await expect(page.getByText('No return entries exist in the supplied sample records.')).toBeVisible();
   await page.getByRole('button',{name:'Back to taxpayers'}).click();
@@ -225,6 +227,7 @@ test('Corrections filters and clears a session draft status, without presenting 
  await page.getByRole('option',{name:'Md. Rahman · 123456789012'}).click();
  await page.locator('#payment-draft-reference').fill('QA-CORRECTION-REFERENCE-01');
  await page.locator('#payment-draft-reason').fill('Wrong assessment year selected');
+ await page.locator('#payment-draft-outcome').fill('Please review the recorded assessment year while preserving original payment data');
  await page.locator('#payment-draft-evidence').fill('Test-only draft without persisted officer decision');
  await page.getByRole('button',{name:'Review draft',exact:true}).click();
  await page.getByRole('button',{name:'Add to list',exact:true}).click();
@@ -358,7 +361,7 @@ test('Transactions never shows the reference or scenario source selector',async(
   await expect(page.getByText('Mixed-payment scenarios (demo)')).toHaveCount(0);
   await expect(page.getByText('Shared SQL connection error:')).toHaveCount(0);
 });
-test('Guest-submitted payment is displayed without an officer sign-in gate',async({page})=>{
+test('Guest-submitted payment is displayed to a verified Office officer without a second sign-in',async({page})=>{
   await page.goto('/payments/transactions');
   await expect(page.locator('.card-table tbody tr')).toHaveCount(5);
   await expect(page.getByText('Authorized officer sign-in required')).toHaveCount(0);
@@ -518,3 +521,89 @@ test('Office shared receipt modal fits a 360px viewport without external navigat
   expect(over).toBeLessThanOrEqual(2);
   await expect(page).toHaveURL(/\/payments\/transactions$/);
 });
+
+for (const config of [
+  {language:'en',viewport:{width:1440,height:900}},
+  {language:'bn',viewport:{width:1440,height:900}},
+  {language:'en',viewport:{width:390,height:844}},
+  {language:'bn',viewport:{width:390,height:844}},
+]) {
+  test(`Travel Tax Office details preserve passenger allocations and linked references ${config.language}/${config.viewport.width}px`,async({page})=>{
+    const parent='8ec734a4-75b9-4d24-a891-0a52d31df9ac';
+    const receiptReference='TRV-RCPT-'+parent;
+    const certificateReference='SK-PC-'+parent;
+    await page.setViewportSize(config.viewport);
+    await page.addInitScript(language=>{
+      localStorage.setItem('gov_ui_settings',JSON.stringify({
+        assessmentYear:'2027-28',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:language,
+      }));
+      localStorage.setItem('i18nextLng',language);
+    },config.language);
+    await page.route('**/functions/v1/demo-story1-office/payments*',route=>
+      route.fulfill({
+        status:200,
+        contentType:'application/json',
+        body:JSON.stringify({
+          success:true,
+          data:{
+            items:[{
+              id:parent,service:'TRAVEL_TAX',amountMinor:12000,status:'SIMULATED_SUCCESS',
+              createdAt:'2026-11-13T10:00:00Z',certificateReference,
+              details:{
+                payerId:'ws3-travel-payer',payerName:'Travel payer',assessmentYear:'2026-27',
+                receiptReference,travelMode:'LAND',departurePort:'Benapole',destination:'India',
+                travelDate:'2026-11-20',
+                passengers:[
+                  {name:'Passenger A',passportMasked:'••••1234',amount:60},
+                  {name:'Passenger B',passportMasked:'••••5678',amount:60},
+                ],
+                lines:[
+                  {headId:155,headNameEn:'Travel Tax',totalAmount:60},
+                  {headId:156,headNameEn:'Travel Tax',totalAmount:60},
+                ],
+                receiptSnapshot:{
+                  paymentCategory:'TRAVEL_TAX',totalAmount:120,
+                  travelDetails:{passengers:[
+                    {name:'Passenger A',amount:60},{name:'Passenger B',amount:60},
+                  ]},
+                },
+              },
+            }],
+            total:1,page:1,perPage:100,
+          },
+          simulationOnly:true,
+        }),
+      })
+    );
+    await page.goto('/payments/transactions');
+    const detailAction=config.viewport.width<=768
+      ?page.locator('.mobile-table-card__action-btn').first()
+      :page.locator('.payment-module__table-card .card-table__action-btn').first();
+    await expect(detailAction).toBeVisible({timeout:18000});
+    await detailAction.click();
+    const drawer=page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText(parent);
+    await expect(drawer).toContainText(receiptReference);
+    await expect(drawer).toContainText(certificateReference);
+    await expect(drawer).toContainText('Passenger A');
+    await expect(drawer).toContainText('Passenger B');
+    await expect(drawer.locator('.office-shared-allocation-list__item')).toHaveCount(2);
+    const formattedAmount=config.language==='bn'?'৳৬০.০০':'৳60.00';
+    await expect(drawer).toContainText(formattedAmount);
+    await expect(drawer).toContainText('SIMULATED SUCCESS');
+    const receiptButton=config.language==='bn'?'রসিদ দেখুন':'View receipt';
+    await drawer.getByRole('button',{name:receiptButton}).click();
+    const paper=page.locator('#office-receipt-paper');
+    await expect(paper).toBeVisible();
+    await expect(paper).toContainText(parent);
+    await expect(paper).toContainText(receiptReference);
+    await expect(paper).toContainText(certificateReference);
+    await expect(paper.locator('.office-receipt__breakdown tbody tr')).toHaveCount(2);
+    await expect(paper).toContainText(formattedAmount);
+    await expect(paper).not.toContainText('••••1234');
+    await expect(paper).not.toContainText('••••5678');
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+    expect(overflow).toBeLessThanOrEqual(2);
+  });
+}

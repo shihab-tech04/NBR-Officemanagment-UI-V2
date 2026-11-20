@@ -1,0 +1,178 @@
+name: Office correction payment parent - disposable PostgreSQL 17
+
+on:
+  pull_request:
+    branches: [main, 'ws3/v95-correction-payment-parent-20261112']
+    paths:
+      - 'supabase/migrations/20261029170000_office_correction_review.sql'
+      - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
+      - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261116042500_office_correction_evidence_projection.sql'
+      - 'supabase/migrations/20261116054000_office_correction_initiation.sql'
+      - 'tests/integration/officeCorrectionInitiation.sql'
+      - 'supabase/migrations/20261115183000_office_private_legacy_rpc.sql'
+      - 'tests/integration/officeLegacyRpcPrivacy.sql'
+      - 'supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql'
+      - 'supabase/migrations/20261115183000_office_private_legacy_rpc.sql'
+      - 'tests/integration/officeLegacyRpcPrivacy.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/functions/demo-story1-office/index.ts'
+      - 'supabase/functions/office-handoff-api/index.ts'
+      - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
+      - 'src/app/pages/payments/correctionReviewApi.ts'
+      - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - 'src/app/pages/payments/OfficeConsolidatedTaxpayerLedger.tsx'
+      - 'src/app/pages/payments/officeConsolidatedLedger.ts'
+      - 'src/app/pages/payments/__tests__/officeConsolidatedLedger.test.ts'
+      - 'src/test/paymentTaxpayer360ListDetail.test.ts'
+      - '.github/workflows/office-correction-payment-parent.yml'
+  push:
+    branches: [main, 'phase5/office-f177-ledger-ui-20261116']
+    paths:
+      - 'supabase/migrations/20261029170000_office_correction_review.sql'
+      - 'supabase/migrations/20261112210000_office_correction_payment_parent.sql'
+      - 'supabase/migrations/20261113180000_office_correction_queue_cursor.sql'
+      - 'supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql'
+      - 'supabase/functions/demo-story1-office/index.ts'
+      - 'supabase/functions/office-handoff-api/index.ts'
+      - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
+      - 'src/app/pages/payments/correctionReviewApi.ts'
+      - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
+      - 'tests/integration/officeNoticeRecovery.sql'
+      - 'tests/integration/officeNoticeRecoveryFixture.sql'
+      - '.github/workflows/office-correction-payment-parent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  office-correction-parent-contract:
+    name: Correction parent parity on disposable PostgreSQL 17
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: correction_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d correction_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Load synthetic correction prerequisites
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParentFixture.sql
+      - name: Apply real Office correction migrations
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029170000_office_correction_review.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112210000_office_correction_payment_parent.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113180000_office_correction_queue_cursor.sql
+          # The latest audit projection supersedes the older paged function.
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116042500_office_correction_evidence_projection.sql
+      - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
+      - name: Verify server-only synthetic Edge gateway and route allowlist
+        run: node --test tests/integration/officeHandoffRpcBoundary.test.mjs
+      - name: Verify service-only legacy SECURITY DEFINER RPC grants (disposable)
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeLegacyRpcPrivacy.sql
+      - name: Load disposable Office notice mirror schema
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecoveryFixture.sql
+      - name: Apply Office notice cursor migration
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113130000_office_story_notice_cursor_recovery.sql
+      - name: Verify cursor pagination, replay, filtering, exact payment links and RLS
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecovery.sql
+
+      - name: Apply Office-initiated correction contract after full mirrored-payment fixture
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116054000_office_correction_initiation.sql
+      - name: Verify role-gated Office-initiated correction command and immutable source
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionInitiation.sql
+
+  phase5-source-ledger:
+    name: Phase 5 source-ledger UI and build acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Office dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Verify source, Dhara, no invented tax credits and taxpayer details
+        run: npx vitest run src/app/pages/payments/__tests__/officeConsolidatedLedger.test.ts src/test/paymentTaxpayer360ListDetail.test.ts
+      - name: Compile integrated Office application
+        run: npm run build
+        env:
+          BASE_PATH: /NBR-Officemanagment-UI-V2/
