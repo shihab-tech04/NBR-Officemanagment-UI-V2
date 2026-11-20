@@ -77,7 +77,11 @@ BEGIN
 
   SELECT * INTO v_old FROM demo_payment.story_payments WHERE id=v_id FOR UPDATE;
   IF FOUND THEN
-    IF v_old.data IS DISTINCT FROM v_details OR v_old.session_id<>v_session THEN
+    IF v_old.data IS DISTINCT FROM v_details OR v_old.session_id IS DISTINCT FROM v_session OR
+       v_old.service_code IS DISTINCT FROM p_input->>'service' OR
+       v_old.amount_minor IS DISTINCT FROM (p_input->>'amountMinor')::bigint OR
+       v_old.status IS DISTINCT FROM v_status OR
+       v_old.created_at IS DISTINCT FROM (p_input->>'createdAt')::timestamptz THEN
       RAISE EXCEPTION 'MIRROR_CONFLICT';
     END IF;
     IF v_has_provenance THEN
