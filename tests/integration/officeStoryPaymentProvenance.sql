@@ -5,7 +5,7 @@ DECLARE
   source_id uuid:=gen_random_uuid();
   source_parent_id uuid:=gen_random_uuid();
   session_id uuid:=gen_random_uuid();
-  source_revision text:=repeat('a',64);
+  v_source_revision text:=repeat('a',64);
   input jsonb;
   response jsonb;
   replay jsonb;
@@ -33,7 +33,7 @@ BEGIN
     'amountMinor',5000,'status','SIMULATED_SUCCESS',
     'createdAt','2026-11-20T09:00:00Z',
     'sourceProject','v2','sourceParentId',source_parent_id,
-    'sourceRevision',source_revision,
+    'sourceRevision',v_source_revision,
     'data',jsonb_build_object('origin','TAXPAY_UI','service','OTHER_TAX_PAYMENT',
       'amountMinor',5000,'details',jsonb_build_object(
         'payerId','user1','payerTin','111111111111',
@@ -49,7 +49,7 @@ BEGIN
   IF response->>'id'<>source_id::text OR response->>'replayed'<>'false' OR
      response->>'sourceProject'<>'v2' OR
      response->>'sourceParentId'<>source_parent_id::text OR
-     response->>'sourceRevision'<>source_revision THEN
+     response->>'sourceRevision'<>v_source_revision THEN
     RAISE EXCEPTION 'OFFICE_PROVENANCE_FIRST_MIRROR_MISMATCH';
   END IF;
   SELECT data INTO stored_data FROM demo_payment.story_payments WHERE id=source_id;
@@ -62,7 +62,7 @@ BEGIN
   replay:=public.demo_story1_mirror(input);
   IF replay->>'replayed'<>'true' OR replay->>'sourceProject'<>'v2' OR
      replay->>'sourceParentId'<>source_parent_id::text OR
-     replay->>'sourceRevision'<>source_revision OR
+     replay->>'sourceRevision'<>v_source_revision OR
      (SELECT count(*) FROM demo_payment.story_payment_provenance WHERE payment_id=source_id)<>1 OR
      (SELECT count(*) FROM demo_payment.story_notifications WHERE payment_id=source_id)<>1 THEN
     RAISE EXCEPTION 'OFFICE_PROVENANCE_REPLAY_NOT_IDEMPOTENT';
@@ -76,7 +76,8 @@ BEGIN
     IF SQLERRM<>'MIRROR_CONFLICT' THEN RAISE; END IF;
   END;
   IF (SELECT data FROM demo_payment.story_payments WHERE id=source_id) IS DISTINCT FROM stored_data OR
-     (SELECT source_revision FROM demo_payment.story_payment_provenance WHERE payment_id=source_id)<>source_revision THEN
+     (SELECT provenance.source_revision FROM demo_payment.story_payment_provenance provenance
+       WHERE provenance.payment_id=source_id)<>v_source_revision THEN
     RAISE EXCEPTION 'CONFLICTING_REPLAY_MUTATED_PARENT_OR_PROVENANCE';
   END IF;
 
@@ -88,7 +89,7 @@ BEGIN
      office_row->>'certificateReference' IS DISTINCT FROM 'SK-PC-'||source_id::text OR
      office_row->>'sourceProject' IS DISTINCT FROM 'v2' OR
      office_row->>'sourceParentId' IS DISTINCT FROM source_parent_id::text OR
-     office_row->>'sourceRevision' IS DISTINCT FROM source_revision OR
+     office_row->>'sourceRevision' IS DISTINCT FROM v_source_revision OR
      office_row->'details'->'receiptSnapshot'->>'challanNo' IS DISTINCT FROM 'SIM-D3-PROVENANCE' OR
      office_row->'details'->>'payerTin' IS DISTINCT FROM '111111111111' OR
      jsonb_array_length(office_row->'details'->'allocations') IS DISTINCT FROM 2 THEN
