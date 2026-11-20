@@ -355,3 +355,53 @@ assert.equal(lineageCalls[0].name,'payment_v1_office_guarded_pay_again_lineage')
 assert.equal(lineageCalls[0].args.p_payment_id,repeatId);
 assert.equal(lineageCalls[0].bearer,'Bearer '+validToken);
 console.log('PASS WS3 Office Pay Again Edge: invalid bearer, anonymous and invalid ID denied before SQL; verified JWT reaches existing role-guarded lineage RPC, preserving original and repeat references');
+
+// F-178 Office document/audit readback uses the same officer-authenticated
+// Edge path and validates the full approved Unicode envelope without truncation.
+let remarksHandler=null;
+const remarksCalls=[];
+const maximumRemarks='😀'.repeat(4000);
+const remarksPayload={paymentId:repeatId,challanRemarks:maximumRemarks,receiptReference:'SIM-REMARKS'};
+const remarksBox={
+ ...box,
+ require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
+  return {createClient:(_url,_key,opts)=>({
+   auth:{getUser:async(token)=>token===validToken
+    ?{data:{user:{id:'80000000-0000-4000-8000-000000000011',is_anonymous:false}},error:null}
+    :{data:{user:null},error:{message:'Unauthorized'}}},
+   rpc:async(name,args)=>{
+    remarksCalls.push({name,args,bearer:opts?.global?.headers?.Authorization});
+    return {data:remarksPayload,error:null};
+   },
+  })};
+ },
+ Deno:{...box.Deno,serve(callback){remarksHandler=callback;}},
+};
+vm.runInNewContext(compiled,remarksBox,{filename:'office-challan-remarks-auth.ts',timeout:5000});
+const remarksAddress='http://127.0.0.1/demo-story1-office/payments/'+repeatId+'/remarks';
+async function queryRemarks(url,bearer){
+ const headers=bearer?{Authorization:bearer}:{};
+ const response=await remarksHandler(new Request(url,{method:'GET',headers}));
+ return {status:response.status,body:await response.json()};
+}
+let remarksReadback=await queryRemarks(remarksAddress);
+assert.equal(remarksReadback.status,401);
+assert.equal(remarksReadback.body.error,'OFFICE_OFFICER_AUTH_REQUIRED');
+remarksReadback=await queryRemarks(
+ 'http://127.0.0.1/demo-story1-office/payments/not-a-uuid/remarks','Bearer '+validToken);
+assert.equal(remarksReadback.status,400);
+assert.equal(remarksCalls.length,0,'Anonymous/invalid Office remarks read reached SQL');
+remarksReadback=await queryRemarks(remarksAddress,'Bearer '+validToken);
+assert.equal(remarksReadback.status,200);
+assert.equal(remarksReadback.body.data.paymentId,repeatId);
+assert.equal(remarksReadback.body.data.challanRemarks,maximumRemarks);
+assert.equal([...remarksReadback.body.data.challanRemarks].length,4000);
+assert.equal(Buffer.byteLength(remarksReadback.body.data.challanRemarks,'utf8'),16000);
+assert.equal(remarksCalls.length,1);
+assert.equal(remarksCalls[0].name,'payment_v1_office_guarded_challan_remarks');
+assert.equal(remarksCalls[0].args.p_payment_id,repeatId);
+assert.equal(remarksCalls[0].bearer,'Bearer '+validToken);
+console.log('PASS WS3 Office F-178 Edge: officer-gated exact 4,000-codepoint/16,000-byte remarks readback, invalid IDs denied before SQL');
