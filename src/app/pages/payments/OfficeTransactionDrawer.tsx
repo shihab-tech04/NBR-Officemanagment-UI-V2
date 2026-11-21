@@ -28,7 +28,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const receiptReference=source?.details?.receiptReference?.trim()||'';
   const certificateReference=source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
-  const isChallanPayment = source?.service === 'OTHER_TAX_PAYMENT' || source?.service === 'TAX_WITH_RETURN';
+  // Never attach a guarded source read to a different selected table row.
+  const isChallanPayment = row?.payment_ref === source?.id &&
+    (source?.service === 'OTHER_TAX_PAYMENT' || source?.service === 'TAX_WITH_RETURN');
   // Never render the previous record's private remarks during the render before
   // the source-change effect resets asynchronous state.
   const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :
