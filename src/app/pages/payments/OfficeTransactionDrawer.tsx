@@ -8,7 +8,7 @@ import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
-import { loadGuardedOfficeChallanRemarks } from './officeChallanRemarks';
+import { loadGuardedOfficeChallanRemarks, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
 const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
@@ -31,7 +31,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   useEffect(() => { setReceipt(false); }, [ref]);
   // Never attach a guarded source read to a different selected table row.
   const isChallanPayment = row?.payment_ref === source?.id &&
-    (source?.service === 'OTHER_TAX_PAYMENT' || source?.service === 'TAX_WITH_RETURN');
+    supportsOfficeChallanRemarks(source?.service);
   // Never render the previous record's private remarks during the render before
   // the source-change effect resets asynchronous state.
   const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :

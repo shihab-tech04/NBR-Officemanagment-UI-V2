@@ -6,6 +6,22 @@ import { getOfficeCmsAuthClient } from '../../services/officeCmsBridge';
 const PAYMENT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_REMARKS_CODE_POINTS = 4000;
 
+// F-178 applies to ordinary tax challans; Travel Tax has no approved remarks
+// field. Keep Office readback aligned with all Taxpayer non-Travel categories.
+const CHALLAN_REMARKS_SERVICES = new Set([
+  'TAX_WITH_RETURN',
+  'ADVANCE_TAX',
+  'ASSESSED_DEMAND',
+  'PENALTY',
+  'SOURCE_TAX_DEPOSIT',
+  'APPELLATE_TRIBUNAL',
+  'OTHER_TAX_PAYMENT',
+]);
+
+export function supportsOfficeChallanRemarks(service: unknown): boolean {
+  return typeof service === 'string' && CHALLAN_REMARKS_SERVICES.has(service);
+}
+
 export function parseGuardedChallanRemarks(result: unknown, paymentId: string): string | null {
   if (!PAYMENT_UUID.test(paymentId) || !result || typeof result !== 'object' ||
       Array.isArray(result)) throw new Error('Office SQL did not confirm the payment');
