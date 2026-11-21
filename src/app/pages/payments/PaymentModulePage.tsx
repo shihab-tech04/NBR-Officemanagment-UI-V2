@@ -34,6 +34,7 @@ import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
 import {getOfficeTaxpayerRegistrations,getOfficePreviewTaxpayers,REGISTRATION_FIELDS,type OfficePreviewTaxpayer,type TaxpayerRegistrationProfile,type RegistrationField} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
+import {resolveVerifiedOfficeLedgerTin} from './officeVerifiedLedgerIdentity';
 import { linkedTaxpayerCorrections } from './officeTaxpayerCorrections';
 import {partitionOfficeCorrectionCases} from './officeCorrectionCaseCategories';
 import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber } from '../../utils/localeFormatting';
@@ -457,6 +458,11 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const selectedPreview=previewAccounts.find(item=>item.sampleTin===selectedTin);
   const registrationProfile=registrationProfiles.find(p=>selectedPreview
     ?p.accountId===selectedPreview.accountId:p.tin===selectedTin);
+  // Preview identifiers are fictional and cannot scope SQL reads. The ledger
+  // accepts only the canonical TIN from a source-verified registration profile
+  // bound to this selected preview account (or exact direct TIN selection).
+  const ledgerTin=resolveVerifiedOfficeLedgerTin(selectedTin,
+    selectedPreview?.accountId??null,registrationProfile??null);
   // A preview-only render record gives every account the approved 24-field
   // profile structure without asserting missing certificate facts as real.
   // This is never written to Taxpayer SQL or treated as a verified identity.
@@ -747,7 +753,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
         correctionsLoading={officeCorrectionLoading} correctionsError={officeCorrectionError}
         correctionsAvailable={officeCorrectionQueue.enabled}
         language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'} onOpen={record=>view(record,t('transactions'))}/> :
-      taxpayerTab==='ledger' ? <OfficeConsolidatedTaxpayerLedger tin={selectedTin} /> :
+      taxpayerTab==='ledger' ? <OfficeConsolidatedTaxpayerLedger tin={ledgerTin} /> :
       taxpayerTab==='notices' ? taxpayerActivity
         ? <OfficeTaxpayer360Notices snapshot={taxpayerActivity}
             language={i18n.resolvedLanguage?.startsWith('bn')?'bn':'en'}
