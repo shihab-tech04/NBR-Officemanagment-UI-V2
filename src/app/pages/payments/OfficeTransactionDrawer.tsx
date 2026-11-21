@@ -3,10 +3,12 @@ import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
+import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
+import { loadGuardedOfficeChallanRemarks, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
 const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
@@ -16,6 +18,10 @@ const display = (value: unknown) => typeof value === 'string' && value.trim() ? 
 export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
   const [receipt, setReceipt] = useState(false);
+  const [remarksRetry, setRemarksRetry] = useState(0);
+  const [guardedRemarks, setGuardedRemarks] = useState<{
+    paymentId: string; status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
+  }>({ paymentId: '', status: 'idle', text: null });
   const language = i18n.resolvedLanguage || 'en';
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
@@ -23,6 +29,26 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const receiptReference=source?.details?.receiptReference?.trim()||'';
   const certificateReference=source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
+  // Never attach a guarded source read to a different selected table row.
+  const isChallanPayment = row?.payment_ref === source?.id &&
+    supportsOfficeChallanRemarks(source?.service);
+  // Never render the previous record's private remarks during the render before
+  // the source-change effect resets asynchronous state.
+  const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :
+    { paymentId: source?.id ?? '', status: 'idle' as const, text: null };
+  useEffect(() => {
+    let active = true;
+    setGuardedRemarks({ paymentId: source?.id ?? '', status: 'idle', text: null });
+    if (!row || !source || !isChallanPayment) return;
+    const paymentId = source.id;
+    setGuardedRemarks({ paymentId, status: 'loading', text: null });
+    void loadGuardedOfficeChallanRemarks(paymentId).then(text => {
+      if (active) setGuardedRemarks({ paymentId, status: 'ready', text });
+    }).catch(() => {
+      if (active) setGuardedRemarks({ paymentId, status: 'error', text: null });
+    });
+    return () => { active = false; };
+  }, [source?.id, row?.payment_ref, isChallanPayment, remarksRetry]);
   const items = useMemo(() => getOfficePaymentItems(source, scopeTin
     ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
   // In Taxpayer 360 the projected amount must equal only this beneficiary's
@@ -60,6 +86,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
+    ...(isChallanPayment ? { challan_remarks: currentRemarks.text ?? '—' } : {}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
@@ -94,6 +121,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ['assessment_year', t('ay'), label('Payment information','পেমেন্টের তথ্য')],
     ['amount', t('colAmount'), label('Payment information','পেমেন্টের তথ্য')],
     ['payment_channel', label('Payment method','পেমেন্ট পদ্ধতি'),label('Payment information','পেমেন্টের তথ্য')],
+    ...(isChallanPayment ? [
+      ['challan_remarks', label('Challan remarks','চালানের মন্তব্য'), label('Payment information','পেমেন্টের তথ্য')],
+    ] as Array<[string,string,string]> : []),
     ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
     ['allocation_items',source?.service==='TRAVEL_TAX'
       ?label('Passengers and amounts','যাত্রী ও পরিমাণ'):label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),
@@ -104,7 +134,18 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ['notice_reference',label('Notice reference','নোটিশ রেফারেন্স'),label('References','রেফারেন্স')],
   ];
 
-  const renderValue = (key: string) => key === 'payment_lifecycle' || key === 'activity_history' ? (
+  const renderValue = (key: string) => key === 'challan_remarks' ? (
+    <div aria-live="polite" data-testid="office-guarded-challan-remarks">
+      {currentRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
+       currentRemarks.status === 'error' ? <div role="alert">
+         <p>{label('Authorized Office remarks read unavailable','অনুমোদিত অফিস মন্তব্য পাওয়া যাচ্ছে না')}</p>
+         <SecondaryButton size="sm" onClick={() => setRemarksRetry(value => value + 1)}>
+           {label('Retry','আবার চেষ্টা করুন')}
+         </SecondaryButton>
+       </div> : currentRemarks.status === 'ready' && currentRemarks.text !== null ?
+         <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{currentRemarks.text || '—'}</span> : '—'}
+    </div>
+  ) : key === 'payment_lifecycle' || key === 'activity_history' ? (
     <ol aria-label={key==='payment_lifecycle'?label('Payment lifecycle','পেমেন্টের ধাপসমূহ'):label('Activity history','কার্যক্রমের ইতিহাস')} className="space-y-2">
       {source && <li className="border-l-2 border-current pl-3 text-sm">
         <p className="font-semibold">{label('Payment record created','পেমেন্ট রেকর্ড তৈরি হয়েছে')}</p>
