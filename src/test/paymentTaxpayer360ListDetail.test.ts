@@ -3,13 +3,39 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import en from '../app/locales/en/payment.json';
 import bn from '../app/locales/bn/payment.json';
+import type {TaxpayerRegistrationProfile} from '../app/pages/payments/officeTaxpayerRegistrationProfiles';
+import {resolveVerifiedOfficeLedgerTin} from '../app/pages/payments/officeVerifiedLedgerIdentity';
 
 const read=(path:string)=>readFileSync(resolve(process.cwd(),path),'utf8');
 const routes=read('src/app/routes.tsx');
 const module=read('src/app/pages/payments/PaymentModulePage.tsx');
 const list=read('src/app/pages/payments/PaymentRecordList.tsx');
 
+const canonicalTin='123456789012';
+const previewSampleTin='1010101010101';
+const verifiedProfile=(source='NBR_TIN',overrides:Record<string,unknown>={})=>({
+  accountId:'user10',tin:canonicalTin,revision:1,updatedAt:'2026-11-21T00:00:00Z',
+  profile:{tin:canonicalTin,source,sourceUpdatedAt:'2026-11-20T00:00:00Z'},
+  ...overrides,
+}) as unknown as TaxpayerRegistrationProfile;
+
 describe('Office taxpayer register/detail navigation',()=>{
+  it('binds the F-177 ledger only to an authoritative account profile',()=>{
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile())).toBe(canonicalTin);
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile('REVIEWED_CERTIFICATE'))).toBe(canonicalTin);
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile('SYNTHETIC'))).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user11',verifiedProfile())).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(canonicalTin,null,verifiedProfile())).toBe(canonicalTin);
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,null,verifiedProfile())).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',null)).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile('NBR_TIN',{tin:previewSampleTin}))).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile('NBR_TIN',{
+      profile:{tin:canonicalTin,source:'NBR_TIN',sourceUpdatedAt:'bad'}
+    }))).toBe('');
+    expect(resolveVerifiedOfficeLedgerTin(previewSampleTin,'user10',verifiedProfile('NBR_TIN',{
+      profile:{tin:'999999999999',source:'NBR_TIN',sourceUpdatedAt:'2026-11-20T00:00:00Z'}
+    }))).toBe('');
+  });
   it('opens a separate taxpayer detail route without changing the navigation shell',()=>{
     expect(routes).toContain('path: "payments/taxpayer-360/:tin"');
     expect(routes).toContain('taxpayerTin={tin}');
