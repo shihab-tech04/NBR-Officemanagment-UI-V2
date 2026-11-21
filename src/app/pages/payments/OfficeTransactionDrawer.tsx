@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
@@ -18,7 +18,7 @@ const display = (value: unknown) => typeof value === 'string' && value.trim() ? 
 export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
   const [receipt, setReceipt] = useState(false);
-  const [remarksRetry, setRemarksRetry] = useState(0);
+  const remarksRequestVersion = useRef(0);
   const [guardedRemarks, setGuardedRemarks] = useState<{
     paymentId: string; status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
   }>({ paymentId: '', status: 'idle', text: null });
@@ -36,19 +36,33 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   // the source-change effect resets asynchronous state.
   const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :
     { paymentId: source?.id ?? '', status: 'idle' as const, text: null };
-  useEffect(() => {
-    let active = true;
-    setGuardedRemarks({ paymentId: source?.id ?? '', status: 'idle', text: null });
-    if (!row || !source || !isChallanPayment) return;
-    const paymentId = source.id;
+  const requestGuardedRemarks = useCallback(async (paymentId: string, requestVersion: number) => {
     setGuardedRemarks({ paymentId, status: 'loading', text: null });
-    void loadGuardedOfficeChallanRemarks(paymentId).then(text => {
-      if (active) setGuardedRemarks({ paymentId, status: 'ready', text });
-    }).catch(() => {
-      if (active) setGuardedRemarks({ paymentId, status: 'error', text: null });
-    });
-    return () => { active = false; };
-  }, [source?.id, row?.payment_ref, isChallanPayment, remarksRetry]);
+    try {
+      const text = await loadGuardedOfficeChallanRemarks(paymentId);
+      if (remarksRequestVersion.current === requestVersion)
+        setGuardedRemarks({ paymentId, status: 'ready', text });
+    } catch {
+      if (remarksRequestVersion.current === requestVersion)
+        setGuardedRemarks({ paymentId, status: 'error', text: null });
+    }
+  }, []);
+  useEffect(() => {
+    const paymentId = source?.id ?? '';
+    const requestVersion = ++remarksRequestVersion.current;
+    setGuardedRemarks({ paymentId, status: 'idle', text: null });
+    if (!row || !source || !isChallanPayment) return;
+    void requestGuardedRemarks(paymentId, requestVersion);
+    return () => {
+      if (remarksRequestVersion.current === requestVersion)
+        remarksRequestVersion.current += 1;
+    };
+  }, [source?.id, row?.payment_ref, isChallanPayment, requestGuardedRemarks]);
+  const retryGuardedRemarks = () => {
+    if (!row || !source || !isChallanPayment) return;
+    const requestVersion = ++remarksRequestVersion.current;
+    void requestGuardedRemarks(source.id, requestVersion);
+  };
   const items = useMemo(() => getOfficePaymentItems(source, scopeTin
     ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
   // In Taxpayer 360 the projected amount must equal only this beneficiary's
@@ -139,7 +153,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
       {currentRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
        currentRemarks.status === 'error' ? <div role="alert">
          <p>{label('Authorized Office remarks read unavailable','অনুমোদিত অফিস মন্তব্য পাওয়া যাচ্ছে না')}</p>
-         <SecondaryButton size="sm" onClick={() => setRemarksRetry(value => value + 1)}>
+         <SecondaryButton size="sm" onClick={retryGuardedRemarks}>
            {label('Retry','আবার চেষ্টা করুন')}
          </SecondaryButton>
        </div> : currentRemarks.status === 'ready' && currentRemarks.text !== null ?
