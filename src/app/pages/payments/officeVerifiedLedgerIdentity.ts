@@ -14,7 +14,7 @@ export function resolveVerifiedOfficeLedgerTin(
  profile:TaxpayerRegistrationProfile|null,
 ):string{
  if(!profile||typeof profile.accountId!=='string'||!profile.accountId.trim()||
-    typeof profile.tin!=='string'||!/^\\d{12}$/.test(profile.tin)||
+    typeof profile.tin!=='string'||!/^\d{12}$/.test(profile.tin)||
     !profile.profile||typeof profile.profile!=='object'||
     profile.profile.tin!==profile.tin||
     !VERIFIED_PROFILE_SOURCES.has(profile.profile.source)||
