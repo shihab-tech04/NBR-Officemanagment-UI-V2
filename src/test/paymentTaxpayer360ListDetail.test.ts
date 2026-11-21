@@ -31,7 +31,9 @@ describe('Office taxpayer register/detail navigation',()=>{
   });
   it('does not fabricate official credits or show unrelated reference corrections',()=>{
     expect(module).toContain("t('taxPositionNotVerified')");
-    expect(module).toContain("taxpayerTab==='ledger' ? <OfficeConsolidatedTaxpayerLedger tin={selectedTin} />");
+    expect(module).toContain("resolveVerifiedOfficeLedgerTin(selectedTin,");
+    expect(module).toContain("taxpayerTab==='ledger' ? <OfficeConsolidatedTaxpayerLedger tin={ledgerTin} />");
+    expect(read('src/app/pages/payments/officeVerifiedLedgerIdentity.ts')).toContain("new Set(['NBR_TIN','REVIEWED_CERTIFICATE'])");
     expect(read('src/app/pages/payments/OfficeConsolidatedTaxpayerLedger.tsx')).toContain('Select a valid 12-digit taxpayer TIN');
     expect(read('src/app/pages/payments/officeConsolidatedLedger.ts')).toContain('Official credit total does not reconcile');
     expect(module).toContain("linkedTaxpayerCorrections(officeCorrectionQueue.items,storyPayments,selectedTin,'all')");
