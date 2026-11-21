@@ -2,35 +2,19 @@
 -- financial tables are used; every fixture is rolled back.
 BEGIN;
 
-CREATE SCHEMA IF NOT EXISTS auth;
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql STABLE SET search_path TO ''
-AS $function$
-  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
-$function$;
-
-CREATE TABLE payment_sync.settings(singleton boolean PRIMARY KEY,origin text NOT NULL);
-CREATE TABLE payment_sync.officer_roles(
-  user_uid uuid NOT NULL,role text NOT NULL,active boolean NOT NULL,
-  PRIMARY KEY(user_uid,role)
-);
-CREATE TABLE payment_sync.control_outbox(
-  message_id uuid PRIMARY KEY,request_id uuid NOT NULL,target_origin text NOT NULL,
-  payload jsonb NOT NULL,delivery_state text NOT NULL DEFAULT 'PENDING',
-  attempts integer NOT NULL DEFAULT 0,
-  acknowledged_at timestamptz,last_error text,next_attempt_at timestamptz NOT NULL DEFAULT now(),
-  claim_token uuid
-);
-CREATE TABLE payment_sync.officer_decisions(
-  request_id uuid NOT NULL,officer_uid uuid NOT NULL,officer_role text NOT NULL,
-  action_code text NOT NULL,reason text NOT NULL,idempotency_key uuid NOT NULL,
-  message_id uuid NOT NULL,UNIQUE(request_id,officer_uid,idempotency_key)
-);
-INSERT INTO payment_sync.settings VALUES(true,'OFFICE_SQL');
+-- The workflow loads the disposable auth/payment_sync schema and applies
+-- the real Office correction migrations before this state-machine contract.
+-- Seed only synthetic officers inside this test transaction.
+INSERT INTO auth.users(id,email) VALUES
+ ('80000000-0000-4000-8000-000000000011','correction-parent-maker@example.invalid'),
+ ('80000000-0000-4000-8000-000000000012','correction-parent-reviewer@example.invalid'),
+ ('80000000-0000-4000-8000-000000000013','correction-parent-approver@example.invalid')
+ON CONFLICT (id) DO NOTHING;
 INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
-  ('80000000-0000-4000-8000-000000000011','MAKER',true),
-  ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
-  ('80000000-0000-4000-8000-000000000013','APPROVER',true);
+ ('80000000-0000-4000-8000-000000000011','MAKER',true),
+ ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
+ ('80000000-0000-4000-8000-000000000013','APPROVER',true)
+ON CONFLICT (user_uid) DO UPDATE SET role=EXCLUDED.role,active=EXCLUDED.active;
 
 CREATE TEMP TABLE correction_test_state(
   stage text PRIMARY KEY,message_id uuid NOT NULL,claim_token uuid
@@ -72,10 +56,58 @@ END;
 $ingest$;
 
 SET LOCAL ROLE authenticated;
+SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000099',true);
+DO $outsider$
+DECLARE v_denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.payment_v1_correction_queue(200);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'Active payment officer role required' THEN RAISE; END IF;
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN RAISE EXCEPTION 'Non-officer correction queue read unexpectedly succeeded'; END IF;
+  v_denied := false;
+  BEGIN
+    PERFORM public.payment_v1_correction_officer_action(
+      '80000000-0000-4000-8000-000000000002','MAKER_ACKNOWLEDGE',
+      'Unauthorized synthetic correction review attempt',
+      '80000000-0000-4000-8000-000000000099');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'Officer role cannot perform this action' THEN RAISE; END IF;
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN RAISE EXCEPTION 'Non-officer correction action unexpectedly succeeded'; END IF;
+END;
+$outsider$;
+RESET ROLE;
+DO $outsider_write_check$
+DECLARE v_decisions integer; v_commands integer;
+BEGIN
+  SELECT count(*) INTO v_decisions FROM payment_sync.officer_decisions
+    WHERE request_id='80000000-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_commands FROM payment_sync.control_outbox
+    WHERE request_id='80000000-0000-4000-8000-000000000002';
+  IF v_decisions<>0 OR v_commands<>0 THEN
+    RAISE EXCEPTION 'Denied outsider left a correction decision or command';
+  END IF;
+END;
+$outsider_write_check$;
+SET LOCAL ROLE authenticated;
 SELECT pg_catalog.set_config('request.jwt.claim.sub','80000000-0000-4000-8000-000000000011',true);
 DO $maker$
-DECLARE v_queue jsonb; v_action jsonb; v_repeat jsonb;
+DECLARE v_queue jsonb; v_action jsonb; v_repeat jsonb; v_denied boolean := false;
 BEGIN
+  BEGIN
+    PERFORM public.payment_v1_correction_officer_action(
+      '80000000-0000-4000-8000-000000000002','REVIEWER_VERIFY',
+      'Maker must not perform reviewer verification',
+      '80000000-0000-4000-8000-000000000098');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'Officer role cannot perform this action' THEN RAISE; END IF;
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN RAISE EXCEPTION 'Maker performed a reviewer-only correction action'; END IF;
   v_queue := public.payment_v1_correction_queue(200);
   IF v_queue->>'role'<>'MAKER' OR
      v_queue->'items'->0->'availableActions'<>'["MAKER_ACKNOWLEDGE"]'::jsonb THEN
