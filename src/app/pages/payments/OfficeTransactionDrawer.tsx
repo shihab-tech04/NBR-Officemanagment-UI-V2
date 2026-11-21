@@ -3,6 +3,7 @@ import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
+import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
@@ -138,9 +139,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
       {currentRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
        currentRemarks.status === 'error' ? <div role="alert">
          <p>{label('Authorized Office remarks read unavailable','অনুমোদিত অফিস মন্তব্য পাওয়া যাচ্ছে না')}</p>
-         <button type="button" className="underline" onClick={() => setRemarksRetry(value => value + 1)}>
+         <SecondaryButton size="sm" onClick={() => setRemarksRetry(value => value + 1)}>
            {label('Retry','আবার চেষ্টা করুন')}
-         </button>
+         </SecondaryButton>
        </div> : currentRemarks.status === 'ready' && currentRemarks.text !== null ?
          <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{currentRemarks.text || '—'}</span> : '—'}
     </div>
