@@ -35,6 +35,13 @@ export function parseGuardedChallanRemarks(result: unknown, paymentId: string): 
   return row.challanRemarks;
 }
 
+/** Keep the remarks row mounted through verified reads, empty values and errors.
+ * The shared drawer filters empty strings and em dashes before its custom renderer
+ * can show the guarded error/retry control. */
+export function officeChallanRemarksRowValue(text: string | null, fallback: string): string {
+  return text === null || text === '' || text === '—' ? fallback : text;
+}
+
 /** The SQL RPC checks auth.uid(), an active Office MAKER/REVIEWER/APPROVER
  * assignment, OFFICE_SQL origin and the immutable Taxpayer payment parent. */
 export async function loadGuardedOfficeChallanRemarks(paymentId: string): Promise<string | null> {

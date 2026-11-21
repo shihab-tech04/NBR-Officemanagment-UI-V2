@@ -8,7 +8,7 @@ import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
-import { loadGuardedOfficeChallanRemarks, supportsOfficeChallanRemarks } from './officeChallanRemarks';
+import { loadGuardedOfficeChallanRemarks, officeChallanRemarksRowValue, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
 const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
@@ -86,7 +86,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
-    ...(isChallanPayment ? { challan_remarks: currentRemarks.text ?? '—' } : {}),
+    ...(isChallanPayment ? { challan_remarks: officeChallanRemarksRowValue(currentRemarks.text, label('Office SQL remarks','অফিস SQL মন্তব্য')) } : {}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
