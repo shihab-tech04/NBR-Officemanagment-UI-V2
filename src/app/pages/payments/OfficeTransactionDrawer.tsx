@@ -182,7 +182,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
           { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
           { key:'tin',label:'TIN',groupLabel:'' },
           { key:'date',label:t('colDate'),groupLabel:'' },
-          ...groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel })),
+          ...groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel, includeWhenEmpty: key === 'challan_remarks' })),
         ]}
         showActions={false}
         renderValue={renderValue}

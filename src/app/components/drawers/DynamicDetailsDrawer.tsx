@@ -16,6 +16,8 @@ interface ColumnDef {
   labelKey?: string;
   groupLabel?: string;
   groupLabelKey?: string;
+  /** Keep custom async controls visible while their row value is empty. */
+  includeWhenEmpty?: boolean;
 }
 
 import type { TableRow } from "../../pages/modulePageUtils";
@@ -189,6 +191,21 @@ const isEmpty = (val: unknown): boolean => {
   return false;
 };
 
+/**
+ * Keeps custom async columns visible while their value is pending, without
+ * changing the empty-value behavior for all other drawer fields.
+ */
+export const shouldShowDetailColumn = (
+  col: Pick<ColumnDef, "key" | "includeWhenEmpty">,
+  rowData: TableRow,
+  excludeKeys: string[] = [],
+): boolean => {
+  const allExclude = [...UI_KEY_FRAGMENTS, ...excludeKeys];
+  if (allExclude.some(x => col.key.toLowerCase().includes(x.toLowerCase()))) return false;
+  if (isAttachmentMetadataKey(col.key)) return false;
+  return col.includeWhenEmpty === true || !isEmpty(rowData[col.key]);
+};
+
 // Given an ordered list of columns, compute whether each should span 2 cols.
 // Wide keys always span 2. A normal key also spans 2 whenever it would be the
 // only item in its visual row, including when the next field is already wide.
@@ -253,11 +270,9 @@ export function DynamicDetailsDrawer({
     if (!rowData) return empty;
     const attachments = extractAttachments(rowData);
     const allExclude = [...UI_KEY_FRAGMENTS, ...excludeKeys];
-    const validColumns = columns.filter(col => {
-      if (allExclude.some(x => col.key.toLowerCase().includes(x.toLowerCase()))) return false;
-      if (isAttachmentMetadataKey(col.key)) return false; // rendered via AttachmentList
-      return !isEmpty(rowData[col.key]);
-    });
+    const validColumns = columns.filter(col =>
+      shouldShowDetailColumn(col, rowData, excludeKeys),
+    );
 
     const statusCol     = validColumns.find(c => isStatusKey(c.key));
     const identifierCol = validColumns.find(c => isIdentifierKey(c.key));
