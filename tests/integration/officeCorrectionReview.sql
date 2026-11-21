@@ -2,9 +2,38 @@
 -- financial tables are used; every fixture is rolled back.
 BEGIN;
 
--- The workflow loads the disposable auth/payment_sync schema and applies
--- the real Office correction migrations before this state-machine contract.
--- Seed only synthetic officers inside this test transaction.
+-- Bootstrap only missing synthetic prerequisites so this same contract can
+-- run after either the Story 1 migration set or the correction-parent fixture.
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users(id uuid PRIMARY KEY,email text UNIQUE);
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+LANGUAGE sql STABLE SET search_path TO ''
+AS $function$
+  SELECT nullif(pg_catalog.current_setting('request.jwt.claim.sub',true),'')::uuid
+$function$;
+
+CREATE SCHEMA IF NOT EXISTS payment_sync;
+CREATE TABLE IF NOT EXISTS payment_sync.settings(
+  singleton boolean PRIMARY KEY,origin text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS payment_sync.officer_roles(
+  user_uid uuid NOT NULL,role text NOT NULL,active boolean NOT NULL,
+  PRIMARY KEY(user_uid,role)
+);
+CREATE TABLE IF NOT EXISTS payment_sync.control_outbox(
+  message_id uuid PRIMARY KEY,request_id uuid NOT NULL,target_origin text NOT NULL,
+  payload jsonb NOT NULL,delivery_state text NOT NULL DEFAULT 'PENDING',
+  attempts integer NOT NULL DEFAULT 0,
+  acknowledged_at timestamptz,last_error text,next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  claim_token uuid
+);
+CREATE TABLE IF NOT EXISTS payment_sync.officer_decisions(
+  request_id uuid NOT NULL,officer_uid uuid NOT NULL,officer_role text NOT NULL,
+  action_code text NOT NULL,reason text NOT NULL,idempotency_key uuid NOT NULL,
+  message_id uuid NOT NULL,UNIQUE(request_id,officer_uid,idempotency_key)
+);
+INSERT INTO payment_sync.settings(singleton,origin) VALUES(true,'OFFICE_SQL')
+ON CONFLICT (singleton) DO UPDATE SET origin=EXCLUDED.origin;
 INSERT INTO auth.users(id,email) VALUES
  ('80000000-0000-4000-8000-000000000011','correction-parent-maker@example.invalid'),
  ('80000000-0000-4000-8000-000000000012','correction-parent-reviewer@example.invalid'),
@@ -14,7 +43,7 @@ INSERT INTO payment_sync.officer_roles(user_uid,role,active) VALUES
  ('80000000-0000-4000-8000-000000000011','MAKER',true),
  ('80000000-0000-4000-8000-000000000012','REVIEWER',true),
  ('80000000-0000-4000-8000-000000000013','APPROVER',true)
-ON CONFLICT (user_uid) DO UPDATE SET role=EXCLUDED.role,active=EXCLUDED.active;
+ON CONFLICT DO NOTHING;
 
 CREATE TEMP TABLE correction_test_state(
   stage text PRIMARY KEY,message_id uuid NOT NULL,claim_token uuid
