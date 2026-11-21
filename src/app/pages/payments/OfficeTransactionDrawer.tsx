@@ -19,8 +19,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const [receipt, setReceipt] = useState(false);
   const [remarksRetry, setRemarksRetry] = useState(0);
   const [guardedRemarks, setGuardedRemarks] = useState<{
-    status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
-  }>({ status: 'idle', text: null });
+    paymentId: string; status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
+  }>({ paymentId: '', status: 'idle', text: null });
   const language = i18n.resolvedLanguage || 'en';
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
@@ -29,15 +29,20 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const certificateReference=source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
   const isChallanPayment = source?.service === 'OTHER_TAX_PAYMENT' || source?.service === 'TAX_WITH_RETURN';
+  // Never render the previous record's private remarks during the render before
+  // the source-change effect resets asynchronous state.
+  const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :
+    { paymentId: source?.id ?? '', status: 'idle' as const, text: null };
   useEffect(() => {
     let active = true;
-    setGuardedRemarks({ status: 'idle', text: null });
+    setGuardedRemarks({ paymentId: source?.id ?? '', status: 'idle', text: null });
     if (!row || !source || !isChallanPayment) return;
-    setGuardedRemarks({ status: 'loading', text: null });
-    void loadGuardedOfficeChallanRemarks(source.id).then(text => {
-      if (active) setGuardedRemarks({ status: 'ready', text });
+    const paymentId = source.id;
+    setGuardedRemarks({ paymentId, status: 'loading', text: null });
+    void loadGuardedOfficeChallanRemarks(paymentId).then(text => {
+      if (active) setGuardedRemarks({ paymentId, status: 'ready', text });
     }).catch(() => {
-      if (active) setGuardedRemarks({ status: 'error', text: null });
+      if (active) setGuardedRemarks({ paymentId, status: 'error', text: null });
     });
     return () => { active = false; };
   }, [source?.id, row?.payment_ref, isChallanPayment, remarksRetry]);
@@ -78,7 +83,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
-    ...(isChallanPayment ? { challan_remarks: guardedRemarks.text ?? '—' } : {}),
+    ...(isChallanPayment ? { challan_remarks: currentRemarks.text ?? '—' } : {}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
@@ -128,14 +133,14 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
 
   const renderValue = (key: string) => key === 'challan_remarks' ? (
     <div aria-live="polite" data-testid="office-guarded-challan-remarks">
-      {guardedRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
-       guardedRemarks.status === 'error' ? <div role="alert">
+      {currentRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
+       currentRemarks.status === 'error' ? <div role="alert">
          <p>{label('Authorized Office remarks read unavailable','অনুমোদিত অফিস মন্তব্য পাওয়া যাচ্ছে না')}</p>
          <button type="button" className="underline" onClick={() => setRemarksRetry(value => value + 1)}>
            {label('Retry','আবার চেষ্টা করুন')}
          </button>
-       </div> : guardedRemarks.status === 'ready' && guardedRemarks.text !== null ?
-         <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{guardedRemarks.text || '—'}</span> : '—'}
+       </div> : currentRemarks.status === 'ready' && currentRemarks.text !== null ?
+         <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{currentRemarks.text || '—'}</span> : '—'}
     </div>
   ) : key === 'payment_lifecycle' || key === 'activity_history' ? (
     <ol aria-label={key==='payment_lifecycle'?label('Payment lifecycle','পেমেন্টের ধাপসমূহ'):label('Activity history','কার্যক্রমের ইতিহাস')} className="space-y-2">
