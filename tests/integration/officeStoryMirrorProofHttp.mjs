@@ -78,6 +78,64 @@ const methods=await handler(new Request(url,{method:'OPTIONS'}));
 assert.equal(methods.status,204);
 console.log('PASS: real Office Edge handler requires source-bound proof at ingress, malformed IDs and proofs fail before network/SQL, preflight preserved; no hosted access');
 
+// A valid proof still cannot make the caller's project label authoritative.
+// Office must compare the requested route with the marker returned by the
+// selected Taxpayer SQL Edge before it invokes the private mirror RPC.
+let provenanceHandler=null,provenanceSourceReads=0;
+const provenanceSql=[];
+const sourceRecord={id,data:{service:'ADVANCE_TAX',amountMinor:1250,
+  details:{payerTin:'111111111111',allocations:[{taxpayerTin:'222222222222',amountMinor:1250}]}},
+  status:'SIMULATED_SUCCESS',createdAt:'2026-11-20T09:00:00.000Z',
+  sourceProject:'original',sourceParentId:null,sourceRevision:'a'.repeat(64)};
+const provenanceBox={
+ ...box,
+ require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
+  return {createClient:(_url,roleKey)=>({rpc:async(name,args)=>{
+    provenanceSql.push({name,args,roleKey});
+    return {data:{id,mirrored:true,replayed:false},error:null};
+  }})};
+ },
+ fetch:async(sourceUrl,init)=>{
+  provenanceSourceReads++;
+  assert.ok(sourceUrl.endsWith('/payments/'+id+'?sessionId='+sessionId));
+  assert.match(init?.headers?.['x-taxpay-office-mirror-proof']??'',/^v1\.[0-9]{10}\.[A-Za-z0-9_-]{43}$/);
+  return new Response(JSON.stringify({success:true,simulationOnly:true,data:sourceRecord}),{status:200});
+ },
+ Deno:{env:{get(name){
+   if(name==='SUPABASE_ANON_KEY')return 'isolated-public-key';
+   if(name==='SUPABASE_URL')return 'https://isolated-office.invalid';
+   if(name==='SUPABASE_SERVICE_ROLE_KEY')return 'isolated-private-office-key';
+   return null;
+ }},serve(callback){provenanceHandler=callback;}},
+};
+vm.runInNewContext(compiled,provenanceBox,{filename:'office-story-mirror-provenance.ts',timeout:5000});
+const provenanceProof='v1.1234567890.'+'A'.repeat(43);
+let provenanceResponse=await provenanceHandler(new Request(url,{method:'POST',
+ headers:{'Content-Type':'application/json','x-taxpay-office-mirror-proof':provenanceProof},
+ body:JSON.stringify({id,sessionId,sourceProject:'original'})}));
+assert.equal(provenanceResponse.status,200);
+assert.equal(provenanceSourceReads,1);
+assert.equal(provenanceSql.length,1);
+assert.equal(provenanceSql[0].name,'demo_story1_mirror');
+assert.equal(provenanceSql[0].roleKey,'isolated-private-office-key');
+assert.equal(provenanceSql[0].args.p_input.sourceProject,'original');
+assert.equal(provenanceSql[0].args.p_input.sourceParentId,null);
+assert.equal(provenanceSql[0].args.p_input.sourceRevision,'a'.repeat(64));
+assert.equal(provenanceSql[0].args.p_input.data.details.payerTin,'111111111111');
+assert.equal(provenanceSql[0].args.p_input.data.details.sourceProject,undefined,
+  'Provenance must not mutate the original Taxpayer payment JSON');
+provenanceResponse=await provenanceHandler(new Request(url,{method:'POST',
+ headers:{'Content-Type':'application/json','x-taxpay-office-mirror-proof':provenanceProof},
+ body:JSON.stringify({id,sessionId,sourceProject:'v2'})}));
+assert.equal(provenanceResponse.status,424);
+assert.equal((await provenanceResponse.json()).error,'SOURCE_PROVENANCE_INVALID');
+assert.equal(provenanceSourceReads,2);
+assert.equal(provenanceSql.length,1,'A forged source-project marker reached private Office SQL');
+console.log('PASS: Office persists only the project marker returned by signed Taxpayer SQL, captures parent/revision, preserves source JSON and blocks project-mismatch before SQL');
+
 
 // WS3 authorization mirror: the real Edge handler must source-read the
 // synthetic authorization first, then use the service key for its private RPC.
@@ -297,3 +355,53 @@ assert.equal(lineageCalls[0].name,'payment_v1_office_guarded_pay_again_lineage')
 assert.equal(lineageCalls[0].args.p_payment_id,repeatId);
 assert.equal(lineageCalls[0].bearer,'Bearer '+validToken);
 console.log('PASS WS3 Office Pay Again Edge: invalid bearer, anonymous and invalid ID denied before SQL; verified JWT reaches existing role-guarded lineage RPC, preserving original and repeat references');
+
+// F-178 Office document/audit readback uses the same officer-authenticated
+// Edge path and validates the full approved Unicode envelope without truncation.
+let remarksHandler=null;
+const remarksCalls=[];
+const maximumRemarks='😀'.repeat(4000);
+const remarksPayload={paymentId:repeatId,challanRemarks:maximumRemarks,receiptReference:'SIM-REMARKS'};
+const remarksBox={
+ ...box,
+ require(name){
+  if(name==='./mirrorSource.ts')return mirrorSourceModule.exports;
+  if(name.startsWith('./'))return loadOfficeLocalModule(name);
+  assert.match(name,/^npm:@supabase\/supabase-js@/);
+  return {createClient:(_url,_key,opts)=>({
+   auth:{getUser:async(token)=>token===validToken
+    ?{data:{user:{id:'80000000-0000-4000-8000-000000000011',is_anonymous:false}},error:null}
+    :{data:{user:null},error:{message:'Unauthorized'}}},
+   rpc:async(name,args)=>{
+    remarksCalls.push({name,args,bearer:opts?.global?.headers?.Authorization});
+    return {data:remarksPayload,error:null};
+   },
+  })};
+ },
+ Deno:{...box.Deno,serve(callback){remarksHandler=callback;}},
+};
+vm.runInNewContext(compiled,remarksBox,{filename:'office-challan-remarks-auth.ts',timeout:5000});
+const remarksAddress='http://127.0.0.1/demo-story1-office/payments/'+repeatId+'/remarks';
+async function queryRemarks(url,bearer){
+ const headers=bearer?{Authorization:bearer}:{};
+ const response=await remarksHandler(new Request(url,{method:'GET',headers}));
+ return {status:response.status,body:await response.json()};
+}
+let remarksReadback=await queryRemarks(remarksAddress);
+assert.equal(remarksReadback.status,401);
+assert.equal(remarksReadback.body.error,'OFFICE_OFFICER_AUTH_REQUIRED');
+remarksReadback=await queryRemarks(
+ 'http://127.0.0.1/demo-story1-office/payments/not-a-uuid/remarks','Bearer '+validToken);
+assert.equal(remarksReadback.status,400);
+assert.equal(remarksCalls.length,0,'Anonymous/invalid Office remarks read reached SQL');
+remarksReadback=await queryRemarks(remarksAddress,'Bearer '+validToken);
+assert.equal(remarksReadback.status,200);
+assert.equal(remarksReadback.body.data.paymentId,repeatId);
+assert.equal(remarksReadback.body.data.challanRemarks,maximumRemarks);
+assert.equal([...remarksReadback.body.data.challanRemarks].length,4000);
+assert.equal(Buffer.byteLength(remarksReadback.body.data.challanRemarks,'utf8'),16000);
+assert.equal(remarksCalls.length,1);
+assert.equal(remarksCalls[0].name,'payment_v1_office_guarded_challan_remarks');
+assert.equal(remarksCalls[0].args.p_payment_id,repeatId);
+assert.equal(remarksCalls[0].bearer,'Bearer '+validToken);
+console.log('PASS WS3 Office F-178 Edge: officer-gated exact 4,000-codepoint/16,000-byte remarks readback, invalid IDs denied before SQL');

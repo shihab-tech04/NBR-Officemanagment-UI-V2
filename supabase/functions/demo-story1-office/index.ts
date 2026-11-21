@@ -61,6 +61,7 @@ Deno.serve(async(req)=>{
    let rpc:string;let args:Record<string,unknown>={};
    let noticePageCheck:{afterId:bigint;limit:number}|null=null;
    let lineagePaymentId:string|null=null;
+   let remarksPaymentId:string|null=null;
    if(req.method==="POST"&&path==="/mirror"){
       const txt=await req.text();if(txt.length>16000)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(txt);
@@ -85,6 +86,15 @@ Deno.serve(async(req)=>{
          sourceResponse.data?.id!==incoming.id||sourceResponse.data?.status!=="SIMULATED_SUCCESS")
         return respond({success:false,error:"SOURCE_RECORD_NOT_READY"},424);
       const record=sourceResponse.data;
+      // The source Edge derives this marker from its own configured project and
+      // fingerprints the authoritative SQL readback. Never trust these values
+      // from the inbound mirror request.
+      const sourceRevision=sourceResponse.data.sourceRevision;
+      const sourceParentId=sourceResponse.data.sourceParentId;
+      if(sourceResponse.data.sourceProject!==sourceProject||
+         typeof sourceRevision!=="string"||!/^[0-9a-f]{64}$/.test(sourceRevision)||
+         !(sourceParentId===null||validUuid(sourceParentId)))
+        return respond({success:false,error:"SOURCE_PROVENANCE_INVALID"},424);
       const serverKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??(()=>{
         const raw=Deno.env.get("SUPABASE_SECRET_KEYS");if(!raw)return null;
         try{const value=(JSON.parse(raw) as Record<string,string>).default;
@@ -95,7 +105,8 @@ Deno.serve(async(req)=>{
       rpc="demo_story1_mirror";
       args={p_input:{id:record.id,sessionId:incoming.sessionId,
          service:record.data.service,amountMinor:record.data.amountMinor,
-         data:record.data,status:record.status,createdAt:record.createdAt}};
+         data:record.data,status:record.status,createdAt:record.createdAt,
+         sourceProject,sourceParentId,sourceRevision}};
    }else if(req.method==="POST"&&path==="/authorization/mirror"){
       const raw=await req.text();if(raw.length>200)return respond({success:false,error:"PAYLOAD_TOO_LARGE"},400);
       const incoming=JSON.parse(raw),id=incoming.id;
@@ -136,6 +147,17 @@ Deno.serve(async(req)=>{
       if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
       rpcClient=verified;
       rpc="payment_v1_office_guarded_story_page";args={p_page:page,p_per_page:perPage};
+   }
+   else if(req.method==="GET"&&/^\/payments\/[^/]+\/remarks$/.test(path)){
+      const match=path.match(/^\/payments\/([^/]+)\/remarks$/);
+      if(!match||!validUuid(match[1]))
+        return respond({success:false,error:"INVALID_PAYMENT_ID"},400);
+      const verified=await verifiedOfficeReadClient(req,client,url,key);
+      if(!verified)return respond({success:false,error:"OFFICE_OFFICER_AUTH_REQUIRED"},401);
+      rpcClient=verified;
+      rpc="payment_v1_office_guarded_challan_remarks";
+      remarksPaymentId=match[1];
+      args={p_payment_id:match[1]};
    }
    else if(req.method==="GET"&&/^\/payments\/[^/]+\/lineage$/.test(path)){
       const match=path.match(/^\/payments\/([^/]+)\/lineage$/);
@@ -198,6 +220,19 @@ Deno.serve(async(req)=>{
           lineage.repeatCertificateReference!=="SK-PC-"+lineage.paymentId
         )))
        return respond({success:false,error:"INVALID_PAY_AGAIN_READBACK"},502);
+   }
+   if(rpc==="payment_v1_office_guarded_challan_remarks"&&data!==null){
+     const readback=data&&typeof data==="object"&&!Array.isArray(data)
+       ?data as Record<string,unknown>:null;
+     const remarks=readback?.challanRemarks;
+     if(!readback||typeof readback.paymentId!=="string"||
+        readback.paymentId.toLowerCase()!==remarksPaymentId?.toLowerCase()||
+        !(remarks===null||typeof remarks==="string")||
+        (typeof remarks==="string"&&(
+          Array.from(remarks).length>4000||new TextEncoder().encode(remarks).byteLength>16000
+        ))||
+        !(readback.receiptReference===null||typeof readback.receiptReference==="string"))
+       return respond({success:false,error:"INVALID_CHALLAN_REMARKS_READBACK"},502);
    }
    if(rpc==="demo_story1_office_notice_page"&&noticePageCheck&&
       !validNoticePage(data,noticePageCheck.afterId,noticePageCheck.limit))
