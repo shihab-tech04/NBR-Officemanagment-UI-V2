@@ -86,7 +86,11 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
-    ...(isChallanPayment ? { challan_remarks: currentRemarks.text ?? '—' } : {}),
+    // DynamicDetailsDrawer filters em-dash and empty backing values before custom rendering.
+    // Keep this SQL-guarded column present so loading, retry, and confirmed-empty states render.
+    ...(isChallanPayment ? {
+      challan_remarks: currentRemarks.text || 'Office SQL guarded remarks read',
+    } : {}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
