@@ -1,14 +1,7 @@
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-type FontSizeId = "compact" | "standard" | "large";
-
-interface FontSizeConfig {
-  id: FontSizeId;
-  name: string;
-  preview: string;
-  description: string;
-}
+import type { FontSizeId, FontSizeConfig } from "../../data/fonts";
 
 interface FontSizeOptionCardProps {
   config: FontSizeConfig;
