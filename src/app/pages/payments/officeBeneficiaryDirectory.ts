@@ -3,6 +3,7 @@ import type { StoryPayment } from './story1OfficeApi';
 
 export type OfficeBeneficiaryDirectoryRow = {
   id: string;
+  paymentId: string;
   taxpayerTin: string;
   taxpayerName: string;
   allocation: string;
@@ -27,16 +28,20 @@ function taxpayerNameFromItem(value: string, tin: string): string {
  */
 export function buildOfficeBeneficiaryDirectoryRows(
   payments: readonly StoryPayment[],
+  taxpayerTin: string,
+  assessmentYear = 'all',
 ): OfficeBeneficiaryDirectoryRow[] {
+  if (!validTin(taxpayerTin)) return [];
   const rows: OfficeBeneficiaryDirectoryRow[] = [];
   for (const payment of payments) {
     if (payment.status !== 'SIMULATED_SUCCESS') continue;
-    for (const [index, item] of getOfficePaymentItems(payment).entries()) {
+    for (const [index, item] of getOfficePaymentItems(payment, { taxpayerTin, assessmentYear }).entries()) {
       if (!validTin(item.taxpayerTin)) continue;
       const service = item.service.trim();
       const economicCode = item.economicCode?.trim();
       rows.push({
         id: payment.id + ':' + index,
+        paymentId: payment.id,
         taxpayerTin: item.taxpayerTin,
         taxpayerName: taxpayerNameFromItem(item.taxpayer, item.taxpayerTin),
         allocation: economicCode ? service + ' · ' + economicCode : service,
