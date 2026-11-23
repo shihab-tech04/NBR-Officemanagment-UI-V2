@@ -66,7 +66,7 @@ export function maskOfficeProfileValue(input:string,kind:'tin'|'phone'|'email'='
 function sensitiveKind(field:RegistrationField,value:string):'tin'|'phone'|'email'|null{
  if((field==='tin'||field==='previousTin')&&(value.match(/[0-9]/g)?.length??0)>=8)return 'tin';
  if((field==='mobileNumber'||field==='taxOfficePhone')&&(value.match(/[0-9]/g)?.length??0)>=6)return 'phone';
- if(field==='emailAddress'&&/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(value))return 'email';
+ if(field==='emailAddress'&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))return 'email';
  return null;
 }
 function ProtectedOfficeValue({raw,label,language,kind}:{raw:string;label:string;language:Language;kind:'tin'|'phone'|'email'}){
