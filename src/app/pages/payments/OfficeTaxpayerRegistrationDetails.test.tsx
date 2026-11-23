@@ -28,7 +28,7 @@ describe('Office taxpayer registration parity with the approved Taxpayer profile
   };
   for(const language of ['en','bn'] as const){
    const html=renderToStaticMarkup(createElement(OfficeTaxpayerRegistrationDetails,{record,language}));
-   expect((html.match(/<dt\\b/g)||[]).length).toBe(24);
+   expect((html.match(/<dt\b/g)||[]).length).toBe(24);
    expect(html).toContain('577*********');
    expect(html).toContain('017********');
    expect(html).toContain('em***@****.***');
