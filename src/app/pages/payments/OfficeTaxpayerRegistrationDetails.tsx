@@ -44,18 +44,37 @@ const certificate:readonly Field[]=[
 ];
 const sensitiveFields=new Set<RegistrationField>(['tin','previousTin','mobileNumber','emailAddress','taxOfficePhone']);
 
-/** The shared Office view must not expose private identifiers by default. */
-export function maskOfficeProfileValue(input:string):string{
- const cleaned=input.trim();
- if(!cleaned)return '—';
- return cleaned.slice(0,Math.min(3,cleaned.length))+'****';
+/** Match Taxpayer's reviewed-source mask contract: no suffix digits or private email domain. */
+export function maskOfficeProfileValue(input:string,kind:'tin'|'phone'|'email'='tin'):string{
+ const value=input.trim();
+ if(!value)return '—';
+ if(kind==='email'){
+  const at=value.indexOf('@');
+  if(at<1)return '****';
+  const local=value.slice(0,at);
+  return local.slice(0,2)+'*'.repeat(Math.max(3,local.length-2))+'@****.***';
+ }
+ const digitCount=value.match(/[0-9]/g)?.length??0;
+ const visibleDigits=digitCount>3?3:0;
+ let seen=0;
+ return [...value].map(char=>{
+  if(!/[0-9]/.test(char))return char;
+  seen++;
+  return seen<=visibleDigits?char:'*';
+ }).join('');
 }
-function ProtectedOfficeValue({raw,label,language}:{raw:string;label:string;language:Language}){
+function sensitiveKind(field:RegistrationField,value:string):'tin'|'phone'|'email'|null{
+ if((field==='tin'||field==='previousTin')&&(value.match(/[0-9]/g)?.length??0)>=8)return 'tin';
+ if((field==='mobileNumber'||field==='taxOfficePhone')&&(value.match(/[0-9]/g)?.length??0)>=6)return 'phone';
+ if(field==='emailAddress'&&/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(value))return 'email';
+ return null;
+}
+function ProtectedOfficeValue({raw,label,language,kind}:{raw:string;label:string;language:Language;kind:'tin'|'phone'|'email'}){
  const [revealed,setRevealed]=useState(false);
  const [copied,setCopied]=useState(false);
  const bn=language==='bn';
  return <span style={{display:'inline-flex',alignItems:'center',flexWrap:'wrap',gap:4,minWidth:0}}>
-   <span style={{overflowWrap:'anywhere'}}>{revealed?raw:maskOfficeProfileValue(raw)}</span>
+   <span style={{overflowWrap:'anywhere'}}>{revealed?raw:maskOfficeProfileValue(raw,kind)}</span>
    <button type="button" aria-label={(revealed?(bn?'লুকান ':'Hide '):(bn?'দেখুন ':'Reveal '))+label}
      aria-pressed={revealed} title={revealed?(bn?'লুকান':'Hide'):(bn?'দেখুন':'Reveal')}
      className="table-card__toolbar-btn" style={{minHeight:36,minWidth:36,padding:6,display:'inline-flex',justifyContent:'center'}}
@@ -85,8 +104,8 @@ export function OfficeTaxpayerRegistrationDetails({record,language}:{
       <dt className="payment-module__field-label">{tr(label)}</dt>
       <dd style={{overflowWrap:'anywhere'}}>
        {raw===null?(bn?'পাওয়া যায়নি':'Not available'):
-        sensitiveFields.has(field)?
-         <ProtectedOfficeValue key={field+':'+raw} raw={raw} label={tr(label)} language={language}/>:
+        sensitiveFields.has(field)&&sensitiveKind(field,raw)?
+         <ProtectedOfficeValue key={field+':'+raw} raw={raw} label={tr(label)} language={language} kind={sensitiveKind(field,raw)!}/>:
          raw}
       </dd>
     </div>;
