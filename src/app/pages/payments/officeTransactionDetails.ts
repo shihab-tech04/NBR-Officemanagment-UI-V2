@@ -103,9 +103,63 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   const passengerSourcesConflict=detailPassengers.length>0&&snapshotPassengers.length>0&&
     !sameTravelPassengerRows(detailPassengers,snapshotPassengers);
 
-  if (synthetic && explicit.length) return []; // Cannot reconcile two identity schemes.
   let items: OfficePaymentItem[] = [];
-  if (passengers?.length) {
+  if (synthetic && explicit.length) {
+    // Canonical combined payments carry accounting lines, explicit allocations
+    // and receiptLines. Never trust a mixed projection without exact row proof.
+    if (payment.service==='TRAVEL_TAX') return [];
+    const combined=details as typeof details & {
+      allocationContractVersion?:number;
+      receiptLines?:NonNullable<StoryPayment['details']>['lines'];
+    };
+    const version=combined.allocationContractVersion;
+    const heads=combined.receiptLines;
+    if ((version!==undefined&&version!==2&&version!==3&&version!==5)||
+      !Array.isArray(heads)||heads.length!==explicit.length||lines.length!==explicit.length) return [];
+    const ids=new Set<string>();
+    const snapshot=details.receiptSnapshot;
+    const versioned=version===3||version===5;
+    if(versioned&&(!snapshot||snapshot.paymentCategory!==payment.service||
+      travelAmountMinor(undefined,snapshot.totalAmount)!==payment.amountMinor||
+      !Array.isArray(snapshot.items)||snapshot.items.length!==explicit.length||
+      !Array.isArray(snapshot.allocationItems)||snapshot.allocationItems.length!==explicit.length)) return [];
+    for(let index=0;index<explicit.length;index++){
+      const allocation=explicit[index],line=lines[index],head=heads[index];
+      if(!allocation||!line||!head||
+        typeof allocation.taxpayerTin!=='string'||!/^\d{12,13}$/.test(allocation.taxpayerTin)||
+        !validAmount(allocation.amountMinor)||!Number.isSafeInteger(allocation.headId)||
+        typeof allocation.assessmentYear!=='string'||!/^20\d{2}-\d{2}$/.test(allocation.assessmentYear)||
+        line.category!==payment.service||line.amountMinor!==allocation.amountMinor||
+        line.assessmentYear!==allocation.assessmentYear||
+        (line.taxpayerTin!==undefined&&line.taxpayerTin!==allocation.taxpayerTin)||
+        (line.headId!==undefined&&line.headId!==allocation.headId)||
+        head.headId!==allocation.headId||travelAmountMinor(head.amountMinor,head.totalAmount)!==allocation.amountMinor||
+        human(head.headNameEn)==='—')return [];
+      if(versioned){
+        const id=(allocation as typeof allocation & {allocationId?:string}).allocationId;
+        const saved=snapshot!.allocationItems![index],savedHead=snapshot!.items![index];
+        if(typeof id!=='string'||!id.trim()||ids.has(id)||!saved||!savedHead||
+          saved.allocationId!==id||saved.taxpayerTin!==allocation.taxpayerTin||
+          saved.taxpayerName!==allocation.taxpayerName||
+          saved.assessmentYear!==allocation.assessmentYear||saved.amountMinor!==allocation.amountMinor||
+          saved.paymentServiceEn!==head.headNameEn||
+          (saved.economicCode??'')!==(head.economicCode??'')||
+          savedHead.headId!==head.headId||savedHead.headNameEn!==head.headNameEn||
+          savedHead.economicCode!==head.economicCode||
+          travelAmountMinor(undefined,savedHead.totalAmount)!==allocation.amountMinor)return [];
+        ids.add(id);
+      }
+      items.push({
+        taxpayer:human(allocation.taxpayerName)!=='—'
+          ? human(allocation.taxpayerName)+' · '+allocation.taxpayerTin:'TIN '+allocation.taxpayerTin,
+        taxpayerTin:allocation.taxpayerTin,
+        service:human(head.headNameEn),
+        assessmentYear:allocation.assessmentYear,
+        amountMinor:allocation.amountMinor,
+        ...(human(head.economicCode)!=='—'?{economicCode:human(head.economicCode)}:{}),
+      });
+    }
+  } else if (passengers?.length) {
     // The Office officer can inspect reconciled passenger amounts. A name or
     // masked passport cannot establish entitlement to a taxpayer-scoped read.
     const passengerAmounts=passengers.map(travelPassengerMinor);
