@@ -169,3 +169,28 @@ describe('Gift Tax SQL parent projection',()=>{
  expect(getOfficePaymentItems({...payment,amountMinor:27200001})).toEqual([]);
  });
 });
+
+
+describe('Canonical combined certificate allocation prerequisite',()=>{
+  it('reconciles v5 accounting rows, snapshot and recipient scope, rejects tampering',()=>{
+    const heads=[{headId:122,headNameEn:'Advance Tax',economicCode:'68A',totalAmount:15},
+      {headId:122,headNameEn:'Advance Tax',economicCode:'68B',totalAmount:35}];
+    const allocations=[{allocationId:'allocation-1',taxpayerTin:'123456789012',taxpayerName:'One',headId:122,amountMinor:1500,assessmentYear:'2026-27'},
+      {allocationId:'allocation-2',taxpayerTin:'234567890123',taxpayerName:'Two',headId:122,amountMinor:3500,assessmentYear:'2025-26'}];
+    const details={allocationContractVersion:5,receiptLines:heads,allocations,
+      lines:allocations.map(a=>({beneficiary:'SAVED_TIN:'+a.taxpayerTin,category:'OTHER_TAX_PAYMENT',amountMinor:a.amountMinor,assessmentYear:a.assessmentYear,headId:a.headId,taxpayerTin:a.taxpayerTin})),
+      receiptSnapshot:{paymentCategory:'OTHER_TAX_PAYMENT',totalAmount:50,items:heads,
+        allocationItems:allocations.map((a,i)=>({...a,paymentServiceEn:heads[i].headNameEn,economicCode:heads[i].economicCode}))}};
+    const payment:StoryPayment={...transaction,amountMinor:5000,details};
+    expect(getOfficePaymentItems(payment).map(x=>[x.taxpayerTin,x.amountMinor,x.economicCode])).toEqual([['123456789012',1500,'68A'],['234567890123',3500,'68B']]);
+    expect(getOfficePaymentItems(payment,{taxpayerTin:'234567890123'}).map(x=>x.amountMinor)).toEqual([3500]);
+    expect(getOfficePaymentItems(payment,{taxpayerTin:'999999999999'})).toEqual([]);
+    const swapped=structuredClone(details);swapped.receiptLines.reverse();
+    expect(getOfficePaymentItems({...payment,details:swapped})).toEqual([]);
+    const duplicate=structuredClone(details);duplicate.allocations[1].allocationId=duplicate.allocations[0].allocationId;
+    expect(getOfficePaymentItems({...payment,details:duplicate})).toEqual([]);
+    const fractional=structuredClone(details);fractional.receiptLines[0].totalAmount=15.001;
+    expect(getOfficePaymentItems({...payment,details:fractional})).toEqual([]);
+    expect(getOfficePaymentItems({...payment,details:{...details,receiptSnapshot:undefined}})).toEqual([]);
+  });
+});
