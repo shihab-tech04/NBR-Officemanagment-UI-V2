@@ -158,3 +158,39 @@ describe('Office-native transaction record and receipt', () => {
     expect(html).not.toContain('nbr-taxpay');
   });
 });
+
+
+describe('Gift Tax SQL parent projection',()=>{
+ it('uses donor TIN, not the donee or synthetic payer alias, and reconciles tax rather than gift amount',()=>{
+ const gift={donor:{tin:'111111111111',name:'User 1'},donee:{tin:'222222222222',name:'User 2',tag:'friends_family',relationship:'father',otherLabel:null},giftAmountMinor:250000000,estimatedTaxMinor:27200000,giftDate:'2025-01-15',description:'Gift',remarks:'Exact remarks'};
+ const payment:StoryPayment={...transaction,service:'GIFT_TAX',amountMinor:27200000,details:{payerId:'user1',payerName:'Sample Payer',taxpayerTin:gift.donor.tin,taxpayerName:gift.donor.name,assessmentYear:'2025-26',receiptReference:'SIM-GIFT-example',giftDetails:gift,challanRemarks:gift.remarks,lines:[{beneficiary:'user1',category:'GIFT_TAX',amountMinor:27200000,assessmentYear:'2025-26'}],receiptSnapshot:{paymentCategory:'GIFT_TAX',totalAmount:272000,challanNo:'SIM-GIFT-example',giftDetails:gift}}};
+ expect(getOfficePaymentItems(payment)).toEqual([{taxpayer:'User 1',taxpayerTin:gift.donor.tin,service:'Gift Tax',assessmentYear:'2025-26',amountMinor:27200000}]);
+ expect(getOfficePaymentItems(payment,{taxpayerTin:gift.donee.tin})).toEqual([]);
+ expect(getOfficePaymentItems({...payment,amountMinor:27200001})).toEqual([]);
+ });
+});
+
+
+describe('Canonical combined certificate allocation prerequisite',()=>{
+  it('reconciles v5 accounting rows, snapshot and recipient scope, rejects tampering',()=>{
+    const heads=[{headId:122,headNameEn:'Advance Tax',economicCode:'68A',totalAmount:15},
+      {headId:122,headNameEn:'Advance Tax',economicCode:'68B',totalAmount:35}];
+    const allocations=[{allocationId:'allocation-1',taxpayerTin:'123456789012',taxpayerName:'One',headId:122,amountMinor:1500,assessmentYear:'2026-27'},
+      {allocationId:'allocation-2',taxpayerTin:'234567890123',taxpayerName:'Two',headId:122,amountMinor:3500,assessmentYear:'2025-26'}];
+    const details={allocationContractVersion:5,receiptLines:heads,allocations,
+      lines:allocations.map(a=>({beneficiary:'SAVED_TIN:'+a.taxpayerTin,category:'OTHER_TAX_PAYMENT',amountMinor:a.amountMinor,assessmentYear:a.assessmentYear,headId:a.headId,taxpayerTin:a.taxpayerTin})),
+      receiptSnapshot:{paymentCategory:'OTHER_TAX_PAYMENT',totalAmount:50,items:heads,
+        allocationItems:allocations.map((a,i)=>({...a,paymentServiceEn:heads[i].headNameEn,economicCode:heads[i].economicCode}))}};
+    const payment:StoryPayment={...transaction,amountMinor:5000,details};
+    expect(getOfficePaymentItems(payment).map(x=>[x.taxpayerTin,x.amountMinor,x.economicCode])).toEqual([['123456789012',1500,'68A'],['234567890123',3500,'68B']]);
+    expect(getOfficePaymentItems(payment,{taxpayerTin:'234567890123'}).map(x=>x.amountMinor)).toEqual([3500]);
+    expect(getOfficePaymentItems(payment,{taxpayerTin:'999999999999'})).toEqual([]);
+    const swapped=structuredClone(details);swapped.receiptLines.reverse();
+    expect(getOfficePaymentItems({...payment,details:swapped})).toEqual([]);
+    const duplicate=structuredClone(details);duplicate.allocations[1].allocationId=duplicate.allocations[0].allocationId;
+    expect(getOfficePaymentItems({...payment,details:duplicate})).toEqual([]);
+    const fractional=structuredClone(details);fractional.receiptLines[0].totalAmount=15.001;
+    expect(getOfficePaymentItems({...payment,details:fractional})).toEqual([]);
+    expect(getOfficePaymentItems({...payment,details:{...details,receiptSnapshot:undefined}})).toEqual([]);
+  });
+});

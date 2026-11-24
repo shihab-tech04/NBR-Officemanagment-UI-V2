@@ -35,6 +35,8 @@ jobs:
             src/app/store/__tests__/paymentSqlNotifications.test.ts \
             src/test/notificationHistoryNavigation.test.ts \
             src/test/paymentPostReleaseRegression.test.ts
+      - name: Verify exact Taxpayer hero and Office CMS preview parity
+        run: npx vitest run src/app/pages/administration-requests/BannerFullPreview.test.tsx
       - name: Verify Office CMS source and approved release endpoint
         env:
           VITE_TAXPAY_CMS_SUPABASE_URL: ${{ vars.SOHOJKOR_PRIMARY_SUPABASE_URL || 'https://eyqhoavnitkrajvyqvxn.supabase.co' }}

@@ -16,6 +16,7 @@ type Command = {
   origin: Origin; action: string; officerUid: string;
   officerRole: string; reason: string | null; expectedReviewState: string;
   occurredAt: string; commandType?: 'CORRECTION_REVIEW' | 'OFFICE_CORRECTION_INITIATED';
+  sourceProject?: 'v2'; simulationOnly?: boolean;
 };
 type Claimed = { claimToken: string; command: Command };
 
@@ -80,9 +81,42 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
     let taxpayReviewState: string | null = null;
     try {
       if (item.command.origin !== 'OFFICE_SQL') throw new Error('Unexpected origin');
-      const commandText = JSON.stringify(item.command);
-      const signature = await sign(key, commandText);
-      const response = await fetch(commandEndpoint(config.peerUrl), {
+      const sourceProject=item.command.commandType==='CORRECTION_REVIEW'
+        ?await rpc<string|null>(client,'payment_v1_demo_correction_route',{p_id:item.command.requestId}):null;
+      if(sourceProject!==null&&sourceProject!=='v2')throw Error('Unexpected correction source');
+      const v2Correction=sourceProject==='v2';
+      const commandText=JSON.stringify(v2Correction
+        ?{...item.command,sourceProject:'v2',simulationOnly:true}
+        :item.command);
+      const correctionSecret=v2Correction?await rpc<string|null>(client,'payment_v1_demo_correction_key'):null;
+      if(v2Correction&&!correctionSecret)throw Error('Dedicated correction key unavailable');
+      const signature = await sign(v2Correction?await signingKey(correctionSecret!):key, commandText);
+      const endpoint=v2Correction
+        ?'https://gmuhitmaynfhipcvbvkh.supabase.co/functions/v1/demo-story1-taxpay/corrections/office-decision'
+        :commandEndpoint(config.peerUrl);
+      // For an Office-originated case, consult V2's authoritative payment
+      // using the dedicated signed channel. Only an authenticated, explicit
+      // absence permits the pre-existing legacy destination. Transport errors
+      // or owner/reference mismatches stay retryable; never guess the owner.
+      let response:Response|undefined;
+      if(item.command.commandType==='OFFICE_CORRECTION_INITIATED'){
+        const secret=await rpc<string|null>(client,'payment_v1_demo_correction_key');
+        if(secret){
+          const v2Text=JSON.stringify({...item.command,sourceProject:'v2',simulationOnly:true});
+          const v2Signature=await sign(await signingKey(secret),v2Text);
+          const probe=await fetch('https://gmuhitmaynfhipcvbvkh.supabase.co/functions/v1/demo-story1-taxpay/corrections/office-decision',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({mode:'ingest',commandText:v2Text,signature:v2Signature}),
+            signal:AbortSignal.timeout(12000),
+          });
+          if(!probe.ok)throw Error('V2 correction initiation HTTP '+probe.status);
+          const decision=await probe.clone().json();
+          if(decision?.messageId!==item.command.messageId)throw Error('V2 correction acknowledgement mismatch');
+          if(decision.stored===true&&decision.ownerLinked===true)response=probe;
+          else if(decision.stored!==false||decision.sourceAbsent!==true)throw Error('V2 source did not confirm absence or persistence');
+        }
+      }
+      if(!response)response=await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'ingest', commandText, signature }),
         signal: AbortSignal.timeout(12000),

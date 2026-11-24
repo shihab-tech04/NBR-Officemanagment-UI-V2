@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DynamicDetailsDrawer } from '../../components/drawers/DynamicDetailsDrawer';
@@ -7,8 +7,9 @@ import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
+import {verifiedGiftDetails} from './story1PaymentPresentation';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
-import { loadGuardedOfficeChallanRemarks, supportsOfficeChallanRemarks } from './officeChallanRemarks';
+import { loadGuardedOfficeChallanRemarks, officeChallanRemarksRowValue, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
 const display = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : '—';
@@ -18,7 +19,7 @@ const display = (value: unknown) => typeof value === 'string' && value.trim() ? 
 export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
   const [receipt, setReceipt] = useState(false);
-  const [remarksRetry, setRemarksRetry] = useState(0);
+  const remarksRequestVersion = useRef(0);
   const [guardedRemarks, setGuardedRemarks] = useState<{
     paymentId: string; status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
   }>({ paymentId: '', status: 'idle', text: null });
@@ -27,7 +28,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const ref = display(row?.payment_ref);
   const receiptReference=source?.details?.receiptReference?.trim()||'';
-  const certificateReference=source?.certificateReference?.trim()||'';
+  const gift=source&&row?.payment_ref===source.id?verifiedGiftDetails(source):null;
+  const certificateReference=source?.service==='GIFT_TAX'?'':source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
   // Never attach a guarded source read to a different selected table row.
   const isChallanPayment = row?.payment_ref === source?.id &&
@@ -36,19 +38,33 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   // the source-change effect resets asynchronous state.
   const currentRemarks = guardedRemarks.paymentId === source?.id ? guardedRemarks :
     { paymentId: source?.id ?? '', status: 'idle' as const, text: null };
-  useEffect(() => {
-    let active = true;
-    setGuardedRemarks({ paymentId: source?.id ?? '', status: 'idle', text: null });
-    if (!row || !source || !isChallanPayment) return;
-    const paymentId = source.id;
+  const requestGuardedRemarks = useCallback(async (paymentId: string, requestVersion: number) => {
     setGuardedRemarks({ paymentId, status: 'loading', text: null });
-    void loadGuardedOfficeChallanRemarks(paymentId).then(text => {
-      if (active) setGuardedRemarks({ paymentId, status: 'ready', text });
-    }).catch(() => {
-      if (active) setGuardedRemarks({ paymentId, status: 'error', text: null });
-    });
-    return () => { active = false; };
-  }, [source?.id, row?.payment_ref, isChallanPayment, remarksRetry]);
+    try {
+      const text = await loadGuardedOfficeChallanRemarks(paymentId);
+      if (remarksRequestVersion.current === requestVersion)
+        setGuardedRemarks({ paymentId, status: 'ready', text });
+    } catch {
+      if (remarksRequestVersion.current === requestVersion)
+        setGuardedRemarks({ paymentId, status: 'error', text: null });
+    }
+  }, []);
+  useEffect(() => {
+    const paymentId = source?.id ?? '';
+    const requestVersion = ++remarksRequestVersion.current;
+    setGuardedRemarks({ paymentId, status: 'idle', text: null });
+    if (!row || !source || !isChallanPayment) return;
+    void requestGuardedRemarks(paymentId, requestVersion);
+    return () => {
+      if (remarksRequestVersion.current === requestVersion)
+        remarksRequestVersion.current += 1;
+    };
+  }, [source?.id, row?.payment_ref, isChallanPayment, requestGuardedRemarks]);
+  const retryGuardedRemarks = () => {
+    if (!row || !source || !isChallanPayment) return;
+    const requestVersion = ++remarksRequestVersion.current;
+    void requestGuardedRemarks(source.id, requestVersion);
+  };
   const items = useMemo(() => getOfficePaymentItems(source, scopeTin
     ? {taxpayerTin:scopeTin,assessmentYear:scopeYear}:undefined), [source,scopeTin,scopeYear]);
   // In Taxpayer 360 the projected amount must equal only this beneficiary's
@@ -67,6 +83,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
     ...(receiptReference?{receiptReference}:{}),
     ...(certificateReference?{certificateReference}:{}),
+    ...(gift?{giftDetails:gift}:{}),
     ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
       ? {batchId:source.details.batchId}:{}),
     ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)
@@ -86,7 +103,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     amount: info.amount,
     payment_channel: info.method,
     ledger_status: info.creditStatus,
-    ...(isChallanPayment ? { challan_remarks: currentRemarks.text ?? '—' } : {}),
+    ...(isChallanPayment ? { challan_remarks: officeChallanRemarksRowValue(currentRemarks.text, label('Office SQL remarks','অফিস SQL মন্তব্য')) } : {}),
+    ...(gift?{gift_donor:gift.donor.name,gift_donor_tin:gift.donor.tin,gift_donee:gift.donee.name,gift_donee_tin:gift.donee.tin,gift_relationship:gift.donee.relationship??gift.donee.otherLabel??gift.donee.tag,gift_amount:officeMoney(gift.giftAmountMinor,language),gift_date:gift.giftDate,gift_description:gift.description,gift_remarks:gift.remarks}:{}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
@@ -102,7 +120,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     acs_reference: display(row.acs_reference),
     // Source-backed deterministic reference only; not a claim that an
     // independently issued government certificate has been verified.
-    certificate_reference: display(source?.certificateReference),
+    certificate_reference: display(certificateReference),
     notice_reference: display(row.notice_reference),
   } : null;
   const groups: Array<[string, string, string]> = [
@@ -124,6 +142,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ...(isChallanPayment ? [
       ['challan_remarks', label('Challan remarks','চালানের মন্তব্য'), label('Payment information','পেমেন্টের তথ্য')],
     ] as Array<[string,string,string]> : []),
+    ...(gift?[
+      ['gift_donor',label('Donor','দাতা')],['gift_donor_tin',label('Donor TIN','দাতার টিআইএন')],['gift_donee',label('Donee','গ্রহীতা')],['gift_donee_tin',label('Donee TIN','গ্রহীতার টিআইএন')],['gift_relationship',label('Relationship','সম্পর্ক')],['gift_amount',label('Gift amount','দানের পরিমাণ')],['gift_date',label('Gift date','দানের তারিখ')],['gift_description',label('Description','দানের বিবরণ')],['gift_remarks',label('Remarks','মন্তব্য')],
+    ].map(([key,name])=>[key,name,label('Gift details','দানের তথ্য')] as [string,string,string]):[]),
     ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
     ['allocation_items',source?.service==='TRAVEL_TAX'
       ?label('Passengers and amounts','যাত্রী ও পরিমাণ'):label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),
@@ -139,7 +160,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
       {currentRemarks.status === 'loading' ? label('Loading verified remarks…','যাচাইকৃত মন্তব্য লোড হচ্ছে…') :
        currentRemarks.status === 'error' ? <div role="alert">
          <p>{label('Authorized Office remarks read unavailable','অনুমোদিত অফিস মন্তব্য পাওয়া যাচ্ছে না')}</p>
-         <SecondaryButton size="sm" onClick={() => setRemarksRetry(value => value + 1)}>
+         <SecondaryButton size="sm" onClick={retryGuardedRemarks}>
            {label('Retry','আবার চেষ্টা করুন')}
          </SecondaryButton>
        </div> : currentRemarks.status === 'ready' && currentRemarks.text !== null ?
@@ -182,7 +203,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
           { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
           { key:'tin',label:'TIN',groupLabel:'' },
           { key:'date',label:t('colDate'),groupLabel:'' },
-          ...groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel })),
+          ...groups.map(([key, fieldLabel, groupLabel]) => ({ key, label: fieldLabel, groupLabel, includeWhenEmpty: key === 'challan_remarks' })),
         ]}
         showActions={false}
         renderValue={renderValue}

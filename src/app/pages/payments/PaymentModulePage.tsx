@@ -31,6 +31,7 @@ import { availableOfficeOverviewSummary, createSingleFlight } from './officeOver
 import { officePaymentAnalytics } from './officePaymentAnalytics';
 import { OfficePaymentDashboardInsights } from './OfficePaymentDashboardInsights';
 import { summarizeTaxpayerRecordedActivity } from './officeTaxpayerActivity';
+import { buildOfficeBeneficiaryDirectoryRows } from './officeBeneficiaryDirectory';
 import { OfficeTaxpayer360Activity, OfficeTaxpayer360Notices } from './OfficeTaxpayer360Activity';
 import {getOfficeTaxpayerRegistrations,getOfficePreviewTaxpayers,REGISTRATION_FIELDS,type OfficePreviewTaxpayer,type TaxpayerRegistrationProfile,type RegistrationField} from './officeTaxpayerRegistrationProfiles';
 import {OfficeTaxpayerRegistrationDetails} from './OfficeTaxpayerRegistrationDetails';
@@ -126,6 +127,7 @@ function paymentColumns(t:(key:string)=>string) {
   };
 }
 const transactionMapping:MobileCardMapping = {primary:'taxpayer_name',identifier:'payment_ref',meta:['financial_receipt_status','ledger_status','assessment_year','payer_name'],status:'ledger_status',date:'date',amount:'amount'};
+const beneficiaryAllocationMapping:MobileCardMapping = {primary:'taxpayer_name',identifier:'payment_ref',meta:['payment_type','assessment_year'],date:'date',amount:'amount'};
 const correctionMapping:MobileCardMapping = {primary:'taxpayer',identifier:'id',meta:['reason','stage'],status:'status',amount:'amount'};
 const offlineMapping:MobileCardMapping = {primary:'taxpayer',identifier:'id',meta:['event','component'],status:'status',amount:'amount'};
 const incidentMapping:MobileCardMapping = {primary:'taxpayer',identifier:'id',meta:['type','date'],status:'status',date:'date'};
@@ -518,6 +520,21 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   ];
   const taxpayerActivity=storyLoading||storyError?null:
     summarizeTaxpayerRecordedActivity(storyPayments,storyNotices,selectedTin,scopeYear);
+  const beneficiaryAllocationRows:TableRow[]=ledgerTin&&!storyLoading&&!storyError
+    ?buildOfficeBeneficiaryDirectoryRows(storyPayments,ledgerTin,scopeYear).map(row=>({
+      key:row.id,date:demoDate(row.paymentDate),taxpayer_name:row.taxpayerName,tin:row.taxpayerTin,
+      payment_type:row.allocation,assessment_year:row.assessmentYear,
+      amount:displayMoney(row.amountMinor/100),payment_ref:row.paymentId,
+    }))
+    :[];
+  const beneficiaryAllocationColumns:ColDef[]=[
+    {type:'col',col:{key:'tin',label:bnPreview?'টিআইএন':t('tin'),truncate:'normal'}},
+    {type:'col',col:{key:'taxpayer_name',label:bnPreview?'করদাতার নাম':t('colTaxpayer'),truncate:'normal'}},
+    {type:'col',col:{key:'payment_type',label:bnPreview?'বরাদ্দ':'Allocation',truncate:'normal'}},
+    {type:'col',col:{key:'assessment_year',label:bnPreview?'করবর্ষ':t('ay'),truncate:'normal'}},
+    {type:'col',col:{key:'amount',label:t('colAmount'),truncate:'normal'}},
+    {type:'col',col:{key:'date',label:t('colDate'),truncate:'normal'}},
+  ];
   const beneficiaryNotices=isDemo?liveNotices:[];
   const [localRecords,setLocalRecords] = useState<Record<DraftKind,TableRow[]>>(()=>({...moduleDrafts}));
   const correctionStateLabel=(state:string)=>t(`officeCorrectionState.${state}`,{defaultValue:state.replace(/_/g,' ')});
@@ -727,10 +744,34 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
           <p>{bnPreview?'করদাতার পরিচয় যাচাই করা যায়নি।':'No source-verified taxpayer identity is available.'}</p>
         </section> : taxpayerTab==='paymentsTab' ? <>{table(keys.transactions,taxPayments,'transactions',payFilters,transactionMapping)}</> :
       taxpayerTab==='beneficiaries' ? <section className="card payment-module__card" data-testid="office-taxpayer-beneficiary-scope">
-        <h2>{bnPreview?'সুবিধাভোগী তালিকা':'Beneficiary list'}</h2>
-        <p className="table-page__desc" role="status">{bnPreview
-          ?'করদাতার সংরক্ষিত ব্যক্তিগত সুবিধাভোগী তালিকা Office-এর জন্য অনুমোদিত নয়। অনুমোদিত অ্যাকাউন্ট-স্কোপড উৎস সংযুক্ত হলে তথ্য দেখানো যাবে।'
-          :'Saved beneficiaries are taxpayer-owned private records. An authorized, account-scoped Office reader is not yet available; no beneficiary data is inferred from payments.'}</p>
+        <div className="payment-module__section-top">
+          <h2>{bnPreview?'পেমেন্ট-সংযুক্ত বরাদ্দ':'Payment-linked allocations'}</h2>
+          {ledgerTin&&<button type="button" className="table-card__toolbar-btn" disabled={storyLoading}
+            onClick={()=>setStoryRefreshKey(value=>value+1)}>{bnPreview?'রিফ্রেশ':'Refresh'}</button>}
+        </div>
+        <p className="table-page__desc">{bnPreview
+          ?'শুধু এই যাচাইকৃত করদাতার অনুমোদিত পেমেন্টে SQL-এ সংরক্ষিত ও মিলানো বরাদ্দ দেখানো হচ্ছে। ব্যক্তিগত সংরক্ষিত যোগাযোগ ও ট্যাগ ব্যক্তিগতই থাকে।'
+          :'Only reconciled SQL allocations from this verified taxpayer’s authorized payment records are shown. Saved contact lists and tags remain private.'}</p>
+        {!ledgerTin
+          ?<p className="table-page__desc" role="status">{bnPreview
+            ?'করদাতার যাচাইকৃত ১২-সংখ্যার টিআইএন পাওয়া যায়নি। কোনো ব্যক্তিগত তালিকা দেখানো হচ্ছে না।'
+            :'A source-verified 12-digit TIN is required. No private address-book data is shown.'}</p>
+          :storyLoading
+            ?<p className="table-page__desc" role="status">{bnPreview?'পেমেন্ট বরাদ্দ লোড হচ্ছে…':'Loading payment allocations…'}</p>
+            :storyError
+              ?<p className="table-page__desc" role="alert">{storyError}</p>
+              :beneficiaryAllocationRows.length
+                ?<>
+                  <p className="table-page__desc" role="status">{displayNumber(beneficiaryAllocationRows.length)} {bnPreview?'টি সংযুক্ত বরাদ্দ রেকর্ড':'linked allocation records'}</p>
+                  <PaymentRecordList kind="transactions"
+                    title={bnPreview?'পেমেন্ট-সংযুক্ত বরাদ্দ':'Payment-linked allocations'}
+                    rows={beneficiaryAllocationRows} columns={beneficiaryAllocationColumns}
+                    mobileMapping={beneficiaryAllocationMapping}
+                    onOpen={record=>view(record,t('transactions'))}/>
+                </>
+                :<p className="table-page__desc" role="status">{bnPreview
+                  ?'এই করদাতার জন্য কোনো মিলানো পেমেন্ট বরাদ্দ পাওয়া যায়নি।'
+                  :'No reconciled payment allocations were found for this taxpayer.'}</p>}
       </section> : taxpayerTab==='correctionsTab' ? <>
       {officeCorrectionLoading&&<p className="table-page__desc" role="status">{t('officeCorrectionLoading')}</p>}
       {officeCorrectionError&&<p className="table-page__desc" role="alert">{officeCorrectionError}</p>}

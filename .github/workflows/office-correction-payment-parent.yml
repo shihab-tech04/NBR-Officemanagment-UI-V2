@@ -22,6 +22,7 @@ on:
       - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionReview.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
       - 'tests/integration/officeNoticeRecovery.sql'
       - 'tests/integration/officeNoticeRecoveryFixture.sql'
@@ -42,6 +43,7 @@ on:
       - 'tests/integration/officeHandoffRpcBoundary.test.mjs'
       - 'src/app/pages/payments/correctionReviewApi.ts'
       - 'tests/integration/officeCorrectionPaymentParent.sql'
+      - 'tests/integration/officeCorrectionReview.sql'
       - 'tests/integration/officeCorrectionPaymentParentFixture.sql'
       - 'tests/integration/officeNoticeRecovery.sql'
       - 'tests/integration/officeNoticeRecoveryFixture.sql'
@@ -98,6 +100,14 @@ jobs:
           # The latest audit projection supersedes the older paged function.
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116042500_office_correction_evidence_projection.sql
+      - name: Verify Office correction review role boundaries, ordered stages and idempotent replay
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGDATABASE: correction_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionReview.sql
       - name: Verify parent ID, legacy preservation, queue readback and malformed-event rejection
         env:
           PGHOST: 127.0.0.1

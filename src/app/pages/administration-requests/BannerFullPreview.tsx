@@ -1,3 +1,4 @@
+import '../../../styles/office-taxpay-hero-preview.css';
 import type { CSSProperties } from 'react';
 import { WalletCards } from 'lucide-react';
 import type { BannerPalette } from './bannerPalette';
@@ -63,15 +64,18 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction,
   const title=isMobile?(bn?fixedCopy.mobile_heading_bn:fixedCopy.mobile_heading_en):(bn?fixedCopy.heading_bn:fixedCopy.heading_en);
   const body=isMobile?(bn?fixedCopy.mobile_description_bn:fixedCopy.mobile_description_en):(bn?fixedCopy.description_bn:fixedCopy.description_en);
   const action=bn?fixedCopy.action_bn:fixedCopy.action_en;
+  const giftAction=bn?'দান কর':'Gift Tax';
   const announcedTitle=/[.!?।]$/u.test(title) ? title : title+(bn?'।':'.');
   return <section className={"cms-theme-preview cms-theme-preview--"+device}
     data-payment-service={banner.service_code || undefined}
     data-fixed-left="true"
+    data-preview-action-count="3"
     data-preview-palette={customPalette ? 'image' : 'fallback'}
     style={theme} role="img" aria-label={
-      "Unpublished "+device+" banner preview. "+announcedTitle+" "+body+" Actions shown: "+action+"; "+travelAction+"."
+      "Unpublished "+device+" banner preview. আমার করের টাকায় গড়বো স্বদেশ. "+announcedTitle+" "+body+" Actions shown: "+action+"; "+travelAction+"; "+giftAction+"."
     }>
     <div className="cms-theme-preview__copy">
+      <span className="cms-theme-preview__slogan" lang="bn">আমার করের টাকায় গড়বো স্বদেশ</span>
       <h3>{title}</h3>
       <p>{body}</p>
       <div className="cms-theme-preview__actions" aria-hidden="true">
@@ -79,6 +83,7 @@ export function BannerFullPreview({banner,imageSrc,device,language,travelAction,
           <WalletCards size={16}/>{action}
         </span>
         <span className="cms-theme-preview__outline"><WalletCards size={16}/>{travelAction}</span>
+        <span className="cms-theme-preview__gift"><WalletCards size={16}/>{giftAction}</span>
       </div>
     </div>
     <div className="cms-theme-preview__media" aria-hidden="true">

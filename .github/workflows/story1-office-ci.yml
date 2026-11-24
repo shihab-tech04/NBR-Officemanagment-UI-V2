@@ -8,6 +8,7 @@ on:
       - 'tests/integration/officeStoryMirrorProofHttp.mjs'
       - 'supabase/migrations/**'
       - 'tests/integration/story1OfficeMigrations.sql'
+      - 'tests/integration/officeAuthorization30AccountMirror.sql'
       - 'tests/integration/story1ApprovedFixtureRead.sql'
       - 'tests/integration/officeCorrectionReview.sql'
       - 'tests/integration/officeReturnCombinedMirror.sql'
@@ -75,6 +76,8 @@ jobs:
           done
       - name: Verify eight categories, idempotency, notices and authorization transitions
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1OfficeMigrations.sql
+      - name: Verify 30-account Office authorization mirror, actor denial and private grants (rolled back)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeAuthorization30AccountMirror.sql
       - name: Verify immutable source project, parent and revision provenance
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryPaymentProvenance.sql
       - name: Verify approved fixture visibility and Travel Tax masking (rolled back)
