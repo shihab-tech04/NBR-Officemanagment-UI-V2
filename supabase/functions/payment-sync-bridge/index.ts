@@ -144,6 +144,18 @@ Deno.serve(async (request: Request) => {
     if (typeof message !== 'object' || message === null) return json({ error: 'Invalid body' }, 400);
     const client = adminClient();
     const config = await rpc<BridgeConfig | null>(client, 'payment_v1_internal_bridge_config');
+    // This strictly scoped route is independent of the legacy bridge key/peer.
+    // Only the V2 correction key can authenticate it; no payment or ledger events.
+    if (message.mode === 'ingestDemoCorrection') {
+      if (config?.origin !== 'OFFICE_SQL' || typeof message.eventText !== 'string' ||
+          message.eventText.length > 24000) return json({error:'Invalid correction route'},400);
+      const secret=await rpc<string|null>(client,'payment_v1_demo_correction_key');
+      if (!secret || !await validSignature(await hmacKey(secret),message.eventText,message.signature))
+        return json({error:'Unauthorized'},401);
+      const event=JSON.parse(message.eventText);
+      const stored=await rpc(client,'payment_v1_internal_ingest_demo_correction',{p_event:event});
+      return json(stored);
+    }
     if (!config?.enabled) return json({ error: 'Bridge disabled' }, 503);
     if (message.mode === 'dispatch') {
       if (message.token !== config.dispatchToken) return json({ error: 'Unauthorized' }, 401);
