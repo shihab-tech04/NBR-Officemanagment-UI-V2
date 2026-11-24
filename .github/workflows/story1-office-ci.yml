@@ -13,6 +13,7 @@ on:
       - 'tests/integration/officeCorrectionReview.sql'
       - 'tests/integration/officeReturnCombinedMirror.sql'
       - 'tests/integration/officePayAgainLineage.sql'
+      - 'tests/integration/officeStoryPaymentProvenance.sql'
       - '.github/workflows/story1-office-ci.yml'
   workflow_dispatch:
 permissions:
@@ -77,6 +78,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1OfficeMigrations.sql
       - name: Verify 30-account Office authorization mirror, actor denial and private grants (rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeAuthorization30AccountMirror.sql
+      - name: Verify immutable source project, parent and revision provenance
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeStoryPaymentProvenance.sql
       - name: Verify approved fixture visibility and Travel Tax masking (rolled back)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration/story1ApprovedFixtureRead.sql
       - name: Verify TaxPay correction intake, Office roles, decision outbox and readback

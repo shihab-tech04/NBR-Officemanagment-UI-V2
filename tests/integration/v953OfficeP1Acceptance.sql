@@ -15,6 +15,17 @@ VALUES (
     'taxpayerTin','111111111111','allocationId','safe-test-allocation',
     'assessmentYear','2026-27','amountMinor','222','dhara','175'))))
 );
+-- Separate disposable parent keeps the seven-source ledger cardinality intact
+-- while exercising the exact approved Office readback boundary.
+INSERT INTO demo_payment.story_payments
+  (id,service_code,amount_minor,status,created_at,data)
+VALUES (
+ '91000000-0000-4000-8000-000000000010',
+ 'OTHER_TAX_PAYMENT',100,'SIMULATED_SUCCESS','2026-11-15T12:05:00Z',
+ jsonb_build_object('origin','TAXPAY_UI','details',jsonb_build_object(
+  'taxpayerTin','333333333333','receiptReference','DISPOSABLE-LONG-REMARKS',
+  'challanRemarks',repeat('😀',4000)))
+);
 INSERT INTO office_ledger_private.source_events
   (source_system,source_record_id,taxpayer_tin,dhara,payment_source,
    amount_minor,assessment_year,event_date,original_reference,entry_kind)
@@ -46,6 +57,8 @@ DO $v953_acceptance$
 DECLARE
  v_rows jsonb; v_mine jsonb; v_empty jsonb; v_remarks jsonb;
  v_original text;
+ v_long_remarks text:=repeat('😀',4000);
+ v_long_result jsonb;
  v_denied boolean:=false;
  v_seen integer;
 BEGIN
@@ -116,6 +129,15 @@ BEGIN
     OR v_remarks->>'challanRemarks' IS DISTINCT FROM v_original
     OR v_remarks->>'receiptReference' IS DISTINCT FROM 'DISPOSABLE-ONLY-001'
  THEN RAISE EXCEPTION 'F178_T01_T04_UNICODE_MULTILINE_ROUNDTRIP'; END IF;
+ v_long_result:=public.payment_v1_office_guarded_challan_remarks(
+   '91000000-0000-4000-8000-000000000010');
+ IF v_long_result->>'challanRemarks' IS DISTINCT FROM v_long_remarks
+    OR char_length(v_long_result->>'challanRemarks')<>4000
+    OR octet_length(v_long_result->>'challanRemarks')<>16000
+    OR convert_to(v_long_result->>'challanRemarks','UTF8') IS DISTINCT FROM
+       convert_to(v_long_remarks,'UTF8')
+    OR v_long_result->>'receiptReference' IS DISTINCT FROM 'DISPOSABLE-LONG-REMARKS'
+ THEN RAISE EXCEPTION 'F178_T03_OFFICE_MAXIMUM_REMARKS_NOT_PRESERVED'; END IF;
 
  -- T03: source revisions are append-only and duplicate replay is rejected.
  BEGIN
