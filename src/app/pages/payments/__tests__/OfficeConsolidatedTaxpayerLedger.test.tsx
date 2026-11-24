@@ -1,7 +1,7 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import type {OfficeLedgerLine,OfficeLedgerReport} from '../officeConsolidatedLedger';
-import {OfficeConsolidatedTaxpayerLedger} from '../OfficeConsolidatedTaxpayerLedger';
+import {OfficeConsolidatedTaxpayerLedger,csvCell} from '../OfficeConsolidatedTaxpayerLedger';
 
 const state=vi.hoisted(()=>({language:'en',load:vi.fn()}));
 
@@ -93,5 +93,32 @@ describe('F-177 Office Taxpayer 360 date filters',()=>{
     fireEvent.change(screen.getByLabelText('শুরুর তারিখ'),{target:{value:'2026-11-03'}});
     fireEvent.change(screen.getByLabelText('শেষ তারিখ'),{target:{value:'2026-11-02'}});
     expect(screen.getByRole('alert').textContent).toContain('শুরুর তারিখ');
+  });
+});
+
+describe('F-177 ledger CSV export safety',()=>{
+  it('neutralizes provider-controlled spreadsheet formulas without mutating their contents',()=>{
+    for(const unsafe of [
+      '=HYPERLINK("https://example.invalid","open")',
+      '+SUM(1,2)',
+      '-1+2',
+      '@SUM(1,2)',
+      '  =IMPORTXML("https://example.invalid","x")',
+      '\t=WEBSERVICE("https://example.invalid")',
+      '\r\n@SUM(1,2)',
+      '\uFEFF=1+1',
+      '\u200B=1+1',
+    ]){
+      const cell=csvCell(unsafe);
+      expect(cell.startsWith('"\'')).toBe(true);
+      expect(cell.slice(2,-1).replaceAll('""','"')).toBe(unsafe);
+    }
+  });
+  it('preserves ordinary source values, Bengali text, exact amounts and RFC CSV quote escaping',()=>{
+    for(const safe of [
+      'BRTA','Source Tax','ধারা ১৭৫','123456789012','2026-27','101',
+      'reference "quoted"','normal\nmultiline field',
+    ])expect(csvCell(safe)).toBe('"'+safe.replaceAll('"','""')+'"');
+    expect(csvCell(null)).toBe('""');
   });
 });
