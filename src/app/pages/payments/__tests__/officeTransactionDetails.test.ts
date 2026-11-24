@@ -158,3 +158,14 @@ describe('Office-native transaction record and receipt', () => {
     expect(html).not.toContain('nbr-taxpay');
   });
 });
+
+
+describe('Gift Tax SQL parent projection',()=>{
+ it('uses donor TIN, not the donee or synthetic payer alias, and reconciles tax rather than gift amount',()=>{
+ const gift={donor:{tin:'111111111111',name:'User 1'},donee:{tin:'222222222222',name:'User 2',tag:'friends_family',relationship:'father',otherLabel:null},giftAmountMinor:250000000,estimatedTaxMinor:27200000,giftDate:'2025-01-15',description:'Gift',remarks:'Exact remarks'};
+ const payment:StoryPayment={...transaction,service:'GIFT_TAX',amountMinor:27200000,details:{payerId:'user1',payerName:'Sample Payer',taxpayerTin:gift.donor.tin,taxpayerName:gift.donor.name,assessmentYear:'2025-26',receiptReference:'SIM-GIFT-example',giftDetails:gift,challanRemarks:gift.remarks,lines:[{beneficiary:'user1',category:'GIFT_TAX',amountMinor:27200000,assessmentYear:'2025-26'}],receiptSnapshot:{paymentCategory:'GIFT_TAX',totalAmount:272000,challanNo:'SIM-GIFT-example',giftDetails:gift}}};
+ expect(getOfficePaymentItems(payment)).toEqual([{taxpayer:'User 1',taxpayerTin:gift.donor.tin,service:'Gift Tax',assessmentYear:'2025-26',amountMinor:27200000}]);
+ expect(getOfficePaymentItems(payment,{taxpayerTin:gift.donee.tin})).toEqual([]);
+ expect(getOfficePaymentItems({...payment,amountMinor:27200001})).toEqual([]);
+ });
+});

@@ -109,6 +109,16 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
             </dl>
           </section>
         </div>
+        {info.giftDetails&&<section className="office-receipt__section receipt-view__section" data-testid="office-gift-tax-details">
+          <h4 className="receipt-view__section-title">{label('Gift Tax details — simulated receipt','দানকরের তথ্য — নমুনা রসিদ')}</h4>
+          <dl>{field(label('Donor','দাতা'),info.giftDetails.donor.name+' · '+info.giftDetails.donor.tin)}
+            {field(label('Donee','গ্রহীতা'),info.giftDetails.donee.name+' · '+info.giftDetails.donee.tin)}
+            {field(label('Relationship','সম্পর্ক'),info.giftDetails.donee.relationship??info.giftDetails.donee.otherLabel??info.giftDetails.donee.tag)}
+            {field(label('Gift amount','দানের পরিমাণ'),officeMoney(info.giftDetails.giftAmountMinor,language))}
+            {field(label('Gift date','দানের তারিখ'),info.giftDetails.giftDate)}
+            {field(label('Description','দানের বিবরণ'),info.giftDetails.description)}
+            {field(label('Remarks','মন্তব্য'),info.giftDetails.remarks)}</dl>
+        </section>}
         {items.length > 0 && <section className="office-receipt__section office-receipt__breakdown receipt-view__breakdown">
           <h4 className="receipt-view__section-title">{isTravelTax
             ?label('Passenger payment breakdown','যাত্রীদের পেমেন্ট বিবরণ')

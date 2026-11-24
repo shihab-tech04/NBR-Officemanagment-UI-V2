@@ -10,6 +10,7 @@ export const paymentServiceName:Record<string,string>={
   APPELLATE_TRIBUNAL:'Appellate Tribunal Payment',
   OTHER_TAX_PAYMENT:'Other Tax Payment',
   TRAVEL_TAX:'Travel Tax',
+  GIFT_TAX:'Gift Tax',
 };
 const methodLabels:Record<string,string>={
   BKASH:'bKash',NAGAD:'Nagad',ROCKET:'Rocket',
@@ -85,9 +86,23 @@ export function storyGroup(key:string):string {
   if(['financial_receipt_status','ledger_status'].includes(key))return 'Payment status';
   return 'References';
 }
+/** Never attribute the gift amount or the donee identity as tax paid by the donor. */
+export function verifiedGiftDetails(tx:StoryPayment){
+ const d=tx.details,g=d?.giftDetails;
+ if(tx.service!=='GIFT_TAX'||tx.status!=='SIMULATED_SUCCESS'||!g||!d||
+   !/^\d{12}$/.test(g.donor?.tin??'')||!/^\d{12}$/.test(g.donee?.tin??'')||g.donor.tin===g.donee.tin||
+   !nonempty(g.donor.name)||!nonempty(g.donee.name)||d.taxpayerTin!==g.donor.tin||d.taxpayerName!==g.donor.name||
+   !Number.isSafeInteger(g.giftAmountMinor)||g.giftAmountMinor<=0||!Number.isSafeInteger(tx.amountMinor)||tx.amountMinor<=0||
+   g.estimatedTaxMinor!==tx.amountMinor||g.remarks!==d.challanRemarks||
+   d.receiptSnapshot?.paymentCategory!=='GIFT_TAX'||!Number.isFinite(d.receiptSnapshot?.totalAmount)||
+   Math.round((d.receiptSnapshot?.totalAmount??0)*100)!==tx.amountMinor||
+   d.receiptSnapshot?.challanNo!==d.receiptReference||!/^20\d{2}-\d{2}$/.test(d.assessmentYear??''))return null;
+ return g;
+}
 export function toStoryPaymentRow(tx:StoryPayment){
   const d=tx.details??{};
-  const allocations=Array.isArray(d.lines)?d.lines.filter(
+  const gift=verifiedGiftDetails(tx);
+  const allocations=tx.service!=='GIFT_TAX'&&Array.isArray(d.lines)?d.lines.filter(
     line=>line&&typeof line==='object'&&!Array.isArray(line)&&typeof line.beneficiary==='string'&&/^user(?:[1-9]|[12][0-9]|30)$/.test(line.beneficiary)
   ):[];
   const recipients=Array.from(new Set(allocations.map(line=>line.beneficiary!)));
@@ -95,7 +110,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
   const validExplicit=explicit.length>0&&explicit.every(validExplicitAllocation)&&
     safeMinorTotal(explicit.map(line=>line.amountMinor))===tx.amountMinor;
   const explicitTins=validExplicit?Array.from(new Set(explicit.map(line=>line.taxpayerTin!))):[];
-  const actor=nonempty(d.payerId)||known(d.payerName);
+  const actor=gift?(known(d.payerName)||nonempty(d.payerId)):(nonempty(d.payerId)||known(d.payerName));
   const method=nonempty(d.paymentMethod)||nonempty(d.paymentChannel);
   const taxpayerName=recipients.length?recipients.join(', '):explicitTins.length?
     explicitTins.map(tin=>nonempty(explicit.find(line=>line.taxpayerTin===tin)?.taxpayerName)||'TIN '+tin).join(', '):
@@ -122,8 +137,8 @@ export function toStoryPaymentRow(tx:StoryPayment){
   return {
     key:tx.id,
     date:Number.isNaN(date.getTime())?'—':date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).replace(/\bSept\b/,'Sep'),
-    taxpayer_name:taxpayerName??(taxpayerTin?'TIN '+taxpayerTin:'—'),
-    tin:taxpayerTin??'—',
+    taxpayer_name:gift?.donor.name??taxpayerName??(taxpayerTin?'TIN '+taxpayerTin:'—'),
+    tin:gift?.donor.tin??taxpayerTin??'—',
     payer_name:actor??'—',
     payment_type:allocations.length?Array.from(new Set(allocations.map(
       line=>paymentServiceName[line.category||'']??line.category??tx.service))).join(', '):
@@ -133,7 +148,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
       Array.from(new Set(explicit.map(line=>line.assessmentYear||'—'))).join(', '):nonempty(d.assessmentYear)??'—',
     amount:moneyMinor(tx.amountMinor),
     financial_receipt_status:tx.status==='SIMULATED_SUCCESS'?'Payment record saved':tx.status.replace(/_/g,' '),
-    ledger_status:'Tax credit not verified',
+    ledger_status:gift?'Not applicable — simulation':'Tax credit not verified',
     ...(method?{payment_channel:methodLabels[method]??method.replace(/_/g,' ')}:{}),
     payment_ref:tx.id,
     ...(nonempty(d.receiptReference)?{acs_reference:d.receiptReference}:{}),
@@ -146,6 +161,7 @@ export function toStoryPaymentRow(tx:StoryPayment){
     ...(nonempty(d.travelRoute)?{travel_route:d.travelRoute}:{}),
     ...(nonempty(d.travelDate)?{travel_date:d.travelDate}:{}),
     ...(nonempty(d.passengerName)?{passenger_name:d.passengerName}:{}),
+    ...(gift?{gift_donor:gift.donor.name,gift_donor_tin:gift.donor.tin,gift_donee:gift.donee.name,gift_donee_tin:gift.donee.tin,gift_relationship:gift.donee.relationship??gift.donee.otherLabel??gift.donee.tag,gift_amount:moneyMinor(gift.giftAmountMinor),gift_date:gift.giftDate,gift_description:gift.description,gift_remarks:gift.remarks}:{}),
     ...(tx.service==='TRAVEL_TAX'?{passport_number:nonempty(d.passportNumberMasked)??'—'}:{}),
     ...(allocations.length?{
       beneficiary_count:recipients.length,
@@ -175,6 +191,10 @@ export function toStoryTaxpayerPaymentRow(tx:StoryPayment,tin:string,scopeYear='
   // contract. Do not guess if a record contains both.
   if(hasSyntheticLines&&explicit.length)return null;
   const yearMatches=(year:unknown)=>scopeYear==='all'||(typeof year==='string'&&year.replace('–','-')===scopeYear);
+  if(tx.service==='GIFT_TAX'){
+    const gift=verifiedGiftDetails(tx);
+    return gift&&gift.donor.tin===tin&&yearMatches(d.assessmentYear)?toStoryPaymentRow(tx):null;
+  }
   if(hasSyntheticLines){
     if(lines.some(line=>typeof line.beneficiary!=='string'||!/^user(?:[1-9]|[12][0-9]|30)$/.test(line.beneficiary)))return null;
     if(safeMinorTotal(lines.map(line=>line.amountMinor))!==tx.amountMinor)return null;

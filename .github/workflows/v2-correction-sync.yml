@@ -1,0 +1,62 @@
+name: V2 simulated correction Office contract
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261124060500_office_v2_demo_correction_sync.sql'
+      - 'supabase/migrations/20261124062000_office_user1_historical_correction.sql'
+      - 'tests/integration/officeHistoricalCorrection.sql'
+      - 'supabase/functions/payment-sync-bridge/index.ts'
+      - 'supabase/functions/payment-command-bridge/index.ts'
+      - 'tests/integration/officeCorrectionV2Sync.sql'
+      - '.github/workflows/v2-correction-sync.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261124060500_office_v2_demo_correction_sync.sql'
+      - 'supabase/migrations/20261124062000_office_user1_historical_correction.sql'
+      - 'tests/integration/officeHistoricalCorrection.sql'
+      - 'supabase/functions/payment-sync-bridge/index.ts'
+      - 'supabase/functions/payment-command-bridge/index.ts'
+      - 'tests/integration/officeCorrectionV2Sync.sql'
+      - '.github/workflows/v2-correction-sync.yml'
+permissions:
+  contents: read
+jobs:
+  disposable-v2-correction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: correction_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d correction_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: correction_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Apply exact disposable Office contracts and test legacy and V2 cases
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParentFixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029170000_office_correction_review.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112210000_office_correction_payment_parent.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261113180000_office_correction_queue_cursor.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114145000_office_correction_acknowledged_audit_provenance.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261116042500_office_correction_evidence_projection.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParent.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeNoticeRecoveryFixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124060500_office_v2_demo_correction_sync.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124062000_office_user1_historical_correction.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionV2Sync.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeHistoricalCorrection.sql

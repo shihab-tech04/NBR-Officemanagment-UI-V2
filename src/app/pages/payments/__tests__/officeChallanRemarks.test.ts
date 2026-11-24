@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { parseGuardedChallanRemarks, supportsOfficeChallanRemarks } from '../officeChallanRemarks';
+import { officeChallanRemarksRowValue, parseGuardedChallanRemarks, supportsOfficeChallanRemarks } from '../officeChallanRemarks';
 
 const id = 'e4e43b06-0be4-4cfe-96eb-b75b7176d86e';
 
 describe('F-178: immutable, officer-guarded Office remarks readback', () => {
+  it('keeps the guarded remarks row visible for empty, absent and em-dash SQL values', () => {
+    const placeholder = 'Office SQL remarks';
+    expect(officeChallanRemarksRowValue(null, placeholder)).toBe(placeholder);
+    expect(officeChallanRemarksRowValue('', placeholder)).toBe(placeholder);
+    expect(officeChallanRemarksRowValue('—', placeholder)).toBe(placeholder);
+    const exact = 'বাংলা remarks\nEnglish line';
+    expect(officeChallanRemarksRowValue(exact, placeholder)).toBe(exact);
+  });
+
   it('supports each non-Travel tax challan service and excludes Travel Tax', () => {
     for (const service of [
       'TAX_WITH_RETURN', 'ADVANCE_TAX', 'ASSESSED_DEMAND', 'PENALTY',

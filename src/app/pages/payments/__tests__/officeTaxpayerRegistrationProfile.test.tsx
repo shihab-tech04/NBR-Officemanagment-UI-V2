@@ -7,7 +7,7 @@ vi.mock('../../audit/auditSharedSql',()=>({getAuditSqlClient:()=>null}));
 const all=Object.fromEntries(REGISTRATION_FIELDS.map(key=>[key,'Value of '+key])) as Record<RegistrationField,string>;
 const record:TaxpayerRegistrationProfile={
  accountId:'user1',tin:'123456789012',revision:1,updatedAt:'2026-06-04T17:06:20+06:00',
- profile:{...all,tin:'123456789012',taxpayerName:'Example user',source:'REVIEWED_CERTIFICATE',sourceUpdatedAt:'2026-06-04T17:06:20+06:00'},
+ profile:{...all,tin:'123456789012',previousTin:'234567890123',mobileNumber:'01712345678',emailAddress:'sample@example.test',taxOfficePhone:'02-9588253',taxpayerName:'Example user',source:'REVIEWED_CERTIFICATE',sourceUpdatedAt:'2026-06-04T17:06:20+06:00'},
 };
 const sensitive=new Set<RegistrationField>(['tin','previousTin','mobileNumber','emailAddress','taxOfficePhone']);
 const fieldOrder=[
@@ -33,7 +33,7 @@ describe('Office registration view: canonical Taxpayer 24-field parity',()=>{
      expect(row).toBeTruthy();
      if(sensitive.has(key)){
        expect(row!.textContent).not.toContain(record.profile[key]!);
-       expect(row!.textContent).toContain(maskOfficeProfileValue(record.profile[key]!));
+       expect(row!.textContent).toContain(maskOfficeProfileValue(record.profile[key]!,key==='emailAddress'?'email':key==='mobileNumber'||key==='taxOfficePhone'?'phone':'tin'));
      }else expect(row!.textContent).toContain(record.profile[key]!);
    }
    expect(screen.getByRole('button',{name:'Reveal TIN'})).toBeTruthy();
@@ -72,8 +72,8 @@ describe('Office registration view: canonical Taxpayer 24-field parity',()=>{
    expect(screen.getByText('কর সার্কেল')).toBeTruthy();
  });
  it('masks first three characters consistently without exposing remaining digits',()=>{
-   expect(maskOfficeProfileValue('123456789012')).toBe('123****');
-   expect(maskOfficeProfileValue('abcdef@example.test')).toBe('abc****');
+   expect(maskOfficeProfileValue('123456789012','tin')).toBe('123*********');
+   expect(maskOfficeProfileValue('abcdef@example.test','email')).toBe('ab****@****.***');
    expect(maskOfficeProfileValue('')).toBe('—');
  });
 });

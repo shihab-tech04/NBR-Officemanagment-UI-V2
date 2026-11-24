@@ -8,6 +8,7 @@ const paymentServiceCodes = {
   APPELLATE_TRIBUNAL: 'Appellate Tribunal',
   OTHER_TAX_PAYMENT: 'Other Tax Payment',
   TRAVEL_TAX: 'Travel Tax',
+  GIFT_TAX: 'Gift Tax',
 } as const;
 
 type PaymentServiceCode = keyof typeof paymentServiceCodes;

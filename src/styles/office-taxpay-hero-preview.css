@@ -1,0 +1,47 @@
+/* Office CMS preview mirrors the already-shipped Taxpayer boxed hero.
+ * Keep this scoped to the preview; never alter Office design-system buttons,
+ * published banner content, or the Taxpayer production application. */
+.cms-theme-preview[data-preview-action-count="3"] .cms-theme-preview__slogan {
+  display:block;
+  margin:0 0 .35rem;
+  font-family:Poppins,'Noto Sans Bengali',sans-serif;
+  font-size:clamp(.85rem,1.35vw,1.1rem);
+  font-weight:700;
+  line-height:1.45;
+  letter-spacing:0;
+  color:#244b7b;
+  overflow-wrap:anywhere;
+}
+.cms-theme-preview[data-fixed-left="true"][data-preview-action-count="3"] .cms-theme-preview__actions {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  width:100%;
+  align-items:stretch;
+}
+.cms-theme-preview[data-preview-action-count="3"] .cms-theme-preview__actions span {
+  min-width:0;
+  min-height:44px;
+  padding:7px 9px;
+  line-height:1.3;
+  font-size:clamp(.76rem,.95vw,.875rem);
+}
+.cms-theme-preview[data-preview-action-count="3"] .cms-theme-preview__gift {
+  background:#fff;
+  border:1px solid #c7d8ee;
+  border-radius:9px;
+  color:#234d82;
+  font-weight:700;
+}
+.cms-theme-preview--mobile[data-preview-action-count="3"] .cms-theme-preview__slogan {
+  font-size:.85rem;
+}
+.cms-theme-preview--mobile[data-fixed-left="true"][data-preview-action-count="3"] .cms-theme-preview__actions {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.cms-theme-preview--mobile[data-preview-action-count="3"] .cms-theme-preview__gift {
+  grid-column:1 / -1;
+}
+.cms-theme-preview--mobile[data-preview-action-count="3"] .cms-theme-preview__copy {
+  min-height:198px;
+}

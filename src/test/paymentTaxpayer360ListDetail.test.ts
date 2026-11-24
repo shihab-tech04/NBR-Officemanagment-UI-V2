@@ -66,6 +66,12 @@ describe('Office taxpayer register/detail navigation',()=>{
     expect(module).toContain('taxpayerCorrectionRows=officeCorrectionRows.filter');
     expect(module).not.toContain('...referenceCorrections.map');
   });
+  it('shows only SQL-reconciled allocations for the verified Taxpayer 360 identity',()=>{
+    expect(module).toContain('buildOfficeBeneficiaryDirectoryRows(storyPayments,ledgerTin,scopeYear)');
+    expect(module).toContain("taxpayerTab==='beneficiaries'");
+    expect(module).toContain('Saved contact lists and tags remain private.');
+    expect(module).not.toContain('Authorized, account-scoped Office reader is not yet available');
+  });
   it('contains both language variants for the complete drilldown workflow',()=>{
     for(const key of ['taxpayerRegister','taxpayerRegisterScope','loadingTaxpayers','linkedPaymentRecords',
       'backToTaxpayers','taxpayerDetailScope','taxPositionNotVerified','ledgerNotVerified',

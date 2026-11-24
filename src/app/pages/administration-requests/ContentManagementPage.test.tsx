@@ -526,7 +526,7 @@ describe('verified TaxPay banner CMS', () => {
     const dialog = await screen.findByRole('dialog', { name: /Full banner preview/ });
     const preview = dialog.querySelector('.cms-theme-preview')!;
     expect(preview).toHaveAccessibleName(
-      'Unpublished desktop banner preview. Tax payments, without the confusion. Choose a tax payment. Actions shown: Pay Tax; Pay Travel Tax.',
+      'Unpublished desktop banner preview. আমার করের টাকায় গড়বো স্বদেশ. Tax payments, without the confusion. Choose a tax payment. Actions shown: Pay Tax; Pay Travel Tax; Gift Tax.',
     );
     expect(preview.querySelector('.cms-theme-preview__actions')).toHaveAttribute('aria-hidden', 'true');
     expect(preview.querySelector('.cms-theme-preview__media')).toHaveAttribute('aria-hidden', 'true');
@@ -534,16 +534,16 @@ describe('verified TaxPay banner CMS', () => {
 
     await user.click(screen.getByRole('button', { name: 'বাংলা' }));
     expect(preview).toHaveAccessibleName(
-      'Unpublished desktop banner preview. কর পরিশোধে আর বিভ্রান্তি নয়। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+      'Unpublished desktop banner preview. আমার করের টাকায় গড়বো স্বদেশ. কর পরিশোধে আর বিভ্রান্তি নয়। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ; দান কর.',
     );
     await user.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('কর দিন');
     expect(preview).toHaveAccessibleName(
-      'Unpublished mobile banner preview. কর দিন। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ.',
+      'Unpublished mobile banner preview. আমার করের টাকায় গড়বো স্বদেশ. কর দিন। কর পরিশোধ করুন। Actions shown: কর পরিশোধ; ভ্রমণ কর পরিশোধ; দান কর.',
     );
     await user.click(screen.getByRole('button', { name: 'English' }));
     expect(preview).toHaveAccessibleName(
-      'Unpublished mobile banner preview. Pay tax. Choose and pay. Actions shown: Pay Tax; Pay Travel Tax.',
+      'Unpublished mobile banner preview. আমার করের টাকায় গড়বো স্বদেশ. Pay tax. Choose and pay. Actions shown: Pay Tax; Pay Travel Tax; Gift Tax.',
     );
     await user.click(screen.getByRole('button', { name: 'Return to editor' }));
     expect(screen.getByLabelText('Light background color')).toHaveValue('#eaf2ff');
@@ -600,8 +600,8 @@ describe('verified TaxPay banner CMS', () => {
           if (banner.service_code) expect(preview).toHaveAttribute('data-payment-service', banner.service_code);
           else expect(preview).not.toHaveAttribute('data-payment-service');
           expect(preview).toHaveAccessibleName(
-            'Unpublished ' + device + ' banner preview. ' + title + ending + ' ' + body +
-              ' Actions shown: ' + action + '; ' + travelAction + '.',
+            'Unpublished ' + device + ' banner preview. আমার করের টাকায় গড়বো স্বদেশ. ' + title + ending + ' ' + body +
+              ' Actions shown: ' + action + '; ' + travelAction + '; ' + (bn ? 'দান কর' : 'Gift Tax') + '.',
           );
           expect(preview.getAttribute('style')).toContain('--preview-bg: ' + banner.background_color);
           expect(preview.getAttribute('style')).toContain('--preview-heading: ' + banner.heading_color);
@@ -617,7 +617,7 @@ describe('verified TaxPay banner CMS', () => {
     }
   });
 
-  it('keeps the published intro copy and both payment actions on a service artwork preview', async () => {
+  it('keeps the published intro copy and three tax actions on a service artwork preview', async () => {
     const { client, publicClient } = makeClient(false, false, { extraBanner:true });
     deps.createClient.mockReturnValueOnce(client).mockReturnValueOnce(publicClient);
     const { ContentManagementPage } = await import('./ContentManagementPage');
@@ -631,9 +631,11 @@ describe('verified TaxPay banner CMS', () => {
     expect(preview).toHaveAttribute('data-fixed-left','true');
     expect(dialog.querySelector('.cms-theme-preview__copy h3')).toHaveTextContent('Tax payments, without the confusion');
     expect(dialog.querySelector('.cms-theme-preview__copy h3')).not.toHaveTextContent('Withholding tax banner');
-    expect(dialog.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(dialog.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(3);
     expect(dialog.querySelector('.cms-theme-preview__primary')).toHaveTextContent('Pay Tax');
     expect(dialog.querySelector('.cms-theme-preview__outline')).toHaveTextContent('Pay Travel Tax');
+    expect(dialog.querySelector('.cms-theme-preview__gift')).toHaveTextContent('Gift Tax');
+    expect(dialog.querySelector('.cms-theme-preview__slogan')).toHaveTextContent('আমার করের টাকায় গড়বো স্বদেশ');
   });
 
   it('keeps a non-publisher preview as a local draft and does not call the publish bridge', async () => {
@@ -678,7 +680,7 @@ describe('verified TaxPay banner CMS', () => {
       .toHaveTextContent('Tax payments, without the confusion');
     expect(restored.querySelector('.cms-theme-preview__copy h3'))
       .not.toHaveTextContent('Temporary headline not for publishing');
-    expect(restored.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(2);
+    expect(restored.querySelectorAll('.cms-theme-preview__actions span')).toHaveLength(3);
     expect(deps.bridge.mock.calls.filter(([action])=>action==='publish-banner')).toHaveLength(0);
   });
 
