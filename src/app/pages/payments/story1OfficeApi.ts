@@ -2,6 +2,7 @@
 import { getAuditSqlClient, isSharedAuditMode } from "../audit/auditSharedSql";
 import { getOfficeCmsAuthClient } from "../../services/officeCmsBridge";
 const ENDPOINT='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/demo-story1-office';
+export type GiftTaxDetails = {donor:{tin:string;name:string};donee:{tin:string;name:string;tag:string;relationship:string|null;otherLabel:string|null};giftAmountMinor:number;estimatedTaxMinor:number;giftDate:string;description:string;remarks:string};
 export type StoryPayment = {
   id:string;service:string;amountMinor:number;status:string;createdAt:string;certificateReference?:string;
   details?:{
@@ -15,7 +16,8 @@ export type StoryPayment = {
     payerMode?:string;incomeTaxType?:string;travelRoute?:string;travelMode?:string;departurePort?:string;destination?:string;economicCode?:string;
     travelDate?:string;passengerName?:string;passportNumberMasked?:string|null;
     passengers?:Array<{passengerName?:string;name?:string;passportNumberMasked?:string|null;nationality?:string;country?:string;age?:number;amountMinor?:number;amount?:number}>;
-    receiptSnapshot?:{paymentCategory?:string;totalAmount?:number;challanNo?:string;receiptReference?:string;items?:Array<Record<string,unknown>>;allocationItems?:Array<Record<string,unknown>>;travelDetails?:{passengers?:Array<Record<string,unknown>>}};
+    giftDetails?:GiftTaxDetails;challanRemarks?:string;
+    receiptSnapshot?:{giftDetails?:GiftTaxDetails;paymentCategory?:string;totalAmount?:number;challanNo?:string;receiptReference?:string;items?:Array<Record<string,unknown>>;allocationItems?:Array<Record<string,unknown>>;travelDetails?:{passengers?:Array<Record<string,unknown>>}};
   };
 };
 export type StoryNotice = {id:number;paymentId:string;type:string;createdAt:string};

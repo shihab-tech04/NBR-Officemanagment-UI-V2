@@ -1,5 +1,5 @@
 import type { StoryPayment } from './story1OfficeApi';
-import { demoTinFor, paymentServiceName } from './story1PaymentPresentation';
+import { demoTinFor, paymentServiceName, verifiedGiftDetails } from './story1PaymentPresentation';
 
 export type OfficePaymentItem = {
   taxpayer: string;
@@ -86,6 +86,11 @@ export function getOfficePaymentItems(payment: StoryPayment | null, scope?: Offi
   if (!payment || !validAmount(payment.amountMinor)) return [];
   const details = payment.details;
   if (!details) return [];
+  if(payment.service==='GIFT_TAX'){
+    const gift=verifiedGiftDetails(payment);
+    if(!gift||(scope&&(scope.taxpayerTin!==gift.donor.tin||(scope.assessmentYear&&scope.assessmentYear!=='all'&&scope.assessmentYear!==details.assessmentYear))))return [];
+    return [{taxpayer:gift.donor.name,taxpayerTin:gift.donor.tin,service:'Gift Tax',assessmentYear:details.assessmentYear!,amountMinor:payment.amountMinor}];
+  }
   const lines = Array.isArray(details.lines) ? details.lines : [];
   const explicit = Array.isArray(details.allocations) ? details.allocations : [];
   const synthetic = lines.some(line => typeof line?.beneficiary === 'string');
@@ -202,6 +207,7 @@ export type OfficeReceiptInfo = {
   paymentStatus: string;
   creditStatus: string;
   method: string;
+  giftDetails?:import('./story1OfficeApi').GiftTaxDetails;
   receiptReference?:string;
   certificateReference?:string;
   batchId?:string;
