@@ -81,9 +81,13 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
     let taxpayReviewState: string | null = null;
     try {
       if (item.command.origin !== 'OFFICE_SQL') throw new Error('Unexpected origin');
-      const commandText = JSON.stringify(item.command);
-      const v2Correction=item.command.sourceProject==='v2'&&
-        item.command.commandType==='CORRECTION_REVIEW'&&item.command.simulationOnly===true;
+      const sourceProject=item.command.commandType==='CORRECTION_REVIEW'
+        ?await rpc<string|null>(client,'payment_v1_demo_correction_route',{p_id:item.command.requestId}):null;
+      if(sourceProject!==null&&sourceProject!=='v2')throw Error('Unexpected correction source');
+      const v2Correction=sourceProject==='v2';
+      const commandText=JSON.stringify(v2Correction
+        ?{...item.command,sourceProject:'v2',simulationOnly:true}
+        :item.command);
       const correctionSecret=v2Correction?await rpc<string|null>(client,'payment_v1_demo_correction_key'):null;
       if(v2Correction&&!correctionSecret)throw Error('Dedicated correction key unavailable');
       const signature = await sign(v2Correction?await signingKey(correctionSecret!):key, commandText);

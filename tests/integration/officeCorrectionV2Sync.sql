@@ -51,6 +51,8 @@ begin
  or has_function_privilege('authenticated','public.payment_v1_internal_ingest_demo_correction(jsonb)','EXECUTE')
  or has_function_privilege('anon','public.payment_v1_demo_correction_key()','EXECUTE')
  or has_function_privilege('authenticated','public.payment_v1_demo_correction_key()','EXECUTE')
+ or has_function_privilege('anon','public.payment_v1_demo_correction_route(uuid)','EXECUTE')
+ or has_function_privilege('authenticated','public.payment_v1_demo_correction_route(uuid)','EXECUTE')
  then raise exception 'Dedicated route is exposed publicly'; end if;
 end $$;
 
@@ -72,7 +74,7 @@ declare c uuid:=gen_random_uuid(); m uuid;
 begin
  update payment_sync.control_outbox set delivery_state='IN_FLIGHT',claim_token=c
  where request_id='80000000-0000-4000-8000-000000000050'
- and payload->>'sourceProject'='v2' and payload->>'simulationOnly'='true'
+ and public.payment_v1_demo_correction_route(request_id)='v2'
  returning message_id into m;
  if m is null then raise exception 'V2 maker command was not routed'; end if;
  if not public.payment_v1_internal_ack_correction_command(m,c,true,'MAKER_ACKNOWLEDGED',null)
@@ -87,7 +89,7 @@ declare c uuid:=gen_random_uuid(); m uuid;
 begin
  update payment_sync.control_outbox set delivery_state='IN_FLIGHT',claim_token=c
  where request_id='80000000-0000-4000-8000-000000000050' and delivery_state='PENDING'
- and payload->>'sourceProject'='v2' returning message_id into m;
+ and public.payment_v1_demo_correction_route(request_id)='v2' returning message_id into m;
  if m is null or not public.payment_v1_internal_ack_correction_command(m,c,true,'REVIEWER_VERIFIED',null)
  then raise exception 'V2 reviewer route failed'; end if;
 end $$;
@@ -100,7 +102,7 @@ declare c uuid:=gen_random_uuid(); m uuid;
 begin
  update payment_sync.control_outbox set delivery_state='IN_FLIGHT',claim_token=c
  where request_id='80000000-0000-4000-8000-000000000050' and delivery_state='PENDING'
- and payload->>'sourceProject'='v2' returning message_id into m;
+ and public.payment_v1_demo_correction_route(request_id)='v2' returning message_id into m;
  if m is null or not public.payment_v1_internal_ack_correction_command(m,c,true,'APPROVER_CLOSED',null)
  then raise exception 'V2 approver route failed'; end if;
  if (select review_state from payment_sync.correction_mirrors where inquiry_id='80000000-0000-4000-8000-000000000050')<>'APPROVER_CLOSED'

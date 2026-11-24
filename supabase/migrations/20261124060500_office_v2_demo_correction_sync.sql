@@ -71,19 +71,12 @@ $$;
 revoke all on function public.payment_v1_internal_ingest_demo_correction(jsonb) from public,anon,authenticated;
 grant execute on function public.payment_v1_internal_ingest_demo_correction(jsonb) to service_role;
 
--- Keep the existing officer role and workflow RPC untouched. Only commands
--- produced for an authenticated dedicated-lane mirror receive a route marker.
-create function payment_sync.route_demo_correction_command()
-returns trigger language plpgsql security definer set search_path='' as $$
-begin
- if new.payload->>'commandType'='CORRECTION_REVIEW' and
-   exists(select 1 from payment_sync.demo_correction_sources where inquiry_id=new.request_id) then
-   new.payload:=new.payload||jsonb_build_object('sourceProject','v2','simulationOnly',true);
- end if;
- return new;
-end;
+-- Route by persisted provenance at the existing server-only dispatcher.
+-- Do not alter the existing officer action, control outbox or legacy rows.
+create function public.payment_v1_demo_correction_route(p_id uuid)
+returns text language sql stable security definer set search_path='' as $$
+ select source_project from payment_sync.demo_correction_sources where inquiry_id=p_id
 $$;
-revoke all on function payment_sync.route_demo_correction_command() from public,anon,authenticated;
-create trigger route_demo_correction_command before insert on payment_sync.control_outbox
- for each row execute function payment_sync.route_demo_correction_command();
+revoke all on function public.payment_v1_demo_correction_route(uuid) from public,anon,authenticated;
+grant execute on function public.payment_v1_demo_correction_route(uuid) to service_role;
 commit;
