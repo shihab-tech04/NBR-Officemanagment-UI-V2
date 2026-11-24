@@ -94,7 +94,29 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
       const endpoint=v2Correction
         ?'https://gmuhitmaynfhipcvbvkh.supabase.co/functions/v1/demo-story1-taxpay/corrections/office-decision'
         :commandEndpoint(config.peerUrl);
-      const response = await fetch(endpoint, {
+      // For an Office-originated case, consult V2's authoritative payment
+      // using the dedicated signed channel. Only an authenticated, explicit
+      // absence permits the pre-existing legacy destination. Transport errors
+      // or owner/reference mismatches stay retryable; never guess the owner.
+      let response:Response|undefined;
+      if(item.command.commandType==='OFFICE_CORRECTION_INITIATED'){
+        const secret=await rpc<string|null>(client,'payment_v1_demo_correction_key');
+        if(secret){
+          const v2Text=JSON.stringify({...item.command,sourceProject:'v2',simulationOnly:true});
+          const v2Signature=await sign(await signingKey(secret),v2Text);
+          const probe=await fetch('https://gmuhitmaynfhipcvbvkh.supabase.co/functions/v1/demo-story1-taxpay/corrections/office-decision',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({mode:'ingest',commandText:v2Text,signature:v2Signature}),
+            signal:AbortSignal.timeout(12000),
+          });
+          if(!probe.ok)throw Error('V2 correction initiation HTTP '+probe.status);
+          const decision=await probe.clone().json();
+          if(decision?.messageId!==item.command.messageId)throw Error('V2 correction acknowledgement mismatch');
+          if(decision.stored===true&&decision.ownerLinked===true)response=probe;
+          else if(decision.stored!==false||decision.sourceAbsent!==true)throw Error('V2 source did not confirm absence or persistence');
+        }
+      }
+      if(!response)response=await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'ingest', commandText, signature }),
         signal: AbortSignal.timeout(12000),
