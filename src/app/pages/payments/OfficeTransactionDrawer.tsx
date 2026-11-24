@@ -7,6 +7,7 @@ import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import type { TableRow } from '../modulePageUtils';
 import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
+import {verifiedGiftDetails} from './story1PaymentPresentation';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
 import { loadGuardedOfficeChallanRemarks, officeChallanRemarksRowValue, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
@@ -27,7 +28,8 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const ref = display(row?.payment_ref);
   const receiptReference=source?.details?.receiptReference?.trim()||'';
-  const certificateReference=source?.certificateReference?.trim()||'';
+  const gift=source&&row?.payment_ref===source.id?verifiedGiftDetails(source):null;
+  const certificateReference=source?.service==='GIFT_TAX'?'':source?.certificateReference?.trim()||'';
   useEffect(() => { setReceipt(false); }, [ref]);
   // Never attach a guarded source read to a different selected table row.
   const isChallanPayment = row?.payment_ref === source?.id &&
@@ -81,6 +83,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     creditStatus: display(row?.ledger_status), method: display(row?.payment_channel),
     ...(receiptReference?{receiptReference}:{}),
     ...(certificateReference?{certificateReference}:{}),
+    ...(gift?{giftDetails:gift}:{}),
     ...(typeof source?.details?.batchId==='string'&&/^[0-9a-f-]{36}$/i.test(source.details.batchId)
       ? {batchId:source.details.batchId}:{}),
     ...(Number.isSafeInteger(source?.details?.batchItemIndex)&&Number.isSafeInteger(source?.details?.batchItemCount)
@@ -101,6 +104,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     payment_channel: info.method,
     ledger_status: info.creditStatus,
     ...(isChallanPayment ? { challan_remarks: officeChallanRemarksRowValue(currentRemarks.text, label('Office SQL remarks','অফিস SQL মন্তব্য')) } : {}),
+    ...(gift?{gift_donor:gift.donor.name,gift_donor_tin:gift.donor.tin,gift_donee:gift.donee.name,gift_donee_tin:gift.donee.tin,gift_relationship:gift.donee.relationship??gift.donee.otherLabel??gift.donee.tag,gift_amount:officeMoney(gift.giftAmountMinor,language),gift_date:gift.giftDate,gift_description:gift.description,gift_remarks:gift.remarks}:{}),
     ...(receiptItems.length ? { allocation_items: String(receiptItems.length) } : {}),
     payment_ref: info.reference,
     tax_event_id: '—',
@@ -116,7 +120,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     acs_reference: display(row.acs_reference),
     // Source-backed deterministic reference only; not a claim that an
     // independently issued government certificate has been verified.
-    certificate_reference: display(source?.certificateReference),
+    certificate_reference: display(certificateReference),
     notice_reference: display(row.notice_reference),
   } : null;
   const groups: Array<[string, string, string]> = [
@@ -138,6 +142,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
     ...(isChallanPayment ? [
       ['challan_remarks', label('Challan remarks','চালানের মন্তব্য'), label('Payment information','পেমেন্টের তথ্য')],
     ] as Array<[string,string,string]> : []),
+    ...(gift?[
+      ['gift_donor',label('Donor','দাতা')],['gift_donor_tin',label('Donor TIN','দাতার টিআইএন')],['gift_donee',label('Donee','গ্রহীতা')],['gift_donee_tin',label('Donee TIN','গ্রহীতার টিআইএন')],['gift_relationship',label('Relationship','সম্পর্ক')],['gift_amount',label('Gift amount','দানের পরিমাণ')],['gift_date',label('Gift date','দানের তারিখ')],['gift_description',label('Description','দানের বিবরণ')],['gift_remarks',label('Remarks','মন্তব্য')],
+    ].map(([key,name])=>[key,name,label('Gift details','দানের তথ্য')] as [string,string,string]):[]),
     ['ledger_status',label('Tax credit status','কর ক্রেডিটের অবস্থা'),label('Payment status','পেমেন্টের অবস্থা')],
     ['allocation_items',source?.service==='TRAVEL_TAX'
       ?label('Passengers and amounts','যাত্রী ও পরিমাণ'):label('Taxpayer allocations','করদাতা অনুযায়ী বণ্টন'),
