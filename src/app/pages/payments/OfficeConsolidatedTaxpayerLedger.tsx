@@ -7,7 +7,17 @@ import {OFFICE_LEDGER_SOURCES,loadOfficeConsolidatedLedger,
   type OfficeLedgerLine,type OfficeLedgerReport} from './officeConsolidatedLedger';
 
 const validTin=(value:string)=>/^\d{12}$/.test(value);
-const csvCell=(value:unknown)=>'"'+String(value??'').replaceAll('"','""')+'"';
+/**
+ * External ledger fields are provider-controlled. Quoting a CSV field alone does
+ * not stop Excel/Sheets from evaluating =, +, -, @ or control-prefixed formulae.
+ * Escape for spreadsheet viewing without changing stored SQL or the in-app UI.
+ */
+export const csvCell=(value:unknown)=>{
+  const raw=String(value??'');
+  const spreadsheetFormula=/^[\s\uFEFF\u200B]*[=+\-@]/u.test(raw)||/^[\t\r\n]/u.test(raw);
+  const inert=spreadsheetFormula?"'"+raw:raw;
+  return '"'+inert.replaceAll('"','""')+'"';
+};
 const dhakaDayFormatter=new Intl.DateTimeFormat('en-GB',{
   timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'
 });
