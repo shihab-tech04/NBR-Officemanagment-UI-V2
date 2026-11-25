@@ -502,6 +502,8 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   expect(bytes.toString('latin1')).toContain('/Subtype /Image');
   expect(bytes.toString('latin1')).toContain('Sohojkor Payment Receipt '+reference);
   expect(bytes.length).toBeGreaterThan(5000);
+   // This short two-allocation fixture fits one A4 sheet at every source viewport.
+   expect(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
   await downloaded.saveAs('test-results/office-receipt-desktop-en.pdf');
   await expect(paper).toContainText('৳150.25');
   await expect(paper).toContainText('৳23.50');
@@ -656,6 +658,8 @@ for(const config of [{width:320,language:'bn'},{width:375,language:'en'},{width:
    expect(bytes.toString('latin1')).toContain('/Subtype /Image');
    expect(bytes.toString('latin1')).toContain('Sohojkor Payment Receipt '+reference);
    expect(bytes.length).toBeGreaterThan(5000);
+   // This short two-allocation fixture fits one A4 sheet at every source viewport.
+   expect(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
    await result.saveAs(`test-results/office-receipt-${config.width}-${config.language}.pdf`);
    expect(await viewport.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}))).toEqual(before);
    await expect(paper.locator('tbody tr')).toHaveCount(2);

@@ -15,6 +15,8 @@ export async function downloadDisplayedOfficeReceiptPdf(reference: string, paper
   let breaks: number[] = [];
   const canvas = await renderPaper(paper, {
     backgroundColor: '#fff', logging: false, scale,
+    // A4 export uses one stable desktop media-query viewport on all devices.
+    windowWidth: 1280, windowHeight: 900,
     ignoreElements: element => element.matches('button, .no-print'),
     onclone: (_document, clonedPaper) => {
       // Use a print-sized paper in the clone; never reflow the visible modal.
