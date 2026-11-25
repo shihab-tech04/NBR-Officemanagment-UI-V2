@@ -1,0 +1,16 @@
+/* Identical four-column geometry to the Taxpayer receipt. Keep existing Office
+ * tokens, table palette, drawer/modal shell and other payment tables intact. */
+.office-receipt__scroll.office-allocation-scroll {display:block;min-width:0;width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;}
+.office-allocation-scroll:focus-visible {outline:2px solid var(--color-primary);outline-offset:-2px;}
+.office-allocation-scroll .receipt-view__allocation-table {width:100%;min-width:620px;table-layout:fixed;}
+.office-allocation-scroll .receipt-view__allocation-table th:nth-child(1){width:29%;}
+.office-allocation-scroll .receipt-view__allocation-table th:nth-child(2){width:36%;}
+.office-allocation-scroll .receipt-view__allocation-table th:nth-child(3){width:16%;}
+.office-allocation-scroll .receipt-view__allocation-table th:nth-child(4){width:19%;}
+.office-allocation-scroll .receipt-view__allocation-table :is(th,td){min-width:0;overflow-wrap:anywhere;white-space:normal;text-align:left;}
+.office-allocation-scroll .receipt-view__allocation-table .office-receipt__numeric {text-align:right;font-variant-numeric:tabular-nums;}
+.office-allocation-scroll .office-allocation-subtotal {margin-top:8px;font-weight:600;color:var(--color-text);}
+@media print {
+ .office-receipt__scroll.office-allocation-scroll {overflow:visible;}
+ .office-allocation-scroll .receipt-view__allocation-table {min-width:0;table-layout:fixed;}
+}

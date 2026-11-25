@@ -1,5 +1,6 @@
 import { Download, Printer, ArrowLeft } from 'lucide-react';
 import { AppModal } from '../../components/modals/AppModal';
+import { OfficeAllocationTable } from './OfficeAllocationTable';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
 import { SecondaryButton } from '../../components/buttons/SecondaryButton';
 import { officeMoney, type OfficePaymentItem, type OfficeReceiptInfo } from './officeTransactionDetails';
@@ -122,8 +123,8 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
         {items.length > 0 && <section className="office-receipt__section office-receipt__breakdown receipt-view__breakdown">
           <h4 className="receipt-view__section-title">{isTravelTax
             ?label('Passenger payment breakdown','যাত্রীদের পেমেন্ট বিবরণ')
-            :label('Payment breakdown and head classification', 'পেমেন্ট বিবরণ ও খাত')}</h4>
-          <div className="office-receipt__scroll receipt-view__breakdown-content">
+            :label('Taxpayer payment allocations','করদাতাভিত্তিক পেমেন্ট বরাদ্দ')}</h4>
+          {!isTravelTax?<OfficeAllocationTable items={items} language={language} total={info.amount}/>:<div className="office-receipt__scroll receipt-view__breakdown-content">
             <table className="receipt-view__financial-table">
               <thead><tr>
                 <th>{isTravelTax?label('Passenger','যাত্রী'):label('Taxpayer / TIN', 'করদাতা / টিআইএন')}</th>
@@ -144,7 +145,7 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
                 <th className="office-receipt__numeric">{info.amount}</th>
               </tr></tfoot>
             </table>
-          </div>
+          </div>}
         </section>}
       </article>
     </AppModal>

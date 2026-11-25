@@ -11,6 +11,28 @@ export type OfficePaymentItem = {
   economicCode?: string;
 };
 
+/** Presentation only; never combine unknown TINs by name or alter source rows. */
+export function groupOfficePaymentAllocations(items: readonly OfficePaymentItem[]) {
+  const groups: {key:string; taxpayer:string; taxpayerTin?:string; items:OfficePaymentItem[]; totalMinor:number}[]=[];
+  const byTin=new Map<string, typeof groups[number]>();
+  for (const [index,item] of items.entries()) {
+    const tin=item.taxpayerTin?.trim();
+    let group=tin?byTin.get(tin):undefined;
+    if(!group) {
+      // The existing authoritative adapter sometimes embeds the exact TIN
+      // in the display name. Avoid printing it twice, not changing identity.
+      const taxpayer=tin&&item.taxpayer.endsWith(' · '+tin)
+        ?item.taxpayer.slice(0,-(' · '+tin).length):item.taxpayer;
+      group={key:tin?'tin:'+tin:'unknown:'+index,taxpayer,taxpayerTin:tin,items:[],totalMinor:0};
+      groups.push(group);
+      if(tin)byTin.set(tin,group);
+    }
+    group.items.push(item);
+    group.totalMinor+=item.amountMinor;
+  }
+  return groups;
+}
+
 const validAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 // Existing TravelTax.tsx stores receipt passenger amounts in taka; the

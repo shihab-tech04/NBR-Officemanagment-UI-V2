@@ -9,6 +9,7 @@ import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import {verifiedGiftDetails} from './story1PaymentPresentation';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
+import { OfficeAllocationTable } from './OfficeAllocationTable';
 import { loadGuardedOfficeChallanRemarks, officeChallanRemarksRowValue, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
@@ -179,7 +180,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
       </li>}
     </ol>
   ) : key === 'allocation_items' ? (
-    <div className="office-shared-allocation-list">
+    source?.service!=='TRAVEL_TAX'
+      ? <OfficeAllocationTable items={receiptItems} language={language} total={info.amount} showAuthorization/>
+      : <div className="office-shared-allocation-list">
       {receiptItems.map((item, index) => (
         <div className="office-shared-allocation-list__item" key={index}>
           <p><strong>{item.taxpayer}</strong><strong>{officeMoney(item.amountMinor, language)}</strong></p>
