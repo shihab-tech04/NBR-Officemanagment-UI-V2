@@ -1,15 +1,20 @@
 -- Preserve the live V2 payment-linked intake and accept only the existing fictional User1 reference catalog without a payment parent.
 begin;
+-- Only source-qualified report events extend the existing provenance register.
+alter table payment_sync.demo_correction_sources drop constraint demo_correction_sources_source_project_check;
+alter table payment_sync.demo_correction_sources add constraint demo_correction_sources_source_project_check check(source_project in ('v2','original'));
 create or replace function public.payment_v1_internal_ingest_demo_correction(p_event jsonb)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_id uuid; v_event uuid; v_parent uuid; v_allocation text; v_payload jsonb; v_payment jsonb; v_result jsonb; v_year text; v_recipient_event text; v_ordinal integer; v_item jsonb; v_initiation jsonb;
+declare v_id uuid; v_event uuid; v_parent uuid; v_allocation text; v_payload jsonb; v_payment jsonb; v_result jsonb; v_year text; v_recipient_event text; v_ordinal integer; v_item jsonb; v_initiation jsonb; v_source text;
 begin
- if p_event->>'sourceProject' is distinct from 'v2' or p_event->>'simulationOnly' is distinct from 'true'
+ v_source:=p_event->>'sourceProject';
+ if coalesce(v_source,'') not in ('v2','original') or p_event->>'simulationOnly' is distinct from 'true'
     or p_event->>'eventType' is distinct from 'CORRECTION_SUBMITTED' then
    raise exception 'INVALID_DEMO_CORRECTION_SOURCE';
  end if;
  v_id:=(p_event->>'requestId')::uuid;v_event:=(p_event->>'eventId')::uuid;
  v_payload:=p_event->'payload';
+ if v_source='original' and v_payload->>'caseKind' is distinct from 'UNSOLICITED_PAYMENT_REPORT' then raise exception 'INVALID_DEMO_CORRECTION_SOURCE'; end if;
  -- The original User1 storybook references have no payment or receipt row.
  -- They enter the same evidence-pending review queue, without financial linkage.
  if v_payload->>'historicalScenario'='USER1_REFERENCE_ONLY' then
@@ -109,13 +114,13 @@ begin
  perform pg_advisory_xact_lock(hashtextextended(v_id::text,0));
  if exists(select 1 from payment_sync.correction_mirrors where inquiry_id=v_id)
     and not exists(select 1 from payment_sync.demo_correction_sources
-      where inquiry_id=v_id and source_event_id=v_event and source_project='v2') then
+      where inquiry_id=v_id and source_event_id=v_event and source_project=v_source) then
    raise exception 'DEMO_CORRECTION_SOURCE_CONFLICT';
  end if;
  v_result:=public.payment_v1_internal_ingest_correction(p_event);
  if v_result->>'stored' is distinct from 'true' then raise exception 'DEMO_CORRECTION_NOT_STORED'; end if;
  insert into payment_sync.demo_correction_sources(inquiry_id,source_event_id,source_project)
- values(v_id,v_event,'v2') on conflict(inquiry_id) do nothing;
+ values(v_id,v_event,v_source) on conflict(inquiry_id) do nothing;
  return v_result;
 end;
 $$;

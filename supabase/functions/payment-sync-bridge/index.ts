@@ -144,15 +144,19 @@ Deno.serve(async (request: Request) => {
     if (typeof message !== 'object' || message === null) return json({ error: 'Invalid body' }, 400);
     const client = adminClient();
     const config = await rpc<BridgeConfig | null>(client, 'payment_v1_internal_bridge_config');
-    // This strictly scoped route is independent of the legacy bridge key/peer.
-    // Only the V2 correction key can authenticate it; no payment or ledger events.
+    // Preserve V2's dedicated key; original recipient reports use only the
+    // already enabled original↔Office bridge. The signed source selects the key.
     if (message.mode === 'ingestDemoCorrection') {
       if (config?.origin !== 'OFFICE_SQL' || typeof message.eventText !== 'string' ||
           message.eventText.length > 24000) return json({error:'Invalid correction route'},400);
-      const secret=await rpc<string|null>(client,'payment_v1_demo_correction_key');
+      const event=JSON.parse(message.eventText);
+      const source=event?.sourceProject;
+      if(source!=='v2'&&source!=='original')return json({error:'Invalid correction source'},400);
+      let secret:string|null=null;
+      if(source==='v2')secret=await rpc<string|null>(client,'payment_v1_demo_correction_key');
+      else if(config.enabled&&config.selfUrl==='https://ihbtabrvmyiwikqqbhrf.supabase.co/functions/v1/payment-sync-bridge'&&config.peerUrl==='https://eyqhoavnitkrajvyqvxn.supabase.co/functions/v1/payment-sync-bridge'&&event?.payload?.caseKind==='UNSOLICITED_PAYMENT_REPORT')secret=config.signingKey;
       if (!secret || !await validSignature(await hmacKey(secret),message.eventText,message.signature))
         return json({error:'Unauthorized'},401);
-      const event=JSON.parse(message.eventText);
       const stored=await rpc(client,'payment_v1_internal_ingest_demo_correction',{p_event:event});
       return json(stored);
     }

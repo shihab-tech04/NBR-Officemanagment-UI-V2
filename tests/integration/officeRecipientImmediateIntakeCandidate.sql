@@ -23,7 +23,7 @@ insert into v2_correction_fixture values('80000000-0000-4000-8000-000000000050',
  'correctionChanges',null,
  'createdAt','2026-11-24T06:00:00Z')));
 do $$
-declare event jsonb; result jsonb; invalid jsonb; pending jsonb; pending_id uuid:=gen_random_uuid(); pending_event uuid:=gen_random_uuid(); pending_payment uuid:=gen_random_uuid(); before_count bigint;
+declare event jsonb; result jsonb; invalid jsonb; pending jsonb; pending_id uuid:=gen_random_uuid(); pending_event uuid:=gen_random_uuid(); pending_payment uuid:=gen_random_uuid(); original_id uuid:=gen_random_uuid(); original_event uuid:=gen_random_uuid(); original_payment uuid:=gen_random_uuid(); original_report jsonb; before_count bigint;
 begin
  select f.event into event from v2_correction_fixture f;
  result:=public.payment_v1_internal_ingest_demo_correction(event);
@@ -82,6 +82,25 @@ begin
  '{"origin":"TAXPAY_UI","details":{"receiptReference":"SIM-V2-CORR-001","allocations":[{"allocationId":"allocation-v2-001"}]}}','SIMULATED_SUCCESS',now());
  result:=public.payment_v1_internal_ingest_demo_correction(pending);
  if result->>'duplicate' is distinct from 'true' then raise exception 'INITIATED_REPORT_COMPLETION_REPLAY_FAILED'; end if;
+ -- Original and V2 signed lanes preserve separate provenance on the same
+ -- existing Office queue; no completed mirror is required for either report.
+ original_report:=jsonb_set(jsonb_set(jsonb_set(pending,'{eventId}',to_jsonb(original_event)),'{requestId}',to_jsonb(original_id)),'{sourceProject}','"original"'::jsonb);
+ original_report:=jsonb_set(jsonb_set(original_report,'{payload,originalPaymentId}',to_jsonb(original_payment)),'{payload,recipientEventId}',to_jsonb(original_payment::text||':allocation:1'));
+ original_report:=jsonb_set(jsonb_set(original_report,'{payload,recipientInitiation,paymentId}',to_jsonb(original_payment)),'{payload,recipientInitiation,eventId}',to_jsonb(original_payment::text||':allocation:1'));
+ result:=public.payment_v1_internal_ingest_demo_correction(original_report);
+ if result->>'stored' is distinct from 'true' or public.payment_v1_demo_correction_route(original_id) is distinct from 'original'
+ or public.payment_v1_demo_correction_route(pending_id) is distinct from 'v2'
+ or exists(select 1 from demo_payment.story_payments where id=original_payment) then raise exception 'ORIGINAL_REPORT_ROUTE_FAILED'; end if;
+ result:=public.payment_v1_internal_ingest_demo_correction(original_report);
+ if result->>'duplicate' is distinct from 'true' then raise exception 'ORIGINAL_REPORT_DUPLICATE_FAILED'; end if;
+ begin
+   perform public.payment_v1_internal_ingest_demo_correction(jsonb_set(original_report,'{sourceProject}','"v2"'::jsonb));
+   raise exception 'CROSS_SOURCE_REPORT_ACCEPTED';
+ exception when others then if sqlerrm<>'DEMO_CORRECTION_SOURCE_CONFLICT' then raise; end if; end;
+ begin
+   perform public.payment_v1_internal_ingest_demo_correction(jsonb_set(original_report,'{payload,caseKind}','"CORRECTION_REVIEW"'::jsonb));
+   raise exception 'ORIGINAL_ORDINARY_CORRECTION_ACCEPTED';
+ exception when others then if sqlerrm<>'INVALID_DEMO_CORRECTION_SOURCE' then raise; end if; end;
  if has_function_privilege('anon','public.payment_v1_internal_ingest_demo_correction(jsonb)','EXECUTE')
  or has_function_privilege('authenticated','public.payment_v1_internal_ingest_demo_correction(jsonb)','EXECUTE')
  or has_function_privilege('anon','public.payment_v1_demo_correction_key()','EXECUTE')

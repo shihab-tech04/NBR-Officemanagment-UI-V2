@@ -79,6 +79,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidateMigration.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidate.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/office-v7-before.sql
+          psql -X -v ON_ERROR_STOP=1 -c "alter table payment_sync.demo_correction_sources drop constraint demo_correction_sources_source_project_check; alter table payment_sync.demo_correction_sources add constraint demo_correction_sources_source_project_check check(source_project='v2');"
           psql -X -At -v ON_ERROR_STOP=1 -c "select pg_get_functiondef('public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure)" > /tmp/office-v7-after.sql
           echo ';' >> /tmp/office-v7-after.sql
           cmp /tmp/office-v7-before.sql /tmp/office-v7-after.sql
