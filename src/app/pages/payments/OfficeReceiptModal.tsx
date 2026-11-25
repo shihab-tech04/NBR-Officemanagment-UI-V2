@@ -1,4 +1,6 @@
 import { Download, Printer, ArrowLeft } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { downloadDisplayedOfficeReceiptPdf } from './officeReceiptPdfExport';
 import { AppModal } from '../../components/modals/AppModal';
 import { OfficeAllocationTable } from './OfficeAllocationTable';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
@@ -31,18 +33,19 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
   const bn = language.startsWith('bn');
   const label = (en: string, bangla: string) => bn ? bangla : en;
   const isTravelTax=items.length>0&&items.every(item=>item.service==='Travel Tax');
-  const download = () => {
-    const paper = document.getElementById('office-receipt-paper');
-    if (!paper || !open) return;
-    const html = buildDisplayedOfficeReceiptDocument(paper, label('Office payment receipt', 'অফিস পেমেন্ট রসিদ'));
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'office-payment-' + info.reference.replace(/[^a-zA-Z0-9-]/g,'').slice(0,64) + '.html';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+  const paperRef = useRef<HTMLElement>(null);
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+  const download = async () => {
+    const paper = paperRef.current;
+    if (!paper || !open || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setDownloadError(false);
+    try { await downloadDisplayedOfficeReceiptPdf(info.reference, paper); }
+    catch { setDownloadError(true); }
+    finally { busyRef.current = false; setBusy(false); }
   };
   const field = (name: string, value: string) => value && value !== '—' ? (
     <div className="office-receipt__detail receipt-view__detail" key={name}>
@@ -56,11 +59,12 @@ export function OfficeReceiptModal({ open, info, items, language, onClose, onBac
         <span className="office-receipt__footer-back">
           <SecondaryButton size="sm" icon={ArrowLeft} onClick={onBack}>{label('Back to details', 'বিস্তারিত তথ্যে ফিরুন')}</SecondaryButton>
         </span>
-        <SecondaryButton size="sm" icon={Download} onClick={download}>{label('Download', 'ডাউনলোড')}</SecondaryButton>
+        <SecondaryButton size="sm" icon={Download} disabled={busy} onClick={()=>void download()}>{label('Download', 'ডাউনলোড')}</SecondaryButton>
         <PrimaryButton size="sm" icon={Printer} onClick={() => window.print()}>{label('Print receipt', 'রসিদ প্রিন্ট')}</PrimaryButton>
       </>}
     >
-      <article id="office-receipt-paper" className="office-receipt__paper receipt-view__paper receipt-view--embedded office-receipt-parity" data-testid="office-payment-receipt" lang={bn ? 'bn' : 'en'}>
+      {downloadError && <p role="alert" className="no-print">{label('Unable to download the receipt. Try again.', 'রসিদ ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।')}</p>}
+      <article ref={paperRef} id="office-receipt-paper" className="office-receipt__paper receipt-view__paper receipt-view--embedded office-receipt-parity" data-testid="office-payment-receipt" lang={bn ? 'bn' : 'en'}>
         <header className="office-receipt__summary receipt-view__summary">
           <div>
             <p className="office-receipt__eyebrow receipt-view__eyebrow">{label('Payment record', 'পেমেন্ট রেকর্ড')}</p>

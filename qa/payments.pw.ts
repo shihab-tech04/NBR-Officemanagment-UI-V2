@@ -493,14 +493,18 @@ test('Office Transactions reuses approved DetailsDrawer and receipt modal', asyn
   await expect(paper).not.toContainText('{"category"');
   await expect(page).toHaveURL(/\/payments\/transactions$/);
   expect(page.context().pages()).toHaveLength(1);
-  const download=page.waitForEvent('download');
-  await receipt.getByRole('button',{name:'Download'}).click();
+  const download=page.waitForEvent('download',{timeout:30000});
+  await receipt.getByRole('button',{name:'Download',exact:true}).click();
   const downloaded = await download;
-  expect(downloaded.suggestedFilename()).toBe('office-payment-'+reference+'.html');
-  const html = (await (await import('node:fs/promises')).readFile(await downloaded.path())).toString();
-  expect(html).toContain('office-receipt__paper');
-  expect(html).toContain('৳150.25');
-  expect(html).toContain('৳23.50');
+  expect(downloaded.suggestedFilename()).toBe('office-payment-'+reference+'.pdf');
+  const bytes = await (await import('node:fs/promises')).readFile(await downloaded.path());
+  expect(bytes.subarray(0,5).toString()).toBe('%PDF-');
+  expect(bytes.toString('latin1')).toContain('/Subtype /Image');
+  expect(bytes.toString('latin1')).toContain('Sohojkor Payment Receipt '+reference);
+  expect(bytes.length).toBeGreaterThan(5000);
+  await downloaded.saveAs('test-results/office-receipt-desktop-en.pdf');
+  await expect(paper).toContainText('৳150.25');
+  await expect(paper).toContainText('৳23.50');
   await receipt.getByRole('button',{name:'Back to details'}).click();
   await expect(drawer).toContainText('Record Details');
   await expect(page.locator('.app-modal-panel')).toHaveCount(0);
@@ -606,4 +610,55 @@ for (const config of [
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     expect(overflow).toBeLessThanOrEqual(2);
   });
+}
+
+for(const config of [{width:320,language:'bn'},{width:375,language:'en'},{width:1280,language:'bn'}] as const){
+ test(`Office receipt PDF preserves authorized allocation paper at ${config.width}px ${config.language}`,async({page})=>{
+   const reference='e4e43b06-0be4-4cfe-96eb-b75b7176d86e';
+   await page.addInitScript(language=>{
+     localStorage.setItem('i18nextLng',language);
+     localStorage.setItem('gov_ui_settings',JSON.stringify({assessmentYear:'2027-28',themeId:'indigo-blue',fontId:'inter',fontSizeId:'standard',languageId:language}));
+   },config.language);
+   await page.route('**/functions/v1/demo-story1-office/**',route=>{
+     const payments=new URL(route.request().url()).pathname.endsWith('/payments');
+     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+       success:true,simulationOnly:true,data:payments?{items:[{
+         id:reference,service:'OTHER_TAX_PAYMENT',amountMinor:17375,status:'SIMULATED_SUCCESS',createdAt:'2026-10-29T05:48:25Z',
+         details:{payerId:'user6',payerName:'user6',lines:[
+           {beneficiary:'user6',category:'TAX_WITH_RETURN',assessmentYear:'2026-27',amountMinor:15025},
+           {beneficiary:'user7',category:'PENALTY',assessmentYear:'2025-26',amountMinor:2350}
+         ]}
+       }],total:1,page:1,perPage:100}:[]
+     })});
+   });
+   await page.setViewportSize({width:config.width,height:900});
+   await page.goto('/payments/transactions');
+   const action=config.width<=375?page.locator('.mobile-table-card__action-btn').first():page.locator('.payment-module__table-card .card-table__action-btn').first();
+   await expect(action).toBeVisible();
+   await action.click();
+   const drawer=page.locator('.dynamic-drawer');
+   await drawer.getByRole('button',{name:config.language==='bn'?'রসিদ দেখুন':'View receipt'}).click();
+   const paper=page.getByTestId('office-payment-receipt');
+   await expect(paper).toHaveAttribute('lang',config.language);
+   await expect(paper).toContainText(reference);
+   await expect(paper.locator('tbody tr')).toHaveCount(2);
+   const digits=(s:string)=>config.language==='bn'?s.replace(/\d/g,d=>'০১২৩৪৫৬৭৮৯'[Number(d)]):s;
+   await expect(paper).toContainText(digits('150.25'));
+   await expect(paper).toContainText(digits('23.50'));
+   const viewport=paper.getByTestId('office-allocation-table');
+   const before=await viewport.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}));
+   const download=page.waitForEvent('download',{timeout:30000});
+   await page.locator('.app-modal-panel').getByRole('button',{name:config.language==='bn'?'ডাউনলোড':'Download',exact:true}).click();
+   const result=await download;
+   expect(result.suggestedFilename()).toBe('office-payment-'+reference+'.pdf');
+   const bytes=await (await import('node:fs/promises')).readFile(await result.path());
+   expect(bytes.subarray(0,5).toString()).toBe('%PDF-');
+   expect(bytes.toString('latin1')).toContain('/Subtype /Image');
+   expect(bytes.toString('latin1')).toContain('Sohojkor Payment Receipt '+reference);
+   expect(bytes.length).toBeGreaterThan(5000);
+   await result.saveAs(`test-results/office-receipt-${config.width}-${config.language}.pdf`);
+   expect(await viewport.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,left:el.scrollLeft}))).toEqual(before);
+   await expect(paper.locator('tbody tr')).toHaveCount(2);
+   expect(page.context().pages()).toHaveLength(1);
+ });
 }
