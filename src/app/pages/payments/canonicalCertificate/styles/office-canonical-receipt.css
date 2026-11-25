@@ -84,3 +84,15 @@
  .office-canonical-certificate .receipt-view__financial-table :is(th,td){font-size:11px;padding:.4rem}
  .office-canonical-certificate .receipt-view__breakdown,.office-canonical-certificate .receipt-view__parties{break-inside:avoid}
 }
+
+/* Print only the certificate portal. Hidden page content must not reserve
+   print space or add blank pages; the existing receipt print path is unchanged. */
+@media print {
+ body:has(#office-receipt-paper.office-canonical-certificate) > :not(.app-modal-backdrop:has(#office-receipt-paper.office-canonical-certificate)) { display:none!important; }
+ body:has(#office-receipt-paper.office-canonical-certificate) .app-modal-backdrop:has(#office-receipt-paper.office-canonical-certificate) { display:block!important; padding:0!important; min-height:0!important; height:auto!important; }
+ body:has(#office-receipt-paper.office-canonical-certificate) .app-modal-panel { height:auto!important; min-height:0!important; }
+ .office-canonical-certificate .receipt-view__breakdown { break-inside:auto; }
+ .office-canonical-certificate .payment-certificate-document .payment-certificate-document__table { min-width:0; width:100%; }
+ .office-canonical-certificate .payment-certificate-document__table :is(th,td) { white-space:normal; overflow-wrap:anywhere; }
+ .office-canonical-certificate .payment-certificate-document__table tbody td:nth-child(2) { min-width:0; }
+}

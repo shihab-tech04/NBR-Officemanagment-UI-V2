@@ -58,9 +58,17 @@ for(const language of ['en','bn'] as const) for(const width of [1280,320]){
   await modal.getByRole('button',{name:language==='bn'?'সনদ প্রিন্ট':'Print certificate',exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('data-qa-printed','yes');
   await page.emulateMedia({media:'print'});
-  await expect(document.getByTestId('payment-certificate-allocation-table')).toBeVisible();
-  await expect(document.getByTestId('payment-certificate-mobile-lines')).toBeHidden();
-  await expect(modal.locator('.app-modal-footer')).toBeHidden();
+  // Print intentionally hides the dialog's accessibility role and non-paper UI.
+  // Use the actual paper DOM (not a role query for its hidden ancestor).
+  const printPaper=page.locator('#office-receipt-paper');
+  await expect(printPaper).toBeVisible();
+  await expect(printPaper.getByTestId('payment-certificate-allocation-table')).toBeVisible();
+  await expect(printPaper.getByTestId('payment-certificate-mobile-lines')).toBeHidden();
+  await expect(page.locator('.app-modal-footer')).toBeHidden();
+  await expect(printPaper.locator('.no-print').first()).toBeHidden();
+  const printed=await page.pdf({path:testInfo.outputPath('certificate-print.pdf'),format:'A4',printBackground:true});
+  expect(printed.subarray(0,5).toString()).toBe('%PDF-');
+  expect(printed.length).toBeGreaterThan(1000);
   await page.emulateMedia({media:'screen'});
   await modal.getByRole('button',{name:language==='bn'?'বিস্তারিত তথ্যে ফিরুন':'Back to details',exact:true}).click();
   await expect(view).toBeVisible();
