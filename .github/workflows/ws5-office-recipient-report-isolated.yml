@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-      - name: Apply exact disposable Office contracts and test legacy and V2 cases
+      - name: Rehearse exact Office intake rollback and reapply
         run: |
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionPaymentParentFixture.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261029170000_office_correction_review.sql
@@ -42,5 +42,26 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124062000_office_user1_historical_correction.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeCorrectionV2Sync.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeHistoricalCorrection.sql
+          psql -X -At -v ON_ERROR_STOP=1 -c "select pg_get_functiondef('public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure)" > /tmp/office-intake-before.sql
+          echo ';' >> /tmp/office-intake-before.sql
+          psql -X -At -v ON_ERROR_STOP=1 -c "select proacl::text,proowner from pg_proc where oid='public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure" > /tmp/office-acl-before.txt
           psql -X -v ON_ERROR_STOP=1 -f scripts/ci/recipient-report-office-intake-candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientReportCandidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f /tmp/office-intake-before.sql
+          psql -X -At -v ON_ERROR_STOP=1 -c "select pg_get_functiondef('public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure)" > /tmp/office-intake-after.sql
+          echo ';' >> /tmp/office-intake-after.sql
+          psql -X -At -v ON_ERROR_STOP=1 -c "select proacl::text,proowner from pg_proc where oid='public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure" > /tmp/office-acl-after.txt
+          cmp /tmp/office-intake-before.sql /tmp/office-intake-after.sql
+          cmp /tmp/office-acl-before.txt /tmp/office-acl-after.txt
+          psql -X -v ON_ERROR_STOP=1 -f scripts/ci/recipient-report-office-intake-candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientReportCandidate.sql
+      - name: Generate ordered migration filename using official CLI
+        run: |
+          curl -fsSL https://github.com/supabase/cli/releases/download/v3.4.0/supabase_3.4.0_linux_amd64.tar.gz -o /tmp/supabase-cli.tar.gz
+          echo 'd82f8fc8a1611c45b9422b10378f61df614325f7e25624acda3704544513d6ac  /tmp/supabase-cli.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/supabase-cli.tar.gz -C /tmp supabase
+          /tmp/supabase --version
+          /tmp/supabase migration new --help
+          /tmp/supabase migration new office_recipient_report_intake
+          find supabase/migrations -name '*_office_recipient_report_intake.sql' -print
+
