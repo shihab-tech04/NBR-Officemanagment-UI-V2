@@ -63,40 +63,16 @@ begin
  end if;
  if v_payload->>'caseKind'='UNSOLICITED_PAYMENT_REPORT' then
    v_recipient_event:=v_payload->>'recipientEventId';
-   if v_recipient_event is null or v_recipient_event !~ ('^'||v_parent::text||':(allocation|legacy):[1-9][0-9]{0,8}
-   select count(*) from jsonb_array_elements(case
-     when jsonb_typeof(v_payment#>'{details,allocations}')='array'
-       then v_payment#>'{details,allocations}'
-     else '[]'::jsonb end) a where a->>'allocationId'=v_allocation
- )<>1 then raise exception 'DEMO_CORRECTION_ALLOCATION_MISMATCH'; end if;
- end if;
- perform pg_advisory_xact_lock(hashtextextended(v_id::text,0));
- if exists(select 1 from payment_sync.correction_mirrors where inquiry_id=v_id)
-    and not exists(select 1 from payment_sync.demo_correction_sources
-      where inquiry_id=v_id and source_event_id=v_event and source_project='v2') then
-   raise exception 'DEMO_CORRECTION_SOURCE_CONFLICT';
- end if;
- v_result:=public.payment_v1_internal_ingest_correction(p_event);
- if v_result->>'stored' is distinct from 'true' then raise exception 'DEMO_CORRECTION_NOT_STORED'; end if;
- insert into payment_sync.demo_correction_sources(inquiry_id,source_event_id,source_project)
- values(v_id,v_event,'v2') on conflict(inquiry_id) do nothing;
- return v_result;
-end;
-$$;
-revoke all on function public.payment_v1_internal_ingest_demo_correction(jsonb) from public,anon,authenticated;
-grant execute on function public.payment_v1_internal_ingest_demo_correction(jsonb) to service_role;
-
-commit;
-) then
+   if v_recipient_event is null or v_recipient_event !~ ('^'||v_parent::text||':(allocation|legacy):[1-9][0-9]{0,8}$') then
      raise exception 'DEMO_REPORT_RECIPIENT_EVENT_MISMATCH';
    end if;
    v_ordinal:=split_part(v_recipient_event,':',3)::integer-1;
    if split_part(v_recipient_event,':',2)='allocation' then
-     v_item:=v_payment#>'{details,allocations}'->v_ordinal;
-     if v_item is null or v_item->>'allocationId' is distinct from v_allocation then raise exception 'DEMO_CORRECTION_ALLOCATION_MISMATCH'; end if;
+     v_item:=(v_payment#>'{details,allocations}')->v_ordinal;
+     if jsonb_typeof(v_item) is distinct from 'object' or v_item->>'allocationId' is distinct from v_allocation then raise exception 'DEMO_CORRECTION_ALLOCATION_MISMATCH'; end if;
    else
-     v_item:=v_payment#>'{details,lines}'->v_ordinal;
-     if v_item is null or v_allocation is not null or jsonb_typeof(v_payment#>'{details,allocations}')='array' then raise exception 'DEMO_CORRECTION_ALLOCATION_MISMATCH'; end if;
+     v_item:=(v_payment#>'{details,lines}')->v_ordinal;
+     if jsonb_typeof(v_item) is distinct from 'object' or v_allocation is not null or jsonb_typeof(v_payment#>'{details,allocations}')='array' then raise exception 'DEMO_CORRECTION_ALLOCATION_MISMATCH'; end if;
    end if;
  end if;
  if v_allocation is not null and (
