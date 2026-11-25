@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import './canonicalCertificate/styles/office-canonical-receipt.css';
 import { ArrowLeft, Download, Printer } from 'lucide-react';
 import { AppModal } from '../../components/modals/AppModal';
 import { PrimaryButton } from '../../components/buttons/PrimaryButton';
@@ -25,7 +26,7 @@ export function OfficePaymentCertificateModal({receipt,language,onBack,onClose}:
       <SecondaryButton size="sm" icon={Download} disabled={busy} onClick={()=>void download()}>{label('Download PDF','পিডিএফ ডাউনলোড')}</SecondaryButton>
       <PrimaryButton size="sm" icon={Printer} onClick={()=>window.print()}>{label('Print certificate','সনদ প্রিন্ট')}</PrimaryButton></>}>
     {error&&<p role="alert" className="no-print">{label('Unable to download the certificate. Try again.','সনদ ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।')}</p>}
-    <div ref={paper} id="office-receipt-paper" className="receipt-view__paper receipt-view--embedded office-receipt-parity" lang={language}>
+    <div ref={paper} id="office-receipt-paper" className="receipt-view__paper receipt-view--embedded office-canonical-certificate" lang={language}>
       <PaymentCertificateDocument receipt={receipt} language={language}/>
     </div>
   </AppModal>;
