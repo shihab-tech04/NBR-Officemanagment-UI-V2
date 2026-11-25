@@ -23,7 +23,11 @@ describe("Office payment notice detail routing", () => {
     expect(module).toContain("setDetails({record:toStoryPaymentRow(match),title:t('transactions')})");
     expect(module).toContain("storyPayments.find(payment => payment.id === String(details?.record.payment_ref ?? ''))");
     expect(module).toContain("<OfficeTransactionDrawer");
-    expect(drawer).toContain("open={!!detailRow && !receipt}");
+    expect(drawer).toContain("open={!!detailRow && !receipt && !showCertificate}");
+    expect(drawer).toContain("rowData={receipt || showCertificate ? null : detailRow}");
+    expect(drawer).toContain("open={!!detailRow && receipt}");
+    expect(drawer).toContain("showCertificate&&certificate&&<OfficePaymentCertificateModal");
+    expect(drawer).toContain("certificateKey===currentCertificateKey");
     expect(drawer).toContain("<OfficeReceiptModal");
   });
 

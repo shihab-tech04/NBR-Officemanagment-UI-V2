@@ -1,0 +1,270 @@
+/**
+ * NBR Integrated Income Tax Payment Portal (TaxPay)
+ * Domain & Financial State Model Definitions
+ */
+
+export type Language = 'en' | 'bn';
+
+export type UserRole = 
+  | 'GUEST' 
+  | 'TAXPAYER_INDIVIDUAL' 
+  | 'TAXPAYER_CORPORATE' 
+  | 'WITHHOLDING_AGENT' 
+  | 'OFFICER_MAKER' 
+  | 'OFFICER_REVIEWER' 
+  | 'OFFICER_APPROVER' 
+  | 'COMMISSIONER_ADMIN';
+
+export type PaymentCategory =
+  | 'TAX_WITH_RETURN'      // S.173 ITA 2023
+  | 'ADVANCE_TAX'          // S.154/155 ITA 2023
+  | 'ASSESSED_DEMAND'      // S.214 Demand Notice
+  | 'PENALTY'              // S.266/267 Late filing / concealment
+  | 'SOURCE_TAX_DEPOSIT'   // Withholding TDS / TCS (Chapter VII)
+  | 'APPELLATE_TRIBUNAL'   // S.300 Dispute / appeal deposit
+  | 'OTHER_TAX_PAYMENT'    // Miscellaneous / Surcharge / Environment
+  | 'TRAVEL_TAX'
+  | 'GIFT_TAX';
+
+export interface MasterPaymentHead {
+  id: number;
+  economicCode: string;
+  nameEn: string;
+  nameBn: string;
+  category: PaymentCategory;
+  sectionAct2023: string;
+  sectionOrdinance1984: string;
+  isWithholding: boolean;
+  status: 'ACTIVE' | 'BLOCKED';
+  verificationStatus: 'SOURCE NOT IN INPUTS / LEGAL VALIDITY UNVERIFIED';
+  rateNote?: string;
+  blockedReason?: string;
+}
+
+export type TreasuryStatus = 
+  | 'INITIATED' 
+  | 'GATEWAY_PENDING' 
+  | 'GATEWAY_SUCCESS' 
+  | 'TREASURY_SCROLLED' 
+  | 'FAILED' 
+  | 'EXPIRED' 
+  | 'REVERSED';
+
+export type TaxCreditStatus = 
+  | 'NOT_APPLICABLE'          // e.g. Withholding deposit cannot credit agent directly
+  | 'PENDING_RECONCILIATION'  // Challan scrolled, waiting for tax ledger auto-posting
+  | 'CREDITED_TO_LEDGER'     // Officially booked as tax credit under taxpayer TIN
+  | 'CLAIMED_IN_RETURN'       // Claimed on e-Return filing
+  | 'DISPUTED';
+
+export interface TaxpayerProfile {
+  tin: string;
+  nid?: string;
+  bin?: string;
+  nameEn: string;
+  nameBn: string;
+  type: 'INDIVIDUAL' | 'COMPANY' | 'FIRM' | 'AOP';
+  taxZone: string;
+  taxCircle: string;
+  phone: string;
+  email: string;
+  address: string;
+  isWithholdingEntity: boolean;
+  representativeScope?: {
+    isAuthorized: boolean;
+    representativeName?: string;
+    representativeTin?: string;
+    mandateExpiryDate?: string;
+  };
+}
+
+export interface PaymentLineItem {
+  headId: number;
+  /** Original service category for this line inside a heterogeneous combined payment. */
+  serviceCode?: PaymentCategory;
+  /** The line's own withholding classification; a combined parent may contain both types. */
+  isWithholding?: boolean;
+  economicCode: string;
+  headNameEn: string;
+  taxAmount: number;
+  penaltyAmount: number;
+  surchargeAmount: number;
+  interestAmount: number;
+  totalAmount: number;
+  note?: string;
+}
+
+export interface ReceiptAllocationItem {
+  /** Stable original composer allocation ID for source/Office reconciliation. */
+  allocationId?: string;
+  taxpayerName: string;
+  taxpayerTin?: string;
+  paymentServiceEn: string;
+  paymentServiceBn: string;
+  assessmentYear: string;
+  amountMinor: number;
+  economicCode?: string;
+}
+
+export interface ChallanReceipt {
+  id: string;
+  taxEventId?: string;
+  paymentTransactionId?: string;
+  challanNo: string;
+  tokenNumber: string;
+  paymentCategory: PaymentCategory;
+  assessmentYear: string;
+  payerName: string;
+  payerTin: string;
+  /** Recipient name from the saved payment parent when available. */
+  taxpayerName?: string;
+  /** Account receiving the payment; never infer it from a guest payer. */
+  taxpayerTin?: string;
+  receiptMobile?: string;
+  /** Optional receipt contact, not a login or verified tax identity. */
+  receiptEmail?: string;
+  /** Travel Tax UX contract; no actual government passport/A-Challan verification. */
+  travelDetails?: {
+    mode: 'LAND' | 'WATER';
+    departurePort: string;
+    /** Historical fields remain optional for existing receipts, never required in the new UI. */
+    portNumber?: string;
+    destination: string;
+    travelDate: string;
+    organizationalCode?: string;
+    economicCode: string;
+    passengers: Array<{
+      name: string;
+      passportMasked: string;
+      nationality: 'BD' | 'FOREIGN';
+      country?: string;
+      ageBand: 'ADULT' | 'CHILD' | 'UNDER5';
+      /** Age is computed on the travel date from passport DOB or foreign manual DOB. */
+      age?: number;
+      amount: number;
+    }>;
+  };
+  giftDetails?: {donor:{tin:string;name:string};donee:{tin:string;name:string;tag:'clients'|'friends_family'|'others';relationship:string|null;otherLabel:string|null};giftAmountMinor:number;estimatedTaxMinor:number;giftDate:string;description:string;remarks:string};
+  noticeReference?: string;
+  /** Optional taxpayer-supplied parent-challan comments, distinct from NBR reference. */
+  paymentRemarks?: string;
+  isRepresentativePayment: boolean;
+  representativeTin?: string;
+  taxZone: string;
+  taxCircle: string;
+  isWithholding: boolean;
+  deducteeTin?: string; // If withholding deposit
+  deducteeName?: string;
+  items: PaymentLineItem[];
+  /** Reconciled SQL allocations for combined payments; absent when source rows do not reconcile. */
+  allocationItems?: ReceiptAllocationItem[];
+  /** Verified v5 allocation contract provenance; absent for legacy receipts. */
+  allocationContractVersion?: 5;
+  /** Independently verified SQL head rows for Pay Again when a historical receipt
+   * intentionally omits duplicate display items. Not displayed as another receipt. */
+  reusableAccountingLines?: PaymentLineItem[];
+  /** One immutable SQL payment item inside an optional multi-beneficiary batch. */
+  batchId?: string;
+  batchItemIndex?: number;
+  batchItemCount?: number;
+  totalAmount: number;
+  paymentMethod: 'BKASH' | 'NAGAD' | 'ROCKET' | 'SONALI_E_SHEBA' | 'A_CHALLAN_CARD' | 'BEFTN_RTGS' | 'INTERNET_BANKING' | 'VISA' | 'MASTERCARD' | 'BANK_BRANCH' | 'SIMULATED';
+  gatewayTransactionId: string;
+  treasuryScrollNo?: string;
+  treasuryDate?: string;
+  treasuryStatus: TreasuryStatus;
+  taxCreditStatus: TaxCreditStatus;
+  createdAt: string;
+  completedAt?: string;
+  isSimulatedDemo: true;
+}
+
+export interface TaxLedgerEntry {
+  id: string;
+  date: string;
+  assessmentYear: string;
+  challanNo: string;
+  category: PaymentCategory;
+  headCode: string;
+  headName: string;
+  debit: number;   // Tax liability/demand
+  credit: number;  // Paid/Adjusted tax credit
+  balance: number;
+  status: 'CONFIRMED' | 'PROVISIONAL' | 'REVERSED';
+  verifiedByNbr: boolean;
+}
+
+export interface CorrectionRequest {
+  id: string;
+  ticketNo: string;
+  challanNo: string;
+  taxpayerTin: string;
+  taxpayerName: string;
+  requestedBy: string;
+  requestDate: string;
+  currentAssessmentYear: string;
+  proposedAssessmentYear: string;
+  currentCircle: string;
+  proposedCircle: string;
+  currentHeadCode: string;
+  proposedHeadCode: string;
+  reason: string;
+  evidenceDocName?: string;
+  workflowStage: 'MAKER_SUBMITTED' | 'REVIEWER_CHECKED' | 'APPROVER_FINALIZED' | 'REJECTED';
+  makerRemarks?: string;
+  reviewerRemarks?: string;
+  approverRemarks?: string;
+  lastUpdated: string;
+}
+
+export interface CaseRecord {
+  caseId: string;
+  tin: string;
+  taxpayerName: string;
+  assessmentYear: string;
+  issue: string;
+  disputedAmount: number;
+  stage: 'SHOW_CAUSE' | 'ASSESSMENT_ORDER' | 'APPEAL_COMMISSIONER' | 'TRIBUNAL' | 'HIGH_COURT';
+  status: 'OPEN' | 'UNDER_REVIEW' | 'HEARING_SCHEDULED' | 'RESOLVED';
+  assignedOfficer: string;
+  openedDate: string;
+  dueDate: string;
+}
+
+export interface IncidentReport {
+  id: string;
+  incidentNumber: string;
+  reportDate: string;
+  reporterName: string;
+  reporterContact: string;
+  category: 'PAYMENT_DEBITED_NO_CHALLAN' | 'WRONG_TIN_ATTRIBUTION' | 'GATEWAY_TIMEOUT' | 'UNAUTHORIZED_SUBMISSION' | 'OTHER';
+  transactionReference: string;
+  amount: number;
+  gateway: string;
+  description: string;
+  status: 'SUBMITTED' | 'INVESTIGATING' | 'RECONCILED' | 'CLOSED';
+  officerFindings?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  actor: string;
+  actorRole: UserRole;
+  action: string;
+  targetId: string;
+  ipAddress: string;
+  details: string;
+  immutableHash: string;
+}
+
+export interface GatewayHealth {
+  id: string;
+  gatewayName: string;
+  status: 'OPTIMAL' | 'DEGRADED' | 'DOWN';
+  uptime24h: number;
+  avgLatencyMs: number;
+  successRate24h: number;
+  activeIncidents: number;
+  lastHeartbeat: string;
+}

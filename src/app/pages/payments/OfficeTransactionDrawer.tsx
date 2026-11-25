@@ -9,6 +9,8 @@ import type { StoryPayment } from './story1OfficeApi';
 import { getOfficePaymentItems, officeMoney, parseOfficeMoneyMinor, type OfficeReceiptInfo } from './officeTransactionDetails';
 import {verifiedGiftDetails} from './story1PaymentPresentation';
 import { OfficeReceiptModal } from './OfficeReceiptModal';
+import { OfficePaymentCertificateModal } from './OfficePaymentCertificateModal';
+import { officeCertificateReceipt } from './officeCertificateProjection';
 import { loadGuardedOfficeChallanRemarks, officeChallanRemarksRowValue, supportsOfficeChallanRemarks } from './officeChallanRemarks';
 
 type Props = { row: TableRow | null; source: StoryPayment | null; scopeTin?:string; scopeYear?:string; onClose: () => void };
@@ -19,6 +21,7 @@ const display = (value: unknown) => typeof value === 'string' && value.trim() ? 
 export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onClose }: Props) {
   const { t, i18n } = useTranslation('payment');
   const [receipt, setReceipt] = useState(false);
+  const [certificateKey,setCertificateKey]=useState<string|null>(null);
   const remarksRequestVersion = useRef(0);
   const [guardedRemarks, setGuardedRemarks] = useState<{
     paymentId: string; status: 'idle' | 'loading' | 'ready' | 'error'; text: string | null
@@ -30,7 +33,7 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const receiptReference=source?.details?.receiptReference?.trim()||'';
   const gift=source&&row?.payment_ref===source.id?verifiedGiftDetails(source):null;
   const certificateReference=source?.service==='GIFT_TAX'?'':source?.certificateReference?.trim()||'';
-  useEffect(() => { setReceipt(false); }, [ref]);
+  useEffect(() => { setReceipt(false); setCertificateKey(null); }, [ref,scopeTin,scopeYear]);
   // Never attach a guarded source read to a different selected table row.
   const isChallanPayment = row?.payment_ref === source?.id &&
     supportsOfficeChallanRemarks(source?.service);
@@ -74,6 +77,9 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   const itemTotalCorrect = !scopeTin || (items.length>0 && Number.isSafeInteger(scopedMinor) &&
     Number.isSafeInteger(sourceAmountMinor) && scopedMinor===sourceAmountMinor);
   const receiptItems = itemTotalCorrect ? items : [];
+  const certificate=useMemo(()=>officeCertificateReceipt(source,row?.payment_ref,row?.amount,scopeTin,scopeYear),[source,row?.payment_ref,row?.amount,scopeTin,scopeYear]);
+  const currentCertificateKey=JSON.stringify([ref,scopeTin,scopeYear]);
+  const showCertificate=!!certificate&&certificateKey===currentCertificateKey;
   const info: OfficeReceiptInfo = {
     reference: ref, date: display(row?.date), payer: display(row?.payer_name),
     taxpayer: display(row?.taxpayer_name), service: display(row?.payment_type),
@@ -194,10 +200,10 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
   return (
     <>
       <DynamicDetailsDrawer
-        open={!!detailRow && !receipt}
+        open={!!detailRow && !receipt && !showCertificate}
         onClose={onClose}
         title={label('Record Details','রেকর্ডের বিবরণ')}
-        rowData={receipt ? null : detailRow}
+        rowData={receipt || showCertificate ? null : detailRow}
         columns={[
           { key:'taxpayer_name',label:t('colTaxpayer'),groupLabel:'' },
           { key:'status',label:label('Payment status','পেমেন্টের অবস্থা'),groupLabel:'' },
@@ -208,12 +214,13 @@ export function OfficeTransactionDrawer({ row, source, scopeTin, scopeYear, onCl
         showActions={false}
         renderValue={renderValue}
         extraFooterActions={itemTotalCorrect
-          ? <PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
+          ? <><PrimaryButton size="sm" icon={FileText} onClick={() => setReceipt(true)}>
               {label('View receipt','রসিদ দেখুন')}
-            </PrimaryButton>
+            </PrimaryButton>{certificate&&<SecondaryButton size="sm" icon={FileText} onClick={()=>setCertificateKey(currentCertificateKey)}>{label('View payment certificate','পেমেন্ট সনদ দেখুন')}</SecondaryButton>}</>
           : <p role="alert" className="text-sm text-red-700">{label(
               'Payment allocation mismatch — receipt unavailable','পেমেন্টের বরাদ্দ মেলেনি — রসিদ অনুপলব্ধ')}</p>}
       />
+      {showCertificate&&certificate&&<OfficePaymentCertificateModal key={currentCertificateKey} receipt={certificate} language={bn?'bn':'en'} onBack={()=>setCertificateKey(null)} onClose={()=>{setCertificateKey(null);onClose();}}/>}
       <OfficeReceiptModal
         open={!!detailRow && receipt}
         info={info}
