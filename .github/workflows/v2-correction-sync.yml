@@ -8,6 +8,8 @@ on:
       - 'tests/integration/officeHistoricalCorrection.sql'
       - 'supabase/migrations/20261125193354_office_recipient_report_intake.sql'
       - 'tests/integration/officeRecipientReportCandidate.sql'
+      - 'supabase/migrations/20261125205132_office_recipient_immediate_dual_source.sql'
+      - 'tests/integration/officeRecipientImmediateIntakeCandidate.sql'
       - 'supabase/functions/payment-sync-bridge/index.ts'
       - 'supabase/functions/payment-command-bridge/index.ts'
       - 'tests/integration/officeCorrectionV2Sync.sql'
@@ -20,6 +22,8 @@ on:
       - 'tests/integration/officeHistoricalCorrection.sql'
       - 'supabase/migrations/20261125193354_office_recipient_report_intake.sql'
       - 'tests/integration/officeRecipientReportCandidate.sql'
+      - 'supabase/migrations/20261125205132_office_recipient_immediate_dual_source.sql'
+      - 'tests/integration/officeRecipientImmediateIntakeCandidate.sql'
       - 'supabase/functions/payment-sync-bridge/index.ts'
       - 'supabase/functions/payment-command-bridge/index.ts'
       - 'tests/integration/officeCorrectionV2Sync.sql'
@@ -76,7 +80,7 @@ jobs:
           psql -X -At -v ON_ERROR_STOP=1 -c "select pg_get_functiondef('public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure)" > /tmp/office-v7-before.sql
           echo ';' >> /tmp/office-v7-before.sql
           psql -X -At -v ON_ERROR_STOP=1 -c "select proacl::text,proowner from pg_proc where oid='public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure" > /tmp/office-v7-before-acl.txt
-          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidateMigration.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125205132_office_recipient_immediate_dual_source.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidate.sql
           psql -X -v ON_ERROR_STOP=1 -f /tmp/office-v7-before.sql
           psql -X -v ON_ERROR_STOP=1 -c "alter table payment_sync.demo_correction_sources drop constraint demo_correction_sources_source_project_check; alter table payment_sync.demo_correction_sources add constraint demo_correction_sources_source_project_check check(source_project='v2');"
@@ -85,5 +89,5 @@ jobs:
           cmp /tmp/office-v7-before.sql /tmp/office-v7-after.sql
           psql -X -At -v ON_ERROR_STOP=1 -c "select proacl::text,proowner from pg_proc where oid='public.payment_v1_internal_ingest_demo_correction(jsonb)'::regprocedure" > /tmp/office-v7-after-acl.txt
           cmp /tmp/office-v7-before-acl.txt /tmp/office-v7-after-acl.txt
-          psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidateMigration.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125205132_office_recipient_immediate_dual_source.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration/officeRecipientImmediateIntakeCandidate.sql
