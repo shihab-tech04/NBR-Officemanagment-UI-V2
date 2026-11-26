@@ -35,11 +35,14 @@
   "officeCorrectionRole": "আপনার অফিস পর্যালোচনা ভূমিকা",
   "officeCorrectionItems": "টি অনুসন্ধান",
   "officeCorrectionRoleNames": {
+    "SUPER_ADMIN": "সুপার অ্যাডমিন",
     "MAKER": "মেকার",
     "REVIEWER": "রিভিউয়ার",
     "APPROVER": "অনুমোদনকারী"
   },
   "officeCorrectionState": {
+    "APPROVED": "অনুমোদিত",
+    "PENDING": "অপেক্ষমাণ",
     "PENDING_OFFICER": "মেকারের অপেক্ষায়",
     "MAKER_ACKNOWLEDGED": "মেকার গ্রহণ করেছেন",
     "REVIEWER_VERIFIED": "রিভিউয়ার যাচাই করেছেন",
@@ -47,10 +50,11 @@
     "REJECTED": "প্রত্যাখ্যাত"
   },
   "officeCorrectionAction": {
+    "APPROVE": "অনুমোদন করুন",
     "MAKER_ACKNOWLEDGE": "অনুসন্ধান গ্রহণ করুন",
     "REVIEWER_VERIFY": "অনুসন্ধান যাচাই করুন",
     "APPROVER_CLOSE": "পর্যালোচনা বন্ধ করুন",
-    "REJECT": "অনুসন্ধান প্রত্যাখ্যান করুন"
+    "REJECT": "প্রত্যাখ্যান করুন"
   },
   "officeCorrectionDecisionTitle": "অফিস সংশোধন সিদ্ধান্ত নথিভুক্ত করুন",
   "officeCorrectionDecisionHelp": "সিদ্ধান্তটি SQL নিশ্চিতকরণের জন্য TaxPay-এ পাঠানো হবে। এটি পর্যালোচনার ফল নথিভুক্ত করে, কোনো আর্থিক রেকর্ড পরিবর্তন করে না।",
@@ -248,5 +252,15 @@
   "taxPositionNotVerified": "যাচাইকৃত করদায় ও ক্রেডিট লেজার সংযুক্ত না হওয়ায় করের অবস্থান গণনা করা যাচ্ছে না। এটি শূন্য বকেয়া বোঝায় না।",
   "ledgerNotVerified": "যাচাইকৃত কর লেজার সংযুক্ত নেই। নমুনা লেনদেন দেখতে পেমেন্ট বিভাগে যান; এগুলো কর ক্রেডিট নয়।",
   "search_taxpayers": "নাম বা টিআইএন দিয়ে করদাতা খুঁজুন",
-  "correctionsNotVerified": "এই করদাতার সঙ্গে যুক্ত যাচাইকৃত সংশোধন আবেদন এখনো নেই। অন্য প্রোফাইলের নমুনা আবেদন এখানে দেখানো হয় না।"
+  "correctionsNotVerified": "এই করদাতার সঙ্গে যুক্ত যাচাইকৃত সংশোধন আবেদন এখনো নেই। অন্য প্রোফাইলের নমুনা আবেদন এখানে দেখানো হয় না।",
+  "typedCorrectionTarget": "নির্দিষ্ট পেমেন্ট বরাদ্দ",
+  "typedCurrentAY": "বর্তমান করবর্ষ",
+  "typedProposedAY": "সংশোধিত করবর্ষ",
+  "typedCurrentCircle": "বর্তমান কর সার্কেল",
+  "typedProposedCircle": "সংশোধিত কর সার্কেল",
+  "typedCurrentHead": "বর্তমান কর খাতের কোড",
+  "typedProposedHead": "সংশোধিত কর খাতের কোড",
+  "typedCorrectionHelp": "সঠিক রেকর্ডকৃত বরাদ্দ নির্বাচন করে অনুমোদিত সংশোধিত তথ্য দিন। মূল পেমেন্ট ও চালান অপরিবর্তিত থাকবে।",
+  "typedCorrectionInvalid": "সঠিক পেমেন্ট বরাদ্দ নির্বাচন করে বৈধ পরিবর্তিত তথ্য দিন।",
+  "typedCorrectionQueued": "সংশোধন অফিস SQL-এ সংরক্ষিত হয়েছে। মূল করদাতা উৎসের নিশ্চিতকরণ না পাওয়া পর্যন্ত প্রয়োগ অপেক্ষমাণ থাকবে।"
 }

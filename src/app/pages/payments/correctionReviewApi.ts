@@ -1,15 +1,23 @@
 import { getAuditSqlClient, isSharedAuditMode } from "../audit/auditSharedSql";
+import { getOfficeCmsAuthClient, isVerifiedOfficeCmsPublisher } from "../../services/officeCmsBridge";
+
+import {validateTypedOfficeCorrection,type TypedOfficeCorrection} from './officeTypedCorrection';
+
+// Existing verified Office admin session; the server independently authorizes every RPC.
+// Legacy shared-Audit responses remain readable during the coordinated SQL cutover.
+export type CorrectionActorRole = "SUPER_ADMIN" | "MAKER" | "REVIEWER" | "APPROVER";
 
 export type CorrectionReviewAction =
   | "MAKER_ACKNOWLEDGE"
   | "REVIEWER_VERIFY"
   | "APPROVER_CLOSE"
+  | "APPROVE"
   | "REJECT";
 
 export type OfficeCorrectionDecisionEvent = {
   messageId: string;
   action: CorrectionReviewAction;
-  role: "MAKER" | "REVIEWER" | "APPROVER";
+  role: CorrectionActorRole;
   occurredAt: string;
   deliveryState: "ACKNOWLEDGED";
   /** Present for newer authorized Office SQL audit projections; older rows remain readable. */
@@ -49,12 +57,12 @@ export type OfficeCorrectionInquiry = {
 
 export type OfficeCorrectionQueue = {
   enabled: boolean;
-  role: "MAKER" | "REVIEWER" | "APPROVER" | null;
+  role: CorrectionActorRole | null;
   items: OfficeCorrectionInquiry[];
 };
 
 const validActions = new Set<CorrectionReviewAction>([
-  "MAKER_ACKNOWLEDGE", "REVIEWER_VERIFY", "APPROVER_CLOSE", "REJECT",
+  "MAKER_ACKNOWLEDGE", "REVIEWER_VERIFY", "APPROVER_CLOSE", "APPROVE", "REJECT",
 ]);
 
 type CorrectionQueueCursor = { receivedAt: string; requestId: string };
@@ -68,7 +76,7 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
   if (!value || typeof value !== "object") throw new Error("Invalid correction review response");
   const response = value as Record<string, unknown>;
   if (!Array.isArray(response.items) ||
-      !["MAKER", "REVIEWER", "APPROVER"].includes(String(response.role)) ||
+      !["SUPER_ADMIN", "MAKER", "REVIEWER", "APPROVER"].includes(String(response.role)) ||
       !Object.prototype.hasOwnProperty.call(response, "nextCursor")) {
     throw new Error("Invalid correction review queue page");
   }
@@ -143,7 +151,7 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
       if (typeof decision.messageId !== "string" ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decision.messageId) ||
           typeof decision.action !== "string" || !validActions.has(decision.action as CorrectionReviewAction) ||
-          !["MAKER", "REVIEWER", "APPROVER"].includes(String(decision.role)) ||
+          !["SUPER_ADMIN", "MAKER", "REVIEWER", "APPROVER"].includes(String(decision.role)) ||
           typeof decision.occurredAt !== "string" || !Number.isFinite(Date.parse(decision.occurredAt)) ||
           decision.deliveryState !== "ACKNOWLEDGED") {
         throw new Error("Invalid or unacknowledged correction decision event");
@@ -169,6 +177,10 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
     });
     const actions = row.availableActions.filter((action): action is CorrectionReviewAction =>
       typeof action === "string" && validActions.has(action as CorrectionReviewAction));
+    // Direct-admin actions must come from the verified server queue, never client inference.
+    if (response.role === "SUPER_ADMIN" && actions.some(action => action !== "APPROVE" && action !== "REJECT")) {
+      throw new Error("Unexpected legacy action in the Super Admin correction queue");
+    }
     if (actions.length !== row.availableActions.length) {
       throw new Error("Unsupported correction review action");
     }
@@ -203,6 +215,10 @@ function asCorrectionQueuePage(value: unknown): CorrectionQueuePage {
 }
 
 async function authenticatedClient() {
+  if (!isSharedAuditMode()) {
+    if (!(await isVerifiedOfficeCmsPublisher())) throw new Error("Verified Office Super Admin sign-in is required");
+    return getOfficeCmsAuthClient();
+  }
   const db = getAuditSqlClient();
   const { data, error } = await db.auth.getUser();
   if (error || !data.user || data.user.is_anonymous) {
@@ -212,7 +228,8 @@ async function authenticatedClient() {
 }
 
 export async function listOfficeCorrectionInquiries(): Promise<OfficeCorrectionQueue> {
-  if (!isSharedAuditMode()) return { enabled: false, role: null, items: [] };
+  const legacySharedMode = isSharedAuditMode();
+  if (!legacySharedMode && !(await isVerifiedOfficeCmsPublisher())) return { enabled: false, role: null, items: [] };
   const db = await authenticatedClient();
   const pageSize = 200;
   const maxPages = 2000;
@@ -229,6 +246,9 @@ export async function listOfficeCorrectionInquiries(): Promise<OfficeCorrectionQ
     });
     if (error) throw new Error(`Office correction queue failed: ${error.message}`);
     const page = asCorrectionQueuePage(data);
+    if (!legacySharedMode && page.role !== "SUPER_ADMIN") {
+      throw new Error("The correction service has not confirmed Super Admin access");
+    }
     if (role !== null && role !== page.role) {
       throw new Error("Office correction role changed during history pagination; retry");
     }
@@ -257,7 +277,9 @@ export async function submitOfficeCorrectionDecision(
   reason: string,
   idempotencyKey: string,
 ): Promise<{ messageId: string; queued: boolean; replayed: boolean }> {
-  if (!isSharedAuditMode()) throw new Error("Shared Office correction review is not enabled");
+  if (!isSharedAuditMode() && action !== "APPROVE" && action !== "REJECT") {
+    throw new Error("Super Admin correction decisions must be Approve or Reject");
+  }
   const db = await authenticatedClient();
   const { data, error } = await db.rpc("payment_v1_correction_officer_action", {
     p_request_id: requestId,
@@ -284,6 +306,8 @@ export type OfficeInitiatedCorrection = Readonly<{
   reason:string; requestedOutcome:string; evidenceNote:string; officerRole:string;
   createdAt:string; deliveryState:string; sourceConfirmed:boolean;
   sourceReviewState:string|null;
+  typedCorrection?:TypedOfficeCorrection|null;
+  sourceAppliedCorrection?:{assessmentYear:string;circle:string;headCode:string;paymentId:string;decisionMessageId:string;sourceProject:string;allocationIndex:number|null;allocationId:string|null}|null;
 }>;
 
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -291,8 +315,8 @@ const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 export async function submitOfficeInitiatedCorrection(input:Readonly<{
   paymentId:string;taxpayerTin:string;originalReference:string;
   reason:string;requestedOutcome:string;evidenceNote:string;idempotencyKey:string;
+  correction?:TypedOfficeCorrection;
 }>):Promise<{caseId:string;queued:true;replayed:boolean}> {
-  if(!isSharedAuditMode())throw Error('Office correction SQL is unavailable');
   const db=await authenticatedClient();
   if(!uuidPattern.test(input.paymentId)||!uuidPattern.test(input.idempotencyKey)||
       !/^\d{12,13}$/.test(input.taxpayerTin)||
@@ -301,11 +325,13 @@ export async function submitOfficeInitiatedCorrection(input:Readonly<{
       input.requestedOutcome.trim().length<10||input.requestedOutcome.trim().length>600||
       input.evidenceNote.trim().length<10||input.evidenceNote.length>2000)
     throw Error('Complete a verified payment reference, taxpayer, reason, outcome and evidence.');
+  if(input.correction&&!validateTypedOfficeCorrection(input.correction))throw Error('Invalid or unchanged typed correction values.');
   const {data,error}=await db.rpc('payment_v1_office_initiate_correction',{
     p_payment_id:input.paymentId,p_taxpayer_tin:input.taxpayerTin,
     p_original_reference:input.originalReference,p_reason:input.reason,
     p_requested_outcome:input.requestedOutcome,p_evidence_note:input.evidenceNote,
     p_idempotency_key:input.idempotencyKey,
+    ...(input.correction?{p_correction:input.correction}:{}),
   });
   if(error)throw Error(`Office correction initiation failed: ${error.message}`);
   if(!data||!uuidPattern.test(String(data.caseId??''))||data.queued!==true)
@@ -314,7 +340,7 @@ export async function submitOfficeInitiatedCorrection(input:Readonly<{
 }
 
 export async function listOfficeInitiatedCorrections():Promise<OfficeInitiatedCorrection[]> {
-  if(!isSharedAuditMode())return [];
+  if(!isSharedAuditMode() && !(await isVerifiedOfficeCmsPublisher()))return [];
   const db=await authenticatedClient();
   const {data,error}=await db.rpc('payment_v1_office_initiated_correction_history',{p_limit:100});
   if(error)throw Error(`Office initiation history failed: ${error.message}`);
@@ -327,12 +353,21 @@ export async function listOfficeInitiatedCorrections():Promise<OfficeInitiatedCo
        typeof item.evidenceNote!=='string'||typeof item.createdAt!=='string'||
        typeof item.deliveryState!=='string'||typeof item.sourceConfirmed!=='boolean')
       throw Error('Invalid Office initiated correction history item');
+    const typed=item.typedCorrection as TypedOfficeCorrection|null|undefined;
+    const applied=item.sourceAppliedCorrection as OfficeInitiatedCorrection['sourceAppliedCorrection'];
+    if(typed&&!validateTypedOfficeCorrection(typed))throw Error('Invalid typed correction history');
+    if(applied&&(!typed||item.sourceConfirmed!==true||item.deliveryState!=='ACKNOWLEDGED'||item.sourceReviewState!=='APPROVED'||
+      applied.paymentId!==item.sourcePaymentId||applied.decisionMessageId!==item.caseId||applied.sourceProject!=='v2'||
+      applied.allocationIndex!==typed.allocationIndex||applied.allocationId!==typed.allocationId||
+      applied.assessmentYear!==typed.proposedAY||applied.circle!==typed.proposedCircle||applied.headCode!==typed.proposedHeadCode))throw Error('Invalid typed correction applied history');
+    if(typed&&item.sourceConfirmed===true&&!applied)throw Error('Missing source applied correction');
     return {caseId:item.caseId as string,sourcePaymentId:item.sourcePaymentId as string,
       originalReference:item.originalReference, taxpayerTin:item.taxpayerTin,
       reason:item.reason,requestedOutcome:item.requestedOutcome,evidenceNote:item.evidenceNote,
       officerRole:String(item.officerRole??''),createdAt:item.createdAt,
       deliveryState:item.deliveryState,sourceConfirmed:item.sourceConfirmed,
       sourceReviewState:typeof item.sourceReviewState==='string'?item.sourceReviewState:null,
+      typedCorrection:typed??null,sourceAppliedCorrection:applied??null,
     } as OfficeInitiatedCorrection;
   });
 }

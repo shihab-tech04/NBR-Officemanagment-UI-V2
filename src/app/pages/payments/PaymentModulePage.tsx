@@ -51,6 +51,9 @@ import {
   type OfficeCorrectionQueue,
 } from './correctionReviewApi';
 
+import {officeCorrectionTargets,validateTypedOfficeCorrection,type TypedOfficeCorrection} from './officeTypedCorrection';
+import {officeProposalOptions} from './officeCorrectionCatalogue';
+
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
 const demoProfiles = demoUserIds.map((id,index)=>({
@@ -289,8 +292,15 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const [draftKind,setDraftKind] = useState<DraftKind | null>(null);
   const [draft,setDraft] = useState(firstDraft);
   const [draftPreview,setDraftPreview] = useState(false);
+  const [typedTargetKey,setTypedTargetKey]=useState('');
+  const [typedProposal,setTypedProposal]=useState({proposedAY:'',proposedCircle:'',proposedHeadCode:''});
+  const typedTargets=officeCorrectionTargets(storyPayments,draft.tin.trim(),draft.reference.trim());
+  const typedTarget=typedTargets.find(target=>target.key===typedTargetKey);
+  const typedCorrection:TypedOfficeCorrection|null=typedTarget?{allocationIndex:typedTarget.allocationIndex,allocationId:typedTarget.allocationId,currentAY:typedTarget.currentAY,currentCircle:typedTarget.currentCircle,currentHeadCode:typedTarget.currentHeadCode,...typedProposal}:null;
+  const isDirectCorrection=draftKind==='corrections'&&officeCorrectionQueue.role==='SUPER_ADMIN';
   const [formError,setFormError] = useState('');
   const [errors,setErrors] = useState<Record<string,string>>({});
+  const chooseTypedTarget=(key:string)=>{const target=typedTargets.find(item=>item.key===key);setTypedTargetKey(key);setTypedProposal({proposedAY:target?.currentAY??'',proposedCircle:target?.currentCircle??'',proposedHeadCode:target?.currentHeadCode??''});setDraftPreview(false);setFormError('');};
   useEffect(()=>{
     let active=true;
     const sync=async()=>{
@@ -362,8 +372,8 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   const correctionActionLabel=(action:CorrectionReviewAction)=>
     t(`officeCorrectionAction.${action}`,{defaultValue:action.replace(/_/g,' ')});
 
-  const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});setInitiationIdempotencyKey(crypto.randomUUID());setInitiationStatus('');};
-  const change=(key:keyof typeof firstDraft,value:string)=>{setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
+  const openDraft=(kind:DraftKind)=>{setDraftKind(kind);setDraft(firstDraft);setDraftPreview(false);setFormError('');setErrors({});setInitiationIdempotencyKey(crypto.randomUUID());setInitiationStatus('');setTypedTargetKey('');setTypedProposal({proposedAY:'',proposedCircle:'',proposedHeadCode:''});};
+  const change=(key:keyof typeof firstDraft,value:string)=>{if(key==='tin'||key==='reference'){setTypedTargetKey('');setTypedProposal({proposedAY:'',proposedCircle:'',proposedHeadCode:''});}setDraft(s=>({...s,[key]:value}));setDraftPreview(false);setFormError('');setErrors(s=>({...s,[key]:''}));};
   const previewDraft=()=>{
     const required = draftKind === 'offline-events'
       ? ['tin','type','ay','component','amount','reference','source','reason','evidence']
@@ -379,14 +389,15 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     }
     if(draftKind==='offline-events' && draft.type==='LIABILITY_REDUCED' && !draft.reduces)next.reduces=t('required');
     if(draftKind==='offline-events' && (!Number.isFinite(Number(draft.amount)) || Number(draft.amount)<=0))next.amount=t('amountError');
+    if(isDirectCorrection&&(!typedCorrection||!validateTypedOfficeCorrection(typedCorrection))){setErrors(next);setFormError(t('typedCorrectionInvalid'));return;}
     setErrors(next);
     if(Object.keys(next).length){setFormError(t('required'));return;}
     setFormError('');setDraftPreview(true);
   };
   const submitInitiatedCorrection=async()=>{
     if(draftKind!=='corrections'||!draftPreview||initiationSubmitting)return;
-    if(officeCorrectionQueue.role!=='MAKER'&&officeCorrectionQueue.role!=='APPROVER'){
-      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'অনুমোদিত মেকার বা অ্যাপ্রুভার ভূমিকা প্রয়োজন।':'An active Maker or Approver role is required.');return;
+    if(officeCorrectionQueue.role!=='SUPER_ADMIN'&&officeCorrectionQueue.role!=='MAKER'&&officeCorrectionQueue.role!=='APPROVER'){
+      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'অনুমোদিত সুপার অ্যাডমিন সেশন প্রয়োজন।':'A verified Super Admin correction session is required.');return;
     }
     const ref=draft.reference.trim(), tin=draft.tin.trim();
     const payments=storyPayments.filter(payment=>
@@ -402,14 +413,16 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
        draft.evidence.trim().length<10||draft.evidence.length>2000){
       setFormError(i18n.resolvedLanguage?.startsWith('bn')?'কারণ, প্রত্যাশিত ফলাফল এবং প্রমাণের বিবরণ পূরণ করুন।':'Complete reason, requested outcome and evidence within the supported limits.');return;
     }
+    if(officeCorrectionQueue.role==='SUPER_ADMIN'&&(!typedTarget||!typedCorrection||typedTarget.paymentId!==payments[0].id||!validateTypedOfficeCorrection(typedCorrection))){setFormError(t('typedCorrectionInvalid'));return;}
     setInitiationSubmitting(true);setFormError('');
     try{
       await submitOfficeInitiatedCorrection({
         paymentId:payments[0].id,taxpayerTin:tin,originalReference:ref,
         reason:draft.reason,requestedOutcome:draft.outcome,
         evidenceNote:draft.evidence,idempotencyKey:initiationIdempotencyKey,
+        ...(officeCorrectionQueue.role==='SUPER_ADMIN'&&typedCorrection?{correction:typedCorrection}:{}),
       });
-      setInitiationStatus(i18n.resolvedLanguage?.startsWith('bn')
+      setInitiationStatus(officeCorrectionQueue.role==='SUPER_ADMIN'?t('typedCorrectionQueued'):i18n.resolvedLanguage?.startsWith('bn')
         ?'অনুরোধটি Office SQL-এ সংরক্ষিত হয়েছে। মূল করদাতা ডাটাবেসের যাচাই ও সংশ্লিষ্ট করদাতার নিশ্চিতকরণ অপেক্ষমাণ।'
         :'Office correction queued. Original Taxpayer SQL verification and account claim are pending.');
       setDraftKind(null);setDraftPreview(false);setCorrectionRefreshKey(v=>v+1);
@@ -586,16 +599,17 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   // Never interleave illustrative cases with an operational correction queue.
   const correctionCaseIds=new Set(caseCategories.corrections.map(item=>item.requestId));
   const reportCaseIds=new Set(caseCategories.reports.map(item=>item.requestId));
-  const pendingInitiationRows:TableRow[]=officeInitiated.filter(item=>!item.sourceConfirmed).map(item=>({
+  const pendingInitiationRows:TableRow[]=officeInitiated.filter(item=>!item.sourceConfirmed||(item.sourceAppliedCorrection&&!correctionCaseIds.has(item.caseId))).map(item=>({
     key:'office-initiation:'+item.caseId,id:'COR-'+item.caseId.slice(0,8).toUpperCase(),
     taxpayer:item.originalReference,reference:item.originalReference,
     reason:item.reason,requested_outcome:item.requestedOutcome,
     evidence:item.evidenceNote,amount:'—',
-    stage:item.deliveryState,status:item.deliveryState==='ACKNOWLEDGED'
+    stage:item.sourceAppliedCorrection?'APPROVED':item.deliveryState,status:item.sourceAppliedCorrection?t('officeCorrectionReviewState.APPROVED',{defaultValue:'Approved'}):item.deliveryState==='ACKNOWLEDGED'
       ?(i18n.resolvedLanguage?.startsWith('bn')?'করদাতার নিশ্চিতকরণের অপেক্ষায়':'Awaiting taxpayer claim')
       :(i18n.resolvedLanguage?.startsWith('bn')?'Taxpayer SQL সিঙ্ক অপেক্ষমাণ':'Taxpayer SQL synchronization pending'),
     source_payment_id:item.sourcePaymentId,
     created_at:item.createdAt,initiated_by_role:item.officerRole,
+    ...(item.sourceAppliedCorrection?{assessment_year:item.sourceAppliedCorrection.assessmentYear,tax_circle:item.sourceAppliedCorrection.circle,tax_head:item.sourceAppliedCorrection.headCode,allocation_id:item.sourceAppliedCorrection.allocationId??'—'}:{}),
   }));
   const correctionReviewRows=[...localRecords.corrections,...pendingInitiationRows,
     ...officeCorrectionRows.filter(row=>correctionCaseIds.has(String(row.__correctionInquiryId)))];
@@ -889,7 +903,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
       extraFooterActions={selectedCorrectionId&&selectedCorrectionActions.length>0?<div className="flex flex-wrap gap-2">
         {selectedCorrectionActions.map(action=>{
-          const startReview=action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
+          const startReview=action==='APPROVE'||action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
           const onClick=()=>{setCorrectionDecision({requestId:selectedCorrectionId,action});setCorrectionDecisionReason('');setCorrectionDecisionError('');};
           return startReview
             ?<PrimaryButton key={action} size="sm" onClick={onClick}>{correctionActionLabel(action)}</PrimaryButton>
@@ -922,7 +936,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" disabled={initiationSubmitting} onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" disabled={initiationSubmitting} onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton>
        {draftKind==='corrections'&&draftPreview&&officeCorrectionQueue.enabled&&
-        (officeCorrectionQueue.role==='MAKER'||officeCorrectionQueue.role==='APPROVER')&&
+        (officeCorrectionQueue.role==='SUPER_ADMIN'||officeCorrectionQueue.role==='MAKER'||officeCorrectionQueue.role==='APPROVER')&&
         <PrimaryButton size="sm" disabled={initiationSubmitting} onClick={()=>void submitInitiatedCorrection()}>
          {i18n.resolvedLanguage?.startsWith('bn')?'SQL-এ সংশোধনের আবেদন পাঠান':'Submit correction to Taxpayer SQL'}
         </PrimaryButton>}</>}>
@@ -949,10 +963,22 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
           <AppTextField id="payment-draft-amount" label={t('amount')} value={draft.amount} onChange={v=>change('amount',v)} error={errors.amount} inputMode="decimal" required/>
         </>}
         {draftKind!=='incidents'&&<AppTextField id="payment-draft-reference" label={t('reference')} value={draft.reference} onChange={v=>change('reference',v)} error={errors.reference} required/>}
+        {isDirectCorrection&&<>
+          <AppSelectField id="payment-correction-allocation" label={t('typedCorrectionTarget')} value={typedTargetKey} onChange={chooseTypedTarget} required disabled={draftPreview||initiationSubmitting} options={[{value:'',label:t('select')},...typedTargets.map(target=>({value:target.key,label:[target.allocationId??target.reference,target.currentAY,target.currentHeadCode].filter(Boolean).join(' · ')}))]}/>
+          {typedTarget&&([
+            ['currentAY','proposedAY','typedCurrentAY','typedProposedAY'],
+            ['currentCircle','proposedCircle','typedCurrentCircle','typedProposedCircle'],
+            ['currentHeadCode','proposedHeadCode','typedCurrentHead','typedProposedHead'],
+          ] as const).map(([currentKey,proposedKey,currentLabel,proposedLabel])=><div key={proposedKey} className="payment-module__full">
+            <AppTextField id={'payment-correction-'+currentKey} label={t(currentLabel)} value={typedTarget[currentKey]} onChange={()=>{}} readOnly/>
+            {proposedKey==='proposedCircle'?<AppTextField id={'payment-correction-'+proposedKey} label={t(proposedLabel)} value={typedProposal[proposedKey]} onChange={value=>{setTypedProposal(old=>({...old,[proposedKey]:value}));setDraftPreview(false);setFormError('');}} readOnly={draftPreview||initiationSubmitting} maxLength={120}/>:<AppSelectField id={'payment-correction-'+proposedKey} label={t(proposedLabel)} value={typedProposal[proposedKey]} onChange={value=>{setTypedProposal(old=>({...old,[proposedKey]:value}));setDraftPreview(false);setFormError('');}} disabled={draftPreview||initiationSubmitting} options={officeProposalOptions(typedTarget[currentKey],proposedKey==='proposedAY'?'year':'head',!!i18n.resolvedLanguage?.startsWith('bn'))}/>} 
+          </div>)}
+          <p className="payment-module__note payment-module__full">{t('typedCorrectionHelp')}</p>
+        </>}
         {draftKind==='corrections'&&<AppTextArea id="payment-draft-outcome"
           label={i18n.resolvedLanguage?.startsWith('bn')?'প্রত্যাশিত ফলাফল':'Requested outcome'}
           value={draft.outcome} onChange={v=>change('outcome',v)} error={errors.outcome} required/>}
-        {draftKind==='corrections'&&<p className="payment-module__note payment-module__full">
+        {draftKind==='corrections'&&!isDirectCorrection&&<p className="payment-module__note payment-module__full">
           {i18n.resolvedLanguage?.startsWith('bn')
             ?'SQL-এ পাঠাতে মূল পেমেন্টে থাকা রেফারেন্স ও করদাতার TIN ব্যবহার করুন। অনুমোদন নয়, শুধুই পর্যালোচনার আবেদন।'
             :'SQL submission requires a connected original payment, its reference and taxpayer TIN. It requests review only, not a financial change.'}

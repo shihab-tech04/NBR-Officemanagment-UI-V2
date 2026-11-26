@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAuditSqlClient, isSharedAuditMode } from "../../audit/auditSharedSql";
+import { getOfficeCmsAuthClient, isVerifiedOfficeCmsPublisher } from "../../../services/officeCmsBridge";
+
+vi.mock("../../../services/officeCmsBridge", () => ({
+  getOfficeCmsAuthClient: vi.fn(),
+  isVerifiedOfficeCmsPublisher: vi.fn().mockResolvedValue(false),
+}));
 import { listOfficeCorrectionInquiries, submitOfficeCorrectionDecision, submitOfficeInitiatedCorrection, listOfficeInitiatedCorrections } from "../correctionReviewApi";
 
 vi.mock("../../audit/auditSharedSql", () => ({
@@ -47,7 +53,10 @@ function setupClient(rpcResults: RpcResult[] = [{
   return client;
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(isVerifiedOfficeCmsPublisher).mockResolvedValue(false);
+});
 
 describe("Office correction review SQL adapter", () => {
   it("stays disabled outside the existing shared SQL mode and makes no fallback request", async () => {
@@ -279,6 +288,15 @@ describe("P6 Office initiated correction is durable, bounded and identity scoped
       p_idempotency_key:input.idempotencyKey,
     });
   });
+  it("sends typed allocation and corrected values atomically in the existing RPC",async()=>{
+    const client=setupClient([{data:{caseId:"80000000-0000-4000-8000-000000000081",queued:true,replayed:false},error:null}]);
+    const correction={allocationIndex:0,allocationId:"line-1",currentAY:"2025-2026",currentCircle:"Circle A",currentHeadCode:"HEAD-A",proposedAY:"2026-2027",proposedCircle:"Circle A",proposedHeadCode:"HEAD-A"};
+    await expect(submitOfficeInitiatedCorrection({...input,correction})).resolves.toMatchObject({queued:true});
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_office_initiate_correction",expect.objectContaining({p_correction:correction,p_idempotency_key:input.idempotencyKey}));
+    client.rpc.mockClear();
+    await expect(submitOfficeInitiatedCorrection({...input,correction:{...correction,proposedAY:"2025-26"}})).rejects.toThrow("unchanged");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
   it("rejects forged or oversized input before any writable RPC",async()=>{
     const client=setupClient();
     await expect(submitOfficeInitiatedCorrection({...input,taxpayerTin:"000"})).rejects.toThrow();
@@ -297,5 +315,58 @@ describe("P6 Office initiated correction is durable, bounded and identity scoped
     await expect(listOfficeInitiatedCorrections()).resolves.toMatchObject([
       {sourceConfirmed:false,deliveryState:"ACKNOWLEDGED"},
     ]);
+  });
+});
+
+
+describe("Existing Super Admin correction session — direct decisions", () => {
+  const direct = {...correction, reviewState: "PENDING", availableActions: ["APPROVE", "REJECT"]};
+  function setupAdmin(results: RpcResult[]) {
+    const client = setupClient(results);
+    vi.mocked(isSharedAuditMode).mockReturnValue(false);
+    vi.mocked(isVerifiedOfficeCmsPublisher).mockResolvedValue(true);
+    vi.mocked(getOfficeCmsAuthClient).mockReturnValue(client as never);
+    return client;
+  }
+  it("reuses the existing verified Office session and shows only server-returned direct decisions", async () => {
+    const client = setupAdmin([{data: {role: "SUPER_ADMIN", items: [direct], nextCursor: null}, error: null}]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({enabled: true, role: "SUPER_ADMIN", items: [{availableActions: ["APPROVE", "REJECT"]}]});
+    expect(getAuditSqlClient).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_correction_queue_page", {p_limit: 200, p_after_received_at: null, p_after_request_id: null});
+  });
+  it("does not infer Super Admin access from a legacy role returned by SQL", async () => {
+    setupAdmin([{data: {role: "REVIEWER", items: [], nextCursor: null}, error: null}]);
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow("has not confirmed Super Admin access");
+  });
+  it("rejects a legacy stage advertised in the direct queue", async () => {
+    setupAdmin([{data: {role: "SUPER_ADMIN", items: [correction], nextCursor: null}, error: null}]);
+    await expect(listOfficeCorrectionInquiries()).rejects.toThrow("Unexpected legacy action");
+  });
+  it("keeps legacy history readable and supports an acknowledged direct decision", async () => {
+    const history = [{messageId:"90000000-0000-4000-8000-000000000012",action:"APPROVE",role:"SUPER_ADMIN",occurredAt:"2026-11-26T02:00:00Z",deliveryState:"ACKNOWLEDGED"}];
+    setupAdmin([{data: {role:"SUPER_ADMIN",items:[{...direct,reviewState:"APPROVED",availableActions:[],decisionHistory:history}],nextCursor:null},error:null}]);
+    await expect(listOfficeCorrectionInquiries()).resolves.toMatchObject({items:[{reviewState:"APPROVED",decisionHistory:history}]});
+  });
+  it.each(["APPROVE","REJECT"] as const)("submits direct %s to the same server-enforced RPC", async action => {
+    const client=setupAdmin([{data:{messageId:"90000000-0000-4000-8000-000000000013",queued:true,replayed:false},error:null}]);
+    const key="90000000-0000-4000-8000-000000000014";
+    await expect(submitOfficeCorrectionDecision(correction.requestId,action,"Verified correction request",key)).resolves.toMatchObject({queued:true});
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_correction_officer_action",{p_request_id:correction.requestId,p_action:action,p_reason:"Verified correction request",p_idempotency_key:key});
+  });
+  it("never submits a legacy stage using the existing admin session", async () => {
+    const client=setupAdmin([]);
+    await expect(submitOfficeCorrectionDecision(correction.requestId,"MAKER_ACKNOWLEDGE","Verified request","90000000-0000-4000-8000-000000000014")).rejects.toThrow("must be Approve or Reject");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+  it("rejects preview access before a direct decision RPC", async () => {
+    const client=setupAdmin([]);
+    vi.mocked(isVerifiedOfficeCmsPublisher).mockResolvedValue(false);
+    await expect(submitOfficeCorrectionDecision(correction.requestId,"APPROVE","Verified request","90000000-0000-4000-8000-000000000014")).rejects.toThrow("Verified Office Super Admin sign-in is required");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+  it("uses the verified admin session for an Office-originated correction, leaving final authorization to SQL", async () => {
+    const client=setupAdmin([{data:{caseId:"80000000-0000-4000-8000-000000000081",queued:true,replayed:false},error:null}]);
+    await expect(submitOfficeInitiatedCorrection({paymentId:"80000000-0000-4000-8000-000000000041",taxpayerTin:"111111111111",originalReference:"SYN-PARENT-0001",reason:"Incorrect assessment year",requestedOutcome:"Correct the assessment year",evidenceNote:"Verified supporting evidence",idempotencyKey:"80000000-0000-4000-8000-000000000071"})).resolves.toMatchObject({queued:true});
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_office_initiate_correction",expect.objectContaining({p_taxpayer_tin:"111111111111"}));
   });
 });

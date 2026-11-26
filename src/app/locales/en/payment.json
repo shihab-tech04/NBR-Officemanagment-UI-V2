@@ -35,11 +35,14 @@
   "officeCorrectionRole": "Your Office review role",
   "officeCorrectionItems": "inquiries",
   "officeCorrectionRoleNames": {
+    "SUPER_ADMIN": "Super Admin",
     "MAKER": "Maker",
     "REVIEWER": "Reviewer",
     "APPROVER": "Approver"
   },
   "officeCorrectionState": {
+    "APPROVED": "Approved",
+    "PENDING": "Pending",
     "PENDING_OFFICER": "Waiting for Maker",
     "MAKER_ACKNOWLEDGED": "Maker acknowledged",
     "REVIEWER_VERIFIED": "Reviewer verified",
@@ -47,10 +50,11 @@
     "REJECTED": "Rejected"
   },
   "officeCorrectionAction": {
+    "APPROVE": "Approve",
     "MAKER_ACKNOWLEDGE": "Acknowledge inquiry",
     "REVIEWER_VERIFY": "Verify inquiry",
     "APPROVER_CLOSE": "Close review",
-    "REJECT": "Reject inquiry"
+    "REJECT": "Reject"
   },
   "officeCorrectionDecisionTitle": "Record Office correction decision",
   "officeCorrectionDecisionHelp": "The decision is sent to TaxPay for SQL confirmation. It records the review outcome and does not change a financial record.",
@@ -248,5 +252,15 @@
   "taxPositionNotVerified": "Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.",
   "ledgerNotVerified": "A verified tax ledger is not connected. Open Payments to inspect linked sample transactions; they do not establish tax credits.",
   "search_taxpayers": "Search by taxpayer name or TIN",
-  "correctionsNotVerified": "No verified correction cases are linked to this taxpayer yet. Example cases from other profiles are deliberately excluded."
+  "correctionsNotVerified": "No verified correction cases are linked to this taxpayer yet. Example cases from other profiles are deliberately excluded.",
+  "typedCorrectionTarget": "Exact payment allocation",
+  "typedCurrentAY": "Current assessment year",
+  "typedProposedAY": "Corrected assessment year",
+  "typedCurrentCircle": "Current tax circle",
+  "typedProposedCircle": "Corrected tax circle",
+  "typedCurrentHead": "Current tax head code",
+  "typedProposedHead": "Corrected tax head code",
+  "typedCorrectionHelp": "Select the exact recorded allocation and enter the permitted corrected values. The original payment and receipt are preserved.",
+  "typedCorrectionInvalid": "Select the exact payment allocation and enter valid changed values before continuing.",
+  "typedCorrectionQueued": "Correction saved in Office SQL. Application remains pending until the originating Taxpayer source confirms it."
 }
