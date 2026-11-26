@@ -598,16 +598,17 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   // Never interleave illustrative cases with an operational correction queue.
   const correctionCaseIds=new Set(caseCategories.corrections.map(item=>item.requestId));
   const reportCaseIds=new Set(caseCategories.reports.map(item=>item.requestId));
-  const pendingInitiationRows:TableRow[]=officeInitiated.filter(item=>!item.sourceConfirmed).map(item=>({
+  const pendingInitiationRows:TableRow[]=officeInitiated.filter(item=>!item.sourceConfirmed||(item.sourceAppliedCorrection&&!correctionCaseIds.has(item.caseId))).map(item=>({
     key:'office-initiation:'+item.caseId,id:'COR-'+item.caseId.slice(0,8).toUpperCase(),
     taxpayer:item.originalReference,reference:item.originalReference,
     reason:item.reason,requested_outcome:item.requestedOutcome,
     evidence:item.evidenceNote,amount:'—',
-    stage:item.deliveryState,status:item.deliveryState==='ACKNOWLEDGED'
+    stage:item.sourceAppliedCorrection?'APPROVED':item.deliveryState,status:item.sourceAppliedCorrection?t('officeCorrectionReviewState.APPROVED',{defaultValue:'Approved'}):item.deliveryState==='ACKNOWLEDGED'
       ?(i18n.resolvedLanguage?.startsWith('bn')?'করদাতার নিশ্চিতকরণের অপেক্ষায়':'Awaiting taxpayer claim')
       :(i18n.resolvedLanguage?.startsWith('bn')?'Taxpayer SQL সিঙ্ক অপেক্ষমাণ':'Taxpayer SQL synchronization pending'),
     source_payment_id:item.sourcePaymentId,
     created_at:item.createdAt,initiated_by_role:item.officerRole,
+    ...(item.sourceAppliedCorrection?{assessment_year:item.sourceAppliedCorrection.assessmentYear,tax_circle:item.sourceAppliedCorrection.circle,tax_head:item.sourceAppliedCorrection.headCode,allocation_id:item.sourceAppliedCorrection.allocationId??'—'}:{}),
   }));
   const correctionReviewRows=[...localRecords.corrections,...pendingInitiationRows,
     ...officeCorrectionRows.filter(row=>correctionCaseIds.has(String(row.__correctionInquiryId)))];

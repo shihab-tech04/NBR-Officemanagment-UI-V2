@@ -92,7 +92,7 @@ END;
 $typed_test$;
 RESET ROLE;
 DO $verify$
-DECLARE m record; token uuid; expected text;
+DECLARE m record; token uuid; expected text; applied jsonb;
 BEGIN
  IF (SELECT count(*) FROM payment_sync.control_outbox WHERE payload->>'commandType'='OFFICE_CORRECTION_INITIATED' AND payload ? 'typedCorrection')<>1 OR NOT EXISTS(
    SELECT 1 FROM payment_sync.control_outbox WHERE payload->>'sourcePaymentId'='90000000-0000-4000-8000-000000000004'
@@ -116,6 +116,21 @@ BEGIN
  END LOOP;
  IF (SELECT review_state FROM payment_sync.correction_mirrors WHERE inquiry_id='90000000-0000-4000-8000-000000000001') IS DISTINCT FROM 'APPROVED'
  OR (SELECT review_state FROM payment_sync.correction_mirrors WHERE inquiry_id='90000000-0000-4000-8000-000000000002') IS DISTINCT FROM 'REJECTED' THEN RAISE EXCEPTION 'Direct ACK state mismatch'; END IF;
+ SELECT * INTO m FROM payment_sync.control_outbox WHERE payload ? 'typedCorrection';
+ token:=gen_random_uuid();
+ UPDATE payment_sync.control_outbox SET delivery_state='IN_FLIGHT',claim_token=token WHERE message_id=m.message_id;
+ applied:=jsonb_build_object('paymentId',m.payload->>'sourcePaymentId','allocationIndex',0,'allocationId','line-1',
+  'assessmentYear','2026-2027','circle','Circle B','headCode','HEAD-C','sourceProject','v2','decisionMessageId',m.message_id);
+ BEGIN
+  PERFORM public.payment_v1_internal_ack_typed_office_correction(m.message_id,token,applied||'{"sourceProject":"original"}'::jsonb);
+  RAISE EXCEPTION 'Incorrect typed ACK accepted';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM IS DISTINCT FROM 'Typed source applied readback mismatch' THEN RAISE; END IF;
+ END;
+ IF EXISTS(SELECT 1 FROM payment_sync.office_initiated_corrections WHERE case_id=m.message_id AND source_applied_correction IS NOT NULL) THEN RAISE EXCEPTION 'Unconfirmed typed application shown'; END IF;
+ PERFORM public.payment_v1_internal_ack_typed_office_correction(m.message_id,token,applied);
+ IF NOT EXISTS(SELECT 1 FROM payment_sync.office_initiated_corrections c JOIN payment_sync.control_outbox o ON o.message_id=c.case_id
+  WHERE c.case_id=m.message_id AND c.source_applied_correction=applied AND o.delivery_state='ACKNOWLEDGED') THEN RAISE EXCEPTION 'Typed applied ACK missing'; END IF;
+ IF has_function_privilege('authenticated','public.payment_v1_internal_ack_typed_office_correction(uuid,uuid,jsonb)','execute') OR has_function_privilege('anon','public.payment_v1_internal_ack_typed_office_correction(uuid,uuid,jsonb)','execute') THEN RAISE EXCEPTION 'Typed ACK ACL regression'; END IF;
  IF EXISTS((SELECT * FROM demo_payment.story_payments EXCEPT SELECT * FROM immutable_direct_payment) UNION ALL (SELECT * FROM immutable_direct_payment EXCEPT SELECT * FROM demo_payment.story_payments)) THEN RAISE EXCEPTION 'Original payment mutated'; END IF;
  IF has_function_privilege('anon','public.payment_v1_correction_officer_action(uuid,text,text,uuid)','execute') OR has_function_privilege('authenticated','public.payment_v1_internal_ack_correction_command(uuid,uuid,boolean,text,text)','execute') THEN RAISE EXCEPTION 'ACL regression'; END IF;
 END;

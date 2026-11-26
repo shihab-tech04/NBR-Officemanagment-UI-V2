@@ -306,6 +306,8 @@ export type OfficeInitiatedCorrection = Readonly<{
   reason:string; requestedOutcome:string; evidenceNote:string; officerRole:string;
   createdAt:string; deliveryState:string; sourceConfirmed:boolean;
   sourceReviewState:string|null;
+  typedCorrection?:TypedOfficeCorrection|null;
+  sourceAppliedCorrection?:{assessmentYear:string;circle:string;headCode:string;paymentId:string;decisionMessageId:string;sourceProject:string;allocationIndex:number|null;allocationId:string|null}|null;
 }>;
 
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -351,12 +353,21 @@ export async function listOfficeInitiatedCorrections():Promise<OfficeInitiatedCo
        typeof item.evidenceNote!=='string'||typeof item.createdAt!=='string'||
        typeof item.deliveryState!=='string'||typeof item.sourceConfirmed!=='boolean')
       throw Error('Invalid Office initiated correction history item');
+    const typed=item.typedCorrection as TypedOfficeCorrection|null|undefined;
+    const applied=item.sourceAppliedCorrection as OfficeInitiatedCorrection['sourceAppliedCorrection'];
+    if(typed&&!validateTypedOfficeCorrection(typed))throw Error('Invalid typed correction history');
+    if(applied&&(!typed||item.sourceConfirmed!==true||item.deliveryState!=='ACKNOWLEDGED'||item.sourceReviewState!=='APPROVED'||
+      applied.paymentId!==item.sourcePaymentId||applied.decisionMessageId!==item.caseId||applied.sourceProject!=='v2'||
+      applied.allocationIndex!==typed.allocationIndex||applied.allocationId!==typed.allocationId||
+      applied.assessmentYear!==typed.proposedAY||applied.circle!==typed.proposedCircle||applied.headCode!==typed.proposedHeadCode))throw Error('Invalid typed correction applied history');
+    if(typed&&item.sourceConfirmed===true&&!applied)throw Error('Missing source applied correction');
     return {caseId:item.caseId as string,sourcePaymentId:item.sourcePaymentId as string,
       originalReference:item.originalReference, taxpayerTin:item.taxpayerTin,
       reason:item.reason,requestedOutcome:item.requestedOutcome,evidenceNote:item.evidenceNote,
       officerRole:String(item.officerRole??''),createdAt:item.createdAt,
       deliveryState:item.deliveryState,sourceConfirmed:item.sourceConfirmed,
       sourceReviewState:typeof item.sourceReviewState==='string'?item.sourceReviewState:null,
+      typedCorrection:typed??null,sourceAppliedCorrection:applied??null,
     } as OfficeInitiatedCorrection;
   });
 }

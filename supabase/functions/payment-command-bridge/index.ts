@@ -17,6 +17,7 @@ type Command = {
   officerRole: string; reason: string | null; expectedReviewState: string;
   occurredAt: string; commandType?: 'CORRECTION_REVIEW' | 'OFFICE_CORRECTION_INITIATED';
   sourceProject?: 'v2'|'original'; simulationOnly?: boolean;
+  sourcePaymentId?:string; typedCorrection?:Record<string,unknown>;
 };
 type Claimed = { claimToken: string; command: Command };
 
@@ -79,6 +80,8 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
     let success = false;
     let failure: string | null = null;
     let taxpayReviewState: string | null = null;
+    let typedApplied: Record<string,unknown>|null = null;
+    const typedInitiation=item.command.commandType==='OFFICE_CORRECTION_INITIATED'&&item.command.typedCorrection!==undefined;
     try {
       if (item.command.origin !== 'OFFICE_SQL') throw new Error('Unexpected origin');
       const sourceProject=item.command.commandType==='CORRECTION_REVIEW'
@@ -119,6 +122,9 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
           else if(decision.stored!==false||decision.sourceAbsent!==true)throw Error('V2 source did not confirm absence or persistence');
         }
       }
+      // A legacy receiver cannot certify typed application. Keep the command retryable
+      // until the typed source path is supported; never fall back to a stored-only ACK.
+      if(typedInitiation&&!response)throw Error('Typed correction source application not confirmed');
       if(!response)response=await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'ingest', commandText, signature }),
@@ -126,7 +132,7 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
       });
       if (!response.ok) throw new Error(`Receiver HTTP ${response.status}`);
       const result = await response.json() as {
-        stored?: boolean; messageId?: string; reviewState?: string;
+        stored?: boolean; messageId?: string; reviewState?: string;ownerLinked?:boolean;appliedCorrection?:Record<string,unknown>;
       };
       if (result?.stored !== true || result.messageId !== item.command.messageId)
         throw new Error('Receiver did not confirm persistence');
@@ -135,6 +141,12 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
         throw new Error('TaxPay did not return correction review readback');
       if (item.command.commandType === 'CORRECTION_REVIEW')
         taxpayReviewState = result.reviewState!;
+      if(typedInitiation){
+        const c=item.command.typedCorrection!,a=result.appliedCorrection;
+        if(result.ownerLinked!==true||result.reviewState!=='APPROVED'||!a||a.paymentId!==item.command.sourcePaymentId||a.allocationIndex!==c.allocationIndex||a.allocationId!==c.allocationId||a.assessmentYear!==c.proposedAY||a.circle!==c.proposedCircle||a.headCode!==c.proposedHeadCode||a.sourceProject!=='v2'||a.decisionMessageId!==item.command.messageId)
+          throw Error('Typed source applied readback mismatch');
+        typedApplied=a;
+      }
       success = true;
     } catch (error) {
       failure = error instanceof Error ? error.message : 'Delivery failed';
@@ -143,6 +155,10 @@ async function dispatch(client: Client, config: Config, key: CryptoKey) {
       await rpc<boolean>(client, 'payment_v1_internal_ack_correction_command', {
         p_message_id: item.command.messageId, p_claim_token: item.claimToken,
         p_success: success, p_review_state: success ? taxpayReviewState : null, p_error: failure,
+      });
+    } else if(typedInitiation&&success&&typedApplied){
+      await rpc<boolean>(client,'payment_v1_internal_ack_typed_office_correction',{
+        p_message_id:item.command.messageId,p_claim_token:item.claimToken,p_applied_correction:typedApplied,
       });
     } else {
       await rpc<boolean>(client, 'payment_v1_internal_ack_command', {

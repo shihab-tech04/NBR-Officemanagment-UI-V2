@@ -18,10 +18,38 @@ REVOKE ALL ON FUNCTION payment_sync.is_existing_correction_super_admin() FROM PU
 ALTER TABLE payment_sync.correction_mirrors DROP CONSTRAINT correction_mirrors_review_state_check;
 ALTER TABLE payment_sync.correction_mirrors ADD CONSTRAINT correction_mirrors_review_state_check CHECK
  (review_state IN ('PENDING_OFFICER','MAKER_ACKNOWLEDGED','REVIEWER_VERIFIED','APPROVER_CLOSED','APPROVED','REJECTED'));
-ALTER TABLE payment_sync.officer_decisions DROP CONSTRAINT officer_decisions_officer_role_check;
+DO $legacy_constraint$
+ DECLARE c record;
+ BEGIN
+  FOR c IN SELECT k.conname,pg_get_constraintdef(k.oid) AS definition
+    FROM pg_constraint k JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attname='officer_role'
+    WHERE k.conrelid='payment_sync.officer_decisions'::regclass AND k.contype='c'
+      AND k.conkey=ARRAY[a.attnum]::smallint[]
+  LOOP
+   IF NOT (position('''MAKER''' in c.definition)>0 AND position('''REVIEWER''' in c.definition)>0 AND position('''APPROVER''' in c.definition)>0) THEN
+    RAISE EXCEPTION 'Unexpected legacy officer_role constraint: %',c.conname;
+   END IF;
+   EXECUTE format('ALTER TABLE payment_sync.officer_decisions DROP CONSTRAINT %I',c.conname);
+  END LOOP;
+ END;
+ $legacy_constraint$;
 ALTER TABLE payment_sync.officer_decisions ADD CONSTRAINT officer_decisions_officer_role_check CHECK
  (officer_role IN ('MAKER','REVIEWER','APPROVER','SUPER_ADMIN'));
-ALTER TABLE payment_sync.officer_decisions DROP CONSTRAINT officer_decisions_action_code_check;
+DO $legacy_constraint$
+ DECLARE c record;
+ BEGIN
+  FOR c IN SELECT k.conname,pg_get_constraintdef(k.oid) AS definition
+    FROM pg_constraint k JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attname='action_code'
+    WHERE k.conrelid='payment_sync.officer_decisions'::regclass AND k.contype='c'
+      AND k.conkey=ARRAY[a.attnum]::smallint[]
+  LOOP
+   IF NOT (position('''MAKER_ACKNOWLEDGE''' in c.definition)>0 AND position('''REVIEWER_VERIFY''' in c.definition)>0 AND position('''APPROVER_CLOSE''' in c.definition)>0 AND position('''REJECT''' in c.definition)>0) THEN
+    RAISE EXCEPTION 'Unexpected legacy action_code constraint: %',c.conname;
+   END IF;
+   EXECUTE format('ALTER TABLE payment_sync.officer_decisions DROP CONSTRAINT %I',c.conname);
+  END LOOP;
+ END;
+ $legacy_constraint$;
 ALTER TABLE payment_sync.officer_decisions ADD CONSTRAINT officer_decisions_action_code_check CHECK
  (action_code IN ('MAKER_ACKNOWLEDGE','REVIEWER_VERIFY','APPROVER_CLOSE','APPROVE','REJECT'));
 ALTER TABLE payment_sync.office_initiated_corrections DROP CONSTRAINT office_initiated_corrections_officer_role_check;
@@ -380,6 +408,7 @@ BEGIN
    'status','AWAITING_TAXPAYER_SOURCE_VERIFICATION');
 END;
 $office$;
+ALTER TABLE payment_sync.office_initiated_corrections ADD COLUMN source_applied_correction jsonb;
 CREATE OR REPLACE FUNCTION public.payment_v1_office_initiated_correction_history(
  p_limit integer DEFAULT 50
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO ''
@@ -399,8 +428,10 @@ BEGIN
      'reason',c.reason,'requestedOutcome',c.requested_outcome,'evidenceNote',c.evidence_note,
      'officerRole',c.officer_role,'createdAt',c.created_at,
      'deliveryState',o.delivery_state,
-     'sourceConfirmed',(m.inquiry_id IS NOT NULL),
-     'sourceReviewState',m.review_state
+     'typedCorrection',o.payload->'typedCorrection',
+     'sourceAppliedCorrection',c.source_applied_correction,
+     'sourceConfirmed',CASE WHEN o.payload ? 'typedCorrection' THEN c.source_applied_correction IS NOT NULL AND o.delivery_state='ACKNOWLEDGED' ELSE m.inquiry_id IS NOT NULL END,
+     'sourceReviewState',CASE WHEN c.source_applied_correction IS NOT NULL AND o.delivery_state='ACKNOWLEDGED' THEN 'APPROVED' ELSE m.review_state END
    ) AS item
    FROM payment_sync.office_initiated_corrections c
    JOIN payment_sync.control_outbox o ON o.message_id=c.case_id
@@ -521,5 +552,37 @@ END;
 $typed$;
 REVOKE ALL ON FUNCTION public.payment_v1_office_initiate_correction(uuid,text,text,text,text,text,uuid,jsonb) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.payment_v1_office_initiate_correction(uuid,text,text,text,text,text,uuid,jsonb) TO authenticated;
+
+-- A typed command is final only after the originating source returns the exact applied projection.
+CREATE OR REPLACE FUNCTION public.payment_v1_internal_ack_typed_office_correction(
+ p_message_id uuid,p_claim_token uuid,p_applied_correction jsonb
+) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO ''
+AS $typed_ack$
+DECLARE v_payload jsonb; v_typed jsonb; v_expected jsonb; v_case uuid;
+BEGIN
+ SELECT o.payload,o.request_id INTO v_payload,v_case FROM payment_sync.control_outbox o
+ WHERE o.message_id=p_message_id AND o.claim_token=p_claim_token AND o.delivery_state='IN_FLIGHT' FOR UPDATE;
+ IF NOT FOUND OR v_case IS DISTINCT FROM p_message_id OR
+    v_payload->>'commandType' IS DISTINCT FROM 'OFFICE_CORRECTION_INITIATED' OR
+    jsonb_typeof(v_payload->'typedCorrection') IS DISTINCT FROM 'object' THEN
+  RAISE EXCEPTION 'Unknown or stale typed correction claim';
+ END IF;
+ v_typed:=v_payload->'typedCorrection';
+ v_expected:=jsonb_build_object('paymentId',v_payload->>'sourcePaymentId',
+   'allocationIndex',v_typed->'allocationIndex','allocationId',v_typed->'allocationId',
+   'assessmentYear',v_typed->>'proposedAY','circle',v_typed->>'proposedCircle','headCode',v_typed->>'proposedHeadCode',
+   'sourceProject','v2','decisionMessageId',p_message_id);
+ IF p_applied_correction IS DISTINCT FROM v_expected THEN RAISE EXCEPTION 'Typed source applied readback mismatch'; END IF;
+ UPDATE payment_sync.office_initiated_corrections SET source_applied_correction=p_applied_correction
+ WHERE case_id=v_case AND (source_applied_correction IS NULL OR source_applied_correction=p_applied_correction);
+ IF NOT FOUND THEN RAISE EXCEPTION 'Typed correction case mismatch'; END IF;
+ UPDATE payment_sync.control_outbox SET delivery_state='ACKNOWLEDGED',acknowledged_at=now(),last_error=NULL,claim_token=NULL
+ WHERE message_id=p_message_id AND claim_token=p_claim_token AND delivery_state='IN_FLIGHT';
+ IF NOT FOUND THEN RAISE EXCEPTION 'Stale typed correction claim'; END IF;
+ RETURN true;
+END;
+$typed_ack$;
+REVOKE ALL ON FUNCTION public.payment_v1_internal_ack_typed_office_correction(uuid,uuid,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.payment_v1_internal_ack_typed_office_correction(uuid,uuid,jsonb) TO service_role;
 
 COMMIT;
