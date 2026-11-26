@@ -1,6 +1,8 @@
 import { getAuditSqlClient, isSharedAuditMode } from "../audit/auditSharedSql";
 import { getOfficeCmsAuthClient, isVerifiedOfficeCmsPublisher } from "../../services/officeCmsBridge";
 
+import {validateTypedOfficeCorrection,type TypedOfficeCorrection} from './officeTypedCorrection';
+
 // Existing verified Office admin session; the server independently authorizes every RPC.
 // Legacy shared-Audit responses remain readable during the coordinated SQL cutover.
 export type CorrectionActorRole = "SUPER_ADMIN" | "MAKER" | "REVIEWER" | "APPROVER";
@@ -311,6 +313,7 @@ const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 export async function submitOfficeInitiatedCorrection(input:Readonly<{
   paymentId:string;taxpayerTin:string;originalReference:string;
   reason:string;requestedOutcome:string;evidenceNote:string;idempotencyKey:string;
+  correction?:TypedOfficeCorrection;
 }>):Promise<{caseId:string;queued:true;replayed:boolean}> {
   const db=await authenticatedClient();
   if(!uuidPattern.test(input.paymentId)||!uuidPattern.test(input.idempotencyKey)||
@@ -320,11 +323,13 @@ export async function submitOfficeInitiatedCorrection(input:Readonly<{
       input.requestedOutcome.trim().length<10||input.requestedOutcome.trim().length>600||
       input.evidenceNote.trim().length<10||input.evidenceNote.length>2000)
     throw Error('Complete a verified payment reference, taxpayer, reason, outcome and evidence.');
+  if(input.correction&&!validateTypedOfficeCorrection(input.correction))throw Error('Invalid or unchanged typed correction values.');
   const {data,error}=await db.rpc('payment_v1_office_initiate_correction',{
     p_payment_id:input.paymentId,p_taxpayer_tin:input.taxpayerTin,
     p_original_reference:input.originalReference,p_reason:input.reason,
     p_requested_outcome:input.requestedOutcome,p_evidence_note:input.evidenceNote,
     p_idempotency_key:input.idempotencyKey,
+    ...(input.correction?{p_correction:input.correction}:{}),
   });
   if(error)throw Error(`Office correction initiation failed: ${error.message}`);
   if(!data||!uuidPattern.test(String(data.caseId??''))||data.queued!==true)

@@ -252,5 +252,15 @@
   "taxPositionNotVerified": "Tax position cannot be calculated until a verified liability and credit ledger is connected. No zero balance is implied.",
   "ledgerNotVerified": "A verified tax ledger is not connected. Open Payments to inspect linked sample transactions; they do not establish tax credits.",
   "search_taxpayers": "Search by taxpayer name or TIN",
-  "correctionsNotVerified": "No verified correction cases are linked to this taxpayer yet. Example cases from other profiles are deliberately excluded."
+  "correctionsNotVerified": "No verified correction cases are linked to this taxpayer yet. Example cases from other profiles are deliberately excluded.",
+  "typedCorrectionTarget": "Exact payment allocation",
+  "typedCurrentAY": "Current assessment year",
+  "typedProposedAY": "Corrected assessment year",
+  "typedCurrentCircle": "Current tax circle",
+  "typedProposedCircle": "Corrected tax circle",
+  "typedCurrentHead": "Current tax head code",
+  "typedProposedHead": "Corrected tax head code",
+  "typedCorrectionHelp": "Select the exact recorded allocation and enter the permitted corrected values. The original payment and receipt are preserved.",
+  "typedCorrectionInvalid": "Select the exact payment allocation and enter valid changed values before continuing.",
+  "typedCorrectionQueued": "Correction saved in Office SQL. Application remains pending until the originating Taxpayer source confirms it."
 }

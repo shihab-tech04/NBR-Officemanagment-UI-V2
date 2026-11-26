@@ -288,6 +288,15 @@ describe("P6 Office initiated correction is durable, bounded and identity scoped
       p_idempotency_key:input.idempotencyKey,
     });
   });
+  it("sends typed allocation and corrected values atomically in the existing RPC",async()=>{
+    const client=setupClient([{data:{caseId:"80000000-0000-4000-8000-000000000081",queued:true,replayed:false},error:null}]);
+    const correction={allocationIndex:0,allocationId:"line-1",currentAY:"2025-2026",currentCircle:"Circle A",currentHeadCode:"HEAD-A",proposedAY:"2026-2027",proposedCircle:"Circle A",proposedHeadCode:"HEAD-A"};
+    await expect(submitOfficeInitiatedCorrection({...input,correction})).resolves.toMatchObject({queued:true});
+    expect(client.rpc).toHaveBeenCalledWith("payment_v1_office_initiate_correction",expect.objectContaining({p_correction:correction,p_idempotency_key:input.idempotencyKey}));
+    client.rpc.mockClear();
+    await expect(submitOfficeInitiatedCorrection({...input,correction:{...correction,proposedAY:"2025-26"}})).rejects.toThrow("unchanged");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
   it("rejects forged or oversized input before any writable RPC",async()=>{
     const client=setupClient();
     await expect(submitOfficeInitiatedCorrection({...input,taxpayerTin:"000"})).rejects.toThrow();
