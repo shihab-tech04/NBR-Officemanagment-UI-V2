@@ -415,7 +415,7 @@ $office_history$;
 REVOKE ALL ON FUNCTION public.payment_v1_correction_queue(integer) FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.payment_v1_correction_queue_page(integer,timestamptz,uuid) FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.payment_v1_correction_officer_action(uuid,text,text,uuid) FROM PUBLIC,anon;
-REVOKE ALL ON FUNCTION public.payment_v1_office_initiate_correction(uuid,text,text,text,text,uuid) FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.payment_v1_office_initiate_correction(uuid,text,text,text,text,text,uuid) FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.payment_v1_office_initiated_correction_history(integer) FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.payment_v1_internal_ack_correction_command(uuid,uuid,boolean,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.payment_v1_internal_ack_correction_command(uuid,uuid,boolean,text,text) TO service_role;
