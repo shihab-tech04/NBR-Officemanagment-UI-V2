@@ -52,6 +52,7 @@ import {
 } from './correctionReviewApi';
 
 import {officeCorrectionTargets,validateTypedOfficeCorrection,type TypedOfficeCorrection} from './officeTypedCorrection';
+import {officeProposalOptions} from './officeCorrectionCatalogue';
 
 const money = (amount: number) => `৳${new Intl.NumberFormat('en-BD').format(amount)}`;
 const normal = (value: string) => value || '—';
@@ -970,7 +971,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
             ['currentHeadCode','proposedHeadCode','typedCurrentHead','typedProposedHead'],
           ] as const).map(([currentKey,proposedKey,currentLabel,proposedLabel])=><div key={proposedKey} className="payment-module__full">
             <AppTextField id={'payment-correction-'+currentKey} label={t(currentLabel)} value={typedTarget[currentKey]} onChange={()=>{}} readOnly/>
-            <AppTextField id={'payment-correction-'+proposedKey} label={t(proposedLabel)} value={typedProposal[proposedKey]} onChange={value=>{setTypedProposal(old=>({...old,[proposedKey]:value}));setDraftPreview(false);setFormError('');}} readOnly={draftPreview||initiationSubmitting} maxLength={120}/>
+            {proposedKey==='proposedCircle'?<AppTextField id={'payment-correction-'+proposedKey} label={t(proposedLabel)} value={typedProposal[proposedKey]} onChange={value=>{setTypedProposal(old=>({...old,[proposedKey]:value}));setDraftPreview(false);setFormError('');}} readOnly={draftPreview||initiationSubmitting} maxLength={120}/>:<AppSelectField id={'payment-correction-'+proposedKey} label={t(proposedLabel)} value={typedProposal[proposedKey]} onChange={value=>{setTypedProposal(old=>({...old,[proposedKey]:value}));setDraftPreview(false);setFormError('');}} disabled={draftPreview||initiationSubmitting} options={officeProposalOptions(typedTarget[currentKey],proposedKey==='proposedAY'?'year':'head',!!i18n.resolvedLanguage?.startsWith('bn'))}/>} 
           </div>)}
           <p className="payment-module__note payment-module__full">{t('typedCorrectionHelp')}</p>
         </>}
