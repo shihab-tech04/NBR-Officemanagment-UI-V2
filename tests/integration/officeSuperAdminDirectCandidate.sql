@@ -459,8 +459,7 @@ BEGIN
  v_lines:=case when jsonb_typeof(v_details->'lines')='array' then v_details->'lines' else '[]'::jsonb end;
  v_count:=greatest(jsonb_array_length(v_allocs),jsonb_array_length(v_items),jsonb_array_length(v_lines));
  IF p_correction->>'allocationIndex' IS NOT NULL THEN
-  IF p_correction->>'allocationIndex' !~ '^[0-9]{1,6}
- THEN RAISE EXCEPTION 'INVALID_OFFICE_CORRECTION_ALLOCATION'; END IF;
+  IF p_correction->>'allocationIndex' !~ ('^[0-9]{1,6}'||chr(36)) THEN RAISE EXCEPTION 'INVALID_OFFICE_CORRECTION_ALLOCATION'; END IF;
   v_index:=(p_correction->>'allocationIndex')::integer;
  END IF;
  IF (v_count=0 AND v_index IS NOT NULL) OR
@@ -487,16 +486,13 @@ BEGIN
       IS DISTINCT FROM (v_year,v_circle,v_head) THEN RAISE EXCEPTION 'OFFICE_CORRECTION_STALE_VALUES'; END IF;
  v_new_year:=btrim(p_correction->>'proposedAY');v_new_circle:=btrim(p_correction->>'proposedCircle');
  v_new_head:=btrim(p_correction->>'proposedHeadCode');
- IF (v_new_year IS DISTINCT FROM v_year AND v_new_year !~ '^[0-9]{4}-([0-9]{2}|[0-9]{4})
-) OR
+ IF (v_new_year IS DISTINCT FROM v_year AND v_new_year !~ ('^[0-9]{4}-([0-9]{2}|[0-9]{4})'||chr(36))) OR
    length(v_new_circle)>120 OR length(v_new_head)>120 OR
    (v_new_circle='' AND v_circle<>'') OR (v_new_head='' AND v_head<>'') THEN
   RAISE EXCEPTION 'INVALID_OFFICE_TYPED_CORRECTION';
  END IF;
- v_year_normal:=case when v_year ~ '^[0-9]{4}-[0-9]{2}
- then left(v_year,5)||left(v_year,2)||right(v_year,2) else v_year end;
- v_new_year_normal:=case when v_new_year ~ '^[0-9]{4}-[0-9]{2}
- then left(v_new_year,5)||left(v_new_year,2)||right(v_new_year,2) else v_new_year end;
+ v_year_normal:=case when v_year ~ ('^[0-9]{4}-[0-9]{2}'||chr(36)) then left(v_year,5)||left(v_year,2)||right(v_year,2) else v_year end;
+ v_new_year_normal:=case when v_new_year ~ ('^[0-9]{4}-[0-9]{2}'||chr(36)) then left(v_new_year,5)||left(v_new_year,2)||right(v_new_year,2) else v_new_year end;
  IF (v_year_normal,v_circle,v_head) IS NOT DISTINCT FROM (v_new_year_normal,v_new_circle,v_new_head) THEN
   RAISE EXCEPTION 'CORRECTION_NO_CHANGE';
  END IF;
