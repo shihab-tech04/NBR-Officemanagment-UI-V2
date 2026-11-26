@@ -35,11 +35,14 @@
   "officeCorrectionRole": "Your Office review role",
   "officeCorrectionItems": "inquiries",
   "officeCorrectionRoleNames": {
+    "SUPER_ADMIN": "Super Admin",
     "MAKER": "Maker",
     "REVIEWER": "Reviewer",
     "APPROVER": "Approver"
   },
   "officeCorrectionState": {
+    "APPROVED": "Approved",
+    "PENDING": "Pending",
     "PENDING_OFFICER": "Waiting for Maker",
     "MAKER_ACKNOWLEDGED": "Maker acknowledged",
     "REVIEWER_VERIFIED": "Reviewer verified",
@@ -47,10 +50,11 @@
     "REJECTED": "Rejected"
   },
   "officeCorrectionAction": {
+    "APPROVE": "Approve",
     "MAKER_ACKNOWLEDGE": "Acknowledge inquiry",
     "REVIEWER_VERIFY": "Verify inquiry",
     "APPROVER_CLOSE": "Close review",
-    "REJECT": "Reject inquiry"
+    "REJECT": "Reject"
   },
   "officeCorrectionDecisionTitle": "Record Office correction decision",
   "officeCorrectionDecisionHelp": "The decision is sent to TaxPay for SQL confirmation. It records the review outcome and does not change a financial record.",

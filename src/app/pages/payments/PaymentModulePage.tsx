@@ -385,8 +385,8 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
   };
   const submitInitiatedCorrection=async()=>{
     if(draftKind!=='corrections'||!draftPreview||initiationSubmitting)return;
-    if(officeCorrectionQueue.role!=='MAKER'&&officeCorrectionQueue.role!=='APPROVER'){
-      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'অনুমোদিত মেকার বা অ্যাপ্রুভার ভূমিকা প্রয়োজন।':'An active Maker or Approver role is required.');return;
+    if(officeCorrectionQueue.role!=='SUPER_ADMIN'&&officeCorrectionQueue.role!=='MAKER'&&officeCorrectionQueue.role!=='APPROVER'){
+      setFormError(i18n.resolvedLanguage?.startsWith('bn')?'অনুমোদিত সুপার অ্যাডমিন সেশন প্রয়োজন।':'A verified Super Admin correction session is required.');return;
     }
     const ref=draft.reference.trim(), tin=draft.tin.trim();
     const payments=storyPayments.filter(payment=>
@@ -889,7 +889,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
       title={details?.title} rowData={!isTransactionDetails ? details?.record ?? null : null}
       extraFooterActions={selectedCorrectionId&&selectedCorrectionActions.length>0?<div className="flex flex-wrap gap-2">
         {selectedCorrectionActions.map(action=>{
-          const startReview=action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
+          const startReview=action==='APPROVE'||action==='MAKER_ACKNOWLEDGE'||action==='REVIEWER_VERIFY'||action==='APPROVER_CLOSE';
           const onClick=()=>{setCorrectionDecision({requestId:selectedCorrectionId,action});setCorrectionDecisionReason('');setCorrectionDecisionError('');};
           return startReview
             ?<PrimaryButton key={action} size="sm" onClick={onClick}>{correctionActionLabel(action)}</PrimaryButton>
@@ -922,7 +922,7 @@ export function PaymentModulePage({page,taxpayerTin,paymentId}: {page: string;ta
     <AppModal open={draftKind!==null} title={draftKind?t(`new_${draftKind}`):t('newRequest')} onClose={()=>setDraftKind(null)} size="lg" icon={<FilePlus2 size={16}/>} 
       footer={<><SecondaryButton size="sm" disabled={initiationSubmitting} onClick={()=>draftPreview?setDraftPreview(false):setDraftKind(null)}>{draftPreview?t('edit'):t('cancel')}</SecondaryButton><PrimaryButton size="sm" disabled={initiationSubmitting} onClick={draftPreview?saveDraft:previewDraft}>{draftPreview?t('addToList'):t('reviewDraft')}</PrimaryButton>
        {draftKind==='corrections'&&draftPreview&&officeCorrectionQueue.enabled&&
-        (officeCorrectionQueue.role==='MAKER'||officeCorrectionQueue.role==='APPROVER')&&
+        (officeCorrectionQueue.role==='SUPER_ADMIN'||officeCorrectionQueue.role==='MAKER'||officeCorrectionQueue.role==='APPROVER')&&
         <PrimaryButton size="sm" disabled={initiationSubmitting} onClick={()=>void submitInitiatedCorrection()}>
          {i18n.resolvedLanguage?.startsWith('bn')?'SQL-এ সংশোধনের আবেদন পাঠান':'Submit correction to Taxpayer SQL'}
         </PrimaryButton>}</>}>
